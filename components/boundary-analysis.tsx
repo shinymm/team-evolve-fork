@@ -216,9 +216,6 @@ ${results[3]}
           <ol role="list" className="flex items-center w-full">
             {STEPS.map((step, stepIdx) => (
               <li key={step.id} className={`relative flex-1 ${stepIdx !== STEPS.length - 1 ? 'pr-4' : ''}`}>
-                {stepIdx !== 0 && (
-                  <div className="absolute left-0 right-4 top-4 -mt-px h-0.5 bg-gray-200" aria-hidden="true" />
-                )}
                 <div className="flex items-center">
                   <Button
                     variant={currentStep === step.id ? 'default' : 'outline'}
