@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/components/ui/use-toast"
-import { Loader2 } from 'lucide-react'
+import { Loader2, Copy } from 'lucide-react'
 import { getDefaultConfig, streamingAICall } from '@/lib/ai-service'
 import type { AIModelConfig } from '@/lib/ai-service'
 import ReactMarkdown from 'react-markdown'
@@ -66,6 +66,23 @@ export function TestCaseAssistant() {
     }
   }
 
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(result)
+      toast({
+        title: "复制成功",
+        description: "内容已复制到剪贴板",
+      })
+    } catch (error) {
+      console.error('Copy error:', error)
+      toast({
+        variant: "destructive",
+        title: "复制失败",
+        description: "无法访问剪贴板",
+      })
+    }
+  }
+
   return (
     <div className="space-y-4">
       {!aiConfig && (
@@ -91,7 +108,7 @@ export function TestCaseAssistant() {
         <Button
           onClick={handleGenerate}
           disabled={!requirements.trim() || isGenerating || !aiConfig}
-          className="w-40 bg-blue-600 hover:bg-blue-700"
+          className="w-40 bg-orange-600 hover:bg-orange-700"
         >
           {isGenerating ? (
             <>
@@ -106,6 +123,16 @@ export function TestCaseAssistant() {
 
       {result && (
         <div className="border rounded-lg p-4 bg-gray-50">
+          <div className="flex justify-end mb-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCopy}
+              title="复制到剪贴板"
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+          </div>
           <div className="prose prose-gray max-w-none overflow-x-auto">
             <ReactMarkdown 
               remarkPlugins={[remarkGfm]}
