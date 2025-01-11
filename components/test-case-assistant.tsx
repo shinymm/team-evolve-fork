@@ -84,7 +84,7 @@ export function TestCaseAssistant() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {!aiConfig && (
         <Alert>
           <AlertTitle>提示</AlertTitle>
@@ -94,17 +94,17 @@ export function TestCaseAssistant() {
         </Alert>
       )}
 
-      <div className="space-y-2">
+      <div className="space-y-1">
         <h2 className="text-lg font-semibold">请输入需求描述：</h2>
         <Textarea
           placeholder="请输入需求描述、核心功能、边界场景及处理方式等信息..."
           value={requirements}
           onChange={(e) => setRequirements(e.target.value)}
-          className="min-h-[200px]"
+          className="min-h-[200px] w-full"
         />
       </div>
 
-      <div className="flex justify-center">
+      <div className="flex justify-center mt-1">
         <Button
           onClick={handleGenerate}
           disabled={!requirements.trim() || isGenerating || !aiConfig}
