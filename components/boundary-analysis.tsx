@@ -15,7 +15,6 @@ import { userJourneyPromptTemplate, boundaryAnalysisPromptTemplate } from '@/lib
 interface AnalysisStep {
   id: 1 | 2 | 3 | 4 | 5
   title: string
-  description: string
   icon: any
   type: 'boundary' | 'journey'
   isEdit?: boolean
@@ -24,38 +23,19 @@ interface AnalysisStep {
 const STEPS: AnalysisStep[] = [
   {
     id: 1,
-    title: '原始需求边界分析',
-    description: '基于原始需求识别边界场景',
+    title: '需求边界分析',
     icon: Target,
     type: 'boundary'
   },
   {
     id: 2,
-    title: '修正边界分析',
-    description: '检查并修正边界分析结果',
-    icon: Pencil,
-    type: 'boundary',
-    isEdit: true
-  },
-  {
-    id: 3,
     title: '用户旅程分析',
-    description: '分析用户交互场景和步骤',
     icon: Map,
     type: 'journey'
   },
   {
-    id: 4,
-    title: '修正用户旅程',
-    description: '检查并修正用户旅程分析',
-    icon: Pencil,
-    type: 'journey',
-    isEdit: true
-  },
-  {
-    id: 5,
+    id: 3,
     title: '基于旅程的边界分析',
-    description: '基于用户旅程识别边界场景',
     icon: Target,
     type: 'boundary'
   }
@@ -80,6 +60,7 @@ export function BoundaryAnalysis() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [aiConfig, setAiConfig] = useState<AIModelConfig | null>(null)
   const { toast } = useToast()
+  const [isEditing, setIsEditing] = useState(false)
 
   useEffect(() => {
     const config = getDefaultConfig()
@@ -141,19 +122,6 @@ export function BoundaryAnalysis() {
     }
   }
 
-  const handleSaveEdit = () => {
-    setResults(prev => ({
-      ...prev,
-      [currentStep]: editingContent
-    }))
-    setCurrentStep(prev => prev + 1)
-    setEditingContent('')
-    toast({
-      title: "保存成功",
-      description: "分析结果已更新",
-    })
-  }
-
   const handleBack = () => {
     if (currentStep > 1) {
       setCurrentStep(prev => prev - 1)
@@ -199,8 +167,9 @@ export function BoundaryAnalysis() {
                     size="sm"
                     disabled={currentStep !== step.id}
                     className={`relative flex items-center justify-center w-full ${
-                      currentStep === step.id ? 'bg-gray-800 text-white' : 
-                      currentStep > step.id ? 'bg-gray-600 text-white' : ''
+                      currentStep === step.id 
+                        ? 'bg-gray-800 text-white' 
+                        : 'bg-[#1e4694] text-white'
                     }`}
                   >
                     {isAnalyzing && currentStep === step.id ? (
@@ -225,72 +194,105 @@ export function BoundaryAnalysis() {
               variant="outline"
               onClick={handleBack}
               disabled={currentStep === 1 || isAnalyzing}
-              className="w-28"
+              className="w-28 border-orange-200 text-orange-700 hover:bg-orange-50"
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
               上一步
             </Button>
 
-            {STEPS[currentStep - 1].isEdit ? (
+            <Button
+              onClick={handleAnalysis}
+              disabled={!requirements.trim() || isAnalyzing || !aiConfig}
+              className="w-32 bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              {isAnalyzing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  分析中...
+                </>
+              ) : (
+                <>
+                  {(() => {
+                    const Icon = STEPS[currentStep - 1].icon;
+                    return <Icon className="mr-2 h-4 w-4" />;
+                  })()}
+                  开始分析
+                </>
+              )}
+            </Button>
+
+            {results[currentStep] && !isEditing && currentStep < STEPS.length && (
               <Button
-                onClick={handleSaveEdit}
-                disabled={!editingContent.trim() || isAnalyzing}
-                className="w-32 bg-gray-800"
+                variant="outline"
+                onClick={() => setCurrentStep(prev => prev + 1)}
+                className="w-28 border-orange-200 text-orange-700 hover:bg-orange-50"
               >
-                <Save className="mr-2 h-4 w-4" />
-                确认保存
+                下一步
+                <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
-            ) : (
-              <>
-                <Button
-                  onClick={handleAnalysis}
-                  disabled={!requirements.trim() || isAnalyzing || !aiConfig}
-                  className="w-32 bg-gray-800"
-                >
-                  {isAnalyzing ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      分析中...
-                    </>
-                  ) : (
-                    <>
-                      {(() => {
-                        const Icon = STEPS[currentStep - 1].icon;
-                        return <Icon className="mr-2 h-4 w-4" />;
-                      })()}
-                      开始分析
-                    </>
-                  )}
-                </Button>
-                {results[currentStep] && (
-                  <Button
-                    onClick={() => {
-                      setCurrentStep(prev => prev + 1)
-                      if (STEPS[currentStep].isEdit) {
-                        setEditingContent(results[currentStep] || '')
-                      }
-                    }}
-                    className="w-32"
-                  >
-                    下一步
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                )}
-              </>
             )}
           </div>
         </div>
 
         <div className="border rounded-lg p-4 bg-gray-50 min-h-[400px] w-full">
-          {STEPS[currentStep - 1].isEdit ? (
-            <Textarea
-              value={editingContent}
-              onChange={(e) => setEditingContent(e.target.value)}
-              className="min-h-[400px] font-mono text-sm w-full"
-            />
+          {isEditing ? (
+            <div className="space-y-2">
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setResults(prev => ({
+                      ...prev,
+                      [currentStep]: editingContent
+                    }))
+                    setIsEditing(false)
+                    toast({
+                      title: "保存成功",
+                      description: "分析结果已更新",
+                    })
+                  }}
+                  className="mr-2"
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  保存
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setIsEditing(false)
+                    setEditingContent(results[currentStep] || '')
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <Textarea
+                value={editingContent}
+                onChange={(e) => setEditingContent(e.target.value)}
+                className="min-h-[400px] font-mono text-sm w-full"
+              />
+            </div>
           ) : (
-            <div className="prose prose-gray max-w-none">
-              <ReactMarkdown>{results[currentStep] || ''}</ReactMarkdown>
+            <div className="space-y-2">
+              <div className="flex justify-end">
+                {results[currentStep] && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setIsEditing(true)
+                      setEditingContent(results[currentStep] || '')
+                    }}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              <div className="prose prose-gray max-w-none">
+                <ReactMarkdown>{results[currentStep] || ''}</ReactMarkdown>
+              </div>
             </div>
           )}
         </div>
