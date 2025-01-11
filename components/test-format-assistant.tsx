@@ -11,12 +11,12 @@ import { getDefaultConfig, streamingAICall } from '@/lib/ai-service'
 import type { AIModelConfig } from '@/lib/ai-service'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { testCasePromptTemplate } from '@/lib/prompts'
+import { testFormatPromptTemplate } from '@/lib/prompts'
 
-export function TestCaseAssistant() {
-  const [requirements, setRequirements] = useState('')
+export function TestFormatAssistant() {
+  const [testDescription, setTestDescription] = useState('')
   const [result, setResult] = useState('')
-  const [isGenerating, setIsGenerating] = useState(false)
+  const [isFormatting, setIsFormatting] = useState(false)
   const [aiConfig, setAiConfig] = useState<AIModelConfig | null>(null)
   const { toast } = useToast()
 
@@ -27,14 +27,14 @@ export function TestCaseAssistant() {
     }
   }, [])
 
-  const handleGenerate = async () => {
-    if (!requirements.trim() || !aiConfig) return
+  const handleFormat = async () => {
+    if (!testDescription.trim() || !aiConfig) return
 
-    setIsGenerating(true)
-    let generatedResult = ''
+    setIsFormatting(true)
+    let formattedResult = ''
 
     try {
-      const prompt = testCasePromptTemplate.replace('{requirements_doc}', requirements)
+      const prompt = testFormatPromptTemplate.replace('{test_description}', testDescription)
 
       await streamingAICall(
         prompt,
@@ -45,24 +45,24 @@ export function TestCaseAssistant() {
           temperature: 0.7
         },
         (content: string) => {
-          generatedResult += content
-          setResult(generatedResult)
+          formattedResult += content
+          setResult(formattedResult)
         }
       )
 
       toast({
-        title: "生成完成",
-        description: "测试用例已生成，请查看结果",
+        title: "格式化完成",
+        description: "测试用例已格式化，请查看结果",
       })
     } catch (error) {
-      console.error('Generation error:', error)
+      console.error('Format error:', error)
       toast({
         variant: "destructive",
-        title: "生成失败",
+        title: "格式化失败",
         description: error instanceof Error ? error.message : "未知错误",
       })
     } finally {
-      setIsGenerating(false)
+      setIsFormatting(false)
     }
   }
 
@@ -95,28 +95,28 @@ export function TestCaseAssistant() {
       )}
 
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold">请输入需求描述：</h2>
+        <h2 className="text-lg font-semibold">请输入测试描述：</h2>
         <Textarea
-          placeholder="请输入需求描述、核心功能、边界场景及处理方式等信息..."
-          value={requirements}
-          onChange={(e) => setRequirements(e.target.value)}
+          placeholder="请输入需要格式化的测试描述..."
+          value={testDescription}
+          onChange={(e) => setTestDescription(e.target.value)}
           className="min-h-[100px] w-full"
         />
       </div>
 
       <div className="flex justify-center mt-1 w-full">
         <Button
-          onClick={handleGenerate}
-          disabled={!requirements.trim() || isGenerating || !aiConfig}
+          onClick={handleFormat}
+          disabled={!testDescription.trim() || isFormatting || !aiConfig}
           className="w-full bg-orange-600 hover:bg-orange-700"
         >
-          {isGenerating ? (
+          {isFormatting ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              生成中...
+              格式化中...
             </>
           ) : (
-            '生成测试用例'
+            '测试用例格式化'
           )}
         </Button>
       </div>

@@ -28,6 +28,7 @@ const menuItems: MenuItem[] = [
     icon: <ListChecks className="h-4 w-4" />,
     submenu: [
       { title: "测试用例辅助", href: "/requirements/test-cases" },
+      { title: "测试描述格式化", href: "/requirements/test-format" },
     ]
   },
   {
