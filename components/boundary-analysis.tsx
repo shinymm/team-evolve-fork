@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/components/ui/use-toast"
-import { Map, Target, ArrowRight, Loader2, History, Pencil, Save, X, ArrowLeft } from 'lucide-react'
+import { Map, Target, ArrowRight, Loader2, History, Pencil, Save, X, ArrowLeft, ChevronRight } from 'lucide-react'
 import { getDefaultConfig, streamingAICall } from '@/lib/ai-service'
 import type { AIModelConfig } from '@/lib/ai-service'
 import ReactMarkdown from 'react-markdown'
@@ -192,7 +192,7 @@ ${results[3]}
 
   return (
     <div className="max-w-[95%] mx-auto px-2">
-      <div className="space-y-4">
+      <div className="space-y-2">
         {!aiConfig && (
           <Alert>
             <AlertTitle>提示</AlertTitle>
@@ -202,7 +202,7 @@ ${results[3]}
           </Alert>
         )}
 
-        <div className="space-y-2">
+        <div className="space-y-1">
           <h2 className="text-lg font-semibold">请输入需要分析的需求描述：</h2>
           <Textarea
             placeholder="请输入需求描述..."
@@ -212,11 +212,80 @@ ${results[3]}
           />
         </div>
 
-        <nav className="flex items-center my-2" aria-label="Progress">
+        <div className="flex items-center justify-between mx-8 mt-1">
+          <div className="flex items-center justify-center gap-4" style={{ width: '320px', margin: '0 auto' }}>
+            <div className="w-28">
+              <Button
+                variant="outline"
+                onClick={handleBack}
+                disabled={currentStep === 1 || isAnalyzing}
+                className="w-full border-orange-200 text-orange-700 hover:bg-orange-50"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                上一步
+              </Button>
+            </div>
+
+            <div className="w-32">
+              <Button
+                onClick={handleAnalysis}
+                disabled={!requirements.trim() || isAnalyzing || !aiConfig}
+                className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+              >
+                {isAnalyzing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    分析中...
+                  </>
+                ) : (
+                  <>
+                    {(() => {
+                      const Icon = STEPS[currentStep - 1].icon;
+                      return <Icon className="mr-2 h-4 w-4" />;
+                    })()}
+                    开始分析
+                  </>
+                )}
+              </Button>
+            </div>
+
+            <div className="w-28">
+              <Button
+                variant="outline"
+                onClick={() => setCurrentStep(prev => prev + 1)}
+                disabled={!results[currentStep] || isEditing || currentStep >= STEPS.length || isAnalyzing}
+                className="w-full border-orange-200 text-orange-700 hover:bg-orange-50"
+              >
+                下一步
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {currentStep === 3 && (
+            <div className="flex items-center">
+              <label className="flex items-center cursor-pointer whitespace-nowrap">
+                <input
+                  type="checkbox"
+                  checked={includePreviousAnalysis}
+                  onChange={(e) => setIncludePreviousAnalysis(e.target.checked)}
+                  className="form-checkbox h-4 w-4 text-orange-600 rounded border-gray-300"
+                />
+                <span className="ml-2 text-sm text-gray-700">
+                  将第一步分析结果纳入考虑
+                </span>
+              </label>
+            </div>
+          )}
+        </div>
+
+        <div className="border-t my-1" />
+
+        <nav className="flex items-center mb-1" aria-label="Progress">
           <ol role="list" className="flex items-center w-full">
             {STEPS.map((step, stepIdx) => (
-              <li key={step.id} className={`relative flex-1 ${stepIdx !== STEPS.length - 1 ? 'pr-4' : ''}`}>
-                <div className="flex items-center">
+              <li key={step.id} className="relative flex-1 flex items-center">
+                <div className="flex-1">
                   <Button
                     variant={currentStep === step.id ? 'default' : 'outline'}
                     size="sm"
@@ -238,81 +307,17 @@ ${results[3]}
                     </span>
                   </Button>
                 </div>
+                {stepIdx !== STEPS.length - 1 && (
+                  <div className="flex-shrink-0 w-8 flex justify-center">
+                    <ChevronRight className="h-5 w-5 text-gray-400" />
+                  </div>
+                )}
               </li>
             ))}
           </ol>
         </nav>
 
-        <div className="border-t pt-2">
-          <div className="flex items-center justify-between mx-8">
-            <div className="flex items-center justify-center gap-4" style={{ width: '320px', margin: '0 auto' }}>
-              <div className="w-28">
-                <Button
-                  variant="outline"
-                  onClick={handleBack}
-                  disabled={currentStep === 1 || isAnalyzing}
-                  className="w-full border-orange-200 text-orange-700 hover:bg-orange-50"
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  上一步
-                </Button>
-              </div>
-
-              <div className="w-32">
-                <Button
-                  onClick={handleAnalysis}
-                  disabled={!requirements.trim() || isAnalyzing || !aiConfig}
-                  className="w-full bg-orange-600 hover:bg-orange-700 text-white"
-                >
-                  {isAnalyzing ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      分析中...
-                    </>
-                  ) : (
-                    <>
-                      {(() => {
-                        const Icon = STEPS[currentStep - 1].icon;
-                        return <Icon className="mr-2 h-4 w-4" />;
-                      })()}
-                      开始分析
-                    </>
-                  )}
-                </Button>
-              </div>
-
-              <div className="w-28">
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentStep(prev => prev + 1)}
-                  disabled={!results[currentStep] || isEditing || currentStep >= STEPS.length || isAnalyzing}
-                  className="w-full border-orange-200 text-orange-700 hover:bg-orange-50"
-                >
-                  下一步
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            {currentStep === 3 && (
-              <div className="flex items-center">
-                <label className="flex items-center cursor-pointer whitespace-nowrap">
-                  <input
-                    type="checkbox"
-                    checked={includePreviousAnalysis}
-                    onChange={(e) => setIncludePreviousAnalysis(e.target.checked)}
-                    className="form-checkbox h-4 w-4 text-orange-600 rounded border-gray-300"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">
-                    将第一步分析结果纳入考虑
-                  </span>
-                </label>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="border rounded-lg p-4 bg-gray-50 min-h-[400px] w-full">
+        <div className="border rounded-lg p-4 bg-gray-50 min-h-[400px] w-full mt-0">
           {isEditing ? (
             <div className="space-y-2">
               <div className="flex justify-end">
