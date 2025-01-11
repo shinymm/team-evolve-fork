@@ -10,7 +10,7 @@ import { Map, Target, ArrowRight, Loader2, History, Pencil, Save, X, ArrowLeft, 
 import { getDefaultConfig, streamingAICall } from '@/lib/ai-service'
 import type { AIModelConfig } from '@/lib/ai-service'
 import ReactMarkdown from 'react-markdown'
-import { userJourneyPromptTemplate, boundaryAnalysisPromptTemplate } from '@/lib/prompts'
+import { userJourneyPromptTemplate, boundaryAnalysisPromptTemplate, optimizeRequirementsPromptTemplate } from '@/lib/prompts'
 import remarkGfm from 'remark-gfm'
 
 interface AnalysisStep {
@@ -118,19 +118,9 @@ export function BoundaryAnalysis() {
           .replace('{requirements_doc}', promptRequirements)
           .replace('{rules_table}', await getRulesTable())
       } else if (step.id === 4) {
-        prompt = `请基于以下内容，重新编写一份完整的需求描述文档。新的需求描述应该：
-1. 保持原始需求的核心功能不变
-2. 补充所有已识别出的边界场景的处理方式
-3. 使用清晰的结构化格式
-4. 对每个边界场景的处理方式要具体且可执行
-
-原始需求：
-${requirements}
-
-基于旅程的边界分析结果：
-${results[3]}
-
-请生成优化后的需求描述：`
+        prompt = optimizeRequirementsPromptTemplate
+          .replace('{requirements_doc}', requirements)
+          .replace('{boundary_analysis_result}', results[3])
       } else {
         prompt = step.type === 'journey'
           ? userJourneyPromptTemplate.replace('{requirements_doc}', promptRequirements)
