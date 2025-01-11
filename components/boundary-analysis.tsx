@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/components/ui/use-toast"
-import { Map, Target, ArrowRight, Loader2, History, Pencil, Save, X, ArrowLeft, ChevronRight } from 'lucide-react'
+import { Map, Target, ArrowRight, Loader2, History, Pencil, Save, X, ArrowLeft, ChevronRight, Copy } from 'lucide-react'
 import { getDefaultConfig, streamingAICall } from '@/lib/ai-service'
 import type { AIModelConfig } from '@/lib/ai-service'
 import ReactMarkdown from 'react-markdown'
@@ -181,6 +181,23 @@ export function BoundaryAnalysis() {
     }
   }
 
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(results[currentStep] || '')
+      toast({
+        title: "复制成功",
+        description: "内容已复制到剪贴板",
+      })
+    } catch (error) {
+      console.error('Copy error:', error)
+      toast({
+        variant: "destructive",
+        title: "复制失败",
+        description: "无法访问剪贴板",
+      })
+    }
+  }
+
   return (
     <div className="max-w-[95%] mx-auto px-2">
       <div className="space-y-2">
@@ -350,18 +367,28 @@ export function BoundaryAnalysis() {
             </div>
           ) : (
             <div className="space-y-2">
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-2">
                 {results[currentStep] && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setIsEditing(true)
-                      setEditingContent(results[currentStep] || '')
-                    }}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleCopy}
+                      title="复制到剪贴板"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setIsEditing(true)
+                        setEditingContent(results[currentStep] || '')
+                      }}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </>
                 )}
               </div>
               <div className="prose prose-gray max-w-none">
