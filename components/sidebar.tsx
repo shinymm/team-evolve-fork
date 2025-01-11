@@ -1,6 +1,6 @@
 'use client'
 
-import { ChevronDown, Settings, Database, HelpCircle } from 'lucide-react'
+import { ChevronDown, Settings, Database, HelpCircle, TestTube } from 'lucide-react'
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
@@ -21,6 +21,13 @@ const menuItems: MenuItem[] = [
     icon: <HelpCircle className="h-4 w-4" />,
     submenu: [
       { title: "需求边界分析", href: "/requirements/boundary-analysis" },
+    ]
+  },
+  {
+    title: "测试辅助",
+    icon: <TestTube className="h-4 w-4" />,
+    submenu: [
+      { title: "测试用例辅助", href: "/requirements/test-cases" },
     ]
   },
   {

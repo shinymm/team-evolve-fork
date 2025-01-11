@@ -11,6 +11,7 @@ import { getDefaultConfig, streamingAICall } from '@/lib/ai-service'
 import type { AIModelConfig } from '@/lib/ai-service'
 import ReactMarkdown from 'react-markdown'
 import { userJourneyPromptTemplate, boundaryAnalysisPromptTemplate } from '@/lib/prompts'
+import remarkGfm from 'remark-gfm'
 
 interface AnalysisStep {
   id: 1 | 2 | 3 | 4
@@ -374,7 +375,12 @@ ${results[3]}
                 )}
               </div>
               <div className="prose prose-gray max-w-none">
-                <ReactMarkdown>{results[currentStep] || ''}</ReactMarkdown>
+                <ReactMarkdown 
+                  remarkPlugins={[remarkGfm]}
+                  className="markdown-body"
+                >
+                  {results[currentStep] || ''}
+                </ReactMarkdown>
               </div>
             </div>
           )}
