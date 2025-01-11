@@ -23,8 +23,8 @@ const defaultRules = [
         checkItem: "规则条件不明确",
         scenario: "当涉及到规则条件",
         checkPoints: "1、检查规则条件是否明确，是否遗漏了规则条件项\n2、补充完整所有的规则条件项，列出各种条件组合下的Happy、Sad和Negative Case",
-        example: "若用户当前氛围背景为空，自动切换到氛围背景4",
-        boundaryExample: "1、用户背景已设置为非空背景时，默认处理规则？\n2、用户当前背景已是背景4时，是否重复切换？"
+        example: "客户在跟机器人交互时新增图片发送功能",
+        boundaryExample: "1、选择发送图片时，若图片格式不支持，如何处理？\n2、选择发送图片时，图片大小是否有限制？"
     },
     {
         checkItem: "规则条件的补充case",
@@ -37,8 +37,8 @@ const defaultRules = [
         checkItem: "规则边界值和极限值",
         scenario: "当涉及到规则条件时",
         checkPoints: "1、对应规则条件的默认值及处理逻辑\n2、对应规则条件刚好处于边界值或临界值的Case\n3、对应规则条件处于极限值的Case",
-        example: "播放倒计时结束音乐6s（先写死吧）",
-        boundaryExample: "1、离结束还有6s整的时候，是否播放倒计时结束音乐？\n2、倒计时已经结束，倒计时结束音乐是否立即停止？\n3、用户中途进行了结束操作，倒计时音乐是否立即停止？"
+        example: "播放录音时候只播放前6s",
+        boundaryExample: "1、6s倒计时已经结束，录音播放是否立即停止？\n2、用户中途进行了结束操作，录音播放是否立即停止？"
     },
     {
         checkItem: "逆向或反向操作",
@@ -65,15 +65,15 @@ const defaultRules = [
         checkItem: "多设备使用影响",
         scenario: "当功能涉及到多设备间的同步或交互处理时",
         checkPoints: "1、不同设备可能存在冲突的Case，需要说明处理规则",
-        example: "支持在半屏页面暂停/停止倒计时",
-        boundaryExample: "1、多设备同时登录时哄睡模式同步状态？\n2、计时器在另一设备结束后本设备是否同步显示提示？"
+        example: "用户能从聊天记录中查看历史图片聊天记录",
+        boundaryExample: "1、多设备同时登录时是否都能看到同样的历史图片聊天记录？\n2、同一账号切换设备登陆后，是否都能看到前一设备的历史图片聊天记录？"
     },
     {
         checkItem: "多账号使用影响",
         scenario: "当功能涉及到账号处理时",
         checkPoints: "1、同一用户拥有多个不同账号下的Case",
-        example: "开始->倒计时开始",
-        boundaryExample: "1、切换账号后桌宠配置（背景、故事进度）是否重置？\n2、多账号间的计时器进度是否隔离？"
+        example: "用户能从聊天记录中查看历史图片聊天记录",
+        boundaryExample: "1、多账号间的历史聊天记录应该隔离？\n2、当用同一个设备登陆不同账号时，不应该看到另一账号的聊天记录？"
     },
     {
         checkItem: "新旧版本冲突影响",

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { BoundaryRule } from "@/types/boundary"
 
 interface Props {
@@ -17,11 +17,14 @@ interface Props {
 
 export function BoundaryRuleDialog({ open, onOpenChange, rule, onSave }: Props) {
   const [formData, setFormData] = useState<Partial<BoundaryRule>>({})
+  const originalRule = useRef<BoundaryRule | null>(null)
 
   useEffect(() => {
     if (rule) {
-      setFormData(rule)
+      originalRule.current = { ...rule }
+      setFormData({ ...rule })
     } else {
+      originalRule.current = null
       setFormData({})
     }
   }, [rule])
@@ -31,8 +34,23 @@ export function BoundaryRuleDialog({ open, onOpenChange, rule, onSave }: Props) 
     onSave(formData)
   }
 
+  const handleCancel = () => {
+    if (originalRule.current) {
+      setFormData({ ...originalRule.current })
+    } else {
+      setFormData({})
+    }
+    onOpenChange(false)
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      if (!isOpen) {
+        handleCancel()
+      } else {
+        onOpenChange(true)
+      }
+    }}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{rule ? '编辑规则' : '添加规则'}</DialogTitle>
@@ -94,7 +112,7 @@ export function BoundaryRuleDialog({ open, onOpenChange, rule, onSave }: Props) 
             <Button type="submit">
               保存
             </Button>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={handleCancel}>
               取消
             </Button>
           </div>

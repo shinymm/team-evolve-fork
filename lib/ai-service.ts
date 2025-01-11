@@ -74,7 +74,7 @@ export const streamingAICall = async (
         if (done) break
 
         const chunk = decoder.decode(value)
-        console.log('Raw chunk:', chunk)  // 打印原始响应块
+        // console.log('Raw chunk:', chunk)  // 打印原始响应块
 
         const lines = chunk
           .split('\n')
@@ -86,7 +86,7 @@ export const streamingAICall = async (
               const data = JSON.parse(line.replace('data: ', ''))
               const content = data.choices[0]?.delta?.content || ''
               if (content) {
-                console.log('Parsed content:', content)  // 打印解析后的内容
+                // console.log('Parsed content:', content)  // 打印解析后的内容
                 onContent(content)
               }
             } catch (e) {

@@ -13,11 +13,12 @@ import ReactMarkdown from 'react-markdown'
 import { userJourneyPromptTemplate, boundaryAnalysisPromptTemplate } from '@/lib/prompts'
 
 interface AnalysisStep {
-  id: 1 | 2 | 3 | 4 | 5
+  id: 1 | 2 | 3 | 4
   title: string
   icon: any
-  type: 'boundary' | 'journey'
+  type: 'boundary' | 'journey' | 'optimize'
   isEdit?: boolean
+  description?: string
 }
 
 const STEPS: AnalysisStep[] = [
@@ -38,6 +39,12 @@ const STEPS: AnalysisStep[] = [
     title: '基于旅程的边界分析',
     icon: Target,
     type: 'boundary'
+  },
+  {
+    id: 4,
+    title: '优化需求描述',
+    icon: Pencil,
+    type: 'optimize'
   }
 ]
 
@@ -47,9 +54,29 @@ const getRulesTable = async () => {
   if (!storedRules) return ''
   
   const rules = JSON.parse(storedRules)
-  return rules.map((rule: any) => 
-    `${rule.checkItem}\n场景：${rule.scenario}\n检查要点：${rule.checkPoints}\n示例：${rule.example}\n边界示例：${rule.boundaryExample}\n\n`
-  ).join('')
+  
+  // 构建表格头
+  let table = '| 检查项 | 适用场景 | 检查要点 | 需求示例 | 边界示例 |\n'
+  table += '|---------|------------|------------|------------|------------|\n'
+  
+  // 添加表格内容
+  table += rules.map((rule: any) => {
+    // 处理每个字段中可能存在的换行符，替换为空格
+    const checkItem = rule.checkItem?.replace(/\n/g, ' ') || ''
+    const scenario = rule.scenario?.replace(/\n/g, ' ') || ''
+    const checkPoints = rule.checkPoints?.replace(/\n/g, ' ') || ''
+    const example = rule.example?.replace(/\n/g, ' ') || ''
+    const boundaryExample = rule.boundaryExample?.replace(/\n/g, ' ') || ''
+    
+    // 处理可能包含 | 符号的内容，使用 \ 转义
+    return `| ${checkItem.replace(/\|/g, '\\|')} | ${scenario.replace(/\|/g, '\\|')} | ${checkPoints.replace(/\|/g, '\\|')} | ${example.replace(/\|/g, '\\|')} | ${boundaryExample.replace(/\|/g, '\\|')} |`
+  }).join('\n')
+  
+  console.log('=== 边界识别知识表格 ===')
+  console.log(table)
+  console.log('========================')
+  
+  return table
 }
 
 export function BoundaryAnalysis() {
@@ -61,6 +88,7 @@ export function BoundaryAnalysis() {
   const [aiConfig, setAiConfig] = useState<AIModelConfig | null>(null)
   const { toast } = useToast()
   const [isEditing, setIsEditing] = useState(false)
+  const [includePreviousAnalysis, setIncludePreviousAnalysis] = useState(false)
 
   useEffect(() => {
     const config = getDefaultConfig()
@@ -77,13 +105,43 @@ export function BoundaryAnalysis() {
     let analysisResult = ''
 
     try {
-      const prompt = step.type === 'journey' 
-        ? userJourneyPromptTemplate.replace('{requirements_doc}', requirements)
-        : boundaryAnalysisPromptTemplate
-            .replace('{requirements_doc}', step.id === 5 
-              ? `原始需求：\n${requirements}\n\n用户旅程分析结果：\n${results[3]}` 
-              : requirements)
-            .replace('{rules_table}', await getRulesTable())
+      let promptRequirements = requirements
+      let prompt = ''
+
+      if (step.id === 3) {
+        promptRequirements = includePreviousAnalysis
+          ? `原始需求：\n${requirements}\n\n用户旅程分析结果：\n${results[2]}\n\n原始需求边界分析结果：\n${results[1]}`
+          : `原始需求：\n${requirements}\n\n用户旅程分析结果：\n${results[2]}`
+        
+        prompt = boundaryAnalysisPromptTemplate
+          .replace('{requirements_doc}', promptRequirements)
+          .replace('{rules_table}', await getRulesTable())
+      } else if (step.id === 4) {
+        prompt = `请基于以下内容，重新编写一份完整的需求描述文档。新的需求描述应该：
+1. 保持原始需求的核心功能不变
+2. 补充所有已识别出的边界场景的处理方式
+3. 使用清晰的结构化格式
+4. 对每个边界场景的处理方式要具体且可执行
+
+原始需求：
+${requirements}
+
+基于旅程的边界分析结果：
+${results[3]}
+
+请生成优化后的需求描述：`
+      } else {
+        prompt = step.type === 'journey'
+          ? userJourneyPromptTemplate.replace('{requirements_doc}', promptRequirements)
+          : boundaryAnalysisPromptTemplate
+              .replace('{requirements_doc}', promptRequirements)
+              .replace('{rules_table}', await getRulesTable())
+      }
+
+      console.log(`\n=== 第${step.id}步：${step.title} ===`)
+      console.log('Prompt内容：')
+      console.log(prompt)
+      console.log('========================\n')
 
       await streamingAICall(
         prompt,
@@ -91,7 +149,7 @@ export function BoundaryAnalysis() {
           model: aiConfig.model,
           apiKey: aiConfig.apiKey,
           baseURL: aiConfig.baseURL,
-          temperature: aiConfig.temperature
+          temperature: step.id === 4 ? 0.7 : aiConfig.temperature
         },
         (content: string) => {
           analysisResult += content
@@ -104,10 +162,10 @@ export function BoundaryAnalysis() {
 
       toast({
         title: "分析完成",
-        description: `${step.title}已完成，请查看分析结果`,
+        description: `${step.title}已完成，请查看结果`,
       })
       
-      if (step.id === 1 || step.id === 3) {
+      if (step.id === 1 || step.id === 3 || step.id === 4) {
         setEditingContent(analysisResult)
       }
     } catch (error) {
@@ -189,47 +247,70 @@ export function BoundaryAnalysis() {
         </nav>
 
         <div className="border-t pt-2">
-          <div className="flex items-center justify-center gap-2 ml-8">
-            <Button
-              variant="outline"
-              onClick={handleBack}
-              disabled={currentStep === 1 || isAnalyzing}
-              className="w-28 border-orange-200 text-orange-700 hover:bg-orange-50"
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              上一步
-            </Button>
+          <div className="flex items-center justify-between mx-8">
+            <div className="flex items-center justify-center gap-4" style={{ width: '320px', margin: '0 auto' }}>
+              <div className="w-28">
+                <Button
+                  variant="outline"
+                  onClick={handleBack}
+                  disabled={currentStep === 1 || isAnalyzing}
+                  className="w-full border-orange-200 text-orange-700 hover:bg-orange-50"
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  上一步
+                </Button>
+              </div>
 
-            <Button
-              onClick={handleAnalysis}
-              disabled={!requirements.trim() || isAnalyzing || !aiConfig}
-              className="w-32 bg-orange-600 hover:bg-orange-700 text-white"
-            >
-              {isAnalyzing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  分析中...
-                </>
-              ) : (
-                <>
-                  {(() => {
-                    const Icon = STEPS[currentStep - 1].icon;
-                    return <Icon className="mr-2 h-4 w-4" />;
-                  })()}
-                  开始分析
-                </>
-              )}
-            </Button>
+              <div className="w-32">
+                <Button
+                  onClick={handleAnalysis}
+                  disabled={!requirements.trim() || isAnalyzing || !aiConfig}
+                  className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      分析中...
+                    </>
+                  ) : (
+                    <>
+                      {(() => {
+                        const Icon = STEPS[currentStep - 1].icon;
+                        return <Icon className="mr-2 h-4 w-4" />;
+                      })()}
+                      开始分析
+                    </>
+                  )}
+                </Button>
+              </div>
 
-            {results[currentStep] && !isEditing && currentStep < STEPS.length && (
-              <Button
-                variant="outline"
-                onClick={() => setCurrentStep(prev => prev + 1)}
-                className="w-28 border-orange-200 text-orange-700 hover:bg-orange-50"
-              >
-                下一步
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
+              <div className="w-28">
+                <Button
+                  variant="outline"
+                  onClick={() => setCurrentStep(prev => prev + 1)}
+                  disabled={!results[currentStep] || isEditing || currentStep >= STEPS.length || isAnalyzing}
+                  className="w-full border-orange-200 text-orange-700 hover:bg-orange-50"
+                >
+                  下一步
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {currentStep === 3 && (
+              <div className="flex items-center">
+                <label className="flex items-center cursor-pointer whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    checked={includePreviousAnalysis}
+                    onChange={(e) => setIncludePreviousAnalysis(e.target.checked)}
+                    className="form-checkbox h-4 w-4 text-orange-600 rounded border-gray-300"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">
+                    将第一步分析结果纳入考虑
+                  </span>
+                </label>
+              </div>
             )}
           </div>
         </div>
