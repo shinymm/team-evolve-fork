@@ -123,15 +123,11 @@ export function BoundaryAnalysis() {
 
       toast({
         title: "分析完成",
-        description: `${step.title}已完成`,
+        description: `${step.title}已完成，请查看分析结果`,
       })
       
-      // 如果是分析步骤，自动进入下一步（编辑步骤）
-      if (!step.isEdit) {
-        setCurrentStep(prev => prev + 1)
-        if (step.id === 1 || step.id === 3) {
-          setEditingContent(analysisResult)
-        }
+      if (step.id === 1 || step.id === 3) {
+        setEditingContent(analysisResult)
       }
     } catch (error) {
       console.error('Analysis error:', error)
@@ -186,7 +182,7 @@ export function BoundaryAnalysis() {
             placeholder="请输入需求描述..."
             value={requirements}
             onChange={(e) => setRequirements(e.target.value)}
-            className="min-h-[120px] w-full"
+            className="min-h-[100px] w-full"
           />
         </div>
 
@@ -223,56 +219,74 @@ export function BoundaryAnalysis() {
           </ol>
         </nav>
 
-        <div className="flex items-center justify-center gap-2 my-2">
-          <Button
-            variant="outline"
-            onClick={handleBack}
-            disabled={currentStep === 1 || isAnalyzing}
-            className="w-32"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            上一步
-          </Button>
+        <div className="border-t pt-2">
+          <div className="flex items-center justify-center gap-2 ml-8">
+            <Button
+              variant="outline"
+              onClick={handleBack}
+              disabled={currentStep === 1 || isAnalyzing}
+              className="w-28"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              上一步
+            </Button>
 
-          {STEPS[currentStep - 1].isEdit ? (
-            <Button
-              onClick={handleSaveEdit}
-              disabled={!editingContent.trim() || isAnalyzing}
-              className="w-32 bg-gray-800"
-            >
-              <Save className="mr-2 h-4 w-4" />
-              确认保存
-            </Button>
-          ) : (
-            <Button
-              onClick={handleAnalysis}
-              disabled={!requirements.trim() || isAnalyzing || !aiConfig}
-              className="w-32 bg-gray-800"
-            >
-              {isAnalyzing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  分析中...
-                </>
-              ) : (
-                <>
-                  {(() => {
-                    const Icon = STEPS[currentStep - 1].icon;
-                    return <Icon className="mr-2 h-4 w-4" />;
-                  })()}
-                  开始分析
-                </>
-              )}
-            </Button>
-          )}
+            {STEPS[currentStep - 1].isEdit ? (
+              <Button
+                onClick={handleSaveEdit}
+                disabled={!editingContent.trim() || isAnalyzing}
+                className="w-32 bg-gray-800"
+              >
+                <Save className="mr-2 h-4 w-4" />
+                确认保存
+              </Button>
+            ) : (
+              <>
+                <Button
+                  onClick={handleAnalysis}
+                  disabled={!requirements.trim() || isAnalyzing || !aiConfig}
+                  className="w-32 bg-gray-800"
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      分析中...
+                    </>
+                  ) : (
+                    <>
+                      {(() => {
+                        const Icon = STEPS[currentStep - 1].icon;
+                        return <Icon className="mr-2 h-4 w-4" />;
+                      })()}
+                      开始分析
+                    </>
+                  )}
+                </Button>
+                {results[currentStep] && (
+                  <Button
+                    onClick={() => {
+                      setCurrentStep(prev => prev + 1)
+                      if (STEPS[currentStep].isEdit) {
+                        setEditingContent(results[currentStep] || '')
+                      }
+                    }}
+                    className="w-32"
+                  >
+                    下一步
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
-        <div className="border rounded-lg p-4 bg-gray-50 min-h-[300px] w-full">
+        <div className="border rounded-lg p-4 bg-gray-50 min-h-[400px] w-full">
           {STEPS[currentStep - 1].isEdit ? (
             <Textarea
               value={editingContent}
               onChange={(e) => setEditingContent(e.target.value)}
-              className="min-h-[300px] font-mono text-sm w-full"
+              className="min-h-[400px] font-mono text-sm w-full"
             />
           ) : (
             <div className="prose prose-gray max-w-none">

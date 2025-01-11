@@ -100,7 +100,7 @@ export function Sidebar() {
                   <button
                     key={subitem.href}
                     onClick={() => handleNavigate(subitem.href)}
-                    className={`w-full text-left px-2 py-1 rounded-lg text-xs hover:bg-gray-100 
+                    className={`w-full text-left px-2 py-1 rounded-lg text-sm hover:bg-gray-100 
                       ${pathname === subitem.href ? "bg-gray-100 font-medium" : ""}
                       ${navigating === subitem.href ? "opacity-70" : ""}`}
                     disabled={navigating === subitem.href}
