@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/components/ui/use-toast"
-import { Loader2, Copy } from 'lucide-react'
+import { Loader2, Copy, Pencil, Trash2, RotateCcw } from 'lucide-react'
 import { getDefaultConfig, streamingAICall } from '@/lib/ai-service'
 import type { AIModelConfig } from '@/lib/ai-service'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { testCasePromptTemplate } from '@/lib/prompts'
 import yaml from 'js-yaml'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 
 interface TestCase {
   type: string
@@ -30,6 +31,11 @@ export function TestCaseAssistant() {
   const [parsedTestCases, setParsedTestCases] = useState<TestCase[]>([])
   const { toast } = useToast()
   const [isOutputComplete, setIsOutputComplete] = useState(false)
+  const [editableTestCases, setEditableTestCases] = useState<TestCase[]>([])
+  const [editingCell, setEditingCell] = useState<{
+    index: number;
+    field: keyof TestCase;
+  } | null>(null)
 
   useEffect(() => {
     const config = getDefaultConfig()
@@ -37,6 +43,29 @@ export function TestCaseAssistant() {
       setAiConfig(config)
     }
   }, [])
+
+  useEffect(() => {
+    setEditableTestCases(parsedTestCases)
+  }, [parsedTestCases])
+
+  const handleCellEdit = (index: number, field: keyof TestCase, value: string) => {
+    const newTestCases = [...editableTestCases]
+    newTestCases[index] = {
+      ...newTestCases[index],
+      [field]: value
+    }
+    setEditableTestCases(newTestCases)
+  }
+
+  const handleDeleteTestCase = (index: number) => {
+    const newTestCases = editableTestCases.filter((_, i) => i !== index)
+    setEditableTestCases(newTestCases)
+  }
+
+  const handleReset = () => {
+    setEditableTestCases(parsedTestCases)
+    setEditingCell(null)
+  }
 
   const handleGenerate = async () => {
     if (!requirements.trim() || !aiConfig) return
@@ -202,13 +231,34 @@ export function TestCaseAssistant() {
         </Button>
       </div>
 
-      <div className="text-xs text-gray-500">
-        Debug: {parsedTestCases.length} test cases parsed
-      </div>
-
-      {parsedTestCases.length > 0 && (
+      {editableTestCases.length > 0 && (
         <div className="border rounded-lg p-4 bg-gray-50">
           <div className="flex justify-end gap-2 mb-2">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  title="重置所有修改"
+                  disabled={!isOutputComplete}
+                >
+                  <RotateCcw className="h-4 w-4 mr-1" />
+                  重置
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>确认重置?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    此操作将丢弃所有修改，恢复到原始内容。此操作无法撤销。
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>取消</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleReset}>确认重置</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             <Button
               variant="ghost"
               size="sm"
@@ -239,16 +289,69 @@ export function TestCaseAssistant() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">前提条件</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">步骤</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">预期结果</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {parsedTestCases.map((testCase, index) => (
+                {editableTestCases.map((testCase, index) => (
                   <tr key={index}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{testCase.type}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{testCase.summary}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{testCase.preconditions}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500 whitespace-pre-line">{testCase.steps}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{testCase.expected_result}</td>
+                    {(['type', 'summary', 'preconditions', 'steps', 'expected_result'] as const).map((field) => (
+                      <td key={field} className="px-6 py-4 text-sm">
+                        {editingCell?.index === index && editingCell?.field === field ? (
+                          <Textarea
+                            autoFocus
+                            defaultValue={testCase[field]}
+                            className="w-full min-h-[60px]"
+                            onBlur={(e) => {
+                              handleCellEdit(index, field, e.target.value)
+                              setEditingCell(null)
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault()
+                                handleCellEdit(index, field, e.currentTarget.value)
+                                setEditingCell(null)
+                              }
+                            }}
+                          />
+                        ) : (
+                          <div 
+                            className="group relative whitespace-pre-line cursor-pointer hover:bg-gray-50"
+                            onClick={() => setEditingCell({ index, field })}
+                          >
+                            {testCase[field]}
+                            <Pencil className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 absolute top-0 right-0" />
+                          </div>
+                        )}
+                      </td>
+                    ))}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>确认删除?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              此操作将删除该测试用例。此操作无法撤销。
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>取消</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDeleteTestCase(index)}>
+                              确认删除
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </td>
                   </tr>
                 ))}
               </tbody>
