@@ -294,14 +294,11 @@ export function BoundaryAnalysis() {
             {STEPS.map((step, stepIdx) => (
               <li key={step.id} className="relative flex-1 flex items-center">
                 <div className="flex-1">
-                  <Button
-                    variant={currentStep === step.id ? 'default' : 'outline'}
-                    size="sm"
-                    disabled={currentStep !== step.id}
-                    className={`relative flex items-center justify-center w-full ${
+                  <div
+                    className={`relative flex items-center justify-center w-full px-3 py-2 rounded ${
                       currentStep === step.id 
-                        ? 'bg-gray-800 text-white' 
-                        : 'bg-[#1e4694] text-white'
+                        ? 'bg-gray-100 text-gray-900' 
+                        : 'text-gray-500'
                     }`}
                   >
                     {isAnalyzing && currentStep === step.id ? (
@@ -313,7 +310,7 @@ export function BoundaryAnalysis() {
                       {step.title}
                       <span className="block text-[10px]">{step.description}</span>
                     </span>
-                  </Button>
+                  </div>
                 </div>
                 {stepIdx !== STEPS.length - 1 && (
                   <div className="flex-shrink-0 w-8 flex justify-center">
