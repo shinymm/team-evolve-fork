@@ -1,3 +1,5 @@
+'use client'
+
 import { TestDetailAssistant } from "@/components/test-detail-assistant"
 
 export default function TestDetailPage() {

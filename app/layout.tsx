@@ -5,6 +5,7 @@ import { Header } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
 import { Toaster } from "@/components/ui/toaster"
 import { ToastProvider } from "@/components/providers/toast-provider"
+import { TooltipProvider } from "@/components/ui/tooltip"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -21,17 +22,19 @@ export default function RootLayout({
   return (
     <html lang="zh">
       <body className={inter.className}>
-        <div className="min-h-screen flex flex-col">
-          <Header />
-          <div className="flex-1 flex">
-            <Sidebar />
-            <main className="flex-1 p-6">
-              {children}
-            </main>
+        <TooltipProvider>
+          <div className="min-h-screen flex flex-col">
+            <Header />
+            <div className="flex-1 flex">
+              <Sidebar />
+              <main className="flex-1 p-6">
+                {children}
+              </main>
+            </div>
           </div>
-        </div>
-        <Toaster />
-        <ToastProvider />
+          <Toaster />
+          <ToastProvider />
+        </TooltipProvider>
       </body>
     </html>
   )

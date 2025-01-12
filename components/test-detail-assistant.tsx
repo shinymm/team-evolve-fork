@@ -9,10 +9,12 @@ import { useToast } from "@/components/ui/use-toast"
 import { Loader2, Wand2, Check, X, Copy } from 'lucide-react'
 import { getDefaultConfig, streamingAICall } from '@/lib/ai-service'
 import type { AIModelConfig } from '@/lib/ai-service'
-import { generateDetailPromptTemplate, generateSummaryPromptTemplate, optimizeSummaryPromptTemplate } from '@/lib/prompts'
+import { generateDetailPromptTemplate, generateSummaryPromptTemplate, optimizeSummaryPromptTemplate, generateFromStepsPromptTemplate } from '@/lib/prompts'
 import yaml from 'js-yaml'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { RotateCcw } from 'lucide-react'
+import { PathInputDialog } from "@/components/path-input-dialog"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface TestCaseDetail {
   summary: string
@@ -43,11 +45,14 @@ export function TestDetailAssistant() {
   const [isGenerating, setIsGenerating] = useState<{
     optimize?: boolean;
     generate?: boolean;
+    steps?: boolean;
   }>({})
   const [aiConfig, setAiConfig] = useState<AIModelConfig | null>(null)
   const { toast } = useToast()
   const [summaryOptimization, setSummaryOptimization] = useState<SummaryOptimization | null>(null)
   const [caseGeneration, setCaseGeneration] = useState<TestCaseGeneration | null>(null)
+  const [isPathDialogOpen, setIsPathDialogOpen] = useState(false)
+  const [stepsGeneration, setStepsGeneration] = useState<{ steps: string } | null>(null)
 
   useEffect(() => {
     const config = getDefaultConfig()
@@ -274,233 +279,383 @@ export function TestDetailAssistant() {
     }
   }
 
+  const handleGenerateFromPath = async (path: string) => {
+    if (!testCase.summary.trim() || !aiConfig || isGenerating.steps) return
+    setIsGenerating(prev => ({ ...prev, steps: true }))
+    setStepsGeneration(null)
+
+    try {
+      const prompt = generateFromStepsPromptTemplate
+        .replace('{summary}', testCase.summary.trim())
+        .replace('{path}', path.trim())
+
+      let generatedResult = ''
+
+      await streamingAICall(
+        prompt,
+        {
+          model: aiConfig.model,
+          apiKey: aiConfig.apiKey,
+          baseURL: aiConfig.baseURL,
+          temperature: 0.7
+        },
+        (content: string) => {
+          generatedResult += content
+          try {
+            const cleanContent = generatedResult
+              .replace(/```yaml\n/g, '')
+              .replace(/```(\n)?$/g, '')
+              .trim()
+
+            const parsed = yaml.load(cleanContent) as { steps: string }
+            if (parsed?.steps) {
+              setStepsGeneration(parsed)
+            }
+          } catch (e) {
+            // 解析错误时继续累积内容
+          }
+        }
+      )
+
+      setIsPathDialogOpen(false)
+      toast({
+        title: "生成完成",
+        description: "请查看生成的用例步骤",
+      })
+    } catch (error) {
+      console.error('Generation error:', error)
+      toast({
+        variant: "destructive",
+        title: "生成失败",
+        description: error instanceof Error ? error.message : "未知错误",
+      })
+    } finally {
+      setIsGenerating(prev => ({ ...prev, steps: false }))
+    }
+  }
+
+  const handleAcceptSteps = () => {
+    if (stepsGeneration) {
+      setTestCase(prev => ({
+        ...prev,
+        steps: stepsGeneration.steps
+      }))
+      setStepsGeneration(null)
+      toast({
+        title: "已接受",
+        description: "用例步骤已更新",
+      })
+    }
+  }
+
+  const handleRejectSteps = () => {
+    setStepsGeneration(null)
+    toast({
+      title: "已拒绝",
+      description: "保持原有步骤不变",
+    })
+  }
+
   return (
     <div className="space-y-2">
-      <div className="flex justify-end mb-2 gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleCopyAsTable}
-          className="text-gray-500 hover:text-gray-700"
-        >
-          <Copy className="h-4 w-4 mr-2" />
-          复制为表格
-        </Button>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
+      <>
+        <div className="flex justify-between mb-2">
+          <div className="flex gap-2">
             <Button
               variant="outline"
               size="sm"
+              onClick={handleCopyAsTable}
               className="text-gray-500 hover:text-gray-700"
             >
-              <RotateCcw className="h-4 w-4 mr-2" />
-              重置
+              <Copy className="h-4 w-4 mr-2" />
+              复制为表格
             </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>确认重置?</AlertDialogTitle>
-              <AlertDialogDescription>
-                此操作将清空所有文本框的内容。此操作无法撤销。
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>取消</AlertDialogCancel>
-              <AlertDialogAction onClick={handleReset}>确认重置</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
-
-      {!aiConfig && (
-        <Alert className="mb-2">
-          <AlertTitle>提示</AlertTitle>
-          <AlertDescription>
-            请先在设置中配置并选择默认的 AI 模型
-          </AlertDescription>
-        </Alert>
-      )}
-
-      <div className="space-y-3">
-        <div className="flex items-start gap-2">
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-1">
-              <h2 className="text-sm font-semibold">用例概述：</h2>
-              <div className="flex gap-2">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleOptimizeSummary}
-                  disabled={!testCase.summary.trim() || isGenerating.optimize || !aiConfig}
-                  className="h-8"
+                  className="text-gray-500 hover:text-gray-700"
                 >
-                  {isGenerating.optimize ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      优化中...
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="mr-2 h-4 w-4" />
-                      优化描述
-                    </>
-                  )}
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  重置
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleGenerateFromSummary}
-                  disabled={!testCase.summary.trim() || isGenerating.generate || !aiConfig}
-                  className="h-8"
-                >
-                  {isGenerating.generate ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      生成中...
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="mr-2 h-4 w-4" />
-                      根据概述生成用例细节
-                    </>
-                  )}
-                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>确认重置?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    此操作将清空所有文本框的内容。此操作无法撤销。
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>取消</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleReset}>确认重置</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+          <div className="flex gap-2">
+          </div>
+        </div>
+
+        {!aiConfig && (
+          <Alert className="mb-2">
+            <AlertTitle>提示</AlertTitle>
+            <AlertDescription>
+              请先在设置中配置并选择默认的 AI 模型
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <div className="space-y-3">
+          <div className="flex items-start gap-2">
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-sm font-semibold">用例概述：</h2>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleOptimizeSummary}
+                    disabled={!testCase.summary.trim() || isGenerating.optimize || !aiConfig}
+                    className="h-8"
+                  >
+                    {isGenerating.optimize ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        优化中...
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="mr-2 h-4 w-4" />
+                        优化描述
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateFromSummary}
+                    disabled={!testCase.summary.trim() || isGenerating.generate || !aiConfig}
+                    className="h-8"
+                  >
+                    {isGenerating.generate ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        生成中...
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="mr-2 h-4 w-4" />
+                        根据概述生成用例细节
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
+              <Textarea
+                placeholder="请输入用例概述，如：验证知识库创建功能..."
+                value={testCase.summary}
+                onChange={handleInputChange('summary')}
+                className="min-h-[40px] max-h-[40px] mb-1"
+                rows={1}
+              />
+              {summaryOptimization && (
+                <div className="mt-2 border rounded-md p-4 bg-orange-50">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-orange-800 text-sm">优化建议：</span>
+                        <span className="text-sm">{summaryOptimization.optimized_summary}</span>
+                      </div>
+                      <div className="text-xs space-y-1 text-gray-600">
+                        <div>
+                          <span className="font-medium">存在的问题：</span>
+                          <span>{summaryOptimization.analysis}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium">改进建议：</span>
+                          <span>{summaryOptimization.improvements}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 ml-4">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="bg-white hover:bg-red-50 text-red-600 hover:text-red-700"
+                        onClick={handleRejectOptimization}
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        拒绝
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="bg-white hover:bg-green-50 text-green-600 hover:text-green-700"
+                        onClick={handleAcceptOptimization}
+                      >
+                        <Check className="h-4 w-4 mr-1" />
+                        接受
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {caseGeneration && (
+                <div className="mt-2 border rounded-md p-4 bg-orange-50">
+                  <div className="flex items-start justify-between mb-3">
+                    <h3 className="font-medium text-orange-800 text-sm">生成的用例细节：</h3>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="bg-white hover:bg-red-50 text-red-600 hover:text-red-700"
+                        onClick={handleRejectGeneration}
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        拒绝
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="bg-white hover:bg-green-50 text-green-600 hover:text-green-700"
+                        onClick={handleAcceptGeneration}
+                      >
+                        <Check className="h-4 w-4 mr-1" />
+                        接受
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-3 text-sm">
+                    <div>
+                      <span className="font-medium text-gray-700">前提条件：</span>
+                      <div className="mt-1 text-gray-600 whitespace-pre-line">
+                        {caseGeneration.preconditions}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">用例步骤：</span>
+                      <div className="mt-1 text-gray-600 whitespace-pre-line">
+                        {caseGeneration.steps}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">预期结果：</span>
+                      <div className="mt-1 text-gray-600 whitespace-pre-line">
+                        {caseGeneration.expected_result}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-            <Textarea
-              placeholder="请输入用例概述，如：验证知识库创建功能..."
-              value={testCase.summary}
-              onChange={handleInputChange('summary')}
-              className="min-h-[40px] max-h-[40px] mb-1"
-              rows={1}
-            />
-            {summaryOptimization && (
-              <div className="mt-2 border rounded-md p-4 bg-orange-50">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-orange-800 text-sm">优化建议：</span>
-                      <span className="text-sm">{summaryOptimization.optimized_summary}</span>
-                    </div>
-                    <div className="text-xs space-y-1 text-gray-600">
-                      <div>
-                        <span className="font-medium">存在的问题：</span>
-                        <span>{summaryOptimization.analysis}</span>
-                      </div>
-                      <div>
-                        <span className="font-medium">改进建议：</span>
-                        <span>{summaryOptimization.improvements}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 ml-4">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="bg-white hover:bg-red-50 text-red-600 hover:text-red-700"
-                      onClick={handleRejectOptimization}
-                    >
-                      <X className="h-4 w-4 mr-1" />
-                      拒绝
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="bg-white hover:bg-green-50 text-green-600 hover:text-green-700"
-                      onClick={handleAcceptOptimization}
-                    >
-                      <Check className="h-4 w-4 mr-1" />
-                      接受
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-            {caseGeneration && (
-              <div className="mt-2 border rounded-md p-4 bg-orange-50">
-                <div className="flex items-start justify-between mb-3">
-                  <h3 className="font-medium text-orange-800 text-sm">生成的用例细节：</h3>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="bg-white hover:bg-red-50 text-red-600 hover:text-red-700"
-                      onClick={handleRejectGeneration}
-                    >
-                      <X className="h-4 w-4 mr-1" />
-                      拒绝
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="bg-white hover:bg-green-50 text-green-600 hover:text-green-700"
-                      onClick={handleAcceptGeneration}
-                    >
-                      <Check className="h-4 w-4 mr-1" />
-                      接受
-                    </Button>
-                  </div>
-                </div>
-                <div className="space-y-3 text-sm">
-                  <div>
-                    <span className="font-medium text-gray-700">前提条件：</span>
-                    <div className="mt-1 text-gray-600 whitespace-pre-line">
-                      {caseGeneration.preconditions}
-                    </div>
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-700">用例步骤：</span>
-                    <div className="mt-1 text-gray-600 whitespace-pre-line">
-                      {caseGeneration.steps}
-                    </div>
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-700">预期结果：</span>
-                    <div className="mt-1 text-gray-600 whitespace-pre-line">
-                      {caseGeneration.expected_result}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
-        </div>
 
-        <div>
-          <h2 className="text-sm font-semibold mb-1">前提条件：</h2>
-          <Textarea
-            placeholder="请输入前提条件..."
-            value={testCase.preconditions}
-            onChange={handleInputChange('preconditions')}
-            className="min-h-[96px]"
-            rows={4}
-          />
-        </div>
-
-        <div className="flex items-start gap-2">
-          <div className="flex-1">
-            <h2 className="text-sm font-semibold mb-1">用例步骤：</h2>
+          <div>
+            <h2 className="text-sm font-semibold mb-1">前提条件：</h2>
             <Textarea
-              placeholder="请输入用例步骤，可以是简单路径如：知识库-添加-意图..."
-              value={testCase.steps}
-              onChange={handleInputChange('steps')}
-              className="min-h-[168px]"
-              rows={7}
+              placeholder="请输入前提条件..."
+              value={testCase.preconditions}
+              onChange={handleInputChange('preconditions')}
+              className="min-h-[96px]"
+              rows={4}
+            />
+          </div>
+
+          <div className="flex items-start gap-2">
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-sm font-semibold">用例步骤：</h2>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsPathDialogOpen(true)}
+                        disabled={!testCase.summary.trim() || isGenerating.steps || !aiConfig}
+                        className="h-8"
+                      >
+                        {isGenerating.steps ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            生成中...
+                          </>
+                        ) : (
+                          <>
+                            <Wand2 className="mr-2 h-4 w-4" />
+                            根据路径简述生成用例步骤
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>需要先填写用例概述才能使用此功能</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Textarea
+                placeholder="请输入用例步骤，可以是简单路径如：知识库-添加-意图..."
+                value={testCase.steps}
+                onChange={handleInputChange('steps')}
+                className="min-h-[168px]"
+                rows={7}
+              />
+              {stepsGeneration && (
+                <div className="mt-2 border rounded-md p-4 bg-orange-50">
+                  <div className="flex items-start justify-between mb-3">
+                    <h3 className="font-medium text-orange-800 text-sm">生成的用例步骤：</h3>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="bg-white hover:bg-red-50 text-red-600 hover:text-red-700"
+                        onClick={handleRejectSteps}
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        拒绝
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="bg-white hover:bg-green-50 text-green-600 hover:text-green-700"
+                        onClick={handleAcceptSteps}
+                      >
+                        <Check className="h-4 w-4 mr-1" />
+                        接受
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="text-sm text-gray-600 whitespace-pre-line">
+                    {stepsGeneration.steps}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <h2 className="text-sm font-semibold mb-1">预期结果：</h2>
+            <Textarea
+              placeholder="请输入预期结果..."
+              value={testCase.expected_result}
+              onChange={handleInputChange('expected_result')}
+              className="min-h-[96px]"
+              rows={4}
             />
           </div>
         </div>
 
-        <div>
-          <h2 className="text-sm font-semibold mb-1">预期结果：</h2>
-          <Textarea
-            placeholder="请输入预期结果..."
-            value={testCase.expected_result}
-            onChange={handleInputChange('expected_result')}
-            className="min-h-[96px]"
-            rows={4}
-          />
-        </div>
-      </div>
+        <PathInputDialog
+          isOpen={isPathDialogOpen}
+          onOpenChange={setIsPathDialogOpen}
+          onSubmit={handleGenerateFromPath}
+          isLoading={isGenerating.steps}
+        />
+      </>
     </div>
   )
 } 
