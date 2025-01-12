@@ -15,6 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { RotateCcw } from 'lucide-react'
 import { PathInputDialog } from "@/components/path-input-dialog"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { getAIConfig } from '@/lib/ai-config-service'
 
 interface TestCaseDetail {
   summary: string
@@ -47,15 +48,15 @@ export function TestDetailAssistant() {
     generate?: boolean;
     steps?: boolean;
   }>({})
-  const [aiConfig, setAiConfig] = useState<AIModelConfig | null>(null)
   const { toast } = useToast()
   const [summaryOptimization, setSummaryOptimization] = useState<SummaryOptimization | null>(null)
   const [caseGeneration, setCaseGeneration] = useState<TestCaseGeneration | null>(null)
   const [isPathDialogOpen, setIsPathDialogOpen] = useState(false)
   const [stepsGeneration, setStepsGeneration] = useState<{ steps: string } | null>(null)
+  const [aiConfig, setAiConfig] = useState<AIModelConfig | null>(null)
 
   useEffect(() => {
-    const config = getDefaultConfig()
+    const config = getAIConfig()
     if (config) {
       setAiConfig(config)
     }
