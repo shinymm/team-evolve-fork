@@ -38,6 +38,7 @@ const mainMenuItems: MenuItem[] = [
     icon: <Database className="h-4 w-4" />,
     submenu: [
       { title: "边界识别知识", href: "/knowledge/boundary" },
+      { title: "产品信息架构", href: "/knowledge/information-architecture" },
     ]
   }
 ]
