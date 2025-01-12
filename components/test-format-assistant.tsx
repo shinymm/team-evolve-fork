@@ -31,6 +31,7 @@ export function TestFormatAssistant() {
   const [isFormatting, setIsFormatting] = useState(false)
   const [aiConfig, setAiConfig] = useState<AIModelConfig | null>(null)
   const { toast } = useToast()
+  const [isOutputComplete, setIsOutputComplete] = useState(false)
 
   useEffect(() => {
     const config = getDefaultConfig()
@@ -94,6 +95,7 @@ export function TestFormatAssistant() {
     setIsFormatting(true)
     setResult('')
     setParsedResult([])
+    setIsOutputComplete(false)
     let formattedResult = ''
 
     try {
@@ -113,6 +115,7 @@ export function TestFormatAssistant() {
         }
       )
 
+      setIsOutputComplete(true)
       toast({
         title: "格式化完成",
         description: "测试用例已格式化，请查看结果",
@@ -129,15 +132,49 @@ export function TestFormatAssistant() {
     }
   }
 
-  const handleCopy = async () => {
+  const handleCopyYaml = async () => {
     try {
       await navigator.clipboard.writeText(result)
       toast({
         title: "复制成功",
-        description: "内容已复制到剪贴板",
+        description: "YAML内容已复制到剪贴板",
       })
     } catch (error) {
       console.error('Copy error:', error)
+      toast({
+        variant: "destructive",
+        title: "复制失败",
+        description: "无法访问剪贴板",
+      })
+    }
+  }
+
+  const handleCopyTable = async () => {
+    try {
+      // 生成TSV格式（Excel可以直接粘贴）
+      const header = ['类型', '用例概述', '前提条件', '用例步骤', '预期结果'].join('\t')
+      const rows = parsedResult.map(testCase => {
+        // 处理步骤中的换行，将其替换为分号加空格
+        const steps = testCase?.steps?.replace(/\n/g, '; ') || ''
+        
+        return [
+          testCase?.type || '',
+          testCase?.summary || '',
+          testCase?.preconditions || '',
+          steps,
+          testCase?.expected_result || ''
+        ].join('\t')
+      })
+      
+      const tableContent = [header, ...rows].join('\n')
+      await navigator.clipboard.writeText(tableContent)
+      
+      toast({
+        title: "复制成功",
+        description: "表格内容已复制到剪贴板",
+      })
+    } catch (error) {
+      console.error('Copy table error:', error)
       toast({
         variant: "destructive",
         title: "复制失败",
@@ -186,14 +223,26 @@ export function TestFormatAssistant() {
 
       {parsedResult.length > 0 && (
         <div className="border rounded-lg p-4 bg-gray-50">
-          <div className="flex justify-end mb-2">
+          <div className="flex justify-end gap-2 mb-2">
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleCopy}
-              title="复制到剪贴板"
+              onClick={handleCopyTable}
+              title="复制为表格格式"
+              disabled={!isOutputComplete}
             >
-              <Copy className="h-4 w-4" />
+              <Copy className="h-4 w-4 mr-1" />
+              复制表格
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCopyYaml}
+              title="复制YAML格式"
+              disabled={!isOutputComplete}
+            >
+              <Copy className="h-4 w-4 mr-1" />
+              复制YAML
             </Button>
           </div>
           <div className="overflow-x-auto">
