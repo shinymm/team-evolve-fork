@@ -118,6 +118,14 @@ export default function InformationArchitecture() {
     return result
   }
 
+  const saveToLocalStorage = (data: ArchitectureItem[]) => {
+    try {
+      localStorage.setItem('qare-architecture', JSON.stringify(data))
+    } catch (error) {
+      console.error('Error saving architecture data:', error)
+    }
+  }
+
   const handleAdd = (parentId?: string) => {
     const newItem: ArchitectureItem = {
       id: generateId(parentId),
@@ -125,7 +133,11 @@ export default function InformationArchitecture() {
       description: "请添加描述",
       parentId
     }
-    setFlatArchitecture(prev => [...prev, newItem])
+    setFlatArchitecture(prev => {
+      const newData = [...prev, newItem]
+      saveToLocalStorage(newData)
+      return newData
+    })
   }
 
   const handleDelete = (id: string) => {

@@ -11,6 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/components/ui/use-toast"
 import { streamingAICall } from '@/lib/ai-service'
 import { cn } from '@/lib/utils'
+import { setAIConfig } from '@/lib/ai-config-service'
 
 interface AIModelConfig {
   id: string
@@ -23,8 +24,8 @@ interface AIModelConfig {
 }
 
 const presetConfigs = {
-  'zhipu': { url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions', modelName: 'glm-4v-flash' },
-  'openai': { url: 'https://api.openai.com/v1/chat/completions', modelName: 'gpt-4o-mini' },
+  'zhipu': { baseURL: 'https://open.bigmodel.cn/api/paas/v4/chat/completions', model: 'glm-4v-flash' },
+  'openai': { baseURL: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
 }
 
 export function AIModelSettings() {
@@ -53,11 +54,11 @@ export function AIModelSettings() {
   }, [configs])
 
   const handleAddConfig = () => {
-    if (newConfig.url && newConfig.modelName && newConfig.apiKey) {
+    if (newConfig.baseURL && newConfig.model && newConfig.apiKey) {
       const configToAdd = {
         ...newConfig,
         id: Date.now().toString(),
-        name: `${newConfig.modelName} (${new Date().toLocaleString()})`,
+        name: `${newConfig.model} (${new Date().toLocaleString()})`,
         temperature: newConfig.temperature || 0.2,
         isDefault: configs.length === 0,
       } as AIModelConfig
@@ -85,10 +86,26 @@ export function AIModelSettings() {
   }
 
   const handleSetDefault = (id: string) => {
-    setConfigs(configs.map(config => ({
+    const newConfigs = configs.map(config => ({
       ...config,
       isDefault: config.id === id
-    })))
+    }))
+    setConfigs(newConfigs)
+    
+    const defaultConfig = newConfigs.find(config => config.id === id)
+    if (defaultConfig) {
+      setAIConfig({
+        model: defaultConfig.model,
+        apiKey: defaultConfig.apiKey,
+        baseURL: defaultConfig.baseURL,
+        temperature: defaultConfig.temperature
+      })
+      
+      toast({
+        title: "已更新默认配置",
+        description: "AI模型配置已更新",
+      })
+    }
   }
 
   const handlePresetChange = (preset: keyof typeof presetConfigs) => {
@@ -100,33 +117,37 @@ export function AIModelSettings() {
 
   const handleTestConfig = async (config: AIModelConfig) => {
     setTestingId(config.id)
-    let responseContent = ''  // 用于收集完整的响应
+    let responseContent = ''
 
     try {
-      console.log('Testing config:', config)  // 打印配置信息
+      console.log('Testing config:', {
+        model: config.model,
+        baseURL: config.baseURL,
+        temperature: config.temperature
+      })
+
       await streamingAICall(
         '这是连接测试，请简单响应', 
         {
-          model: config.modelName,
+          model: config.model,
           apiKey: config.apiKey,
-          baseURL: config.url,
+          baseURL: config.baseURL,
           temperature: config.temperature
         },
         (content: string) => {
-          console.log('Received content chunk:', content)  // 打印每个响应块
-          responseContent += content  // 累积响应内容
+          console.log('Received content chunk:', content)
+          responseContent += content
         }
       )
 
-      // 测试成功后更新状态和显示消息
       setTestResults(prev => ({ ...prev, [config.id]: true }))
       toast({
         title: "链接测试成功",
-        description: `${responseContent.slice(0, 50)}...`,  // 显示部分响应内容
+        description: `${responseContent.slice(0, 50)}...`,
       })
 
     } catch (error) {
-      console.error('Test config error:', error)  // 打印错误信息
+      console.error('Test config error:', error)
       setTestResults(prev => ({ ...prev, [config.id]: false }))
       toast({
         variant: "destructive",
@@ -162,8 +183,8 @@ export function AIModelSettings() {
           <TableBody>
             {configs.map((config) => (
               <TableRow key={config.id}>
-                <TableCell>{config.url}</TableCell>
-                <TableCell>{config.modelName}</TableCell>
+                <TableCell>{config.baseURL}</TableCell>
+                <TableCell>{config.model}</TableCell>
                 <TableCell>{config.temperature}</TableCell>
                 <TableCell>
                   <input
@@ -233,8 +254,8 @@ export function AIModelSettings() {
               <Label htmlFor="url">API URL</Label>
               <Input
                 id="url"
-                value={newConfig.url || ''}
-                onChange={(e) => setNewConfig({ ...newConfig, url: e.target.value })}
+                value={newConfig.baseURL || ''}
+                onChange={(e) => setNewConfig({ ...newConfig, baseURL: e.target.value })}
               />
             </div>
 
@@ -242,8 +263,8 @@ export function AIModelSettings() {
               <Label htmlFor="modelName">模型名称</Label>
               <Input
                 id="modelName"
-                value={newConfig.modelName || ''}
-                onChange={(e) => setNewConfig({ ...newConfig, modelName: e.target.value })}
+                value={newConfig.model || ''}
+                onChange={(e) => setNewConfig({ ...newConfig, model: e.target.value })}
               />
             </div>
 

@@ -1,63 +1,67 @@
 export interface AIModelConfig {
-  model: string
-  apiKey: string
-  baseURL?: string
-  temperature?: number
+  model: string        // 模型名称
+  apiKey: string      // API密钥
+  baseURL: string     // API基础URL
+  temperature?: number // 温度参数
+  id?: string         // 配置项ID（仅用于UI管理）
+  name?: string       // 配置项显示名称（仅用于UI管理）
+  isDefault?: boolean // 是否为默认配置（仅用于UI管理）
 }
 
-export const getDefaultConfig = (): AIModelConfig | null => {
-  try {
-    const configs = localStorage.getItem('aiModelConfigs')
-    if (!configs) return null
+// export const getDefaultConfig = (): AIModelConfig | null => {
+//   try {
+//     const configs = localStorage.getItem('aiModelConfigs')
+//     if (!configs) return null
     
-    const allConfigs = JSON.parse(configs)
-    const defaultConfig = allConfigs.find((c: any) => c.isDefault)
+//     const allConfigs = JSON.parse(configs)
+//     const defaultConfig = allConfigs.find((c: any) => c.isDefault)
     
-    if (!defaultConfig) return null
+//     if (!defaultConfig) return null
     
-    return {
-      model: defaultConfig.modelName,
-      apiKey: defaultConfig.apiKey,
-      baseURL: defaultConfig.url,
-      temperature: defaultConfig.temperature
-    }
-  } catch (error) {
-    console.error('Error getting default config:', error)
-    return null
-  }
-}
+//     return {
+//       model: defaultConfig.model,
+//       apiKey: defaultConfig.apiKey,
+//       baseURL: defaultConfig.baseURL,
+//       temperature: defaultConfig.temperature
+//     }
+//   } catch (error) {
+//     console.error('Error getting default config:', error)
+//     return null
+//   }
+// }
 
-export const streamingAICall = async (
+export async function streamingAICall(
   prompt: string,
   config: AIModelConfig,
   onContent: (content: string) => void
-) => {
+) {
   try {
+    // 使用 modelName 或 model
+    const modelToUse = config.model || config.model
+    // 使用 url 或 baseURL
+    const urlToUse = config.baseURL || config.baseURL
+
     console.log('Calling AI with config:', {
-      baseURL: config.baseURL,
-      model: config.model,
+      baseURL: urlToUse,
+      model: modelToUse,
       temperature: config.temperature
     })
 
-    const requestBody = {
-      model: config.model,
-      messages: [{ role: "user", content: prompt }],
-      stream: true,
-      temperature: config.temperature,
-    }
-
-    console.log('Request body:', requestBody)
-
-    const response = await fetch(config.baseURL || 'https://api.openai.com/v1/chat/completions', {
+    const baseURL = urlToUse.replace(/\/+$/, '')
+    
+    const response = await fetch(`${baseURL}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.apiKey}`,
+        'Authorization': `Bearer ${config.apiKey}`
       },
-      body: JSON.stringify(requestBody)
+      body: JSON.stringify({
+        model: modelToUse,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: config.temperature ?? 0.7,
+        stream: true
+      })
     })
-
-    console.log('Response status:', response.status)
 
     if (!response.ok) {
       const error = await response.text()

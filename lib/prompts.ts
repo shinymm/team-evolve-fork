@@ -1,3 +1,5 @@
+import { getFormattedArchitecture } from './architecture-service'
+
 export const boundaryAnalysisPromptTemplate = `
 <Role_Goal>
 你作为一个有着丰富经验、认真细心的的需求分析助理，善于结合相关的业务知识，识别出需求初稿中可能遗漏的重要需求点，尤其是边界Case。
@@ -211,28 +213,6 @@ test_cases:
 
 请直接生成YAML格式内容，不要包含其他任何描述：` 
 
-export const generateDetailPromptTemplate = `作为一位专业的测试专家，请基于以下用例概述生成完整的测试用例细节。
-
-用例概述：
-{summary}
-
-请生成以下内容：
-1. 前提条件：列出执行该测试用例所需的所有前置条件
-2. 详细的测试步骤：将概述拆分为具体的操作步骤，每个步骤应该是一个具体的操作
-3. 预期结果：描述完成所有步骤后应该看到的结果
-
-请使用以下YAML格式返回：
-
-preconditions: |
-  1. xxx
-  2. xxx
-steps: |
-  1. xxx
-  2. xxx
-expected_result: |
-  1. xxx
-  2. xxx`
-
 export const generateFromStepsPromptTemplate = `作为一位专业的测试专家，请基于以下信息生成详细的测试步骤。
 
 用例概述：
@@ -305,3 +285,28 @@ export const optimizeSummaryPromptTemplate = `作为一位专业的测试专家�
 optimized_summary: 优化后的概述
 analysis: 分析当前概述存在的问题
 improvements: 具体改进建议` 
+
+export const generateDetailPromptTemplate = `你是一个专业的测试工程师，请根据以下信息生成完整的测试用例。
+
+当前产品的功能架构信息如下：
+{architecture_info}
+
+用例概述：
+{summary}
+
+请基于产品功能架构信息，生成完整的测试用例细节。要求：
+1. 前提条件要完整且明确，包括必要的环境、权限、数据等准备工作
+2. 测试步骤要具体且符合产品的实际功能结构，每个步骤都要清晰可执行
+3. 预期结果要对应每个测试步骤，且要有明确的验证点
+4. 所有步骤和操作路径必须严格遵循产品的实际功能架构
+
+请使用以下 YAML 格式返回：
+
+preconditions: |
+  前提条件内容...
+steps: |
+  1. 第一步...
+  2. 第二步...
+expected_result: |
+  1. 第一步的预期结果...
+  2. 第二步的预期结果...`

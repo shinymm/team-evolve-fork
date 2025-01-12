@@ -16,6 +16,7 @@ import { RotateCcw } from 'lucide-react'
 import { PathInputDialog } from "@/components/path-input-dialog"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { getAIConfig } from '@/lib/ai-config-service'
+import { getFormattedArchitecture } from '@/lib/architecture-service'
 
 interface TestCaseDetail {
   summary: string
@@ -77,7 +78,10 @@ export function TestDetailAssistant() {
     setCaseGeneration(null)
 
     try {
-      const prompt = generateDetailPromptTemplate.replace('{summary}', testCase.summary.trim())
+      const architectureInfo = getFormattedArchitecture()
+      const prompt = generateDetailPromptTemplate
+        .replace('{architecture_info}', architectureInfo || '暂无产品功能架构信息')
+        .replace('{summary}', testCase.summary.trim())
 
       let generatedResult = ''
 

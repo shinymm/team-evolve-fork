@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/components/ui/use-toast"
 import { Map, Target, ArrowRight, Loader2, History, Pencil, Save, X, ArrowLeft, ChevronRight, Copy } from 'lucide-react'
-import { getDefaultConfig, streamingAICall } from '@/lib/ai-service'
+import { streamingAICall } from '@/lib/ai-service'
+import { getAIConfig } from '@/lib/ai-config-service'
 import type { AIModelConfig } from '@/lib/ai-service'
 import ReactMarkdown from 'react-markdown'
 import { userJourneyPromptTemplate, boundaryAnalysisPromptTemplate, optimizeRequirementsPromptTemplate } from '@/lib/prompts'
@@ -92,7 +93,7 @@ export function BoundaryAnalysis() {
   const [includePreviousAnalysis, setIncludePreviousAnalysis] = useState(false)
 
   useEffect(() => {
-    const config = getDefaultConfig()
+    const config = getAIConfig()
     if (config) {
       setAiConfig(config)
     }

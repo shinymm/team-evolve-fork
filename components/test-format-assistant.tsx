@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2, Copy, Pencil, Trash2, RotateCcw } from 'lucide-react'
-import { getDefaultConfig, streamingAICall } from '@/lib/ai-service'
+import { streamingAICall } from '@/lib/ai-service'
+import { getAIConfig } from '@/lib/ai-config-service'
 import type { AIModelConfig } from '@/lib/ai-service'
 import yaml from 'yaml'
 import { testFormatPromptTemplate } from '@/lib/prompts'
@@ -40,7 +41,7 @@ export function TestFormatAssistant() {
   const [isOutputComplete, setIsOutputComplete] = useState(false)
 
   useEffect(() => {
-    const config = getDefaultConfig()
+    const config = getAIConfig()
     if (config) {
       setAiConfig(config)
     }
