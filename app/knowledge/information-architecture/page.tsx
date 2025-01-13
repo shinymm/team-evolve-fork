@@ -26,7 +26,7 @@ const initialArchitecture: ArchitectureItem[] = [
         { "id": "2-2", "parentId": "2", "title": "机器人配置", "description": "包括知识、脚本、全局异常及模型相关参数配置" },
         { "id": "2-3", "parentId": "2", "title": "机器人部署", "description": "机器人上下线的管理" },
       
-        { "id": "3", "title": "文档管理（RAG）", "description": "支持文档上传、删除和检索等功能" },
+        { "id": "3", "title": "文档管理", "description": "支持文档上传、删除和检索等功能" },
         { "id": "3-1", "parentId": "3", "title": "上传/删除", "description": "提供文档的上传与删除管理" },
         { "id": "3-2", "parentId": "3", "title": "搜索", "description": "通过文档内容检索相关信息" },
       
@@ -43,10 +43,13 @@ const initialArchitecture: ArchitectureItem[] = [
         { "id": "5-4", "parentId": "5", "title": "TTS语音合成引擎", "description": "语音合成和情感表达相关功能" },
       
         { "id": "6", "title": "运营工具", "description": "包含效果评测、测试集管理、巡检任务等功能模块" },
-        { "id": "6-1", "parentId": "6", "title": "效果评测", "description": "提供对对话效果的测评能力" },
+        { "id": "6-1", "parentId": "6", "title": "效果测评", "description": "提供对对话效果的测评能力" },
         { "id": "6-2", "parentId": "6", "title": "巡检任务", "description": "任务完成后的数据巡检工具" },
-        { "id": "6-3", "parentId": "6", "title": "聚类", "description": "对对话和数据进行聚类分析" },
-        { "id": "6-4", "parentId": "6", "title": "标注", "description": "支持会话和消息的标注与质量检测" },
+        { "id": "6-3", "parentId": "6", "title": "文本聚类", "description": "对对话和数据进行聚类分析" },
+        { "id": "6-4", "parentId": "6", "title": "消息级标注", "description": "支持消息的标注与质量检测" },
+        { "id": "6-5", "parentId": "6", "title": "会话级标注", "description": "支持会话的标注与质量检测" },
+        { "id": "6-6", "parentId": "6", "title": "歧义教育标注", "description": "支持歧义的标注与质量检测" },
+        { "id": "6-7", "parentId": "6", "title": "预警监控中心", "description": "预警与监控的面板" },
       
         { "id": "7", "title": "数据看板", "description": "提供实时数据的可视化展示功能" },
         { "id": "7-1", "parentId": "7", "title": "数据概览", "description": "展示核心数据的总览信息" },
@@ -56,9 +59,7 @@ const initialArchitecture: ArchitectureItem[] = [
         { "id": "8", "title": "系统监控", "description": "负责系统模型、资源、任务和数据的监控与预警" },
         { "id": "8-1", "parentId": "8", "title": "模型监控", "description": "对模型训练和使用情况的监控" },
         { "id": "8-2", "parentId": "8", "title": "任务监控", "description": "对任务执行状态的监控" },
-        { "id": "8-3", "parentId": "8", "title": "数据监控", "description": "提供数据使用与变化的监控能力" }
-      
-      
+        { "id": "8-3", "parentId": "8", "title": "数据监控", "description": "提供数据使用与变化的监控能力" }   
 ]
 
 export default function InformationArchitecture() {

@@ -8,28 +8,6 @@ export interface AIModelConfig {
   isDefault?: boolean // 是否为默认配置（仅用于UI管理）
 }
 
-// export const getDefaultConfig = (): AIModelConfig | null => {
-//   try {
-//     const configs = localStorage.getItem('aiModelConfigs')
-//     if (!configs) return null
-    
-//     const allConfigs = JSON.parse(configs)
-//     const defaultConfig = allConfigs.find((c: any) => c.isDefault)
-    
-//     if (!defaultConfig) return null
-    
-//     return {
-//       model: defaultConfig.model,
-//       apiKey: defaultConfig.apiKey,
-//       baseURL: defaultConfig.baseURL,
-//       temperature: defaultConfig.temperature
-//     }
-//   } catch (error) {
-//     console.error('Error getting default config:', error)
-//     return null
-//   }
-// }
-
 export async function streamingAICall(
   prompt: string,
   config: AIModelConfig,
