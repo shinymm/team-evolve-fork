@@ -135,7 +135,7 @@ export function AIModelSettings() {
           temperature: config.temperature
         },
         (content: string) => {
-          console.log('Received content chunk:', content)
+          // console.log('Received content chunk:', content)
           responseContent += content
         }
       )
