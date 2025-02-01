@@ -18,14 +18,14 @@ interface MenuItem {
 // 将设置菜单从主菜单中分离出来
 const mainMenuItems: MenuItem[] = [
   {
-    title: "需求辅助",
+    title: "需求能力胶囊",
     icon: <Microscope className="h-4 w-4" />,
     submenu: [
       { title: "需求边界分析", href: "/requirements/boundary-analysis" },
     ]
   },
   {
-    title: "测试辅助",
+    title: "测试能力胶囊",
     icon: <ListChecks className="h-4 w-4" />,
     submenu: [
       { title: "测试用例生成", href: "/requirements/test-cases" },
@@ -34,7 +34,7 @@ const mainMenuItems: MenuItem[] = [
     ]
   },
   {
-    title: "知识库",
+    title: "知识熔炉",
     icon: <Database className="h-4 w-4" />,
     submenu: [
       { title: "产品信息架构", href: "/knowledge/information-architecture" },
