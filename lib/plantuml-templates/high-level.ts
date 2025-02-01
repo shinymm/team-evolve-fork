@@ -3,7 +3,7 @@ export const highLevelArchitecture = `
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
 
 !$COLOR_NEUTRAL = "#f7f7f7"
-!$COLOR_B_2 = "#91BAEA"
+!$COLOR_B_2 = "#91BAE1"
 !$COLOR_B_4 = "#91BAEA"
 UpdateElementStyle("external_system", $bgColor=$COLOR_B_2, $fontColor="black", $borderColor=$COLOR_B_2, $legendText="CoreSystem")
 
@@ -18,7 +18,7 @@ Person(internal, "内部员工", $sprite="person2")
 Person(caiwu, "财务", $sprite="person2")
 Person(c, "柜员", $sprite="person2")
 Person(branch_user, "分行员工", $sprite="person2")
-Person(jituan_user, "集团用户（如其他子公司）", $sprite="person2")
+Person(jituan_user, "集团用户", $sprite="person2")
 
 Boundary(c1, "QARE", $link="https://github.com/plantuml-stdlib/C4-PlantUML") {
     System(qare, "智能对话系统", "", $descr="智能外呼、文本/语音机器人、会话质检、知识运营、机器人引擎运营")
