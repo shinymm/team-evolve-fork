@@ -43,8 +43,13 @@ export default function SystemArchitecturePage() {
   };
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">系统架构</h1>
+    <div className="w-[90%] mx-auto py-8">
+      <div className="mb-8">
+        <h1 className="text-2xl font-semibold text-gray-900">系统架构</h1>
+        <p className="mt-2 text-sm text-gray-500">
+          这里展示了QARE产品的整体系统架构、应用架构与部署架构。
+        </p>
+      </div>
       
       <div className="mb-6">
         <div className="border-b border-gray-200">

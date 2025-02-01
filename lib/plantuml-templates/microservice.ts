@@ -35,9 +35,6 @@ System_Boundary(c1, "QARE-智能对话系统") {
         ContainerDb(obs, "OBS", "华为OBS", $descr="模型存储、训练数据集",$tags="db")
     }
     ContainerDb(es, "ES", "", $descr="会话记录",$tags="db")
-    ' ContainerDb(mysql, "MySQL", "", $descr="标注数据等")
-    
-
 }
 
 System_Ext(knowledge, "知识库", $descr="FAQ知识管理源头")
@@ -51,7 +48,6 @@ Rel_U(outcall, switch,  "智能外呼", "HTTPS")
 Rel_D(outcall, robot,  "智能外呼", "HTTPS")
 Rel_U(switch, upstream,   "智能外呼", "HTTPS")
 
-
 Rel(gateway, robot, "运营时配置机器人、会话时问答", "HTTPS")
 Rel(gateway, kb, "", "HTTPS")
 
@@ -61,16 +57,13 @@ Rel(ude, search, "文档检索", "HTTPS")
 Rel(search, embedding, "检索", "HTTPS")
 Rel(ude, online, "NLU请求、意图识别等", "HTTPS")
 
-
 Rel(process, es, "主备数据同步", "Kaffka", $tags="backup")
 Rel(opt, es,  "获取会话标注", "Kaffka", $tags="backup")
 Rel(opt,online, "模型发布", "https")
 Rel(opt,process, "预警监控/测评巡检", "https")
 Rel(opt,obs, "（发起训练时）转存训练数据集", "file", $tags="backup")
-
 Rel_R(gateway, platform, "", "HTTPS")
 Rel(gateway, opt, "运营管理", "HTTPS")
-
 Rel(dashboard, gateway,  "运营监控", "HTTPS")
 Rel(opt, offline, "发起训练任务", "HTTPS")
 Rel(offline, obs, "模型存储", "", $tags="backup")

@@ -200,7 +200,13 @@ export function BoundaryAnalysis() {
   }
 
   return (
-    <div className="max-w-[95%] mx-auto px-2">
+    <div className="w-[90%] mx-auto py-8">
+      <div className="mb-8">
+        <h1 className="text-2xl font-semibold text-gray-900">边界识别知识</h1>
+        <p className="mt-2 text-sm text-gray-500">
+          这里展示了QARE产品的整体功能结构和信息层次关系。支持导入导出功能，方便在平台外批量修改。
+        </p>
+      </div>
       <div className="space-y-2">
         {!aiConfig && (
           <Alert>
