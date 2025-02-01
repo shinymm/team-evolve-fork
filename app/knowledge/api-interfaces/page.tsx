@@ -5,6 +5,7 @@ import { Eye, Bell, ChevronRight } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { SwaggerViewer } from "@/components/swagger-viewer"
 import { SwaggerDocs } from "@/lib/swagger-docs"
+import { SubscriptionViewer } from "@/components/subscription-viewer"
 
 interface APIInterface {
   id: string
@@ -31,6 +32,7 @@ const initialInterfaces: APIInterface[] = [
 export default function APIInterfacesPage() {
   const [interfaces] = useState<APIInterface[]>(initialInterfaces)
   const [selectedEndpoint, setSelectedEndpoint] = useState<keyof SwaggerDocs | null>(null)
+  const [showSubscriptions, setShowSubscriptions] = useState<string | null>(null)
 
   const getTypeColor = (type: APIInterface['type']) => {
     const colors = {
@@ -106,6 +108,7 @@ export default function APIInterfacesPage() {
                       size="sm"
                       className="text-orange-600 hover:text-orange-900"
                       title="查看订阅列表"
+                      onClick={() => setShowSubscriptions(api.name)}
                     >
                       <Bell className="h-4 w-4" />
                     </Button>
@@ -122,6 +125,14 @@ export default function APIInterfacesPage() {
           isOpen={!!selectedEndpoint}
           onClose={() => setSelectedEndpoint(null)}
           endpoint={selectedEndpoint}
+        />
+      )}
+
+      {showSubscriptions && (
+        <SubscriptionViewer
+          isOpen={!!showSubscriptions}
+          onClose={() => setShowSubscriptions(null)}
+          apiName={showSubscriptions}
         />
       )}
     </div>
