@@ -407,7 +407,7 @@ export default function InformationArchitecture() {
           </div>
         </div>
         <p className="mt-2 text-sm text-gray-500">
-          这里展示了QARE产品的整体功能结构和信息层次关系。支持导入导出功能，方便在平台外批量修改。
+          这里展示了产品的整体功能结构和信息层次关系。支持导入导出功能，方便在平台外批量修改。
         </p>
       </div>
       

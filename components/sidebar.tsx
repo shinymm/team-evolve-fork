@@ -1,6 +1,6 @@
 'use client'
 
-import { ChevronDown, Settings, Database, Microscope, ListChecks, BookOpenIcon } from 'lucide-react'
+import { ChevronDown, Settings, Database, Microscope, ListChecks, BookOpenIcon, Flame } from 'lucide-react'
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
@@ -39,6 +39,7 @@ const mainMenuItems: MenuItem[] = [
     submenu: [
       { title: "产品信息架构", href: "/knowledge/information-architecture" },
       { title: "系统架构", href: "/knowledge/system-architecture" },
+      { title: "API 开放接口", href: "/knowledge/api-interfaces" },
       { title: "边界识别知识", href: "/knowledge/boundary" },
     ]
   }
