@@ -29,6 +29,7 @@ const mainMenuItems: MenuItem[] = [
     icon: <Microscope className="h-4 w-4" />,
     submenu: [
       { title: "原始需求分析", href: "/requirements/evolution" },
+      { title: "需求衍化", href: "/requirements/book" },
       { title: "需求边界分析", href: "/requirements/boundary-analysis" },
       { title: "测试用例生成", href: "/requirements/test-cases" },
       { title: "测试描述格式化", href: "/requirements/test-format" },

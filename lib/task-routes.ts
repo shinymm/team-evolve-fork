@@ -27,6 +27,13 @@ export const taskActions: Record<string, TaskAction> = {
       description: '自助进行需求分析和完善'
     }
   },
+  'requirement-book': {
+    aiHelp: {
+      route: '/requirements/book',
+      title: '需求衍化',
+      description: 'AI辅助生成结构化需求书'
+    }
+  },
   'boundary-analysis': {
     aiHelp: {
       route: '/requirements/boundary-analysis',

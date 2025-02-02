@@ -36,8 +36,18 @@ const defaultRequirementTask: Task = {
   createdAt: new Date().toISOString(),
 }
 
+const defaultRequirementBookTask: Task = {
+  id: 'requirement-book',
+  title: '需求衍化',
+  description: '基于原始需求分析结果，生成结构化的需求书。',
+  type: '需求管理',
+  status: 'pending',
+  assignee: 'system',
+  createdAt: new Date().toISOString(),
+}
+
 // 模拟数据存储
-let tasks: Task[] = [defaultRequirementTask]
+let tasks: Task[] = [defaultRequirementTask, defaultRequirementBookTask]
 
 export async function createTask(params: CreateTaskParams): Promise<Task> {
   const task: Task = {
