@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { ToastProvider } from "@/components/providers/toast-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { BookOpenIcon } from "@heroicons/react/24/outline"
+import { SiteHeader } from "@/components/site-header"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -21,11 +22,11 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="zh">
+    <html lang="zh-CN">
       <body className={inter.className}>
         <TooltipProvider>
-          <div className="min-h-screen flex flex-col">
-            <Header />
+          <div className="relative flex min-h-screen flex-col">
+            <SiteHeader />
             <div className="flex-1 flex">
               <Sidebar />
               <main className="flex-1 p-6">

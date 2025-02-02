@@ -69,3 +69,10 @@
   margin-top: calc(1.5rem * calc(1 - var(--tw-space-y-reverse)));
   margin-bottom: calc(1.5rem * var(--tw-space-y-reverse));
 }
+
+@font-face {
+  font-family: 'font-kai';
+  src: url('/fonts/KaiTi.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
