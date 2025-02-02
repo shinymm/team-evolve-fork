@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import { Button } from '@/components/ui/button'
 
 export default function HomePage() {
   return (
@@ -13,15 +14,16 @@ export default function HomePage() {
           priority
           className="mx-auto"
         />
-        <h1 className="text-3xl font-bold text-gray-800 mt-6 mb-48">
+        <h1 className="text-3xl font-bold text-gray-800 mt-6 mb-36">
           知识驱动能力破界，AI召唤协作灵感
         </h1>
-        <Link 
-          href="/knowledge/information-architecture" 
-          className="inline-block px-8 py-3 text-2xl font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors"
-        >
-          启程入阵
-        </Link>
+        <div className="flex gap-4 justify-center">
+          <Link href="/requirements/evolution">
+            <Button size="lg" className="text-2xl bg-orange-500 hover:bg-orange-600">
+              启程入阵
+            </Button>
+          </Link>
+        </div>
       </div>
     </div>
   )
