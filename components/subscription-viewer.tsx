@@ -7,22 +7,14 @@ interface SubscriptionViewerProps {
   isOpen: boolean
   onClose: () => void
   apiName: string
+  apiEndpoint: string
+  subscriptions: Array<{
+    systemId: string
+    systemName: string
+  }>
 }
 
-const subscriptions = [
-  { id: '95558', name: '语音客服' },
-  { id: 'mobile', name: '手机银行' },
-  { id: 'branch', name: '各个分行' },
-  { id: 'jituan', name: '协同机器人' },
-  { id: 'trade', name: '金市交易平台' },
-  { id: 'corpweb', name: '对公网银/APP' },
-  { id: 'mpp', name: '对公队伍工作台' },
-  { id: 'operate', name: '运维系统' },
-  { id: 'money', name: '报销问答系统' },
-  { id: 'counter', name: '柜面系统' }
-]
-
-export function SubscriptionViewer({ isOpen, onClose, apiName }: SubscriptionViewerProps) {
+export function SubscriptionViewer({ isOpen, onClose, apiName, apiEndpoint, subscriptions }: SubscriptionViewerProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px]">
@@ -37,9 +29,9 @@ export function SubscriptionViewer({ isOpen, onClose, apiName }: SubscriptionVie
             </div>
             <div className="divide-y divide-gray-200">
               {subscriptions.map((sub) => (
-                <div key={sub.id} className="px-4 py-3 grid grid-cols-2 gap-4 hover:bg-gray-50">
-                  <div className="text-sm font-mono text-gray-600">{sub.id}</div>
-                  <div className="text-sm text-gray-900">{sub.name}</div>
+                <div key={sub.systemId} className="px-4 py-3 grid grid-cols-2 gap-4 hover:bg-gray-50">
+                  <div className="text-sm font-mono text-gray-600">{sub.systemId}</div>
+                  <div className="text-sm text-gray-900">{sub.systemName}</div>
                 </div>
               ))}
             </div>

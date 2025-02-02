@@ -18,10 +18,10 @@ interface MenuItem {
 // 将设置菜单从主菜单中分离出来
 const mainMenuItems: MenuItem[] = [
   {
-    title: "蜂巢异界进化",
+    title: "异界进化",
     icon: <Hexagon className="h-4 w-4" />,
     submenu: [
-      { title: "蜂群战术板", href: "/collaboration/tactical-board" }
+      { title: "战术板", href: "/collaboration/tactical-board" }
     ]
   },
   {

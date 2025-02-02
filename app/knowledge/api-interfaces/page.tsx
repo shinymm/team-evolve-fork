@@ -19,16 +19,33 @@ interface APIInterface {
   swaggerEndpoint?: keyof SwaggerDocs
 }
 
+interface APISubscription {
+  apiEndpoint: string
+  subscribers: Array<{
+    systemId: string
+    systemName: string
+  }>
+}
+
 const initialInterfaces: APIInterface[] = [
-  {
-    id: '1',
-    name: '文本机器人对话接口',
-    description: '提供文本机器人的对话功能，支持流式返回和一次性返回两种模式',
-    type: 'REST',
-    endpoint: '/api/v1/chat',
-    operation: 'POST',
-    swaggerEndpoint: '/api/v1/chat'
-  }
+    {
+        id: '1',
+        name: '文本机器人对话接口',
+        description: '提供文本机器人的对话功能，支持流式返回和一次性返回两种模式',
+        type: 'REST',
+        endpoint: '/api/v1/chat',
+        operation: 'POST',
+        swaggerEndpoint: '/api/v1/chat'
+    },
+    {
+        id: '2',
+        name: '外呼任务下发接口',
+        description: '提供外呼任务的下发功能',
+        type: 'REST',
+        endpoint: '/api/v1/outcall/tasks',
+        operation: 'POST',
+        swaggerEndpoint: '/api/v1/outcall/tasks'
+    }
 ]
 
 export default function APIInterfacesPage() {
@@ -37,6 +54,7 @@ export default function APIInterfacesPage() {
   const [showSubscriptions, setShowSubscriptions] = useState<string | null>(null)
   const [showSubscriptionForm, setShowSubscriptionForm] = useState(false)
   const [subscriptions, setSubscriptions] = useState(initialInterfaces)
+  const [selectedApi, setSelectedApi] = useState<APIInterface | null>(null)
 
   const getTypeColor = (type: APIInterface['type']) => {
     const colors = {
@@ -59,6 +77,35 @@ export default function APIInterfacesPage() {
       apiEndpoint: '/api/v1/chat'
     })
   }
+
+  // 模拟不同接口的订阅数据
+  const subscriptionsByApi: APISubscription[] = [
+    {
+      apiEndpoint: '/api/v1/chat',
+      subscribers: [
+        { systemId: '95558', systemName: '语音客服' },
+        { systemId: 'mobile', systemName: '手机银行' },
+        { systemId: 'branch', systemName: '各个分行' },
+        { systemId: 'jituan', systemName: '协同机器人' },
+        { systemId: 'trade', systemName: '金市交易平台' },
+        { systemId: 'corpweb', systemName: '对公网银/APP' },
+        { systemId: 'mpp', systemName: '对公队伍工作台' },
+        { systemId: 'operate', systemName: '运维系统' },
+        { systemId: 'money', systemName: '报销问答系统' },
+        { systemId: 'counter', systemName: '柜面系统' },
+        { systemId: 'opr', systemName: '坐席辅助' },
+        { systemId: 'm', systemName: '队伍工作台' }
+      ]
+    },
+    {
+      apiEndpoint: '/api/v1/outcall/tasks',
+      subscribers: [
+        { systemId: 'mpp', systemName: '对公队伍工作台' },
+        { systemId: 'opr', systemName: '坐席辅助' },
+        { systemId: 'm', systemName: '队伍工作台' },
+      ]
+    }
+  ]
 
   return (
     <div className="w-[90%] mx-auto py-8">
@@ -113,7 +160,7 @@ export default function APIInterfacesPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-blue-600 hover:text-blue-900"
+                      className="text-orange-600 hover:text-orange-900"
                       title="查看接口详情"
                       onClick={() => setSelectedEndpoint(api.swaggerEndpoint)}
                     >
@@ -124,14 +171,17 @@ export default function APIInterfacesPage() {
                       size="sm"
                       className="text-orange-600 hover:text-orange-900"
                       title="查看订阅列表"
-                      onClick={() => setShowSubscriptions(api.name)}
+                      onClick={() => {
+                        setSelectedApi(api)
+                        setShowSubscriptions(api.name)
+                      }}
                     >
                       <Bell className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-green-600 hover:text-green-900"
+                      className="text-orange-600 hover:text-orange-900"
                       title="订阅接口"
                       onClick={() => setShowSubscriptionForm(true)}
                     >
@@ -153,11 +203,16 @@ export default function APIInterfacesPage() {
         />
       )}
 
-      {showSubscriptions && (
+      {showSubscriptions && selectedApi && (
         <SubscriptionViewer
           isOpen={!!showSubscriptions}
-          onClose={() => setShowSubscriptions(null)}
+          onClose={() => {
+            setShowSubscriptions(null)
+            setSelectedApi(null)
+          }}
           apiName={showSubscriptions}
+          apiEndpoint={selectedApi.endpoint}
+          subscriptions={subscriptionsByApi.find(s => s.apiEndpoint === selectedApi.endpoint)?.subscribers || []}
         />
       )}
 
