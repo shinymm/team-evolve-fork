@@ -31,13 +31,45 @@ export function Hexagon({
   // 如果有连接线，计算连接点
   const connectionPoints = isConnected && nextTask ? calculateConnectionPoints(x, y, size) : null
 
+  // 根据任务状态决定颜色
+  const getStatusColors = () => {
+    if (!task) return {
+      fill: '#F9FAFB',
+      stroke: '#E5E7EB',
+      glow: '#FED7AA'
+    }
+
+    switch (task.status) {
+      case 'completed':
+        return {
+          fill: '#ECFDF5',
+          stroke: '#6EE7B7',
+          glow: '#A7F3D0'
+        }
+      case 'in_progress':
+        return {
+          fill: '#FFF7ED',
+          stroke: '#FDBA74',
+          glow: '#FED7AA'
+        }
+      default:
+        return {
+          fill: '#F9FAFB',
+          stroke: '#E5E7EB',
+          glow: '#E5E7EB'
+        }
+    }
+  }
+
+  const colors = getStatusColors()
+
   return (
     <g style={{ isolation: 'isolate' }}>
       {/* 定义滤镜 */}
       <defs>
         <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
           <feGaussianBlur stdDeviation="3" result="blur" />
-          <feFlood floodColor="#FED7AA" floodOpacity="0.5" />
+          <feFlood floodColor={colors.glow} floodOpacity="0.5" />
           <feComposite in2="blur" operator="in" />
           <feMerge>
             <feMergeNode />
@@ -78,7 +110,7 @@ export function Hexagon({
           <polygon
             points={points}
             fill="none"
-            stroke="#FDBA74"
+            stroke={colors.stroke}
             strokeWidth="1"
             filter="url(#glow)"
           />
@@ -86,10 +118,12 @@ export function Hexagon({
           {/* 主体六边形 */}
           <polygon
             points={points}
-            fill="#FFF7ED"
-            stroke="#FDBA74"
+            fill={colors.fill}
+            stroke={colors.stroke}
             strokeWidth="1"
-            className="cursor-pointer hover:fill-orange-100 transition-transform duration-200 hover:-translate-y-1"
+            className={`cursor-pointer transition-transform duration-200 hover:-translate-y-1 ${
+              task?.status === 'completed' ? 'hover:fill-green-100' : 'hover:fill-orange-100'
+            }`}
             filter="url(#shadow)"
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}
@@ -102,7 +136,9 @@ export function Hexagon({
               y={y}
               textAnchor="middle"
               dominantBaseline="middle"
-              className="text-[14px] fill-gray-600 pointer-events-none select-none"
+              className={`text-[14px] pointer-events-none select-none ${
+                task.status === 'completed' ? 'fill-green-700' : 'fill-gray-600'
+              }`}
             >
               {task.title}
             </text>

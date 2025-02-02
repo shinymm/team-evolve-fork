@@ -3,18 +3,24 @@
 import { useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "@/components/ui/use-toast"
 import { streamingAICall } from '@/lib/ai-service'
 import { getAIConfig } from '@/lib/ai-config-service'
 import { Card } from "@/components/ui/card"
-import { Loader2, Copy, Download } from "lucide-react"
+import { Loader2, Copy, Download, Edit2, Save, ArrowRight } from "lucide-react"
 import { requirementEvolutionPrompt } from '@/lib/prompts/requirement-evolution'
+import { updateTask } from '@/lib/services/task-service'
+import { useRouter } from 'next/navigation'
+import { Toaster } from "@/components/ui/toaster"
 
 export default function RequirementEvolution() {
   const [requirement, setRequirement] = useState('')
   const [analysis, setAnalysis] = useState('')
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editedAnalysis, setEditedAnalysis] = useState('')
   const { toast } = useToast()
+  const router = useRouter()
 
   const handleSubmit = async () => {
     if (!requirement.trim()) {
@@ -101,67 +107,147 @@ export default function RequirementEvolution() {
     }
   }
 
-  return (
-    <div className="container mx-auto py-6 w-[90%]">
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">原始需求分析</h1>
-          <p className="text-muted-foreground mt-2">
-            请输入您的初步需求想法，我们将帮助您逐步细化和完善它。
-          </p>
-        </div>
-        
-        <div className="space-y-4">
-          <Textarea
-            placeholder="请描述您的需求想法..."
-            className="min-h-[100px]"
-            value={requirement}
-            onChange={(e) => setRequirement(e.target.value)}
-          />
-          <Button 
-            onClick={handleSubmit} 
-            className="w-full bg-orange-500 hover:bg-orange-600"
-            disabled={isAnalyzing}
-          >
-            {isAnalyzing ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                正在分析...
-              </>
-            ) : (
-              '开始分析'
-            )}
-          </Button>
+  const handleEdit = () => {
+    setIsEditing(true)
+    setEditedAnalysis(analysis)
+  }
 
-          {analysis && (
-            <div className="space-y-4">
-              <div className="flex gap-2 justify-end">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCopy}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <Copy className="mr-2 h-4 w-4" />
-                  复制内容
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleDownload}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  下载分析
-                </Button>
+  const handleSave = () => {
+    setAnalysis(editedAnalysis)
+    setIsEditing(false)
+    toast({
+      title: "保存成功",
+      description: "分析内容已更新",
+    })
+  }
+
+  const handleConfirm = async () => {
+    try {
+      await updateTask('requirement-analysis', {
+        status: 'completed'
+      })
+      toast({
+        title: "需求分析完成",
+        description: "已更新任务状态",
+      })
+      router.push('/collaboration/tactical-board')
+    } catch (error) {
+      toast({
+        title: "状态更新失败",
+        description: error instanceof Error ? error.message : "请稍后重试",
+        variant: "destructive",
+      })
+    }
+  }
+
+  return (
+    <>
+      <div className="container mx-auto py-6 w-[90%]">
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">原始需求分析</h1>
+            <p className="text-muted-foreground mt-2">
+              请输入您的初步需求想法，我们将帮助您逐步细化和完善它。
+            </p>
+          </div>
+          
+          <div className="space-y-4">
+            <Textarea
+              placeholder="请描述您的需求想法..."
+              className="min-h-[100px]"
+              value={requirement}
+              onChange={(e) => setRequirement(e.target.value)}
+            />
+            <Button 
+              onClick={handleSubmit} 
+              className="w-full bg-orange-500 hover:bg-orange-600"
+              disabled={isAnalyzing}
+            >
+              {isAnalyzing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  正在分析...
+                </>
+              ) : (
+                '开始分析'
+              )}
+            </Button>
+
+            {analysis && (
+              <div className="space-y-4">
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCopy}
+                    className="text-gray-500 hover:text-gray-700"
+                    disabled={isAnalyzing}
+                  >
+                    <Copy className="mr-2 h-4 w-4" />
+                    复制内容
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDownload}
+                    className="text-gray-500 hover:text-gray-700"
+                    disabled={isAnalyzing}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    下载分析
+                  </Button>
+                  {!isEditing ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleEdit}
+                      className="text-gray-500 hover:text-gray-700"
+                      disabled={isAnalyzing}
+                    >
+                      <Edit2 className="mr-2 h-4 w-4" />
+                      编辑内容
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSave}
+                      className="text-orange-600 hover:text-orange-700"
+                      disabled={isAnalyzing}
+                    >
+                      <Save className="mr-2 h-4 w-4" />
+                      保存修改
+                    </Button>
+                  )}
+                </div>
+                <Card className="p-6 mt-4 whitespace-pre-wrap">
+                  {isEditing ? (
+                    <Textarea
+                      value={editedAnalysis}
+                      onChange={(e) => setEditedAnalysis(e.target.value)}
+                      className="min-h-[600px] w-full resize-y"
+                      disabled={isAnalyzing}
+                    />
+                  ) : (
+                    analysis
+                  )}
+                </Card>
+                {!isEditing && (
+                  <Button 
+                    onClick={handleConfirm}
+                    className="w-full bg-orange-500 hover:bg-orange-600 mt-4"
+                    disabled={isAnalyzing}
+                  >
+                    <ArrowRight className="mr-2 h-4 w-4" />
+                    确认并继续
+                  </Button>
+                )}
               </div>
-              <Card className="p-6 mt-4 whitespace-pre-wrap">
-                {analysis}
-              </Card>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
-    </div>
+      <Toaster />
+    </>
   )
 } 

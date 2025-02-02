@@ -26,9 +26,6 @@ interface CreateTaskParams {
   metadata?: TaskMetadata
 }
 
-// 模拟数据存储
-let tasks: Task[] = []
-
 const defaultRequirementTask: Task = {
   id: 'requirement-analysis',
   title: '原始需求分析',
@@ -38,6 +35,9 @@ const defaultRequirementTask: Task = {
   assignee: 'system',
   createdAt: new Date().toISOString(),
 }
+
+// 模拟数据存储
+let tasks: Task[] = [defaultRequirementTask]
 
 export async function createTask(params: CreateTaskParams): Promise<Task> {
   const task: Task = {
@@ -52,8 +52,7 @@ export async function createTask(params: CreateTaskParams): Promise<Task> {
 
 export async function getTasks(): Promise<Task[]> {
   // 这里可以添加从后端获取任务的逻辑
-  // 目前返回模拟数据，总是包含预置的需求分析任务
-  return [defaultRequirementTask]
+  return tasks
 }
 
 export async function updateTask(id: string, updates: Partial<Task>): Promise<Task> {
