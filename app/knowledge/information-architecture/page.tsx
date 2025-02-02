@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ChevronDown, ChevronRight, PlusCircle, Settings, Trash2, Edit2, Check, X } from 'lucide-react'
 
 interface ArchitectureItem {
@@ -8,6 +8,16 @@ interface ArchitectureItem {
   title: string
   description: string
   parentId?: string
+  children?: ArchitectureItem[]
+}
+
+interface OverviewParagraph {
+  text: string;
+}
+
+interface Overview {
+  title: string;
+  content: string;
 }
 
 const initialArchitecture: ArchitectureItem[] = [
@@ -62,11 +72,20 @@ const initialArchitecture: ArchitectureItem[] = [
         { "id": "8-3", "parentId": "8", "title": "数据监控", "description": "提供数据使用与变化的监控能力" }   
 ]
 
+const initialOverview: Overview = {
+  title: "产品电梯演讲",
+  content: "智能客户服务平台，专为现代企业设计，旨在通过先进的AI技术提升客户服务效率和体验。\n\n本系统集成了文本和语音机器人，支持从简单的问答到复杂的外呼任务，无论是零售客户、对公机构还是内部员工，都能通过手机银行、对公网银或内部系统无缝接入。我们的系统不仅能够处理日常查询，还能进行智能外呼和语音导航，极大地减轻了人工坐席的负担。此外，系统还具备强大的知识管理和运营工具，支持从知识库和图谱中提取信息，通过模型训练和数据分析不断优化对话质量。我们的数据看板和系统监控功能确保所有操作透明可控，帮助企业实时监控服务质量和系统性能。"
+};
+
 export default function InformationArchitecture() {
   const [flatArchitecture, setFlatArchitecture] = useState<ArchitectureItem[]>(initialArchitecture)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ title: '', description: '' })
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
+  const [isOverviewExpanded, setIsOverviewExpanded] = useState(true)
+  const [overview, setOverview] = useState(initialOverview)
+  const [isEditingOverview, setIsEditingOverview] = useState(false)
+  const [editingOverviewText, setEditingOverviewText] = useState('')
 
   const generateId = (parentId?: string) => {
     const timestamp = new Date().getTime()
@@ -343,6 +362,44 @@ export default function InformationArchitecture() {
     e.target.value = ''
   }
 
+  const handleOverviewEdit = () => {
+    setIsEditingOverview(true);
+    setEditingOverviewText(overview.content);
+  };
+
+  const handleOverviewSave = () => {
+    setOverview({ ...overview, content: editingOverviewText });
+    setIsEditingOverview(false);
+    
+    // 保存到 localStorage
+    try {
+      localStorage.setItem('qare-overview', JSON.stringify({ ...overview, content: editingOverviewText }));
+    } catch (error) {
+      console.error('Error saving overview:', error);
+    }
+  };
+
+  // 在组件挂载时从 localStorage 加载数据
+  useEffect(() => {
+    try {
+      const savedOverview = localStorage.getItem('qare-overview');
+      if (savedOverview) {
+        const parsed = JSON.parse(savedOverview);
+        // 兼容旧的数据结构
+        if (Array.isArray(parsed.content)) {
+          setOverview({
+            title: parsed.title,
+            content: (parsed.content as OverviewParagraph[]).map(p => p.text).join('\n\n')
+          });
+        } else {
+          setOverview(parsed as Overview);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading overview:', error);
+    }
+  }, []);
+
   return (
     <div className="w-[90%] mx-auto py-8">
       <div className="mb-8">
@@ -410,7 +467,66 @@ export default function InformationArchitecture() {
           这里展示了产品的整体功能结构和信息层次关系。支持导入导出功能，方便在平台外批量修改。
         </p>
       </div>
-      
+
+      {/* 电梯演讲部分 */}
+      <div className="mb-12 bg-white rounded-lg shadow-sm border">
+        <button
+          onClick={() => setIsOverviewExpanded(!isOverviewExpanded)}
+          className="w-full px-6 py-4 flex items-center justify-between text-gray-900 hover:bg-gray-50"
+        >
+          <h2 className="text-lg font-medium">{overview.title}</h2>
+          {isOverviewExpanded ? (
+            <ChevronDown className="h-5 w-5 text-gray-500" />
+          ) : (
+            <ChevronRight className="h-5 w-5 text-gray-500" />
+          )}
+        </button>
+        
+        {isOverviewExpanded && (
+          <div className="px-6 pb-6">
+            <div className="group relative">
+              {isEditingOverview ? (
+                <div className="space-y-2">
+                  <textarea
+                    value={editingOverviewText}
+                    onChange={(e) => setEditingOverviewText(e.target.value)}
+                    className="w-full p-2 border rounded-md min-h-[200px] text-sm"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => setIsEditingOverview(false)}
+                      className="px-3 py-1 text-sm bg-gray-50 text-gray-600 rounded-md hover:bg-gray-100"
+                    >
+                      取消
+                    </button>
+                    <button
+                      onClick={handleOverviewSave}
+                      className="px-3 py-1 text-sm bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100"
+                    >
+                      保存
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="relative">
+                  <div className="space-y-4 text-gray-600 text-sm whitespace-pre-wrap">
+                    {overview.content}
+                  </div>
+                  <button
+                    onClick={handleOverviewEdit}
+                    className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-gray-600"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="space-y-2 bg-white p-6 rounded-lg shadow-sm">
         {renderArchitecture()}
       </div>
