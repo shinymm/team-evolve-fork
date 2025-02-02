@@ -76,3 +76,26 @@
   font-weight: normal;
   font-style: normal;
 }
+
+@font-face {
+  font-family: 'font-song';
+  src: url('/fonts/SongTi.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+/* 或者使用魏碑体 */
+@font-face {
+  font-family: 'font-song';
+  src: url('/fonts/WeiBei.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'font-weibei';
+  src: url('/fonts/LiShu.ttf') format('truetype');  /* 魏碑体/隶书 */
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}

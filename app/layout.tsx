@@ -12,7 +12,7 @@ import { SiteHeader } from "@/components/site-header"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "QARE TeamAI",
+  title: "AI異界",
   description: "Knowledge Base Management System",
 }
 

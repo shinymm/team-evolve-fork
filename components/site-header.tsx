@@ -1,8 +1,8 @@
-import { Noto_Serif_TC } from 'next/font/google'
+import { Long_Cang } from 'next/font/google'
 import { GeistSans } from 'geist/font/sans'
 
-const notoSerifTC = Noto_Serif_TC({
-  weight: ['700'],
+const longCang = Long_Cang({
+  weight: '400',
   subsets: ['latin'],
   display: 'swap',
 })
@@ -14,10 +14,10 @@ export function SiteHeader() {
         <div className="pl-4 flex items-center">
           <span className="text-xl">
             <span className="font-bold tracking-tight text-white">
-              AI
+              AI Evolve ｜ 
             </span>
-            <span className="font-kai text-orange-500 ml-1">
-              異界
+            <span className="font-weibei text-orange-500 ml-1 text-2xl">
+              异界
             </span>
           </span>
         </div>
