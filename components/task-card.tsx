@@ -107,7 +107,7 @@ export function TaskCard({ task, position, onClose }: TaskCardProps) {
             title={taskActions.aiHelp.description}
           >
             <Sparkles className="h-3 w-3 mr-1" />
-            获取AI能力胶囊
+            召唤AI能力胶囊
           </Button>
         )}
         {taskActions?.selfHelp && (
