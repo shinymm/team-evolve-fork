@@ -1,11 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { Eye, Bell, ChevronRight } from 'lucide-react'
+import { Eye, Bell, ChevronRight, PlusCircle } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { SwaggerViewer } from "@/components/swagger-viewer"
 import { SwaggerDocs } from "@/lib/swagger-docs"
 import { SubscriptionViewer } from "@/components/subscription-viewer"
+import { SubscriptionForm } from "@/components/subscription-form"
+import { handleNewSubscription } from "@/lib/services/task-control"
 
 interface APIInterface {
   id: string
@@ -33,6 +35,8 @@ export default function APIInterfacesPage() {
   const [interfaces] = useState<APIInterface[]>(initialInterfaces)
   const [selectedEndpoint, setSelectedEndpoint] = useState<keyof SwaggerDocs | null>(null)
   const [showSubscriptions, setShowSubscriptions] = useState<string | null>(null)
+  const [showSubscriptionForm, setShowSubscriptionForm] = useState(false)
+  const [subscriptions, setSubscriptions] = useState(initialInterfaces)
 
   const getTypeColor = (type: APIInterface['type']) => {
     const colors = {
@@ -42,6 +46,18 @@ export default function APIInterfacesPage() {
       'GraphQL': 'bg-pink-50 text-pink-700'
     }
     return colors[type] || 'bg-gray-50 text-gray-700'
+  }
+
+  const handleSubscribe = async (data: { systemId: string; systemName: string }) => {
+    // 1. 更新本地状态
+    setSubscriptions(prev => [...prev, { id: data.systemId, name: data.systemName }])
+    
+    // 2. 触发任务中控
+    await handleNewSubscription({
+      systemId: data.systemId,
+      systemName: data.systemName,
+      apiEndpoint: '/api/v1/chat'
+    })
   }
 
   return (
@@ -112,6 +128,15 @@ export default function APIInterfacesPage() {
                     >
                       <Bell className="h-4 w-4" />
                     </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-green-600 hover:text-green-900"
+                      title="订阅接口"
+                      onClick={() => setShowSubscriptionForm(true)}
+                    >
+                      <PlusCircle className="h-4 w-4" />
+                    </Button>
                   </td>
                 </tr>
               ))}
@@ -135,6 +160,13 @@ export default function APIInterfacesPage() {
           apiName={showSubscriptions}
         />
       )}
+
+      <SubscriptionForm
+        isOpen={showSubscriptionForm}
+        onClose={() => setShowSubscriptionForm(false)}
+        apiName={selectedEndpoint || ''}
+        onSubmit={handleSubscribe}
+      />
     </div>
   )
 } 

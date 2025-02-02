@@ -1,6 +1,6 @@
 'use client'
 
-import { ChevronDown, Settings, Database, Microscope, ListChecks, BookOpenIcon, Flame } from 'lucide-react'
+import { ChevronDown, Settings, Database, Microscope, ListChecks, BookOpenIcon, Flame, Hexagon } from 'lucide-react'
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
@@ -18,16 +18,17 @@ interface MenuItem {
 // 将设置菜单从主菜单中分离出来
 const mainMenuItems: MenuItem[] = [
   {
-    title: "需求能力胶囊",
-    icon: <Microscope className="h-4 w-4" />,
+    title: "蜂巢异界进化",
+    icon: <Hexagon className="h-4 w-4" />,
     submenu: [
-      { title: "需求边界分析", href: "/requirements/boundary-analysis" },
+      { title: "蜂群战术板", href: "/collaboration/tactical-board" }
     ]
   },
   {
-    title: "测试能力胶囊",
-    icon: <ListChecks className="h-4 w-4" />,
+    title: "AI能力胶囊",
+    icon: <Microscope className="h-4 w-4" />,
     submenu: [
+      { title: "需求边界分析", href: "/requirements/boundary-analysis" },
       { title: "测试用例生成", href: "/requirements/test-cases" },
       { title: "测试描述格式化", href: "/requirements/test-format" },
       { title: "测试用例细节辅助", href: "/requirements/test-detail" },
