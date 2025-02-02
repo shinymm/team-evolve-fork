@@ -1,7 +1,7 @@
 interface TaskMetadata {
-  systemId: string
-  systemName: string
-  apiEndpoint: string
+  systemId?: string
+  systemName?: string
+  apiEndpoint?: string
 }
 
 export interface Task {
@@ -9,8 +9,8 @@ export interface Task {
   title: string
   description: string
   type: string
-  assignee: string
-  status: 'pending' | 'in_progress' | 'completed'
+  assignee?: string
+  status?: 'pending' | 'in_progress' | 'completed'
   parentTaskId?: string
   metadata?: TaskMetadata
   createdAt: string
@@ -20,14 +20,24 @@ interface CreateTaskParams {
   title: string
   description: string
   type: string
-  assignee: string
-  status: Task['status']
+  assignee?: string
+  status?: Task['status']
   parentTaskId?: string
   metadata?: TaskMetadata
 }
 
 // 模拟数据存储
 let tasks: Task[] = []
+
+const defaultRequirementTask: Task = {
+  id: 'requirement-analysis',
+  title: '原始需求分析',
+  description: '输入您的初步需求想法，我们将帮助您逐步细化和完善它，形成完整的需求分析报告。',
+  type: '需求管理',
+  status: 'pending',
+  assignee: 'system',
+  createdAt: new Date().toISOString(),
+}
 
 export async function createTask(params: CreateTaskParams): Promise<Task> {
   const task: Task = {
@@ -41,7 +51,9 @@ export async function createTask(params: CreateTaskParams): Promise<Task> {
 }
 
 export async function getTasks(): Promise<Task[]> {
-  return tasks
+  // 这里可以添加从后端获取任务的逻辑
+  // 目前返回模拟数据，总是包含预置的需求分析任务
+  return [defaultRequirementTask]
 }
 
 export async function updateTask(id: string, updates: Partial<Task>): Promise<Task> {

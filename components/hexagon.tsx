@@ -1,112 +1,94 @@
 'use client'
 
-import { motion } from "framer-motion"
-import type { Task } from '@/lib/services/task-service'
+import { Task } from './task-card'
 
 interface HexagonProps {
-  task?: Task
   x: number
   y: number
   size: number
+  task?: Task
   isEmpty?: boolean
-  onMouseEnter: () => void
-  onMouseLeave: () => void
   isConnected?: boolean
   nextTask?: Task
+  onMouseEnter: () => void
+  onMouseLeave: () => void
 }
 
-export function Hexagon({ task, x, y, size, isEmpty = false, onMouseEnter, onMouseLeave, isConnected, nextTask }: HexagonProps) {
+export function Hexagon({
+  x,
+  y,
+  size,
+  task,
+  isEmpty = false,
+  isConnected = false,
+  nextTask,
+  onMouseEnter,
+  onMouseLeave
+}: HexagonProps) {
   // 计算六边形的点
-  const points = Array.from({ length: 6 }).map((_, i) => {
-    const angle = (i * 60 - 30) * Math.PI / 180
-    return `${x + size * Math.cos(angle)},${y + size * Math.sin(angle)}`
-  }).join(' ')
-
-  // 根据任务分配者设置颜色
-  const getHexagonColor = () => {
-    if (isEmpty) return '#F3F4F6' // 空位使用浅灰色
-    const colors: Record<string, string> = {
-      'SaraQian': '#FDE68A', // 黄色
-      'default': '#E5E7EB'   // 灰色
-    }
-    return colors[task?.assignee || 'default'] || colors.default
-  }
+  const points = calculateHexagonPoints(x, y, size)
+  
+  // 如果有连接线，计算连接点
+  const connectionPoints = isConnected && nextTask ? calculateConnectionPoints(x, y, size) : null
 
   return (
-    <motion.g
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      initial={!isEmpty ? { y: 0, filter: 'drop-shadow(0 0 0 rgba(0,0,0,0))' } : {}}
-      animate={!isEmpty ? { 
-        y: -2,
-        filter: 'drop-shadow(0 4px 3px rgba(0,0,0,0.07))'
-      } : {}}
-      whileHover={!isEmpty ? { 
-        y: -4,
-        filter: 'drop-shadow(0 8px 5px rgba(0,0,0,0.1))',
-        scale: 1.05 
-      } : {}}
-      transition={{ 
-        type: "spring", 
-        stiffness: 300,
-        damping: 20
-      }}
-    >
-      {isConnected && !isEmpty && nextTask && (
-        <>
-          <line
-            x1={x + size * 1.2}
-            y1={y}
-            x2={x + size * 1.8}
-            y2={y}
-            stroke="#94A3B8"
-            strokeWidth="2"
-          />
-          <polygon
-            points={`
-              ${x + size * 1.8},${y}
-              ${x + size * 1.7},${y - 5}
-              ${x + size * 1.7},${y + 5}
-            `}
-            fill="#94A3B8"
-          />
-          <circle
-            cx={x + size * 1.5}
-            cy={y - 8}
-            r={4}
-            fill={task?.status === 'completed' ? '#22C55E' : '#FCD34D'}
-          />
-        </>
+    <>
+      {/* 如果有连接线，先画线 */}
+      {connectionPoints && (
+        <line
+          x1={connectionPoints.start.x}
+          y1={connectionPoints.start.y}
+          x2={connectionPoints.end.x}
+          y2={connectionPoints.end.y}
+          stroke="#E5E7EB"
+          strokeWidth="1"
+        />
       )}
+      
+      {/* 画六边形 */}
       <polygon
         points={points}
-        fill={getHexagonColor()}
-        stroke={isEmpty ? '#E5E7EB' : '#94A3B8'}
-        strokeWidth={isEmpty ? 1 : 2}
-        className={`transition-colors ${isEmpty ? 'opacity-50' : 'cursor-pointer hover:fill-opacity-80'}`}
+        fill={isEmpty ? '#F9FAFB' : '#FFF7ED'}
+        stroke={isEmpty ? '#E5E7EB' : '#FDBA74'}
+        strokeWidth="1"
+        className={!isEmpty ? 'cursor-pointer hover:fill-orange-100' : ''}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
       />
-      {!isEmpty && task && (
-        <>
-          <text
-            x={x}
-            y={y - 8}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            className="text-xs font-medium fill-gray-600 pointer-events-none"
-          >
-            {task.id.slice(0, 8)}
-          </text>
-          <text
-            x={x}
-            y={y + 8}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            className="text-[10px] fill-gray-500 pointer-events-none"
-          >
-            {task.status === 'pending' ? '待处理' : task.status === 'in_progress' ? '进行中' : '已完成'}
-          </text>
-        </>
+      
+      {/* 如果有任务，显示任务标题 */}
+      {task && (
+        <text
+          x={x}
+          y={y}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          className="text-[10px] fill-gray-600 pointer-events-none select-none"
+        >
+          {task.title}
+        </text>
       )}
-    </motion.g>
+    </>
   )
+}
+
+function calculateHexagonPoints(x: number, y: number, size: number): string {
+  const angle = Math.PI / 3
+  const points: { x: number; y: number }[] = []
+  
+  for (let i = 0; i < 6; i++) {
+    points.push({
+      x: x + size * Math.cos(angle * i),
+      y: y + size * Math.sin(angle * i)
+    })
+  }
+  
+  return points.map(p => `${p.x},${p.y}`).join(' ')
+}
+
+function calculateConnectionPoints(x: number, y: number, size: number) {
+  return {
+    start: { x: x + size, y },
+    end: { x: x + size * 2, y }
+  }
 } 
