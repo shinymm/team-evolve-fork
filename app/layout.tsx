@@ -8,7 +8,6 @@ import { Sidebar } from "@/components/sidebar"
 import { Toaster } from "@/components/ui/toaster"
 import { ToastProvider } from "@/components/providers/toast-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { BookOpenIcon } from "@heroicons/react/24/outline"
 import { SiteHeader } from "@/components/site-header"
 
 const inter = Inter({ subsets: ["latin"] })

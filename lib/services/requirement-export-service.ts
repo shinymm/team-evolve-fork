@@ -1,73 +1,153 @@
 import { RequirementContent } from '@/types/requirement'
 import { SceneAnalysisState } from '@/types/scene'
 
+// 定义模板部分的类型
+type TemplateSection = {
+  title: string
+  level: number
+  key?: string
+  formatter?: (content: any) => string
+}
+
+// 定义分析结果的部分
+type AnalysisSection = '前置条件' | '约束条件' | '异常处理' | '补充说明'
+
+// 需求书模板定义
+const REQUIREMENT_TEMPLATE: TemplateSection[] = [
+  { title: '需求书', level: 1 },
+  { title: '需求背景', level: 2, key: 'reqBackground' },
+  { title: '需求概述', level: 2, key: 'reqBrief' },
+  { title: '需求详情', level: 2 }
+]
+
+// 场景模板定义
+const SCENE_TEMPLATE: TemplateSection[] = [
+  { title: '场景概述', level: 4 },
+  { title: '用户旅程', level: 4, formatter: (steps: string[]) => formatUserJourney(steps) },
+  { title: '前置条件', level: 4 },
+  { title: '约束条件', level: 4 },
+  { title: '异常处理', level: 4 },
+  { title: '补充说明', level: 4 }
+]
+
+// 格式化工具函数
+function formatUserJourney(steps: string[]): string {
+  return steps.map((step, index) => `${index + 1}. ${step}`).join('\n')
+}
+
+function formatMarkdownTitle(title: string, level: number): string {
+  return `${'#'.repeat(level)} ${title}\n\n`
+}
+
+function formatSection(section: TemplateSection, content: any): string {
+  if (!content) return ''
+  const titleMd = formatMarkdownTitle(section.title, section.level)
+  const formattedContent = section.formatter ? section.formatter(content) : content
+  return `${titleMd}${formattedContent}\n\n`
+}
+
 export class RequirementExportService {
-  generateOptimizedBook(content: RequirementContent, sceneStates: Record<string, SceneAnalysisState>): string {
+  /**
+   * 从分析结果中提取结构化内容
+   */
+  private static parseAnalysisResult(analysisResult: string): Record<AnalysisSection, string> {
+    const sections: Record<AnalysisSection, string> = {
+      '前置条件': '',
+      '约束条件': '',
+      '异常处理': '',
+      '补充说明': ''
+    }
+
+    // 使用正则表达式从分析结果中提取各个部分
+    Object.keys(sections).forEach(sectionTitle => {
+      const regex = new RegExp(`${sectionTitle}[：:](.*?)(?=(?:${Object.keys(sections).join('|')})[：:]|$)`, 's')
+      const match = analysisResult.match(regex)
+      if (match) {
+        sections[sectionTitle as AnalysisSection] = match[1].trim()
+      }
+    })
+
+    return sections
+  }
+
+  /**
+   * 从优化结果中解析结构化内容
+   */
+  private static parseOptimizedContent(optimizeResult: string): Record<string, string> {
+    const sections: Record<string, string> = {}
+    const lines = optimizeResult.split('\n')
+    let currentSection = ''
+    let currentContent: string[] = []
+
+    lines.forEach(line => {
+      const titleMatch = line.match(/^#{1,6}\s+(.+)$/)
+      if (titleMatch) {
+        if (currentSection) {
+          sections[currentSection] = currentContent.join('\n').trim()
+        }
+        currentSection = titleMatch[1]
+        currentContent = []
+      } else if (currentSection) {
+        currentContent.push(line)
+      }
+    })
+
+    if (currentSection) {
+      sections[currentSection] = currentContent.join('\n').trim()
+    }
+
+    return sections
+  }
+
+  /**
+   * 生成优化后的需求书
+   */
+  static generateOptimizedBook(content: RequirementContent, sceneStates: Record<string, SceneAnalysisState>): string {
     let mdContent = ''
 
-    // 添加需求背景
-    mdContent += '# 需求书\n\n'
-    mdContent += '## 需求背景\n\n'
-    mdContent += `${content.reqBackground}\n\n`
+    // 添加基本信息（需求背景和概述）
+    REQUIREMENT_TEMPLATE.forEach(section => {
+      if (section.key) {
+        mdContent += formatSection(section, content[section.key as keyof RequirementContent])
+      } else {
+        mdContent += formatMarkdownTitle(section.title, section.level)
+      }
+    })
 
-    // 添加需求概述
-    mdContent += '## 需求概述\n\n'
-    mdContent += `${content.reqBrief}\n\n`
-
-    // 添加需求详情（场景）
-    mdContent += '## 需求详情\n\n'
+    // 添加场景详情
     content.scenes.forEach((scene, index) => {
       const sceneState = sceneStates[scene.name]
-      mdContent += `### ${index + 1}. ${scene.name}\n\n`
+      
+      // 添加场景标题
+      mdContent += formatMarkdownTitle(`${index + 1}. ${scene.name}`, 3)
 
-      // 场景概述（使用优化后的内容如果有的话）
-      mdContent += '#### 场景概述\n\n'
       if (sceneState?.optimizeResult) {
-        mdContent += `${sceneState.optimizeResult}\n\n`
+        // 使用优化后的内容
+        const optimizedSections = this.parseOptimizedContent(sceneState.optimizeResult)
+        SCENE_TEMPLATE.forEach(section => {
+          if (optimizedSections[section.title]) {
+            mdContent += formatSection(section, optimizedSections[section.title])
+          }
+        })
       } else {
-        mdContent += `${scene.overview}\n\n`
+        // 使用原始内容和分析结果
+        mdContent += formatSection(SCENE_TEMPLATE[0], scene.overview)
+        mdContent += formatSection(SCENE_TEMPLATE[1], scene.userJourney)
+
+        if (sceneState?.analysisResult) {
+          const analysisResults = this.parseAnalysisResult(sceneState.analysisResult)
+          Object.entries(analysisResults).forEach(([title, content]) => {
+            const section = SCENE_TEMPLATE.find(s => s.title === title)
+            if (section) {
+              mdContent += formatSection(section, content)
+            }
+          })
+        }
       }
 
-      // 用户旅程
-      mdContent += '#### 用户旅程\n\n'
-      scene.userJourney.forEach((step, stepIndex) => {
-        mdContent += `${stepIndex + 1}. ${step}\n`
-      })
-      mdContent += '\n'
-
-      // 如果有边界分析结果，添加相关内容
-      if (sceneState?.analysisResult) {
-        // 从分析结果中提取前置条件、约束条件、异常处理等
-        mdContent += this.formatAnalysisResult(sceneState.analysisResult)
-      }
-
-      mdContent += '\n---\n\n' // 场景之间的分隔线
+      mdContent += '---\n\n' // 场景之间的分隔线
     })
 
     return mdContent
-  }
-
-  private formatAnalysisResult(analysisResult: string): string {
-    let formattedContent = ''
-
-    // 分析结果中可能包含的各个部分
-    const sections = [
-      { title: '前置条件', content: '' },
-      { title: '约束条件', content: '' },
-      { title: '异常处理', content: '' },
-      { title: '补充说明', content: '' }
-    ]
-
-    // 使用正则表达式从分析结果中提取各个部分
-    sections.forEach(section => {
-      const regex = new RegExp(`${section.title}[：:](.*?)(?=(?:${sections.map(s => s.title).join('|')})[：:]|$)`, 's')
-      const match = analysisResult.match(regex)
-      if (match) {
-        section.content = match[1].trim()
-        formattedContent += `#### ${section.title}\n\n${section.content}\n\n`
-      }
-    })
-
-    return formattedContent
   }
 } 
