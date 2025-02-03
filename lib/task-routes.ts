@@ -20,11 +20,6 @@ export const taskActions: Record<string, TaskAction> = {
       route: '/requirements/evolution',
       title: '需求分析',
       description: 'AI辅助分析需求，帮助细化和完善需求'
-    },
-    selfHelp: {
-      route: '/requirements/evolution',
-      title: '需求分析',
-      description: '自助进行需求分析和完善'
     }
   },
   'requirement-book': {

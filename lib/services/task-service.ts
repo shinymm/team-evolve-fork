@@ -32,7 +32,7 @@ const defaultRequirementTask: Task = {
   description: '输入您的初步需求想法，我们将帮助您逐步细化和完善它，形成完整的需求分析报告。',
   type: '需求管理',
   status: 'pending',
-  assignee: 'system',
+  assignee: 'SQ',
   createdAt: new Date().toISOString(),
 }
 
@@ -42,12 +42,22 @@ const defaultRequirementBookTask: Task = {
   description: '基于原始需求分析结果，生成结构化的需求书。',
   type: '需求管理',
   status: 'pending',
-  assignee: 'system',
+  assignee: 'SQ',
   createdAt: new Date().toISOString(),
 }
 
+const defaultRequirementBreakdownTask: Task = {
+    id: 'requirement-breakdown-scene',
+    title: '需求场景拆解',
+    description: '基于需求书内容进行场景拆解。',
+    type: '需求管理',
+    status: 'pending',
+    assignee: 'system',
+    createdAt: new Date().toISOString(),
+  }
+
 // 模拟数据存储
-let tasks: Task[] = [defaultRequirementTask, defaultRequirementBookTask]
+let tasks: Task[] = [defaultRequirementTask, defaultRequirementBookTask,defaultRequirementBreakdownTask]
 
 export async function createTask(params: CreateTaskParams): Promise<Task> {
   const task: Task = {

@@ -5,7 +5,7 @@ import { useState } from "react"
 import { Badge } from "./ui/badge"
 import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar"
 import { Button } from "./ui/button"
-import { Sparkles, Brain, Link } from "lucide-react"
+import { Sparkles } from "lucide-react"
 import { useRouter } from 'next/navigation'
 import { getTaskActions } from '@/lib/task-routes'
 import type { Task } from '@/lib/services/task-service'
@@ -32,14 +32,6 @@ export function TaskCard({ task, position, onClose }: TaskCardProps) {
       router.push(taskActions.aiHelp.route)
     } else {
       console.log('No AI help action defined for task:', task.id)
-    }
-  }
-
-  const handleSelfHelp = () => {
-    if (taskActions?.selfHelp) {
-      router.push(taskActions.selfHelp.route)
-    } else {
-      console.log('No self help action defined for task:', task.id)
     }
   }
 
@@ -108,18 +100,6 @@ export function TaskCard({ task, position, onClose }: TaskCardProps) {
           >
             <Sparkles className="h-3 w-3 mr-1" />
             召唤AI能力胶囊
-          </Button>
-        )}
-        {taskActions?.selfHelp && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="flex-1 h-6 px-1.5 text-[10px] bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
-            onClick={handleSelfHelp}
-            title={taskActions.selfHelp.description}
-          >
-            <Brain className="h-3 w-3 mr-1" />
-            自立更生
           </Button>
         )}
       </div>

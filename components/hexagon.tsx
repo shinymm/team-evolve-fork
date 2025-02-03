@@ -47,6 +47,7 @@ export function Hexagon({
           glow: '#A7F3D0'
         }
       case 'in_progress':
+      case 'pending':
         return {
           fill: '#FFF7ED',
           stroke: '#FDBA74',
@@ -129,19 +130,30 @@ export function Hexagon({
             onMouseLeave={onMouseLeave}
           />
           
-          {/* 任务标题 */}
+          {/* 任务标题和负责人 */}
           {task && (
-            <text
-              x={x}
-              y={y}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              className={`text-[14px] pointer-events-none select-none ${
-                task.status === 'completed' ? 'fill-green-700' : 'fill-gray-600'
-              }`}
-            >
-              {task.title}
-            </text>
+            <>
+              <text
+                x={x}
+                y={y - 8}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                className={`text-[14px] pointer-events-none select-none ${
+                  task.status === 'completed' ? 'fill-green-700' : 'fill-gray-600'
+                }`}
+              >
+                {task.title}
+              </text>
+              <text
+                x={x}
+                y={y + 12}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                className="text-[12px] pointer-events-none select-none fill-gray-400"
+              >
+                {task.assignee === 'system' ? 'SYS' : task.assignee?.toUpperCase()?.slice(0, 2)}
+              </text>
+            </>
           )}
         </>
       )}
