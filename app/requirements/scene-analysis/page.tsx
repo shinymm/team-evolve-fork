@@ -3,10 +3,15 @@
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ChevronDown, ChevronRight, ArrowRight } from "lucide-react"
+import { ChevronDown, ChevronRight, ArrowRight, Loader2, Check, X, FileEdit } from "lucide-react"
 import { RequirementParserService } from '@/lib/services/requirement-parser-service'
+import { SceneBoundaryService } from '@/lib/services/scene-boundary-service'
 import { useToast } from "@/components/ui/use-toast"
 import { Toaster } from "@/components/ui/toaster"
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { createTask, updateTask } from '@/lib/services/task-service'
+import { cn } from '@/lib/utils'
 
 interface Scene {
   name: string
@@ -20,10 +25,22 @@ interface RequirementContent {
   scenes: Scene[]
 }
 
+interface SceneAnalysisState {
+  taskId?: string
+  tempResult?: string
+  analysisResult?: string  // 存储已确认的分析结果
+  isConfirming?: boolean
+  isCompleted?: boolean
+}
+
 export default function SceneAnalysisPage() {
   const [content, setContent] = useState<RequirementContent | null>(null)
   const [mdContent, setMdContent] = useState<string>('')
   const [isExpanded, setIsExpanded] = useState(false)
+  const [selectedScene, setSelectedScene] = useState<Scene | null>(null)
+  const [analysisResult, setAnalysisResult] = useState<string>('')
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [sceneStates, setSceneStates] = useState<Record<string, SceneAnalysisState>>({})
   const { toast } = useToast()
 
   useEffect(() => {
@@ -74,12 +91,135 @@ export default function SceneAnalysisPage() {
     }
   }
 
-  const handleAnalyzeScene = (scene: Scene) => {
-    toast({
-      title: "即将开始分析",
-      description: `准备对场景"${scene.name}"进行边界分析`,
-    })
-    // TODO: 实现场景边界分析功能
+  const handleAnalyzeScene = async (scene: Scene, index: number) => {
+    setSelectedScene(scene)
+    setIsAnalyzing(true)
+    setAnalysisResult('')
+
+    try {
+      // 创建任务
+      const task = await createTask({
+        title: `场景${index + 1}边界分析`,
+        description: `分析场景"${scene.name}"（${scene.overview}）的边界条件和异常情况`,
+        type: 'boundary-analysis',
+        assignee: 'system',
+        status: 'pending'
+      })
+
+      // 更新场景状态
+      setSceneStates(prev => ({
+        ...prev,
+        [scene.name]: {
+          taskId: task.id,
+          isConfirming: false,
+          isCompleted: false
+        }
+      }))
+
+      const service = new SceneBoundaryService()
+      if (!content) {
+        throw new Error('缺少需求内容')
+      }
+
+      await service.analyzeScene(
+        {
+          reqBackground: content.reqBackground,
+          reqBrief: content.reqBrief,
+          scene: scene
+        },
+        (content: string) => {
+          setAnalysisResult(prev => prev + content)
+        }
+      )
+
+      // 更新场景状态为等待确认
+      setSceneStates(prev => ({
+        ...prev,
+        [scene.name]: {
+          ...prev[scene.name],
+          tempResult: analysisResult,
+          isConfirming: true
+        }
+      }))
+
+      toast({
+        title: "分析完成",
+        description: `场景"${scene.name}"的边界分析已完成，请确认结果`,
+      })
+    } catch (error) {
+      console.error('分析失败:', error)
+      toast({
+        title: "分析失败",
+        description: error instanceof Error ? error.message : "分析过程中出现错误",
+        variant: "destructive",
+      })
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  const handleAcceptResult = async (scene: Scene) => {
+    const state = sceneStates[scene.name]
+    if (!state?.taskId) return
+
+    try {
+      // 更新任务状态
+      await updateTask(state.taskId, {
+        status: 'completed'
+      })
+
+      // 更新场景状态，保存分析结果
+      setSceneStates(prev => ({
+        ...prev,
+        [scene.name]: {
+          ...prev[scene.name],
+          isConfirming: false,
+          isCompleted: true,
+          analysisResult: analysisResult  // 保存已确认的分析结果
+        }
+      }))
+
+      toast({
+        title: "已接受分析结果",
+        description: `场景"${scene.name}"的边界分析结果已确认`,
+      })
+    } catch (error) {
+      console.error('确认失败:', error)
+      toast({
+        title: "确认失败",
+        description: error instanceof Error ? error.message : "操作过程中出现错误",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleRejectResult = async (scene: Scene) => {
+    const state = sceneStates[scene.name]
+    if (!state?.taskId) return
+
+    try {
+      // 重置场景状态
+      setSceneStates(prev => ({
+        ...prev,
+        [scene.name]: {
+          taskId: prev[scene.name]?.taskId,
+          isConfirming: false,
+          isCompleted: false
+        }
+      }))
+
+      toast({
+        title: "已拒绝分析结果",
+        description: `场景"${scene.name}"的边界分析结果已拒绝，可重新分析`,
+      })
+    } catch (error) {
+      console.error('拒绝失败:', error)
+      toast({
+        title: "操作失败",
+        description: error instanceof Error ? error.message : "操作过程中出现错误",
+        variant: "destructive",
+      })
+    }
   }
 
   if (!content) {
@@ -180,14 +320,39 @@ export default function SceneAnalysisPage() {
                       <CardTitle className="text-base">{scene.name}</CardTitle>
                       <CardDescription className="text-xs mt-0.5">场景概述</CardDescription>
                     </div>
-                    <Button 
-                      onClick={() => handleAnalyzeScene(scene)}
-                      className="bg-orange-500 hover:bg-orange-600"
-                      size="sm"
-                    >
-                      <ArrowRight className="mr-2 h-3.5 w-3.5" />
-                      场景边界分析
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button 
+                        onClick={() => handleAnalyzeScene(scene, index)}
+                        className={cn(
+                          "bg-orange-500 hover:bg-orange-600",
+                          sceneStates[scene.name]?.isCompleted && "bg-gray-100 hover:bg-gray-200 text-gray-600"
+                        )}
+                        size="sm"
+                        disabled={isAnalyzing || sceneStates[scene.name]?.isConfirming}
+                      >
+                        {isAnalyzing && selectedScene?.name === scene.name ? (
+                          <>
+                            <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                            分析中...
+                          </>
+                        ) : (
+                          <>
+                            <ArrowRight className="mr-2 h-3.5 w-3.5" />
+                            场景边界分析
+                          </>
+                        )}
+                      </Button>
+                      {sceneStates[scene.name]?.isCompleted && (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="bg-blue-500 hover:bg-blue-600 text-white"
+                        >
+                          <FileEdit className="mr-2 h-3.5 w-3.5" />
+                          完善场景需求描述
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="py-0 pb-3 space-y-3">
@@ -204,6 +369,46 @@ export default function SceneAnalysisPage() {
                       ))}
                     </div>
                   </div>
+                  {/* 显示分析结果：如果是当前选中的场景显示实时结果，否则显示已保存的结果 */}
+                  {(selectedScene?.name === scene.name || sceneStates[scene.name]?.analysisResult) && (
+                    <div className="mt-4 border-t pt-4">
+                      <div className="text-sm text-gray-600">
+                        <ReactMarkdown 
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            h3: ({children}) => <h3 className="text-base font-semibold text-gray-900 mb-2">{children}</h3>,
+                            h4: ({children}) => <h4 className="text-sm font-medium text-gray-700 mb-1.5">{children}</h4>,
+                            ul: ({children}) => <ul className="space-y-1 mb-3">{children}</ul>,
+                            li: ({children}) => <li className="text-sm text-gray-600">{children}</li>,
+                            p: ({children}) => <p className="text-sm text-gray-600 mb-2">{children}</p>
+                          }}
+                        >
+                          {(selectedScene?.name === scene.name ? analysisResult : sceneStates[scene.name]?.analysisResult) || ''}
+                        </ReactMarkdown>
+                        {sceneStates[scene.name]?.isConfirming && (
+                          <div className="flex justify-end gap-2 mt-4">
+                            <Button
+                              onClick={() => handleAcceptResult(scene)}
+                              className="bg-blue-500 hover:bg-blue-600"
+                              size="sm"
+                            >
+                              <Check className="mr-2 h-3.5 w-3.5" />
+                              接受分析结果
+                            </Button>
+                            <Button
+                              onClick={() => handleRejectResult(scene)}
+                              variant="outline"
+                              size="sm"
+                              className="border-red-200 text-red-700 hover:bg-red-50"
+                            >
+                              <X className="mr-2 h-3.5 w-3.5" />
+                              拒绝并重新分析
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
