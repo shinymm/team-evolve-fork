@@ -29,11 +29,20 @@ export class RequirementParserService {
     const detailSection = this.extractSection(sections, '三. 需求详述');
     const scenes = this.parseScenes(detailSection);
 
-    return {
+    const result: RequirementParseResult = {
       reqBackground,
       reqBrief,
       scenes
     };
+
+    // 保存结构化结果到 localStorage
+    try {
+      localStorage.setItem('requirement-structured-content', JSON.stringify(result));
+    } catch (error) {
+      console.error('Failed to save structured requirement to localStorage:', error);
+    }
+
+    return result;
   }
 
   private extractSection(sections: string[], sectionTitle: string): string {

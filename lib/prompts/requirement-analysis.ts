@@ -1,6 +1,6 @@
 import { productElevatorPitch } from '../product-info'
 
-export const requirementEvolutionPrompt = (requirement: string) => {
+export const requirementAnalysisPrompt = (requirement: string) => {
   return `作为一个专业的需求分析师，请对以下需求进行深入分析。
 
 产品背景：

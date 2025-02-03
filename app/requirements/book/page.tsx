@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
@@ -13,10 +13,10 @@ import { updateTask } from '@/lib/services/task-service'
 import { createRequirementStructureTask, createBoundaryAnalysisTask } from '@/lib/services/task-control'
 import { RequirementParserService } from '@/lib/services/requirement-parser-service'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { Toaster } from "@/components/ui/toaster"
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { getTasks } from '@/lib/services/task-service'
 
 export default function RequirementBook() {
   const [originalRequirement, setOriginalRequirement] = useState('')
@@ -26,6 +26,63 @@ export default function RequirementBook() {
   const [editedBook, setEditedBook] = useState('')
   const { toast } = useToast()
   const router = useRouter()
+
+  // 页面加载时检查前置任务状态并获取数据
+  useEffect(() => {
+    const checkPreviousTaskAndLoadData = async () => {
+      try {
+        const allTasks = await getTasks()
+        const requirementAnalysisTask = allTasks.find(t => t.id === 'requirement-analysis')
+        
+        // 只有当原始需求分析任务完成时，才加载历史数据
+        if (requirementAnalysisTask?.status === 'completed') {
+          const savedAnalysis = localStorage.getItem('requirement-analysis-content')
+          if (savedAnalysis) {
+            setOriginalRequirement(savedAnalysis)
+          }
+        } 
+      } catch (error) {
+        console.error('Error checking task status:', error)
+      }
+    }
+
+    checkPreviousTaskAndLoadData()
+  }, [])
+
+  // 自动生成的处理函数，与handleSubmit类似但接受内容参数
+  const handleAutoGenerate = async (content: string) => {
+    const aiConfig = getAIConfig()
+    if (!aiConfig) {
+      toast({
+        title: "配置错误",
+        description: "请先配置AI模型参数",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsGenerating(true)
+    setRequirementBook('')
+
+    try {
+      const prompt = requirementBookPrompt(content)
+      await streamingAICall(
+        prompt,
+        aiConfig,
+        (content) => {
+          setRequirementBook(prev => prev + content)
+        }
+      )
+    } catch (error) {
+      toast({
+        title: "生成失败",
+        description: error instanceof Error ? error.message : "请稍后重试",
+        variant: "destructive",
+      })
+    } finally {
+      setIsGenerating(false)
+    }
+  }
 
   const handleSubmit = async () => {
     if (!originalRequirement.trim()) {
@@ -128,34 +185,44 @@ export default function RequirementBook() {
 
   const handleConfirm = async () => {
     try {
-      // 0. 更新需求衍化任务状态为完成
+      console.log('开始更新任务状态...');
+      
+      // 1. 更新需求书任务状态为完成
+      console.log('更新需求书任务状态...');
       await updateTask('requirement-book', {
         status: 'completed'
       })
       
-      // 1. 创建需求书结构化任务
+      // 2. 创建需求书结构化任务
+      console.log('创建需求书结构化任务...');
       const structureTask = await createRequirementStructureTask(requirementBook)
       
-      // 2. 解析需求书内容
+      // 3. 解析需求书内容
+      console.log('解析需求书内容...');
       const parser = new RequirementParserService()
       const parsedRequirement = parser.parseRequirement(requirementBook)
       
-      // 3. 标记结构化任务完成
+      // 4. 标记结构化任务完成
+      console.log('更新结构化任务状态...');
       await updateTask(structureTask.id, {
         status: 'completed'
       })
       
-      // 4. 创建场景边界分析任务
+      // 5. 创建场景边界分析任务
+      console.log('创建场景边界分析任务...');
       await createBoundaryAnalysisTask(parsedRequirement)
       
+      console.log('所有任务状态更新完成');
+      
       toast({
-        title: "需求书衍化与结构化已完成",
+        title: "需求初稿衍化与结构化已完成",
         description: "已创建后续场景边界分析任务",
       })
       
-      // 使用备选的导航方案
-      window.location.href = '/collaboration/tactical-board'
+      // 直接使用 window.location.replace 进行导航
+      window.location.replace('/collaboration/tactical-board')
     } catch (error) {
+      console.error('任务状态更新失败:', error);
       toast({
         title: "处理失败",
         description: error instanceof Error ? error.message : "请稍后重试",
@@ -169,10 +236,47 @@ export default function RequirementBook() {
       <div className="container mx-auto py-6 w-[90%]">
         <div className="space-y-6">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">需求书衍化</h1>
-            <p className="text-muted-foreground mt-2">
-              请输入原始需求分析结果，我们将帮助您生成一份结构化的需求书。
-            </p>
+            <h1 className="text-2xl font-bold tracking-tight">需求初稿衍化</h1>
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-muted-foreground">
+                请输入原始需求分析结果，我们将帮助您生成一份结构化的需求书初稿。
+              </p>
+              <div className="flex gap-1 ml-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setOriginalRequirement('')}
+                  className="h-7 px-2 text-xs text-gray-500 hover:text-gray-700"
+                  disabled={isGenerating}
+                >
+                  清空内容
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    const savedAnalysis = localStorage.getItem('requirement-analysis-content')
+                    if (savedAnalysis) {
+                      setOriginalRequirement(savedAnalysis)
+                      toast({
+                        title: "加载成功",
+                        description: "已重新加载需求分析内容",
+                      })
+                    } else {
+                      toast({
+                        title: "加载失败",
+                        description: "未找到保存的需求分析内容",
+                        variant: "destructive",
+                      })
+                    }
+                  }}
+                  className="h-7 px-2 text-xs text-gray-500 hover:text-gray-700"
+                  disabled={isGenerating}
+                >
+                  重新加载
+                </Button>
+              </div>
+            </div>
           </div>
           
           <div className="space-y-4">
@@ -254,7 +358,22 @@ export default function RequirementBook() {
                       disabled={isGenerating}
                     />
                   ) : (
-                    <div className="prose prose-sm max-w-none">
+                    <div className="prose prose-slate max-w-none dark:prose-invert
+                      prose-h1:text-2xl prose-h1:font-bold prose-h1:mb-4 prose-h1:pb-2 prose-h1:border-b
+                      prose-h2:text-xl prose-h2:font-semibold prose-h2:mb-3 prose-h2:mt-6
+                      prose-h3:text-lg prose-h3:font-medium prose-h3:mb-2 prose-h3:mt-4
+                      prose-p:my-2 prose-p:leading-relaxed
+                      prose-ul:my-2 prose-ul:list-disc prose-ul:pl-6
+                      prose-ol:my-2 prose-ol:list-decimal prose-ol:pl-6
+                      prose-li:my-1
+                      prose-blockquote:border-l-4 prose-blockquote:border-gray-300 prose-blockquote:pl-4 prose-blockquote:italic
+                      prose-pre:bg-gray-50 prose-pre:p-4 prose-pre:rounded-lg
+                      prose-code:text-sm prose-code:bg-gray-50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
+                      prose-strong:font-semibold
+                      prose-table:border-collapse prose-table:w-full
+                      prose-th:border prose-th:border-gray-300 prose-th:p-2 prose-th:bg-gray-50
+                      prose-td:border prose-td:border-gray-300 prose-td:p-2
+                    ">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {requirementBook}
                       </ReactMarkdown>

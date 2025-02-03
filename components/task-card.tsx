@@ -5,7 +5,7 @@ import { useState } from "react"
 import { Badge } from "./ui/badge"
 import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar"
 import { Button } from "./ui/button"
-import { Sparkles } from "lucide-react"
+import { Sparkles, Link as LinkIcon } from "lucide-react"
 import { useRouter } from 'next/navigation'
 import { getTaskActions } from '@/lib/task-routes'
 import type { Task } from '@/lib/services/task-service'
@@ -20,6 +20,28 @@ export function TaskCard({ task, position, onClose }: TaskCardProps) {
   const [isHovering, setIsHovering] = useState(false)
   const router = useRouter()
   const taskActions = getTaskActions(task)
+  const cardWidth = 280
+  const cardHeight = 180 // 估计的卡片高度
+  const hexagonSize = 60 // 六边形的大小（宽度）
+  const offset = 10 // 卡片与六边形之间的间距，改为正值且更小
+
+  // 计算卡片的最终位置
+  const calculatePosition = () => {
+    // 基础位置：从六边形中心开始计算
+    const baseLeft = position.x - (cardWidth / 2) // 从六边形中心开始
+    const baseTop = position.y - (cardHeight / 2) // 垂直居中
+
+    // 检查是否会超出屏幕右侧
+    const screenWidth = window.innerWidth
+    const finalLeft = baseLeft + cardWidth > screenWidth - 20 
+      ? screenWidth - cardWidth - 20 
+      : baseLeft
+
+    return {
+      left: `${finalLeft}px`,
+      top: `${baseTop}px`
+    }
+  }
 
   const handleMouseLeave = () => {
     if (!isHovering) {
@@ -39,10 +61,10 @@ export function TaskCard({ task, position, onClose }: TaskCardProps) {
     <motion.div
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="absolute bg-white p-3 rounded-lg shadow-lg border w-[280px]"
+      className="absolute bg-white p-3 rounded-lg shadow-lg border"
       style={{
-        left: position.x + 'px',
-        top: position.y + 'px',
+        width: cardWidth + 'px',
+        ...calculatePosition(),
         zIndex: 50
       }}
       onMouseEnter={() => setIsHovering(true)}
@@ -72,7 +94,7 @@ export function TaskCard({ task, position, onClose }: TaskCardProps) {
       {task.metadata && (
         <div className="mt-2 bg-gray-50 rounded-sm p-1.5 border border-gray-100">
           <div className="flex items-center gap-1 text-[10px] text-gray-500">
-            <Link className="h-3 w-3" />
+            <LinkIcon className="h-3 w-3" />
             <span>触发自：</span>
             <Badge variant="outline" className="bg-blue-50 text-blue-700 text-[10px] px-1 py-0 font-normal">
               API订阅

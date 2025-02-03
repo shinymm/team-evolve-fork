@@ -8,7 +8,7 @@ import { streamingAICall } from '@/lib/ai-service'
 import { getAIConfig } from '@/lib/ai-config-service'
 import { Card } from "@/components/ui/card"
 import { Loader2, Copy, Download, Edit2, Save, ArrowRight } from "lucide-react"
-import { requirementEvolutionPrompt } from '@/lib/prompts/requirement-evolution'
+import { requirementAnalysisPrompt } from '@/lib/prompts/requirement-analysis'
 import { updateTask } from '@/lib/services/task-service'
 import { useRouter } from 'next/navigation'
 import { Toaster } from "@/components/ui/toaster"
@@ -117,6 +117,8 @@ export default function RequirementEvolution() {
   const handleSave = () => {
     setAnalysis(editedAnalysis)
     setIsEditing(false)
+    // 保存编辑后的内容到 localStorage
+    localStorage.setItem('requirement-analysis-content', editedAnalysis)
     toast({
       title: "保存成功",
       description: "分析内容已更新",
@@ -125,6 +127,9 @@ export default function RequirementEvolution() {
 
   const handleConfirm = async () => {
     try {
+      // 保存最终的需求分析内容到 localStorage
+      localStorage.setItem('requirement-analysis-content', analysis);
+      
       await updateTask('requirement-analysis', {
         status: 'completed'
       })
@@ -231,7 +236,22 @@ export default function RequirementEvolution() {
                       disabled={isAnalyzing}
                     />
                   ) : (
-                    <div className="prose prose-sm max-w-none">
+                    <div className="prose prose-slate max-w-none dark:prose-invert
+                      prose-h1:text-2xl prose-h1:font-bold prose-h1:mb-4 prose-h1:pb-2 prose-h1:border-b
+                      prose-h2:text-xl prose-h2:font-semibold prose-h2:mb-3 prose-h2:mt-6
+                      prose-h3:text-lg prose-h3:font-medium prose-h3:mb-2 prose-h3:mt-4
+                      prose-p:my-2 prose-p:leading-relaxed
+                      prose-ul:my-2 prose-ul:list-disc prose-ul:pl-6
+                      prose-ol:my-2 prose-ol:list-decimal prose-ol:pl-6
+                      prose-li:my-1
+                      prose-blockquote:border-l-4 prose-blockquote:border-gray-300 prose-blockquote:pl-4 prose-blockquote:italic
+                      prose-pre:bg-gray-50 prose-pre:p-4 prose-pre:rounded-lg
+                      prose-code:text-sm prose-code:bg-gray-50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
+                      prose-strong:font-semibold
+                      prose-table:border-collapse prose-table:w-full
+                      prose-th:border prose-th:border-gray-300 prose-th:p-2 prose-th:bg-gray-50
+                      prose-td:border prose-td:border-gray-300 prose-td:p-2
+                    ">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {analysis}
                       </ReactMarkdown>

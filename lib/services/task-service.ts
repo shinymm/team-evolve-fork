@@ -38,17 +38,57 @@ const defaultRequirementTask: Task = {
 
 const defaultRequirementBookTask: Task = {
   id: 'requirement-book',
-  title: '需求衍化',
-  description: '基于原始需求分析结果，生成结构化的需求书。',
+  title: '需求初稿衍化',
+  description: '基于原始需求分析结果，生成需求书初稿。',
   type: '需求管理',
   status: 'pending',
   assignee: 'SQ',
   createdAt: new Date().toISOString(),
 }
 
+// 检查是否在浏览器环境中
+const isBrowser = typeof window !== 'undefined'
 
 // 模拟数据存储
-let tasks: Task[] = [defaultRequirementTask, defaultRequirementBookTask]
+let tasks: Task[] = []
+
+// 从 localStorage 加载任务
+function loadTasks() {
+  try {
+    // 每次加载时直接使用默认任务（状态为pending）
+    tasks = [
+      { ...defaultRequirementTask, createdAt: new Date().toISOString() },
+      { ...defaultRequirementBookTask, createdAt: new Date().toISOString() }
+    ]
+    // 只在浏览器环境中保存到 localStorage
+    if (isBrowser) {
+      saveTasks()
+    }
+  } catch (error) {
+    console.error('Failed to load tasks:', error)
+    tasks = [
+      { ...defaultRequirementTask, createdAt: new Date().toISOString() },
+      { ...defaultRequirementBookTask, createdAt: new Date().toISOString() }
+    ]
+    if (isBrowser) {
+      saveTasks()
+    }
+  }
+}
+
+// 保存任务到 localStorage
+function saveTasks() {
+  if (!isBrowser) return
+  
+  try {
+    localStorage.setItem('qare-tasks', JSON.stringify(tasks))
+  } catch (error) {
+    console.error('Failed to save tasks:', error)
+  }
+}
+
+// 初始化加载任务
+loadTasks()
 
 export async function createTask(params: CreateTaskParams): Promise<Task> {
   const task: Task = {
@@ -58,11 +98,13 @@ export async function createTask(params: CreateTaskParams): Promise<Task> {
   }
   
   tasks.push(task)
+  if (isBrowser) {
+    saveTasks()
+  }
   return task
 }
 
 export async function getTasks(): Promise<Task[]> {
-  // 这里可以添加从后端获取任务的逻辑
   return tasks
 }
 
@@ -71,9 +113,15 @@ export async function updateTask(id: string, updates: Partial<Task>): Promise<Ta
   if (index === -1) throw new Error('Task not found')
   
   tasks[index] = { ...tasks[index], ...updates }
+  if (isBrowser) {
+    saveTasks()
+  }
   return tasks[index]
 }
 
 export async function deleteTask(id: string): Promise<void> {
   tasks = tasks.filter(t => t.id !== id)
+  if (isBrowser) {
+    saveTasks()
+  }
 } 
