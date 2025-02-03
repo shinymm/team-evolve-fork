@@ -12,6 +12,8 @@ import { requirementBookPrompt } from '@/lib/prompts/requirement-book'
 import { updateTask } from '@/lib/services/task-service'
 import { useRouter } from 'next/navigation'
 import { Toaster } from "@/components/ui/toaster"
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 export default function RequirementBook() {
   const [originalRequirement, setOriginalRequirement] = useState('')
@@ -221,7 +223,7 @@ export default function RequirementBook() {
                     </Button>
                   )}
                 </div>
-                <Card className="p-6 mt-4 whitespace-pre-wrap">
+                <Card className="p-6 mt-4">
                   {isEditing ? (
                     <Textarea
                       value={editedBook}
@@ -230,7 +232,11 @@ export default function RequirementBook() {
                       disabled={isGenerating}
                     />
                   ) : (
-                    requirementBook
+                    <div className="prose prose-sm max-w-none">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {requirementBook}
+                      </ReactMarkdown>
+                    </div>
                   )}
                 </Card>
                 {!isEditing && (

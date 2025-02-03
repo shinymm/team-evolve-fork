@@ -12,6 +12,8 @@ import { requirementEvolutionPrompt } from '@/lib/prompts/requirement-evolution'
 import { updateTask } from '@/lib/services/task-service'
 import { useRouter } from 'next/navigation'
 import { Toaster } from "@/components/ui/toaster"
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 export default function RequirementEvolution() {
   const [requirement, setRequirement] = useState('')
@@ -220,7 +222,7 @@ export default function RequirementEvolution() {
                     </Button>
                   )}
                 </div>
-                <Card className="p-6 mt-4 whitespace-pre-wrap">
+                <Card className="p-6 mt-4">
                   {isEditing ? (
                     <Textarea
                       value={editedAnalysis}
@@ -229,7 +231,11 @@ export default function RequirementEvolution() {
                       disabled={isAnalyzing}
                     />
                   ) : (
-                    analysis
+                    <div className="prose prose-sm max-w-none">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {analysis}
+                      </ReactMarkdown>
+                    </div>
                   )}
                 </Card>
                 {!isEditing && (
