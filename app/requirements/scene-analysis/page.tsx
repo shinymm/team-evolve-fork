@@ -138,7 +138,7 @@ export default function SceneAnalysisPage() {
       const task = await createTask({
         title: `场景${index + 1}边界分析`,
         description: `分析场景"${scene.name}"（${scene.overview}）的边界条件和异常情况`,
-        type: 'boundary-analysis',
+        type: 'scene-boundary-analysis',
         assignee: 'system',
         status: 'pending'
       })
