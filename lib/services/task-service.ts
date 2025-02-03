@@ -46,18 +46,9 @@ const defaultRequirementBookTask: Task = {
   createdAt: new Date().toISOString(),
 }
 
-const defaultRequirementBreakdownTask: Task = {
-    id: 'requirement-breakdown-scene',
-    title: '需求场景拆解',
-    description: '基于需求书内容进行场景拆解。',
-    type: '需求管理',
-    status: 'pending',
-    assignee: 'system',
-    createdAt: new Date().toISOString(),
-  }
 
 // 模拟数据存储
-let tasks: Task[] = [defaultRequirementTask, defaultRequirementBookTask,defaultRequirementBreakdownTask]
+let tasks: Task[] = [defaultRequirementTask, defaultRequirementBookTask]
 
 export async function createTask(params: CreateTaskParams): Promise<Task> {
   const task: Task = {

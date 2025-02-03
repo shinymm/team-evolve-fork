@@ -10,7 +10,10 @@ import { Card } from "@/components/ui/card"
 import { Loader2, Copy, Download, Edit2, Save, ArrowRight } from "lucide-react"
 import { requirementBookPrompt } from '@/lib/prompts/requirement-book'
 import { updateTask } from '@/lib/services/task-service'
+import { createRequirementStructureTask, createBoundaryAnalysisTask } from '@/lib/services/task-control'
+import { RequirementParserService } from '@/lib/services/requirement-parser-service'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Toaster } from "@/components/ui/toaster"
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -125,17 +128,36 @@ export default function RequirementBook() {
 
   const handleConfirm = async () => {
     try {
+      // 0. 更新需求衍化任务状态为完成
       await updateTask('requirement-book', {
         status: 'completed'
       })
-      toast({
-        title: "需求书已完成",
-        description: "已更新任务状态",
+      
+      // 1. 创建需求书结构化任务
+      const structureTask = await createRequirementStructureTask(requirementBook)
+      
+      // 2. 解析需求书内容
+      const parser = new RequirementParserService()
+      const parsedRequirement = parser.parseRequirement(requirementBook)
+      
+      // 3. 标记结构化任务完成
+      await updateTask(structureTask.id, {
+        status: 'completed'
       })
-      router.push('/collaboration/tactical-board')
+      
+      // 4. 创建场景边界分析任务
+      await createBoundaryAnalysisTask(parsedRequirement)
+      
+      toast({
+        title: "需求书衍化与结构化已完成",
+        description: "已创建后续场景边界分析任务",
+      })
+      
+      // 使用备选的导航方案
+      window.location.href = '/collaboration/tactical-board'
     } catch (error) {
       toast({
-        title: "状态更新失败",
+        title: "处理失败",
         description: error instanceof Error ? error.message : "请稍后重试",
         variant: "destructive",
       })

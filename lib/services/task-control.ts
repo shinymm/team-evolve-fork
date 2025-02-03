@@ -6,6 +6,42 @@ interface SystemSubscription {
   apiEndpoint: string
 }
 
+interface RequirementData {
+  reqBackground: string
+  reqBrief: string
+  scenes: {
+    name: string
+    overview: string
+    userJourney: string[]
+  }[]
+}
+
+export async function createRequirementStructureTask(mdContent: string) {
+  return await createTask({
+    title: '需求书结构化',
+    description: '将需求书内容解析为结构化数据，便于后续分析',
+    type: 'requirement-structure',
+    assignee: 'system',
+    status: 'pending',
+    metadata: {
+      mdContent
+    }
+  })
+}
+
+export async function createBoundaryAnalysisTask(requirementData: RequirementData) {
+  return await createTask({
+    title: '场景边界分析',
+    description: '基于结构化的需求数据，分析每个场景的边界条件',
+    type: 'boundary-analysis',
+    assignee: 'SQ',
+    status: 'pending',
+    metadata: {
+      requirementData
+    }
+  })
+}
+
 export async function handleNewSubscription(subscription: SystemSubscription) {
   // 1. 检查系统架构
   const architectureCheckTask = await createTask({
