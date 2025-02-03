@@ -12,6 +12,24 @@ type TemplateSection = {
 // 定义分析结果的部分
 type AnalysisSection = '前置条件' | '约束条件' | '异常处理' | '补充说明'
 
+// 定义结构化场景对象
+export type StructuredScene = {
+  sceneName: string
+  sceneOverview: string
+  sceneUserJourney: string[]
+  preconditions: string    // 前置条件
+  constraints: string      // 约束条件
+  exceptions: string       // 异常处理
+  notes: string           // 补充说明
+}
+
+// 定义完整的结构化需求书对象
+export type StructuredRequirement = {
+  reqBackground: string
+  reqBrief: string
+  sceneList: StructuredScene[]
+}
+
 // 需求书模板定义
 const REQUIREMENT_TEMPLATE: TemplateSection[] = [
   { title: '需求书', level: 1 },
@@ -31,7 +49,10 @@ const SCENE_TEMPLATE: TemplateSection[] = [
 ]
 
 // 格式化工具函数
-function formatUserJourney(steps: string[]): string {
+function formatUserJourney(steps: string[] | string): string {
+  if (!steps) return 'N/A'
+  if (typeof steps === 'string') return steps
+  if (!Array.isArray(steps)) return 'N/A'
   return steps.map((step, index) => `${index + 1}. ${step}`).join('\n')
 }
 
@@ -121,33 +142,103 @@ export class RequirementExportService {
       // 添加场景标题
       mdContent += formatMarkdownTitle(`${index + 1}. ${scene.name}`, 3)
 
-      if (sceneState?.optimizeResult) {
-        // 使用优化后的内容
-        const optimizedSections = this.parseOptimizedContent(sceneState.optimizeResult)
-        SCENE_TEMPLATE.forEach(section => {
-          if (optimizedSections[section.title]) {
-            mdContent += formatSection(section, optimizedSections[section.title])
-          }
-        })
-      } else {
-        // 使用原始内容和分析结果
-        mdContent += formatSection(SCENE_TEMPLATE[0], scene.overview)
-        mdContent += formatSection(SCENE_TEMPLATE[1], scene.userJourney)
-
-        if (sceneState?.analysisResult) {
-          const analysisResults = this.parseAnalysisResult(sceneState.analysisResult)
-          Object.entries(analysisResults).forEach(([title, content]) => {
-            const section = SCENE_TEMPLATE.find(s => s.title === title)
-            if (section) {
-              mdContent += formatSection(section, content)
+      try {
+        if (sceneState?.optimizeResult) {
+          // 使用优化后的内容
+          const optimizedSections = this.parseOptimizedContent(sceneState.optimizeResult)
+          SCENE_TEMPLATE.forEach(section => {
+            if (optimizedSections[section.title]) {
+              mdContent += formatSection(section, optimizedSections[section.title])
             }
           })
+        } else {
+          // 使用原始内容和分析结果
+          mdContent += formatSection(SCENE_TEMPLATE[0], scene.overview || 'N/A')
+          mdContent += formatSection(SCENE_TEMPLATE[1], scene.userJourney || [])
+          
         }
+      } catch (error) {
+        console.error(`Error processing scene ${scene.name}:`, error)
+        // 发生错误时使用基本内容
+        mdContent += formatSection(SCENE_TEMPLATE[0], scene.overview || 'N/A')
+        mdContent += formatSection(SCENE_TEMPLATE[1], scene.userJourney || [])
       }
 
       mdContent += '---\n\n' // 场景之间的分隔线
     })
 
     return mdContent
+  }
+
+  /**
+   * 生成结构化的需求书对象
+   */
+  static generateStructuredRequirement(content: RequirementContent, sceneStates: Record<string, SceneAnalysisState>): StructuredRequirement {
+    const structuredReq: StructuredRequirement = {
+      reqBackground: content.reqBackground,
+      reqBrief: content.reqBrief,
+      sceneList: []
+    }
+
+    content.scenes.forEach(scene => {
+      const sceneState = sceneStates[scene.name]
+      const structuredScene: Partial<StructuredScene> = {
+        sceneName: scene.name,
+        sceneOverview: scene.overview,
+        sceneUserJourney: scene.userJourney,
+        preconditions: 'N/A',
+        constraints: 'N/A',
+        exceptions: 'N/A',
+        notes: 'N/A'
+      }
+
+      if (sceneState?.optimizeResult) {
+        // 使用优化后的内容
+        const optimizedSections = this.parseOptimizedContent(sceneState.optimizeResult)
+        // 映射中文属性名到英文属性名
+        const titleMapping: Record<string, Exclude<keyof StructuredScene, 'sceneName' | 'sceneOverview' | 'sceneUserJourney'>> = {
+          '前置条件': 'preconditions',
+          '约束条件': 'constraints',
+          '异常处理': 'exceptions',
+          '补充说明': 'notes'
+        }
+        Object.entries(optimizedSections).forEach(([title, content]) => {
+          const englishTitle = titleMapping[title]
+          if (englishTitle && content && typeof content === 'string') {
+            structuredScene[englishTitle] = content
+          }
+        })
+      } else if (sceneState?.analysisResult) {
+        // 使用原始分析结果
+        const analysisResults = this.parseAnalysisResult(sceneState.analysisResult)
+        const titleMapping: Record<AnalysisSection, Exclude<keyof StructuredScene, 'sceneName' | 'sceneOverview' | 'sceneUserJourney'>> = {
+          '前置条件': 'preconditions',
+          '约束条件': 'constraints',
+          '异常处理': 'exceptions',
+          '补充说明': 'notes'
+        }
+        Object.entries(analysisResults).forEach(([title, content]) => {
+          if (content && typeof content === 'string') {
+            const englishTitle = titleMapping[title as AnalysisSection]
+            if (englishTitle) {
+              structuredScene[englishTitle] = content
+            }
+          }
+        })
+      }
+
+      structuredReq.sceneList.push(structuredScene as StructuredScene)
+    })
+
+    return structuredReq
+  }
+
+  /**
+   * 保存结构化需求书到 localStorage
+   */
+  static saveStructuredRequirementToStorage(content: RequirementContent, sceneStates: Record<string, SceneAnalysisState>): void {
+    const structuredReq = this.generateStructuredRequirement(content, sceneStates)
+    localStorage.setItem('structuredRequirement', JSON.stringify(structuredReq))
+    // console.log(structuredReq)
   }
 } 

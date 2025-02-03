@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils'
 import { streamingAICall, AIModelConfig } from '@/lib/ai-service'
 import { SceneRequirementService } from '@/lib/services/scene-requirement-service'
 import { getAIConfig } from '@/lib/ai-config-service'
-import { RequirementExportService } from "@/services/requirement-export"
+import { RequirementExportService } from '@/lib/services/requirement-export-service'
 
 interface Scene {
   name: string
@@ -544,6 +544,9 @@ export default function SceneAnalysisPage() {
     // 清理
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
+
+    // 同时保存结构化数据到localStorage
+    RequirementExportService.saveStructuredRequirementToStorage(content, sceneStates)
   }
 
   if (!content) {
