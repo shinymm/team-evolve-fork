@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
@@ -15,14 +15,29 @@ import { Toaster } from "@/components/ui/toaster"
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
-export default function RequirementEvolution() {
-  const [requirement, setRequirement] = useState('')
-  const [analysis, setAnalysis] = useState('')
+export default function RequirementAnalysis() {
+  const [analysis, setAnalysis] = useState<string>('')
+  const [requirement, setRequirement] = useState<string>('')
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editedAnalysis, setEditedAnalysis] = useState('')
   const { toast } = useToast()
   const router = useRouter()
+
+  // 使用 useEffect 安全地加载 localStorage 数据
+  useEffect(() => {
+    const savedAnalysis = localStorage.getItem('requirement-analysis-content')
+    const savedRequirement = localStorage.getItem('requirement-input')
+    
+    if (savedAnalysis) setAnalysis(savedAnalysis)
+    if (savedRequirement) setRequirement(savedRequirement)
+  }, [])
+
+  // 当需求内容变化时，保存到 localStorage
+  const handleRequirementChange = (value: string) => {
+    setRequirement(value)
+    localStorage.setItem('requirement-input', value)
+  }
 
   const handleSubmit = async () => {
     if (!requirement.trim()) {
@@ -48,7 +63,7 @@ export default function RequirementEvolution() {
     setAnalysis('')
 
     try {
-      const prompt = requirementEvolutionPrompt(requirement)
+      const prompt = requirementAnalysisPrompt(requirement)
       await streamingAICall(
         prompt,
         aiConfig,
@@ -163,7 +178,7 @@ export default function RequirementEvolution() {
               placeholder="请描述您的需求想法..."
               className="min-h-[100px]"
               value={requirement}
-              onChange={(e) => setRequirement(e.target.value)}
+              onChange={(e) => handleRequirementChange(e.target.value)}
             />
             <Button 
               onClick={handleSubmit} 

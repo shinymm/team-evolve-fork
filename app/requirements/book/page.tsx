@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card"
 import { Loader2, Copy, Download, Edit2, Save, ArrowRight } from "lucide-react"
 import { requirementBookPrompt } from '@/lib/prompts/requirement-book'
 import { updateTask } from '@/lib/services/task-service'
-import { createRequirementStructureTask, createBoundaryAnalysisTask } from '@/lib/services/task-control'
+import { createRequirementStructureTask, createSceneAnalysisTask } from '@/lib/services/task-control'
 import { RequirementParserService } from '@/lib/services/requirement-parser-service'
 import { useRouter } from 'next/navigation'
 import { Toaster } from "@/components/ui/toaster"
@@ -213,7 +213,7 @@ export default function RequirementBook() {
       
       // 5. 创建场景边界分析任务
       console.log('创建场景边界分析任务...');
-      await createBoundaryAnalysisTask(parsedRequirement)
+      await createSceneAnalysisTask(parsedRequirement)
       
       console.log('所有任务状态更新完成');
       

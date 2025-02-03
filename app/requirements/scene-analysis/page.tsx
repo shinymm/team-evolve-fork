@@ -12,6 +12,9 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { createTask, updateTask } from '@/lib/services/task-service'
 import { cn } from '@/lib/utils'
+import { streamingAICall, AIModelConfig } from '@/lib/ai-service'
+import { SceneRequirementService } from '@/lib/services/scene-requirement-service'
+import { getAIConfig } from '@/lib/ai-config-service'
 
 interface Scene {
   name: string
@@ -31,35 +34,53 @@ interface SceneAnalysisState {
   analysisResult?: string  // 存储已确认的分析结果
   isConfirming?: boolean
   isCompleted?: boolean
+  isEditing?: boolean  // 新增：是否处于编辑状态
+  isOptimizing?: boolean  // 新增：是否正在优化需求描述
+  optimizeResult?: string  // 新增：优化后的需求描述结果
+  isOptimizeConfirming?: boolean  // 新增：是否在等待确认优化结果
+  isHideOriginal?: boolean  // 新增：是否隐藏原始卡片
+}
+
+interface EditingScene {
+  name: string
+  overview: string
+  userJourney: string[]
+  analysisResult?: string
 }
 
 export default function SceneAnalysisPage() {
-  const [content, setContent] = useState<RequirementContent | null>(null)
-  const [mdContent, setMdContent] = useState<string>('')
+  const [content, setContent] = useState<RequirementContent | null>(() => {
+    // 在初始化时就加载和解析数据
+    if (typeof window !== 'undefined') {
+      const storedContent = localStorage.getItem('requirement-structured-content')
+      if (storedContent) {
+        try {
+          return JSON.parse(storedContent)
+        } catch (e) {
+          console.error('Failed to parse stored content:', e)
+        }
+      }
+    }
+    return null
+  })
+  
+  const [mdContent, setMdContent] = useState<string>(() => {
+    // 在初始化时就加载数据
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('requirement-book-content') || ''
+    }
+    return ''
+  })
+
   const [isExpanded, setIsExpanded] = useState(false)
   const [selectedScene, setSelectedScene] = useState<Scene | null>(null)
   const [analysisResult, setAnalysisResult] = useState<string>('')
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [sceneStates, setSceneStates] = useState<Record<string, SceneAnalysisState>>({})
+  const [editingScene, setEditingScene] = useState<EditingScene | null>(null)
+  const [optimizeResult, setOptimizeResult] = useState<string>('')
+  const [isOptimizing, setIsOptimizing] = useState(false)
   const { toast } = useToast()
-
-  useEffect(() => {
-    // 加载结构化内容
-    const storedContent = localStorage.getItem('requirement-structured-content')
-    if (storedContent) {
-      try {
-        setContent(JSON.parse(storedContent))
-      } catch (e) {
-        console.error('Failed to parse stored content:', e)
-      }
-    }
-
-    // 加载MD内容
-    const storedMd = localStorage.getItem('requirement-book-content')
-    if (storedMd) {
-      setMdContent(storedMd)
-    }
-  }, [])
 
   const handleParse = () => {
     if (!mdContent.trim()) {
@@ -175,9 +196,13 @@ export default function SceneAnalysisPage() {
           ...prev[scene.name],
           isConfirming: false,
           isCompleted: true,
-          analysisResult: analysisResult  // 保存已确认的分析结果
+          analysisResult: analysisResult  // 保存当前的分析结果
         }
       }))
+
+      // 清空当前的实时分析结果
+      setAnalysisResult('')
+      setSelectedScene(null)
 
       toast({
         title: "已接受分析结果",
@@ -204,13 +229,266 @@ export default function SceneAnalysisPage() {
         [scene.name]: {
           taskId: prev[scene.name]?.taskId,
           isConfirming: false,
-          isCompleted: false
+          isCompleted: false,
+          tempResult: undefined,  // 清空临时结果
+          analysisResult: undefined  // 清空分析结果
         }
       }))
+
+      // 清空当前的实时分析结果
+      setAnalysisResult('')
+      setSelectedScene(null)
 
       toast({
         title: "已拒绝分析结果",
         description: `场景"${scene.name}"的边界分析结果已拒绝，可重新分析`,
+      })
+    } catch (error) {
+      console.error('拒绝失败:', error)
+      toast({
+        title: "操作失败",
+        description: error instanceof Error ? error.message : "操作过程中出现错误",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // 开始编辑场景
+  const handleStartEdit = (scene: Scene, index: number) => {
+    setEditingScene({
+      name: scene.name,
+      overview: scene.overview,
+      userJourney: [...scene.userJourney],
+      analysisResult: sceneStates[scene.name]?.analysisResult
+    })
+    setSceneStates(prev => ({
+      ...prev,
+      [scene.name]: {
+        ...prev[scene.name],
+        isEditing: true
+      }
+    }))
+  }
+
+  // 保存编辑的场景
+  const handleSaveEdit = (scene: Scene, index: number) => {
+    if (!editingScene || !content) return
+
+    // 更新场景内容
+    const updatedScenes = [...content.scenes]
+    updatedScenes[index] = {
+      name: scene.name,  // 保持原有的场景名称
+      overview: editingScene.overview,
+      userJourney: editingScene.userJourney
+    }
+
+    // 更新content并保存到localStorage
+    const updatedContent = {
+      ...content,
+      scenes: updatedScenes
+    }
+    setContent(updatedContent)
+    localStorage.setItem('requirement-structured-content', JSON.stringify(updatedContent))
+
+    // 更新场景状态，保持分析结果不变
+    setSceneStates(prev => {
+      const currentState = prev[scene.name] || {}
+      return {
+        ...prev,
+        [scene.name]: {
+          ...currentState,
+          isEditing: false,
+          analysisResult: editingScene.analysisResult || currentState.analysisResult
+        }
+      }
+    })
+
+    // 如果当前选中的场景是被编辑的场景，也需要更新选中的场景
+    if (selectedScene?.name === scene.name) {
+      setSelectedScene(updatedScenes[index])
+    }
+
+    setEditingScene(null)
+
+    toast({
+      title: "保存成功",
+      description: "场景信息已更新",
+    })
+  }
+
+  // 取消编辑
+  const handleCancelEdit = (scene: Scene) => {
+    setEditingScene(null)
+    setSceneStates(prev => ({
+      ...prev,
+      [scene.name]: {
+        ...prev[scene.name],
+        isEditing: false
+      }
+    }))
+  }
+
+  const handleOptimizeRequirement = async (scene: Scene, index: number) => {
+    if (!content) return
+    setIsOptimizing(true)
+    setOptimizeResult('')
+    setSelectedScene(scene)
+
+    // 立即更新场景状态，显示优化中的卡片
+    setSceneStates(prev => ({
+      ...prev,
+      [scene.name]: {
+        ...prev[scene.name],
+        taskId: prev[scene.name]?.taskId,
+        isOptimizing: true,
+        isOptimizeConfirming: false,
+        optimizeResult: undefined
+      } as SceneAnalysisState
+    }))
+
+    try {
+      // 创建任务
+      const task = await createTask({
+        title: `完善场景${index + 1}需求描述`,
+        description: `优化场景"${scene.name}"的需求描述`,
+        type: 'requirement-optimize',
+        assignee: 'system',
+        status: 'pending'
+      })
+
+      // 更新任务ID
+      setSceneStates(prev => ({
+        ...prev,
+        [scene.name]: {
+          ...prev[scene.name],
+          taskId: task.id,
+        } as SceneAnalysisState
+      }))
+
+      const config = getAIConfig()
+      if (!config) {
+        throw new Error('未配置AI模型')
+      }
+
+      const service = new SceneRequirementService(config)
+      
+      await service.optimize(
+        {
+          reqBackground: content.reqBackground,
+          reqBrief: content.reqBrief,
+          scene: scene,
+          boundaryAnalysis: sceneStates[scene.name]?.analysisResult || ''
+        },
+        (content: string) => {
+          setOptimizeResult(prev => prev + content)
+          // 同时更新场景状态中的优化结果
+          setSceneStates(prev => ({
+            ...prev,
+            [scene.name]: {
+              ...prev[scene.name],
+              optimizeResult: prev[scene.name]?.optimizeResult 
+                ? prev[scene.name].optimizeResult + content 
+                : content
+            } as SceneAnalysisState
+          }))
+        }
+      )
+
+      // 更新场景状态为等待确认
+      setSceneStates(prev => ({
+        ...prev,
+        [scene.name]: {
+          ...prev[scene.name],
+          isOptimizeConfirming: true,
+          isOptimizing: false
+        } as SceneAnalysisState
+      }))
+
+      toast({
+        title: "优化完成",
+        description: `场景"${scene.name}"的需求描述已优化完成，请确认结果`,
+      })
+    } catch (error) {
+      console.error('优化失败:', error)
+      toast({
+        title: "优化失败",
+        description: error instanceof Error ? error.message : "优化过程中出现错误",
+        variant: "destructive",
+      })
+      // 发生错误时，重置场景状态
+      setSceneStates(prev => ({
+        ...prev,
+        [scene.name]: {
+          ...prev[scene.name],
+          isOptimizing: false,
+          isOptimizeConfirming: false,
+          optimizeResult: undefined
+        } as SceneAnalysisState
+      }))
+    } finally {
+      setIsOptimizing(false)
+    }
+  }
+
+  const handleAcceptOptimize = async (scene: Scene, index: number) => {
+    const state = sceneStates[scene.name]
+    if (!state?.taskId || !content || !state.optimizeResult) return
+
+    try {
+      // 更新任务状态
+      await updateTask(state.taskId, {
+        status: 'completed'
+      })
+
+      // 更新场景状态
+      setSceneStates(prev => ({
+        ...prev,
+        [scene.name]: {
+          ...prev[scene.name],
+          isOptimizing: false,
+          isOptimizeConfirming: false,
+          optimizeResult: state.optimizeResult,
+          isHideOriginal: true  // 添加新状态来控制原始卡片的显示
+        } as SceneAnalysisState
+      }))
+
+      // 清空选中的场景和优化结果
+      setSelectedScene(null)
+      setOptimizeResult('')
+
+      toast({
+        title: "已接受优化结果",
+        description: `场景"${scene.name}"的需求描述已更新`,
+      })
+    } catch (error) {
+      console.error('确认失败:', error)
+      toast({
+        title: "确认失败",
+        description: error instanceof Error ? error.message : "操作过程中出现错误",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleRejectOptimize = async (scene: Scene) => {
+    const state = sceneStates[scene.name]
+    if (!state?.taskId) return
+
+    try {
+      // 重置场景状态
+      setSceneStates(prev => ({
+        ...prev,
+        [scene.name]: {
+          ...prev[scene.name],
+          isOptimizing: false,
+          isOptimizeConfirming: false,
+          optimizeResult: undefined
+        } as SceneAnalysisState
+      }))
+
+      toast({
+        title: "已拒绝优化结果",
+        description: `场景"${scene.name}"的需求描述优化已取消，可重新优化`,
       })
     } catch (error) {
       console.error('拒绝失败:', error)
@@ -313,104 +591,280 @@ export default function SceneAnalysisPage() {
         ) : (
           <div className="space-y-3">
             {content.scenes.map((scene, index) => (
-              <Card key={index} className="hover:shadow-lg transition-shadow">
-                <CardHeader className="py-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-base">{scene.name}</CardTitle>
-                      <CardDescription className="text-xs mt-0.5">场景概述</CardDescription>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button 
-                        onClick={() => handleAnalyzeScene(scene, index)}
-                        className={cn(
-                          "bg-orange-500 hover:bg-orange-600",
-                          sceneStates[scene.name]?.isCompleted && "bg-gray-100 hover:bg-gray-200 text-gray-600"
-                        )}
-                        size="sm"
-                        disabled={isAnalyzing || sceneStates[scene.name]?.isConfirming}
-                      >
-                        {isAnalyzing && selectedScene?.name === scene.name ? (
-                          <>
-                            <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                            分析中...
-                          </>
+              <div key={index} className="flex gap-4">
+                {/* 原始场景卡片 */}
+                {!sceneStates[scene.name]?.isHideOriginal && (
+                  <Card 
+                    className={cn(
+                      "hover:shadow-lg transition-all duration-300",
+                      (sceneStates[scene.name]?.isOptimizing || sceneStates[scene.name]?.optimizeResult) ? "w-1/2" : "w-full"
+                    )}
+                  >
+                    <CardHeader className="py-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="text-base">{scene.name}</CardTitle>
+                          <CardDescription className="text-xs mt-0.5">场景概述</CardDescription>
+                        </div>
+                        <div className="flex gap-2">
+                          {sceneStates[scene.name]?.isEditing ? (
+                            <>
+                              <Button
+                                onClick={() => handleSaveEdit(scene, index)}
+                                className="bg-green-500 hover:bg-green-600"
+                                size="sm"
+                              >
+                                <Check className="mr-2 h-3.5 w-3.5" />
+                                保存修改
+                              </Button>
+                              <Button
+                                onClick={() => handleCancelEdit(scene)}
+                                variant="outline"
+                                size="sm"
+                                className="border-gray-200"
+                              >
+                                <X className="mr-2 h-3.5 w-3.5" />
+                                取消
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                onClick={() => handleStartEdit(scene, index)}
+                                variant="outline"
+                                size="sm"
+                                className="border-blue-200 text-blue-900 hover:bg-blue-50"
+                              >
+                                <FileEdit className="mr-2 h-3.5 w-3.5" />
+                                编辑场景
+                              </Button>
+                              <Button 
+                                onClick={() => handleAnalyzeScene(scene, index)}
+                                className={cn(
+                                  "bg-orange-500 hover:bg-orange-600",
+                                  sceneStates[scene.name]?.isCompleted && "bg-gray-100 hover:bg-gray-200 text-gray-600"
+                                )}
+                                size="sm"
+                                disabled={isAnalyzing || sceneStates[scene.name]?.isConfirming}
+                              >
+                                {isAnalyzing && selectedScene?.name === scene.name ? (
+                                  <>
+                                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                                    分析中...
+                                  </>
+                                ) : (
+                                  <>
+                                    <ArrowRight className="mr-2 h-3.5 w-3.5" />
+                                    场景边界分析
+                                  </>
+                                )}
+                              </Button>
+                              {sceneStates[scene.name]?.isCompleted && !sceneStates[scene.name]?.isOptimizing && (
+                                <Button
+                                  onClick={() => handleOptimizeRequirement(scene, index)}
+                                  variant="default"
+                                  size="sm"
+                                  className={cn(
+                                    "bg-blue-500 hover:bg-blue-600 text-white",
+                                    "transition-all duration-200 ease-in-out transform hover:scale-105"
+                                  )}
+                                  disabled={isOptimizing}
+                                >
+                                  {isOptimizing && selectedScene?.name === scene.name ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                                      优化中...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <FileEdit className="mr-2 h-3.5 w-3.5" />
+                                      完善场景需求描述
+                                    </>
+                                  )}
+                                </Button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="py-0 pb-3 space-y-3">
+                      <div>
+                        {sceneStates[scene.name]?.isEditing ? (
+                          <textarea
+                            className="w-full p-2 text-sm border rounded-md"
+                            value={editingScene?.overview}
+                            onChange={(e) => setEditingScene(prev => prev ? {...prev, overview: e.target.value} : null)}
+                            rows={2}
+                          />
                         ) : (
-                          <>
-                            <ArrowRight className="mr-2 h-3.5 w-3.5" />
-                            场景边界分析
-                          </>
+                          <p className="text-sm text-gray-600">{scene.overview}</p>
                         )}
-                      </Button>
-                      {sceneStates[scene.name]?.isCompleted && (
-                        <Button
-                          variant="default"
-                          size="sm"
-                          className="bg-blue-500 hover:bg-blue-600 text-white"
-                        >
-                          <FileEdit className="mr-2 h-3.5 w-3.5" />
-                          完善场景需求描述
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="py-0 pb-3 space-y-3">
-                  <div>
-                    <p className="text-sm text-gray-600">{scene.overview}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium mb-1.5">用户旅程 ({scene.userJourney.length} 步)</h4>
-                    <div className="space-y-1">
-                      {scene.userJourney.map((step, stepIndex) => (
-                        <p key={stepIndex} className="text-sm text-gray-600">
-                          {stepIndex + 1}. {step}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                  {/* 显示分析结果：如果是当前选中的场景显示实时结果，否则显示已保存的结果 */}
-                  {(selectedScene?.name === scene.name || sceneStates[scene.name]?.analysisResult) && (
-                    <div className="mt-4 border-t pt-4">
-                      <div className="text-sm text-gray-600">
-                        <ReactMarkdown 
-                          remarkPlugins={[remarkGfm]}
-                          components={{
-                            h3: ({children}) => <h3 className="text-base font-semibold text-gray-900 mb-2">{children}</h3>,
-                            h4: ({children}) => <h4 className="text-sm font-medium text-gray-700 mb-1.5">{children}</h4>,
-                            ul: ({children}) => <ul className="space-y-1 mb-3">{children}</ul>,
-                            li: ({children}) => <li className="text-sm text-gray-600">{children}</li>,
-                            p: ({children}) => <p className="text-sm text-gray-600 mb-2">{children}</p>
-                          }}
-                        >
-                          {(selectedScene?.name === scene.name ? analysisResult : sceneStates[scene.name]?.analysisResult) || ''}
-                        </ReactMarkdown>
-                        {sceneStates[scene.name]?.isConfirming && (
-                          <div className="flex justify-end gap-2 mt-4">
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium mb-1.5">用户旅程 ({scene.userJourney.length} 步)</h4>
+                        <div className="space-y-1">
+                          {sceneStates[scene.name]?.isEditing ? (
+                            editingScene?.userJourney.map((step, stepIndex) => (
+                              <div key={stepIndex} className="flex gap-2">
+                                <input
+                                  className="flex-1 p-1 text-sm border rounded-md"
+                                  value={step}
+                                  onChange={(e) => {
+                                    const newJourney = [...editingScene.userJourney]
+                                    newJourney[stepIndex] = e.target.value
+                                    setEditingScene(prev => prev ? {...prev, userJourney: newJourney} : null)
+                                  }}
+                                />
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="px-2 h-8"
+                                  onClick={() => {
+                                    const newJourney = editingScene.userJourney.filter((_, i) => i !== stepIndex)
+                                    setEditingScene(prev => prev ? {...prev, userJourney: newJourney} : null)
+                                  }}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))
+                          ) : (
+                            scene.userJourney.map((step, stepIndex) => (
+                              <p key={stepIndex} className="text-sm text-gray-600">
+                                {stepIndex + 1}. {step}
+                              </p>
+                            ))
+                          )}
+                          {sceneStates[scene.name]?.isEditing && (
                             <Button
-                              onClick={() => handleAcceptResult(scene)}
+                              variant="outline"
+                              size="sm"
+                              className="w-full mt-2"
+                              onClick={() => {
+                                const newJourney = [...editingScene?.userJourney || [], '']
+                                setEditingScene(prev => prev ? {...prev, userJourney: newJourney} : null)
+                              }}
+                            >
+                              添加步骤
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                      {/* 显示分析结果：如果有分析结果就显示 */}
+                      {(sceneStates[scene.name]?.analysisResult || selectedScene?.name === scene.name) && (
+                        <div className="mt-4 border-t pt-4">
+                          <div className="text-sm text-gray-600">
+                            {sceneStates[scene.name]?.isEditing ? (
+                              <textarea
+                                className="w-full p-2 text-sm border rounded-md"
+                                value={editingScene?.analysisResult || ''}
+                                onChange={(e) => setEditingScene(prev => prev ? {...prev, analysisResult: e.target.value} : null)}
+                                rows={10}
+                              />
+                            ) : (
+                              <ReactMarkdown 
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                  h3: ({children}) => <h3 className="text-base font-semibold text-gray-900 mb-2">{children}</h3>,
+                                  h4: ({children}) => <h4 className="text-sm font-medium text-gray-700 mb-1.5">{children}</h4>,
+                                  ul: ({children}) => <ul className="space-y-1 mb-3">{children}</ul>,
+                                  li: ({children}) => <li className="text-sm mb-1 text-orange-700">{children}</li>,
+                                  p: ({children}) => <p className="text-sm mb-2 text-orange-700">{children}</p>
+                                }}
+                              >
+                                {sceneStates[scene.name]?.analysisResult || analysisResult || ''}
+                              </ReactMarkdown>
+                            )}
+                            {sceneStates[scene.name]?.isConfirming && (
+                              <div className="flex justify-end gap-2 mt-4">
+                                <Button
+                                  onClick={() => handleAcceptResult(scene)}
+                                  className="bg-blue-500 hover:bg-blue-600"
+                                  size="sm"
+                                >
+                                  <Check className="mr-2 h-3.5 w-3.5" />
+                                  接受分析结果
+                                </Button>
+                                <Button
+                                  onClick={() => handleRejectResult(scene)}
+                                  variant="outline"
+                                  size="sm"
+                                  className="border-red-200 text-red-700 hover:bg-red-50"
+                                >
+                                  <X className="mr-2 h-3.5 w-3.5" />
+                                  拒绝并重新分析
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* 优化后的场景卡片 */}
+                {(sceneStates[scene.name]?.isOptimizing || sceneStates[scene.name]?.optimizeResult) && (
+                  <Card className={cn(
+                    "hover:shadow-lg transition-all duration-300",
+                    sceneStates[scene.name]?.isHideOriginal ? "w-full" : "w-1/2"
+                  )}>
+                    <CardHeader className="py-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="text-base text-blue-600">优化后的场景描述</CardTitle>
+                          <CardDescription className="text-xs mt-0.5">基于边界分析结果的完善建议</CardDescription>
+                        </div>
+                        {sceneStates[scene.name]?.isOptimizeConfirming && (
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() => handleAcceptOptimize(scene, index)}
                               className="bg-blue-500 hover:bg-blue-600"
                               size="sm"
                             >
                               <Check className="mr-2 h-3.5 w-3.5" />
-                              接受分析结果
+                              接受优化结果
                             </Button>
                             <Button
-                              onClick={() => handleRejectResult(scene)}
+                              onClick={() => handleRejectOptimize(scene)}
                               variant="outline"
                               size="sm"
                               className="border-red-200 text-red-700 hover:bg-red-50"
                             >
                               <X className="mr-2 h-3.5 w-3.5" />
-                              拒绝并重新分析
+                              拒绝并重新优化
                             </Button>
                           </div>
                         )}
                       </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                    </CardHeader>
+                    <CardContent className="py-0 pb-3">
+                      <div className="text-sm text-gray-600">
+                        {sceneStates[scene.name]?.isOptimizing ? (
+                          <div className="flex items-center justify-center py-8">
+                            <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                            <span className="ml-3 text-blue-600">正在优化场景描述...</span>
+                          </div>
+                        ) : (
+                          <ReactMarkdown 
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              h3: ({children}) => <h3 className="text-base font-semibold text-gray-900 mb-2">{children}</h3>,
+                              h4: ({children}) => <h4 className="text-sm font-medium text-gray-700 mb-1.5">{children}</h4>,
+                              ul: ({children}) => <ul className="space-y-1 mb-3">{children}</ul>,
+                              li: ({children}) => <li className="text-sm mb-1 text-gray-600">{children}</li>,
+                              p: ({children}) => <p className="text-sm mb-2 text-gray-600">{children}</p>
+                            }}
+                          >
+                            {sceneStates[scene.name]?.optimizeResult || optimizeResult || ''}
+                          </ReactMarkdown>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
             ))}
           </div>
         )}

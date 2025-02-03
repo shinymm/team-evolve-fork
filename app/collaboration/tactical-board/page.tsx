@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { getTasks } from '@/lib/services/task-service'
+import { useState, useEffect } from 'react'
+import { getTasks, deleteTask, updateTask } from '@/lib/services/task-service'
 import { Hexagon } from '@/components/hexagon'
 import { TaskCard } from '@/components/task-card'
+import { toast } from '@/components/ui/use-toast'
 import type { Task } from '@/lib/services/task-service'
 
 interface HexPosition {
@@ -17,6 +18,7 @@ export default function TacticalBoardPage() {
   const [hoveredTask, setHoveredTask] = useState<Task | null>(null)
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [isHoveringCard, setIsHoveringCard] = useState(false)
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
 
   useEffect(() => {
     const loadTasks = async () => {
@@ -26,13 +28,36 @@ export default function TacticalBoardPage() {
     loadTasks()
   }, [])
 
+  const handleClearTasks = async () => {
+    try {
+      // 清空localStorage中的任务
+      localStorage.removeItem('qare-tasks');
+      
+      // 重新加载任务（这将加载默认的预置任务）
+      const updatedTasks = await getTasks();
+      setTasks(updatedTasks);
+      setShowConfirmDialog(false);
+      
+      // 显示成功提示
+      toast({
+        title: "清空成功",
+        description: "已重置为初始状态",
+      });
+    } catch (error) {
+      console.error('Failed to clear tasks:', error);
+      // 显示错误提示
+      toast({
+        title: "清空失败",
+        description: "操作未能完成，请重试",
+        variant: "destructive",
+      });
+    }
+  };
+
   const calculateHexagonPositions = (tasksLength: number, size: number): HexPosition[] => {
     const positions: HexPosition[] = []
     
     // 六边形的宽度和高度
-    // 对于扁平边的六边形：
-    // 宽度是从边到边的距离 = 2 * size * cos(30°)
-    // 高度是从顶点到顶点的距离 = 2 * size
     const hexWidth = size * Math.sqrt(3)  // 2 * size * cos(30°)
     const hexHeight = size * 2
     
@@ -70,7 +95,7 @@ export default function TacticalBoardPage() {
     return positions
   }
 
-  const renderContent = () => (
+  return (
     <div className="w-[90%] mx-auto py-8">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-gray-900">蜂群战术板</h1>
@@ -80,6 +105,38 @@ export default function TacticalBoardPage() {
       </div>
 
       <div className="relative bg-white rounded-lg shadow-sm border p-4 min-h-[600px] overflow-hidden">
+        <button
+          onClick={() => setShowConfirmDialog(true)}
+          className="absolute top-4 right-4 z-10 px-3 py-1.5 text-sm bg-orange-500 text-white rounded hover:bg-orange-600 transition-colors"
+        >
+          清空任务
+        </button>
+
+        {showConfirmDialog && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-sm mx-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">确认清空任务</h3>
+              <p className="text-gray-600 mb-6">
+                此操作将清空所有任务并重置为初始状态，是否继续？
+              </p>
+              <div className="flex justify-end space-x-4">
+                <button
+                  onClick={() => setShowConfirmDialog(false)}
+                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleClearTasks}
+                  className="px-4 py-2 text-sm bg-orange-500 text-white rounded hover:bg-orange-600 transition-colors"
+                >
+                  确认清空
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
         <div className="relative" style={{ zIndex: 1 }}>
           <svg 
             width="100%" 
@@ -161,6 +218,4 @@ export default function TacticalBoardPage() {
       </div>
     </div>
   )
-
-  return renderContent()
 } 

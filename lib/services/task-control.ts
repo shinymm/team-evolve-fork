@@ -29,11 +29,11 @@ export async function createRequirementStructureTask(mdContent: string) {
   })
 }
 
-export async function createBoundaryAnalysisTask(requirementData: RequirementData) {
+export async function createSceneAnalysisTask(requirementData: RequirementData) {
   return await createTask({
     title: '场景边界分析',
     description: '基于结构化的需求数据，分析每个场景的边界条件',
-    type: 'boundary-analysis',
+    type: 'scene-analysis',
     assignee: 'SQ',
     status: 'pending',
     metadata: {

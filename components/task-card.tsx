@@ -86,7 +86,7 @@ export function TaskCard({ task, position, onClose }: TaskCardProps) {
           </div>
         </div>
         <Avatar className="h-6 w-6 flex-shrink-0">
-          <AvatarImage src="/avatars/sara.jpg" />
+          {/* <AvatarImage src="/avatars/sara.jpg" /> */}
           <AvatarFallback>SQ</AvatarFallback>
         </Avatar>
       </div>
