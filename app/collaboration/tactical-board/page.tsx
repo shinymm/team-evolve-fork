@@ -38,10 +38,16 @@ export default function TacticalBoardPage() {
       localStorage.removeItem('requirement-book-content');
       localStorage.removeItem('requirement-input');
       localStorage.removeItem('requirement-structured-content');
+      localStorage.removeItem('scene-analysis-states');
+    
+      // 强制重新加载任务服务中的任务列表
+      await import('@/lib/services/task-service').then(module => {
+        module.loadTasks();
+        return module.getTasks();
+      }).then(updatedTasks => {
+        setTasks(updatedTasks);
+      });
       
-      // 重新加载任务（这将加载默认的预置任务）
-      const updatedTasks = await getTasks();
-      setTasks(updatedTasks);
       setShowConfirmDialog(false);
       
       // 显示成功提示

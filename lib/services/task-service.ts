@@ -53,7 +53,7 @@ const isBrowser = typeof window !== 'undefined'
 let tasks: Task[] = []
 
 // 从 localStorage 加载任务
-function loadTasks() {
+export function loadTasks() {
   try {
     if (isBrowser) {
       const savedTasks = localStorage.getItem('qare-tasks')
