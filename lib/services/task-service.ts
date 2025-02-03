@@ -55,7 +55,14 @@ let tasks: Task[] = []
 // 从 localStorage 加载任务
 function loadTasks() {
   try {
-    // 每次加载时直接使用默认任务（状态为pending）
+    if (isBrowser) {
+      const savedTasks = localStorage.getItem('qare-tasks')
+      if (savedTasks) {
+        tasks = JSON.parse(savedTasks)
+        return
+      }
+    }
+    // 只有在没有保存的任务时才使用默认任务
     tasks = [
       { ...defaultRequirementTask, createdAt: new Date().toISOString() },
       { ...defaultRequirementBookTask, createdAt: new Date().toISOString() }

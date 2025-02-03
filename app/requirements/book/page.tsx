@@ -187,6 +187,9 @@ export default function RequirementBook() {
     try {
       console.log('开始更新任务状态...');
       
+      // 保存需求书MD内容到localStorage
+      localStorage.setItem('requirement-book-content', requirementBook);
+      
       // 1. 更新需求书任务状态为完成
       console.log('更新需求书任务状态...');
       await updateTask('requirement-book', {

@@ -46,54 +46,81 @@ export class RequirementParserService {
   }
 
   private extractSection(sections: string[], sectionTitle: string): string {
+    console.log('Extracting section:', sectionTitle);
+    console.log('Available sections:', sections.map(s => s.trim().split('\n')[0]));
+    
     const section = sections.find(s => s.trim().startsWith(sectionTitle));
-    if (!section) return '';
+    if (!section) {
+      console.log('Section not found:', sectionTitle);
+      return '';
+    }
+    
+    console.log('Found section:', section);
     
     // 移除标题并清理内容
     const content = section.replace(sectionTitle, '').trim();
+    console.log('Content after removing title:', content);
+
     // 如果内容包含下一个章节的标题，只取到该标题之前的内容
-    const nextSectionIndex = content.indexOf('\n### ');
-    return nextSectionIndex > -1 ? content.slice(0, nextSectionIndex).trim() : content.trim();
+    const nextSectionIndex = content.indexOf('\n## ');
+    const finalContent = nextSectionIndex > -1 ? content.slice(0, nextSectionIndex).trim() : content.trim();
+    
+    console.log('Final content:', finalContent);
+    return finalContent;
   }
 
   private parseScenes(detailSection: string): Scene[] {
-    if (!detailSection) return [];
+    if (!detailSection) {
+      console.log('No detail section found');
+      return [];
+    }
+
+    console.log('Detail section:', detailSection);
 
     const scenes: Scene[] = [];
-    const sceneBlocks = detailSection.split('\n### ').filter(block => block.trim());
+    // 首先分割出所有场景块
+    const sceneBlocks = detailSection.split(/(?=### \d+\. 场景\d+：)/).filter(block => block.trim());
+    console.log('Found scene blocks:', sceneBlocks.length);
 
     for (const block of sceneBlocks) {
-      if (!block.includes('场景')) continue;
-
-      const lines = block.split('\n');
-      const sceneName = lines[0].replace(/^\d+\.\s*/, '').trim();
+      console.log('Processing block:', block);
+      
+      // 提取场景名称
+      const nameMatch = block.match(/### \d+\. 场景\d+：(.+?)(?:\n|$)/);
+      const sceneName = nameMatch ? nameMatch[1].trim() : '';
+      console.log('Scene name:', sceneName);
       
       // 提取场景概述
-      const overviewStartIndex = block.indexOf('场景概述');
-      const overviewEndIndex = block.indexOf('用户旅程');
-      const overview = overviewStartIndex > -1 && overviewEndIndex > -1
-        ? block.slice(overviewStartIndex, overviewEndIndex)
-            .replace('场景概述', '')
+      const overviewMatch = block.match(/#### \d+\.\d+\s*场景概述\n([\s\S]*?)(?=#### \d+\.\d+|$)/);
+      const overview = overviewMatch 
+        ? overviewMatch[1]
+            .split('\n')
+            .filter(line => line.trim())
+            .join('\n')
             .trim()
         : '';
+      console.log('Scene overview:', overview);
 
       // 提取用户旅程
-      const userJourneyStartIndex = block.indexOf('用户旅程');
-      const userJourney = userJourneyStartIndex > -1
-        ? block.slice(userJourneyStartIndex)
-            .replace('用户旅程', '')
+      const journeyMatch = block.match(/#### \d+\.\d+\s*用户旅程\n([\s\S]*?)(?=(?:### \d+\.|$))/);
+      const userJourney = journeyMatch
+        ? journeyMatch[1]
             .split('\n')
             .filter(line => /^\d+\./.test(line.trim()))
             .map(line => line.replace(/^\d+\.\s*/, '').trim())
         : [];
+      console.log('User journey steps:', userJourney);
 
-      scenes.push({
-        name: sceneName,
-        overview,
-        userJourney
-      });
+      if (sceneName) {
+        scenes.push({
+          name: sceneName,
+          overview,
+          userJourney
+        });
+      }
     }
 
+    console.log('Final scenes:', scenes);
     return scenes;
   }
 } 

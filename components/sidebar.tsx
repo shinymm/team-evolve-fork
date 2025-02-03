@@ -30,6 +30,7 @@ const mainMenuItems: MenuItem[] = [
     submenu: [
       { title: "原始需求分析", href: "/requirements/evolution" },
       { title: "需求初稿衍化", href: "/requirements/book" },
+      { title: "场景边界分析", href: "/requirements/scene-analysis" },
       { title: "需求边界分析", href: "/requirements/boundary-analysis" },
       { title: "测试用例生成", href: "/requirements/test-cases" },
       { title: "测试描述格式化", href: "/requirements/test-format" },
