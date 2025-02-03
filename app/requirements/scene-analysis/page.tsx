@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils'
 import { streamingAICall, AIModelConfig } from '@/lib/ai-service'
 import { SceneRequirementService } from '@/lib/services/scene-requirement-service'
 import { getAIConfig } from '@/lib/ai-config-service'
+import { RequirementExportService } from "@/services/requirement-export"
 
 interface Scene {
   name: string
@@ -49,29 +50,8 @@ interface EditingScene {
 }
 
 export default function SceneAnalysisPage() {
-  const [content, setContent] = useState<RequirementContent | null>(() => {
-    // 在初始化时就加载和解析数据
-    if (typeof window !== 'undefined') {
-      const storedContent = localStorage.getItem('requirement-structured-content')
-      if (storedContent) {
-        try {
-          return JSON.parse(storedContent)
-        } catch (e) {
-          console.error('Failed to parse stored content:', e)
-        }
-      }
-    }
-    return null
-  })
-  
-  const [mdContent, setMdContent] = useState<string>(() => {
-    // 在初始化时就加载数据
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('requirement-book-content') || ''
-    }
-    return ''
-  })
-
+  const [content, setContent] = useState<RequirementContent | null>(null)
+  const [mdContent, setMdContent] = useState<string>('')
   const [isExpanded, setIsExpanded] = useState(false)
   const [selectedScene, setSelectedScene] = useState<Scene | null>(null)
   const [analysisResult, setAnalysisResult] = useState<string>('')
@@ -81,6 +61,42 @@ export default function SceneAnalysisPage() {
   const [optimizeResult, setOptimizeResult] = useState<string>('')
   const [isOptimizing, setIsOptimizing] = useState(false)
   const { toast } = useToast()
+  
+  // 使用 useEffect 在客户端加载数据
+  useEffect(() => {
+    // 加载结构化内容
+    const storedContent = localStorage.getItem('requirement-structured-content')
+    if (storedContent) {
+      try {
+        setContent(JSON.parse(storedContent))
+      } catch (e) {
+        console.error('Failed to parse stored content:', e)
+      }
+    }
+    
+    // 加载需求书内容
+    const storedMdContent = localStorage.getItem('requirement-book-content')
+    if (storedMdContent) {
+      setMdContent(storedMdContent)
+    }
+
+    // 加载场景状态
+    const storedSceneStates = localStorage.getItem('scene-analysis-states')
+    if (storedSceneStates) {
+      try {
+        setSceneStates(JSON.parse(storedSceneStates))
+      } catch (e) {
+        console.error('Failed to parse stored scene states:', e)
+      }
+    }
+  }, [])
+
+  // 当场景状态改变时保存到 localStorage
+  useEffect(() => {
+    if (Object.keys(sceneStates).length > 0) {
+      localStorage.setItem('scene-analysis-states', JSON.stringify(sceneStates))
+    }
+  }, [sceneStates])
 
   const handleParse = () => {
     if (!mdContent.trim()) {
@@ -190,15 +206,17 @@ export default function SceneAnalysisPage() {
       })
 
       // 更新场景状态，保存分析结果
-      setSceneStates(prev => ({
-        ...prev,
+      const updatedStates = {
+        ...sceneStates,
         [scene.name]: {
-          ...prev[scene.name],
+          ...sceneStates[scene.name],
           isConfirming: false,
           isCompleted: true,
           analysisResult: analysisResult  // 保存当前的分析结果
         }
-      }))
+      }
+      setSceneStates(updatedStates)
+      localStorage.setItem('scene-analysis-states', JSON.stringify(updatedStates))
 
       // 清空当前的实时分析结果
       setAnalysisResult('')
@@ -349,7 +367,7 @@ export default function SceneAnalysisPage() {
     try {
       // 创建任务
       const task = await createTask({
-        title: `完善场景${index + 1}需求描述`,
+        title: `完善场景${index + 1}需求`,
         description: `优化场景"${scene.name}"的需求描述`,
         type: 'requirement-optimize',
         assignee: 'system',
@@ -441,16 +459,18 @@ export default function SceneAnalysisPage() {
       })
 
       // 更新场景状态
-      setSceneStates(prev => ({
-        ...prev,
+      const updatedStates = {
+        ...sceneStates,
         [scene.name]: {
-          ...prev[scene.name],
+          ...sceneStates[scene.name],
           isOptimizing: false,
           isOptimizeConfirming: false,
           optimizeResult: state.optimizeResult,
-          isHideOriginal: true  // 添加新状态来控制原始卡片的显示
-        } as SceneAnalysisState
-      }))
+          isHideOriginal: true
+        }
+      }
+      setSceneStates(updatedStates)
+      localStorage.setItem('scene-analysis-states', JSON.stringify(updatedStates))
 
       // 清空选中的场景和优化结果
       setSelectedScene(null)
@@ -500,11 +520,77 @@ export default function SceneAnalysisPage() {
     }
   }
 
+  const handleExport = () => {
+    if (!content) return
+    
+    const mdContent = RequirementExportService.generateOptimizedBook(
+      content,
+      sceneStates
+    )
+    
+    // 创建Blob对象
+    const blob = new Blob([mdContent], { type: 'text/markdown' })
+    
+    // 创建下载链接
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = '需求书优化版.md'
+    
+    // 触发下载
+    document.body.appendChild(a)
+    a.click()
+    
+    // 清理
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
   if (!content) {
     return (
-      <div className="container mx-auto py-6 w-[90%]">
-        <div className="text-center text-gray-500">
-          请先完成需求分析，生成结构化内容
+      <div className="container mx-auto py-6 w-[90%] space-y-6">
+        {/* 页面标题 */}
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">场景边界分析</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            基于需求书中的场景描述，分析每个场景的边界条件和异常情况
+          </p>
+        </div>
+
+        {/* MD内容输入区域 */}
+        <div>
+          <Card className="bg-gray-50/50">
+            <CardHeader className="py-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">需求书初稿</CardTitle>
+                  <span className="text-xs text-gray-400">(请输入或粘贴需求书内容)</span>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="py-0 pb-3">
+              <div className="space-y-3">
+                <textarea
+                  className="w-full min-h-[200px] p-3 text-sm text-gray-600 bg-white rounded-md border resize-y"
+                  value={mdContent}
+                  onChange={(e) => setMdContent(e.target.value)}
+                  placeholder="请在此输入需求书内容..."
+                />
+                <Button 
+                  onClick={handleParse}
+                  className="w-full bg-orange-500 hover:bg-orange-600"
+                  size="sm"
+                  disabled={!mdContent.trim()}
+                >
+                  解析需求书
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="text-center text-gray-500 mt-6">
+          请先输入需求书内容并解析，生成结构化内容
         </div>
       </div>
     )
@@ -868,6 +954,14 @@ export default function SceneAnalysisPage() {
             ))}
           </div>
         )}
+      </div>
+      <div className="mt-8 flex justify-end">
+        <Button
+          onClick={handleExport}
+          className="bg-blue-600 hover:bg-blue-700 text-white"
+        >
+          导出需求书优化版
+        </Button>
       </div>
       <Toaster />
     </div>

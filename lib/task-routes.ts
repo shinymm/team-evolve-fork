@@ -29,16 +29,11 @@ export const taskActions: Record<string, TaskAction> = {
       description: 'AI辅助生成结构化需求书'
     }
   },
-  'boundary-analysis': {
+  'scene-analysis': {
     aiHelp: {
-      route: '/requirements/boundary-analysis',
-      title: '边界分析',
+      route: '/requirements/scene-analysis',
+      title: '场景边界分析',
       description: 'AI辅助分析系统边界和接口定义'
-    },
-    selfHelp: {
-      route: '/knowledge/boundary',
-      title: '边界知识库',
-      description: '查看系统边界相关的知识和最佳实践'
     }
   },
   // 未来可以添加更多任务类型

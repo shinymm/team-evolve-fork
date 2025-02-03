@@ -251,23 +251,22 @@ export default function RequirementAnalysis() {
                       disabled={isAnalyzing}
                     />
                   ) : (
-                    <div className="prose prose-slate max-w-none dark:prose-invert
-                      prose-h1:text-2xl prose-h1:font-bold prose-h1:mb-4 prose-h1:pb-2 prose-h1:border-b
-                      prose-h2:text-xl prose-h2:font-semibold prose-h2:mb-3 prose-h2:mt-6
-                      prose-h3:text-lg prose-h3:font-medium prose-h3:mb-2 prose-h3:mt-4
-                      prose-p:my-2 prose-p:leading-relaxed
-                      prose-ul:my-2 prose-ul:list-disc prose-ul:pl-6
-                      prose-ol:my-2 prose-ol:list-decimal prose-ol:pl-6
-                      prose-li:my-1
-                      prose-blockquote:border-l-4 prose-blockquote:border-gray-300 prose-blockquote:pl-4 prose-blockquote:italic
-                      prose-pre:bg-gray-50 prose-pre:p-4 prose-pre:rounded-lg
-                      prose-code:text-sm prose-code:bg-gray-50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
-                      prose-strong:font-semibold
-                      prose-table:border-collapse prose-table:w-full
-                      prose-th:border prose-th:border-gray-300 prose-th:p-2 prose-th:bg-gray-50
-                      prose-td:border prose-td:border-gray-300 prose-td:p-2
-                    ">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    <div className="space-y-4">
+                      <ReactMarkdown 
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          h1: ({children}) => <h1 className="text-2xl font-bold mb-4 pb-2 border-b">{children}</h1>,
+                          h2: ({children}) => <h2 className="text-xl font-semibold mb-3 mt-6">{children}</h2>,
+                          h3: ({children}) => <h3 className="text-lg font-medium mb-2 mt-4">{children}</h3>,
+                          p: ({children}) => <p className="text-gray-600 my-2 leading-relaxed">{children}</p>,
+                          ul: ({children}) => <ul className="list-disc pl-6 my-2 space-y-1">{children}</ul>,
+                          ol: ({children}) => <ol className="list-decimal pl-6 my-2 space-y-1">{children}</ol>,
+                          li: ({children}) => <li className="text-gray-600">{children}</li>,
+                          blockquote: ({children}) => <blockquote className="border-l-4 border-gray-300 pl-4 my-2 italic">{children}</blockquote>,
+                          code: ({children}) => <code className="bg-gray-100 rounded px-1 py-0.5 text-sm">{children}</code>,
+                          pre: ({children}) => <pre className="bg-gray-50 rounded-lg p-4 my-4 overflow-auto">{children}</pre>
+                        }}
+                      >
                         {analysis}
                       </ReactMarkdown>
                     </div>

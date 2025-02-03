@@ -33,6 +33,12 @@ export default function TacticalBoardPage() {
       // 清空localStorage中的任务
       localStorage.removeItem('qare-tasks');
       
+      // 清空指定的缓存数据
+      localStorage.removeItem('requirement-analysis-content');
+      localStorage.removeItem('requirement-book-content');
+      localStorage.removeItem('requirement-input');
+      localStorage.removeItem('requirement-structured-content');
+      
       // 重新加载任务（这将加载默认的预置任务）
       const updatedTasks = await getTasks();
       setTasks(updatedTasks);
