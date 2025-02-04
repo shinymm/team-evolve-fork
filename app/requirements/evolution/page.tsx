@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
@@ -14,6 +14,7 @@ import { useRouter } from 'next/navigation'
 import { Toaster } from "@/components/ui/toaster"
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { recordRequirementAction } from '@/lib/services/requirement-action-service'
 
 export default function RequirementAnalysis() {
   const [analysis, setAnalysis] = useState<string>('')
@@ -21,6 +22,8 @@ export default function RequirementAnalysis() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editedAnalysis, setEditedAnalysis] = useState('')
+  const [editStartTime, setEditStartTime] = useState<number | null>(null)
+  const originalContent = useRef<string>('')
   const { toast } = useToast()
   const router = useRouter()
 
@@ -127,11 +130,32 @@ export default function RequirementAnalysis() {
   const handleEdit = () => {
     setIsEditing(true)
     setEditedAnalysis(analysis)
+    setEditStartTime(Date.now())
+    originalContent.current = analysis
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    const editEndTime = Date.now()
+    const editDuration = editStartTime ? (editEndTime - editStartTime) / 1000 : 0
+    const contentDiff = editedAnalysis.length - originalContent.current.length
+
+    // 只有当编辑时间超过30秒且内容变化超过20字时才记录
+    if (editDuration > 30 && Math.abs(contentDiff) > 20) {
+      try {
+        await recordRequirementAction({
+          type: 'edit',
+          duration: editDuration,
+          contentBefore: originalContent.current,
+          contentAfter: editedAnalysis,
+        })
+      } catch (error) {
+        console.error('记录编辑动作失败:', error)
+      }
+    }
+
     setAnalysis(editedAnalysis)
     setIsEditing(false)
+    setEditStartTime(null)
     // 保存编辑后的内容到 localStorage
     localStorage.setItem('requirement-analysis-content', editedAnalysis)
     toast({
@@ -144,6 +168,13 @@ export default function RequirementAnalysis() {
     try {
       // 保存最终的需求分析内容到 localStorage
       localStorage.setItem('requirement-analysis-content', analysis);
+      
+      // 记录需求分析完成的动作
+      await recordRequirementAction({
+        type: 'analyze',
+        duration: 0,  // 这里的持续时间不重要
+        contentAfter: analysis,  // 最终的分析结果
+      });
       
       await updateTask('requirement-analysis', {
         status: 'completed'

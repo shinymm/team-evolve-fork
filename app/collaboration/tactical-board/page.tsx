@@ -110,7 +110,7 @@ export default function TacticalBoardPage() {
   return (
     <div className="w-[90%] mx-auto py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">蜂群战术板</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">战术板</h1>
         <p className="mt-2 text-sm text-gray-500">
           这里展示了所有待处理的协作任务。
         </p>
