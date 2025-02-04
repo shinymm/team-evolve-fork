@@ -15,6 +15,8 @@ import remarkGfm from 'remark-gfm'
 import { testCasePromptTemplate } from '@/lib/prompts'
 import yaml from 'js-yaml'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface TestCase {
   type: string
@@ -22,6 +24,16 @@ interface TestCase {
   preconditions: string
   steps: string
   expected_result: string
+}
+
+interface StructuredScene {
+  sceneName: string
+  sceneOverview: string
+  sceneUserJourney: string[]
+  preconditions: string
+  constraints: string
+  exceptions: string
+  notes: string
 }
 
 export function TestCaseAssistant() {
@@ -37,17 +49,47 @@ export function TestCaseAssistant() {
     index: number;
     field: keyof TestCase;
   } | null>(null)
+  const [scenes, setScenes] = useState<StructuredScene[]>([])
+  const [selectedScene, setSelectedScene] = useState<string>('')
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
 
   useEffect(() => {
     const config = getAIConfig()
     if (config) {
       setAiConfig(config)
     }
+
+    // 从localStorage获取结构化需求
+    const storedRequirement = localStorage.getItem('structuredRequirement')
+    if (storedRequirement) {
+      const requirement = JSON.parse(storedRequirement)
+      setScenes(requirement.sceneList || [])
+    }
   }, [])
 
   useEffect(() => {
     setEditableTestCases(parsedTestCases)
   }, [parsedTestCases])
+
+  const handleSceneSelect = (sceneIndex: string) => {
+    const scene = scenes[parseInt(sceneIndex)]
+    if (scene) {
+      // 将场景的所有相关信息组合成文本
+      const sceneContent = [
+        `场景名称：${scene.sceneName}`,
+        `场景概述：${scene.sceneOverview}`,
+        `用户旅程：\n${scene.sceneUserJourney.map((step, index) => `${index + 1}. ${step}`).join('\n')}`,
+        `前置条件：${scene.preconditions}`,
+        `约束条件：${scene.constraints}`,
+        `异常处理：${scene.exceptions}`,
+        `补充说明：${scene.notes}`
+      ].join('\n\n')
+      
+      setRequirements(sceneContent)
+      setSelectedScene(sceneIndex)
+      setIsDialogOpen(false)
+    }
+  }
 
   const handleCellEdit = (index: number, field: keyof TestCase, value: string) => {
     const newTestCases = [...editableTestCases]
@@ -206,7 +248,37 @@ export function TestCaseAssistant() {
       )}
 
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold">请输入需求描述：</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">请输入需求描述：</h2>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs text-gray-500 hover:text-gray-700"
+              >
+                从缓存中加载场景
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>选择要加载的场景</DialogTitle>
+              </DialogHeader>
+              <Select value={selectedScene} onValueChange={handleSceneSelect}>
+                <SelectTrigger>
+                  <SelectValue placeholder="选择要拆解的场景" />
+                </SelectTrigger>
+                <SelectContent>
+                  {scenes.map((scene: StructuredScene, index: number) => (
+                    <SelectItem key={index} value={String(index)}>
+                      {`场景${index + 1}: ${scene.sceneName}` || `场景 ${index + 1}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </DialogContent>
+          </Dialog>
+        </div>
         <Textarea
           placeholder="请输入需求描述、核心功能、边界场景及处理方式等信息..."
           value={requirements}

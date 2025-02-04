@@ -551,7 +551,7 @@ export default function SceneAnalysisPage() {
 
   if (!content) {
     return (
-      <div className="container mx-auto py-6 w-[90%] space-y-6">
+      <div className="mx-auto py-6 w-[90%] space-y-6">
         {/* 页面标题 */}
         <div>
           <h1 className="text-2xl font-bold tracking-tight">场景边界分析</h1>
@@ -600,7 +600,7 @@ export default function SceneAnalysisPage() {
   }
 
   return (
-    <div className="container mx-auto py-6 w-[90%] space-y-6">
+    <div className=" mx-auto py-6 w-[90%] space-y-6">
       {/* 页面标题 */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">场景边界分析</h1>

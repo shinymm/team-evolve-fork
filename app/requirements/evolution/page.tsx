@@ -164,11 +164,11 @@ export default function RequirementAnalysis() {
 
   return (
     <>
-      <div className="container mx-auto py-6 w-[90%]">
+      <div className="mx-auto py-6 w-[90%]">
         <div className="space-y-6">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">原始需求分析</h1>
-            <p className="text-muted-foreground mt-2">
+            <p className="text-muted-foreground mt-2 text-sm">
               请输入您的初步需求想法，我们将帮助您逐步细化和完善它。
             </p>
           </div>

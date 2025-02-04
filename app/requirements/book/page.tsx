@@ -236,12 +236,12 @@ export default function RequirementBook() {
 
   return (
     <>
-      <div className="container mx-auto py-6 w-[90%]">
+      <div className=" mx-auto py-6 w-[90%]">
         <div className="space-y-6">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">需求初稿衍化</h1>
             <div className="flex items-center justify-between mt-2">
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground text-sm">
                 请输入原始需求分析结果，我们将帮助您生成一份结构化的需求书初稿。
               </p>
               <div className="flex gap-1 ml-4">
