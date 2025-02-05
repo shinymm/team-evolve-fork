@@ -68,6 +68,7 @@ export function AIModelSettings() {
       toast({
         title: "添加成功",
         description: "新的 AI 模型配置已添加",
+        duration: 3000
       })
     }
   }
@@ -144,6 +145,7 @@ export function AIModelSettings() {
       toast({
         title: "链接测试成功",
         description: `${responseContent.slice(0, 50)}...`,
+        duration: 3000
       })
 
     } catch (error) {
@@ -153,6 +155,7 @@ export function AIModelSettings() {
         variant: "destructive",
         title: "链接测试失败",
         description: error instanceof Error ? error.message : "未知错误",
+        duration: 3000
       })
     } finally {
       setTestingId(null)

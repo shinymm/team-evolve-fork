@@ -114,6 +114,7 @@ export function TestDetailAssistant() {
       toast({
         title: "生成完成",
         description: "请查看生成的用例细节",
+        duration: 3000
       })
     } catch (error) {
       console.error('Generation error:', error)
@@ -121,6 +122,7 @@ export function TestDetailAssistant() {
         variant: "destructive",
         title: "生成失败",
         description: error instanceof Error ? error.message : "未知错误",
+        duration: 3000
       })
     } finally {
       setIsGenerating(prev => ({ ...prev, generate: false }))
@@ -175,6 +177,7 @@ export function TestDetailAssistant() {
       toast({
         title: "优化完成",
         description: "请查看优化建议",
+        duration: 3000
       })
     } catch (error) {
       console.error('Optimization error:', error)
@@ -182,6 +185,7 @@ export function TestDetailAssistant() {
         variant: "destructive",
         title: "优化失败",
         description: error instanceof Error ? error.message : "未知错误",
+        duration: 3000
       })
     } finally {
       setIsGenerating(prev => ({ ...prev, optimize: false }))
@@ -200,6 +204,7 @@ export function TestDetailAssistant() {
       toast({
         title: "已接受",
         description: "用例细节已更新",
+        duration: 3000
       })
     }
   }
@@ -209,6 +214,7 @@ export function TestDetailAssistant() {
     toast({
       title: "已拒绝",
       description: "保持原有内容不变",
+      duration: 3000
     })
   }
 
@@ -222,6 +228,7 @@ export function TestDetailAssistant() {
       toast({
         title: "已接受",
         description: "用例概述已更新",
+        duration: 3000
       })
     }
   }
@@ -231,6 +238,7 @@ export function TestDetailAssistant() {
     toast({
       title: "已拒绝",
       description: "保持原有概述不变",
+      duration: 3000
     })
   }
 
@@ -246,6 +254,7 @@ export function TestDetailAssistant() {
     toast({
       title: "已重置",
       description: "所有内容已清空",
+      duration: 3000
     })
   }
 
@@ -274,12 +283,14 @@ export function TestDetailAssistant() {
       toast({
         title: "复制成功",
         description: "内容已复制到剪贴板，可直接粘贴到 Excel 中",
+        duration: 3000
       })
     } catch (error) {
       toast({
         variant: "destructive",
         title: "复制失败",
         description: "无法访问剪贴板",
+        duration: 3000
       })
     }
   }
@@ -326,6 +337,7 @@ export function TestDetailAssistant() {
       toast({
         title: "生成完成",
         description: "请查看生成的用例步骤",
+        duration: 3000
       })
     } catch (error) {
       console.error('Generation error:', error)
@@ -333,6 +345,7 @@ export function TestDetailAssistant() {
         variant: "destructive",
         title: "生成失败",
         description: error instanceof Error ? error.message : "未知错误",
+        duration: 3000
       })
     } finally {
       setIsGenerating(prev => ({ ...prev, steps: false }))
@@ -349,6 +362,7 @@ export function TestDetailAssistant() {
       toast({
         title: "已接受",
         description: "用例步骤已更新",
+        duration: 3000
       })
     }
   }
@@ -358,6 +372,7 @@ export function TestDetailAssistant() {
     toast({
       title: "已拒绝",
       description: "保持原有步骤不变",
+      duration: 3000
     })
   }
 

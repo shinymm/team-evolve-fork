@@ -104,6 +104,7 @@ export default function SceneAnalysisPage() {
         title: "解析失败",
         description: "请先确保有需求书内容",
         variant: "destructive",
+        duration: 3000
       })
       return
     }
@@ -117,6 +118,7 @@ export default function SceneAnalysisPage() {
       toast({
         title: "解析成功",
         description: "需求书内容已重新解析",
+        duration: 3000
       })
     } catch (error) {
       console.error('解析失败:', error)
@@ -124,6 +126,7 @@ export default function SceneAnalysisPage() {
         title: "解析失败",
         description: error instanceof Error ? error.message : "解析过程中出现错误",
         variant: "destructive",
+        duration: 3000
       })
     }
   }
@@ -182,6 +185,7 @@ export default function SceneAnalysisPage() {
       toast({
         title: "分析完成",
         description: `场景"${scene.name}"的边界分析已完成，请确认结果`,
+        duration: 3000
       })
     } catch (error) {
       console.error('分析失败:', error)
@@ -189,6 +193,7 @@ export default function SceneAnalysisPage() {
         title: "分析失败",
         description: error instanceof Error ? error.message : "分析过程中出现错误",
         variant: "destructive",
+        duration: 3000
       })
     } finally {
       setIsAnalyzing(false)
@@ -225,6 +230,7 @@ export default function SceneAnalysisPage() {
       toast({
         title: "已接受分析结果",
         description: `场景"${scene.name}"的边界分析结果已确认`,
+        duration: 3000
       })
     } catch (error) {
       console.error('确认失败:', error)
@@ -232,6 +238,7 @@ export default function SceneAnalysisPage() {
         title: "确认失败",
         description: error instanceof Error ? error.message : "操作过程中出现错误",
         variant: "destructive",
+        duration: 3000
       })
     }
   }
@@ -260,6 +267,7 @@ export default function SceneAnalysisPage() {
       toast({
         title: "已拒绝分析结果",
         description: `场景"${scene.name}"的边界分析结果已拒绝，可重新分析`,
+        duration: 3000
       })
     } catch (error) {
       console.error('拒绝失败:', error)
@@ -267,6 +275,7 @@ export default function SceneAnalysisPage() {
         title: "操作失败",
         description: error instanceof Error ? error.message : "操作过程中出现错误",
         variant: "destructive",
+        duration: 3000
       })
     }
   }
@@ -331,6 +340,7 @@ export default function SceneAnalysisPage() {
     toast({
       title: "保存成功",
       description: "场景信息已更新",
+      duration: 3000
     })
   }
 
@@ -425,6 +435,7 @@ export default function SceneAnalysisPage() {
       toast({
         title: "优化完成",
         description: `场景"${scene.name}"的需求描述已优化完成，请确认结果`,
+        duration: 3000
       })
     } catch (error) {
       console.error('优化失败:', error)
@@ -432,6 +443,7 @@ export default function SceneAnalysisPage() {
         title: "优化失败",
         description: error instanceof Error ? error.message : "优化过程中出现错误",
         variant: "destructive",
+        duration: 3000
       })
       // 发生错误时，重置场景状态
       setSceneStates(prev => ({
@@ -479,6 +491,7 @@ export default function SceneAnalysisPage() {
       toast({
         title: "已接受优化结果",
         description: `场景"${scene.name}"的需求描述已更新`,
+        duration: 3000
       })
     } catch (error) {
       console.error('确认失败:', error)
@@ -486,6 +499,7 @@ export default function SceneAnalysisPage() {
         title: "确认失败",
         description: error instanceof Error ? error.message : "操作过程中出现错误",
         variant: "destructive",
+        duration: 3000
       })
     }
   }
@@ -509,6 +523,7 @@ export default function SceneAnalysisPage() {
       toast({
         title: "已拒绝优化结果",
         description: `场景"${scene.name}"的需求描述优化已取消，可重新优化`,
+        duration: 3000
       })
     } catch (error) {
       console.error('拒绝失败:', error)
@@ -516,6 +531,7 @@ export default function SceneAnalysisPage() {
         title: "操作失败",
         description: error instanceof Error ? error.message : "操作过程中出现错误",
         variant: "destructive",
+        duration: 3000
       })
     }
   }

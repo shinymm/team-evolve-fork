@@ -127,6 +127,7 @@ export function BoundaryRules() {
     toast({
       title: "删除成功",
       description: "边界识别规则已删除",
+      duration: 3000
     })
   }
 
@@ -137,6 +138,7 @@ export function BoundaryRules() {
       toast({
         title: "更新成功",
         description: "边界识别规则已更新",
+        duration: 3000
       })
     } else {
       // 添加新规则
@@ -148,6 +150,7 @@ export function BoundaryRules() {
       toast({
         title: "添加成功",
         description: "新的边界识别规则已添加",
+        duration: 3000
       })
     }
     setShowDialog(false)
@@ -167,6 +170,7 @@ export function BoundaryRules() {
     toast({
       title: "重置成功",
       description: "边界识别规则已恢复到初始状态",
+      duration: 3000
     })
     setShowResetAlert(false)
   }

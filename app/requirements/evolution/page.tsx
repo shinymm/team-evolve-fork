@@ -48,6 +48,7 @@ export default function RequirementAnalysis() {
         title: "请输入需求",
         description: "需求内容不能为空",
         variant: "destructive",
+        duration: 3000
       })
       return
     }
@@ -58,6 +59,7 @@ export default function RequirementAnalysis() {
         title: "配置错误",
         description: "请先配置AI模型参数",
         variant: "destructive",
+        duration: 3000
       })
       return
     }
@@ -79,6 +81,7 @@ export default function RequirementAnalysis() {
         title: "分析失败",
         description: error instanceof Error ? error.message : "请稍后重试",
         variant: "destructive",
+        duration: 3000
       })
     } finally {
       setIsAnalyzing(false)
@@ -91,12 +94,14 @@ export default function RequirementAnalysis() {
       toast({
         title: "复制成功",
         description: "分析内容已复制到剪贴板",
+        duration: 3000
       })
     } catch (error) {
       toast({
         title: "复制失败",
         description: "请手动选择并复制内容",
         variant: "destructive",
+        duration: 3000
       })
     }
   }
@@ -117,12 +122,14 @@ export default function RequirementAnalysis() {
       toast({
         title: "下载成功",
         description: "分析内容已保存为 Markdown 文件",
+        duration: 3000
       })
     } catch (error) {
       toast({
         title: "下载失败",
         description: "请手动复制内容并保存",
         variant: "destructive",
+        duration: 3000
       })
     }
   }
@@ -161,6 +168,7 @@ export default function RequirementAnalysis() {
     toast({
       title: "保存成功",
       description: "分析内容已更新",
+      duration: 3000
     })
   }
 
@@ -182,6 +190,7 @@ export default function RequirementAnalysis() {
       toast({
         title: "需求分析完成",
         description: "已更新任务状态",
+        duration: 3000
       })
       router.push('/collaboration/tactical-board')
     } catch (error) {
@@ -189,6 +198,7 @@ export default function RequirementAnalysis() {
         title: "状态更新失败",
         description: error instanceof Error ? error.message : "请稍后重试",
         variant: "destructive",
+        duration: 3000
       })
     }
   }

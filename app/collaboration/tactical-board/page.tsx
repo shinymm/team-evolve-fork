@@ -54,6 +54,7 @@ export default function TacticalBoardPage() {
       toast({
         title: "清空成功",
         description: "已重置为初始状态",
+        duration: 3000
       });
     } catch (error) {
       console.error('Failed to clear tasks:', error);
@@ -62,6 +63,7 @@ export default function TacticalBoardPage() {
         title: "清空失败",
         description: "操作未能完成，请重试",
         variant: "destructive",
+        duration: 3000
       });
     }
   };

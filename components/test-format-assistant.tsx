@@ -153,6 +153,7 @@ export function TestFormatAssistant() {
       toast({
         title: "格式化完成",
         description: "测试用例已格式化，请查看结果",
+        duration: 3000
       })
     } catch (error) {
       console.error('Format error:', error)
@@ -160,6 +161,7 @@ export function TestFormatAssistant() {
         variant: "destructive",
         title: "格式化失败",
         description: error instanceof Error ? error.message : "未知错误",
+        duration: 3000
       })
     } finally {
       setIsFormatting(false)
@@ -172,6 +174,7 @@ export function TestFormatAssistant() {
       toast({
         title: "复制成功",
         description: "YAML内容已复制到剪贴板",
+        duration: 3000
       })
     } catch (error) {
       console.error('Copy error:', error)
@@ -179,6 +182,7 @@ export function TestFormatAssistant() {
         variant: "destructive",
         title: "复制失败",
         description: "无法访问剪贴板",
+        duration: 3000
       })
     }
   }
@@ -206,6 +210,7 @@ export function TestFormatAssistant() {
       toast({
         title: "复制成功",
         description: "表格内容已复制到剪贴板",
+        duration: 3000
       })
     } catch (error) {
       console.error('Copy table error:', error)
@@ -213,6 +218,7 @@ export function TestFormatAssistant() {
         variant: "destructive",
         title: "复制失败",
         description: "无法访问剪贴板",
+        duration: 3000
       })
     }
   }

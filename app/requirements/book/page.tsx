@@ -57,6 +57,7 @@ export default function RequirementBook() {
         title: "配置错误",
         description: "请先配置AI模型参数",
         variant: "destructive",
+        duration: 3000
       })
       return
     }
@@ -78,6 +79,7 @@ export default function RequirementBook() {
         title: "生成失败",
         description: error instanceof Error ? error.message : "请稍后重试",
         variant: "destructive",
+        duration: 3000
       })
     } finally {
       setIsGenerating(false)
@@ -90,6 +92,7 @@ export default function RequirementBook() {
         title: "请输入原始需求分析结果",
         description: "需求内容不能为空",
         variant: "destructive",
+        duration: 3000
       })
       return
     }
@@ -100,6 +103,7 @@ export default function RequirementBook() {
         title: "配置错误",
         description: "请先配置AI模型参数",
         variant: "destructive",
+        duration: 3000
       })
       return
     }
@@ -121,6 +125,7 @@ export default function RequirementBook() {
         title: "生成失败",
         description: error instanceof Error ? error.message : "请稍后重试",
         variant: "destructive",
+        duration: 3000
       })
     } finally {
       setIsGenerating(false)
@@ -133,12 +138,14 @@ export default function RequirementBook() {
       toast({
         title: "复制成功",
         description: "需求书内容已复制到剪贴板",
+        duration: 3000
       })
     } catch (error) {
       toast({
         title: "复制失败",
         description: "请手动选择并复制内容",
         variant: "destructive",
+        duration: 3000
       })
     }
   }
@@ -159,12 +166,14 @@ export default function RequirementBook() {
       toast({
         title: "下载成功",
         description: "需求书已保存为 Markdown 文件",
+        duration: 3000
       })
     } catch (error) {
       toast({
         title: "下载失败",
         description: "请手动复制内容并保存",
         variant: "destructive",
+        duration: 3000
       })
     }
   }
@@ -180,6 +189,7 @@ export default function RequirementBook() {
     toast({
       title: "保存成功",
       description: "需求书内容已更新",
+      duration: 3000
     })
   }
 
@@ -220,6 +230,7 @@ export default function RequirementBook() {
       toast({
         title: "需求初稿衍化与结构化已完成",
         description: "已创建后续场景边界分析任务",
+        duration: 3000
       })
       
       // 直接使用 window.location.replace 进行导航
@@ -230,6 +241,7 @@ export default function RequirementBook() {
         title: "处理失败",
         description: error instanceof Error ? error.message : "请稍后重试",
         variant: "destructive",
+        duration: 3000
       })
     }
   }
@@ -264,12 +276,14 @@ export default function RequirementBook() {
                       toast({
                         title: "加载成功",
                         description: "已重新加载需求分析内容",
+                        duration: 3000
                       })
                     } else {
                       toast({
                         title: "加载失败",
                         description: "未找到保存的需求分析内容",
                         variant: "destructive",
+                        duration: 3000
                       })
                     }
                   }}

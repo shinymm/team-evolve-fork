@@ -4,10 +4,7 @@ import { useEffect, useState } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import PlantUML from 'react-plantuml'
 
-// 动态导入 PlantUML 组件
-// const PlantUML = dynamic(() => import('react-plantuml'), { 
-//   ssr: false,
-// }) as any  // 临时使用 any 类型来解决类型错误
+
 
 interface Props {
   source: string
