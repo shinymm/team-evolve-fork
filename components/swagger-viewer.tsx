@@ -14,10 +14,11 @@ interface SwaggerViewerProps {
 export function SwaggerViewer({ isOpen, onClose, endpoint }: SwaggerViewerProps) {
   const spec = swaggerDocs[endpoint]
   if (!spec) return null
-
-  const path = Object.keys(spec.paths)[0]
-  const method = Object.keys(spec.paths[path])[0]
-  const operation = spec.paths[path][method]
+  
+  const paths = spec.paths as any
+  const path = Object.keys(paths)[0]
+  const method = Object.keys(paths[path])[0]
+  const operation = paths[path][method]
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
