@@ -68,14 +68,7 @@ export default function APIInterfacesPage() {
 
   const handleSubscribe = async (data: { systemId: string; systemName: string }) => {
     // 1. 更新本地状态
-    setSubscriptions(prev => [...prev, {
-      id: data.systemId,
-      name: data.systemName,
-      description: `${data.systemName} 的订阅`,
-      type: 'REST',
-      endpoint: '/api/v1/chat',
-      operation: 'POST'
-    }])
+    setSubscriptions(prev => [...prev, { id: data.systemId, name: data.systemName }])
     
     // 2. 触发任务中控
     await handleNewSubscription({
@@ -169,7 +162,11 @@ export default function APIInterfacesPage() {
                       size="sm"
                       className="text-orange-600 hover:text-orange-900"
                       title="查看接口详情"
-                      onClick={() => setSelectedEndpoint(api.swaggerEndpoint)}
+                      onClick={() => {
+                        if (api.swaggerEndpoint) {
+                          setSelectedEndpoint(api.swaggerEndpoint)
+                        }
+                      }}
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
