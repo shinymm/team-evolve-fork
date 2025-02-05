@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ChevronDown, ChevronRight, ArrowRight, Loader2, Check, X, FileEdit } from "lucide-react"
+import { ChevronDown, ChevronRight, ArrowRight, Loader2, Check, X, FileEdit, Copy } from "lucide-react"
 import { RequirementParserService } from '@/lib/services/requirement-parser-service'
 import { SceneBoundaryService } from '@/lib/services/scene-boundary-service'
 import { useToast } from "@/components/ui/use-toast"
