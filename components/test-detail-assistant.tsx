@@ -45,10 +45,15 @@ export function TestDetailAssistant() {
     expected_result: ''
   })
   const [isGenerating, setIsGenerating] = useState<{
-    optimize?: boolean;
-    generate?: boolean;
-    steps?: boolean;
-  }>({})
+    optimize: boolean;
+    generate: boolean;
+    steps: boolean;
+  }>({
+    optimize: false,
+    generate: false,
+    steps: false
+  })
+  
   const { toast } = useToast()
   const [summaryOptimization, setSummaryOptimization] = useState<SummaryOptimization | null>(null)
   const [caseGeneration, setCaseGeneration] = useState<TestCaseGeneration | null>(null)
