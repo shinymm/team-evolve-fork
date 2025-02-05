@@ -16,8 +16,8 @@ import { setAIConfig } from '@/lib/ai-config-service'
 interface AIModelConfig {
   id: string
   name: string
-  url: string
-  modelName: string
+  baseURL: string
+  model: string
   temperature: number
   apiKey: string
   isDefault: boolean
