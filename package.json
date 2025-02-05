@@ -58,5 +58,8 @@
   },
   "scripts": {
     "dev": "next dev"
+  },
+  "devDependencies": {
+    "@types/plantuml-encoder": "^1.4.2"
   }
 }
