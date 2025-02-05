@@ -60,6 +60,7 @@
     "dev": "next dev"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/plantuml-encoder": "^1.4.2"
   }
 }
