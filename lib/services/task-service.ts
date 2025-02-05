@@ -2,6 +2,16 @@ interface TaskMetadata {
   systemId?: string
   systemName?: string
   apiEndpoint?: string
+  mdContent?: string
+  requirementData?: {
+    reqBackground: string
+    reqBrief: string
+    scenes: {
+      name: string
+      overview: string
+      userJourney: string[]
+    }[]
+  }
 }
 
 export interface Task {
