@@ -10,7 +10,7 @@ export function getAIConfig(): AIModelConfig | null {
 
     const allConfigs = JSON.parse(configStr)
     const defaultConfig = allConfigs.find((c: any) => c.isDefault)
-    console.log('Found default config:', defaultConfig)
+    // console.log('Found default config:', defaultConfig)
 
     if (!defaultConfig) return null
 
