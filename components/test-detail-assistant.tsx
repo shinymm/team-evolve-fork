@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2, Wand2, Check, X, Copy } from 'lucide-react'
-import { getDefaultConfig, streamingAICall } from '@/lib/ai-service'
+import { streamingAICall } from '@/lib/ai-service'
 import type { AIModelConfig } from '@/lib/ai-service'
 import { generateDetailPromptTemplate, generateSummaryPromptTemplate, optimizeSummaryPromptTemplate, generateFromStepsPromptTemplate } from '@/lib/prompts'
 import yaml from 'js-yaml'
