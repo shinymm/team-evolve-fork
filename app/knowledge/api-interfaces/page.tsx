@@ -68,7 +68,14 @@ export default function APIInterfacesPage() {
 
   const handleSubscribe = async (data: { systemId: string; systemName: string }) => {
     // 1. 更新本地状态
-    setSubscriptions(prev => [...prev, { id: data.systemId, name: data.systemName }])
+    setSubscriptions(prev => [...prev, {
+      id: data.systemId,
+      name: data.systemName,
+      description: `${data.systemName} 的订阅`,
+      type: 'REST',
+      endpoint: '/api/v1/chat',
+      operation: 'POST'
+    }])
     
     // 2. 触发任务中控
     await handleNewSubscription({

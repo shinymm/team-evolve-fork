@@ -7,4 +7,12 @@ export * from './generate-summary'
 export * from './optimize-summary'
 export * from './generate-detail'
 export * from './scene-boundary'
-export * from './scene-requirement' 
+export * from './scene-requirement'
+
+export function replaceTemplateVariables<T extends { [key: string]: string }>(template: string, variables: T): string {
+  let result = template
+  for (const [key, value] of Object.entries(variables)) {
+    result = result.replace(new RegExp(`{{${key}}}`, 'g'), value)
+  }
+  return result
+} 

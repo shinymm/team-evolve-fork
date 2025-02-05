@@ -939,11 +939,33 @@ export default function SceneAnalysisPage() {
                           <ReactMarkdown 
                             remarkPlugins={[remarkGfm]}
                             components={{
-                              h3: ({children}) => <h3 className="text-base font-semibold text-gray-900 mb-2">{children}</h3>,
-                              h4: ({children}) => <h4 className="text-sm font-medium text-gray-700 mb-1.5">{children}</h4>,
-                              ul: ({children}) => <ul className="space-y-1 mb-3">{children}</ul>,
-                              li: ({children}) => <li className="text-sm mb-1 text-gray-600">{children}</li>,
-                              p: ({children}) => <p className="text-sm mb-2 text-gray-600">{children}</p>
+                              h1: ({children}) => <h1 className="text-xl font-bold mb-2 pb-1 border-b">{children}</h1>,
+                              h2: ({children}) => <h2 className="text-lg font-semibold mb-2 mt-3">{children}</h2>,
+                              h3: ({children}) => <h3 className="text-base font-medium mb-1 mt-2">{children}</h3>,
+                              p: ({children}) => <p className="text-gray-600 my-1 leading-normal text-sm">{children}</p>,
+                              ul: ({children}) => <ul className="list-disc pl-4 my-1 space-y-0.5">{children}</ul>,
+                              ol: ({children}) => <ol className="list-decimal pl-4 my-1 space-y-0.5">{children}</ol>,
+                              li: ({children}) => <li className="text-gray-600 text-sm">{children}</li>,
+                              blockquote: ({children}) => <blockquote className="border-l-4 border-gray-300 pl-3 my-1 italic text-sm">{children}</blockquote>,
+                              code: ({children}) => <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{children}</code>,
+                              pre: ({children}) => (
+                                <div className="relative">
+                                  <pre className="bg-gray-50 rounded-lg p-3 my-2 overflow-auto text-sm">{children}</pre>
+                                  <div className="absolute top-0 right-0 p-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 px-1.5 text-gray-500 hover:text-gray-700"
+                                      onClick={() => {
+                                        const codeContent = children?.toString() || '';
+                                        navigator.clipboard.writeText(codeContent);
+                                      }}
+                                    >
+                                      <Copy className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              )
                             }}
                           >
                             {sceneStates[scene.name]?.optimizeResult || optimizeResult || ''}
