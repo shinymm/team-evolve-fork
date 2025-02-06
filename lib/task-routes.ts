@@ -17,21 +17,21 @@ export interface TaskAction {
 export const taskActions: Record<string, TaskAction> = {
   'requirement-analysis': {
     aiHelp: {
-      route: '/requirements/evolution',
+      route: '/ai-capability/evolution',
       title: '需求分析',
       description: 'AI辅助分析需求，帮助细化和完善需求'
     }
   },
   'requirement-book': {
     aiHelp: {
-      route: '/requirements/book',
+      route: '/ai-capability/book',
       title: '需求衍化',
       description: 'AI辅助生成结构化需求书'
     }
   },
   'scene-analysis': {
     aiHelp: {
-      route: '/requirements/scene-analysis',
+      route: '/ai-capability/scene-analysis',
       title: '场景边界分析',
       description: 'AI辅助分析系统边界和接口定义'
     }

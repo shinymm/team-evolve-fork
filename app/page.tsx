@@ -18,7 +18,7 @@ export default function HomePage() {
           知识驱动能力破界，AI召唤协作灵感
         </h1>
         <div className="flex gap-4 justify-center">
-          <Link href="/requirements/evolution">
+          <Link href="/ai-capability/evolution">
             <Button size="lg" className="text-2xl bg-orange-500 hover:bg-orange-600">
               启程入阵
             </Button>

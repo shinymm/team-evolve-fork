@@ -28,13 +28,13 @@ const mainMenuItems: MenuItem[] = [
     title: "AI能力胶囊",
     icon: <Microscope className="h-4 w-4" />,
     submenu: [
-      { title: "原始需求分析", href: "/requirements/evolution" },
-      { title: "需求初稿衍化", href: "/requirements/book" },
-      { title: "场景边界分析", href: "/requirements/scene-analysis" },
-      { title: "用户故事拆解", href: "/requirements/user-story" },
-      { title: "测试用例生成", href: "/requirements/test-cases" },
-      { title: "测试描述格式化", href: "/requirements/test-format" },
-      { title: "测试用例细节辅助", href: "/requirements/test-detail" },
+      { title: "原始需求分析", href: "/ai-capability/evolution" },
+      { title: "需求初稿衍化", href: "/ai-capability/book" },
+      { title: "场景边界分析", href: "/ai-capability/scene-analysis" },
+      { title: "用户故事拆解", href: "/ai-capability/user-story" },
+      { title: "测试用例生成", href: "/ai-capability/test-cases" },
+      { title: "测试描述格式化", href: "/ai-capability/test-format" },
+      { title: "测试用例细节辅助", href: "/ai-capability/test-detail" },
     ]
   },
   {
