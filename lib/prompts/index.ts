@@ -8,6 +8,7 @@ export * from './optimize-summary'
 export * from './generate-detail'
 export * from './scene-boundary'
 export * from './scene-requirement'
+export * from './user-story-breakdown'
 
 export function replaceTemplateVariables<T extends { [key: string]: string }>(template: string, variables: T): string {
   let result = template

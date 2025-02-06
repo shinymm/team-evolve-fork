@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { userStoryBreakdownService } from '@/lib/services/user-story-breakdown-service'
 
 interface StructuredScene {
   sceneName: string
@@ -22,6 +23,8 @@ export default function UserStoryPage() {
   const [scenes, setScenes] = useState<StructuredScene[]>([])
   const [selectedScene, setSelectedScene] = useState<string>('')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [analysisResult, setAnalysisResult] = useState('')
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
 
   useEffect(() => {
     // 从localStorage获取结构化需求
@@ -52,9 +55,26 @@ export default function UserStoryPage() {
     }
   }
 
-  const handleAnalyze = () => {
-    // TODO: 实现用户故事拆解逻辑
-    console.log('分析中...')
+  const handleAnalyze = async () => {
+    if (!requirementText.trim()) {
+      alert('请先输入场景描述')
+      return
+    }
+
+    setIsAnalyzing(true)
+    setAnalysisResult('')
+
+    try {
+      const streamCallback = await userStoryBreakdownService.breakdownUserStory(requirementText)
+      streamCallback((content: string) => {
+        setAnalysisResult(prev => prev + content)
+      })
+    } catch (error) {
+      console.error('分析过程中出错:', error)
+      alert('分析过程中出错，请重试')
+    } finally {
+      setIsAnalyzing(false)
+    }
   }
 
   return (
@@ -108,9 +128,19 @@ export default function UserStoryPage() {
           <Button 
             onClick={handleAnalyze} 
             className="w-full bg-orange-500 hover:bg-orange-600"
+            disabled={isAnalyzing}
           >
-            开始拆解用户故事
+            {isAnalyzing ? '正在拆解中...' : '开始拆解用户故事'}
           </Button>
+
+          {analysisResult && (
+            <div className="mt-4">
+              <h2 className="text-lg font-semibold mb-2">拆解结果：</h2>
+              <pre className="whitespace-pre-wrap bg-gray-50 p-4 rounded-lg">
+                {analysisResult}
+              </pre>
+            </div>
+          )}
         </div>
       </Card>
     </div>
