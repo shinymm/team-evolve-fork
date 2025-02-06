@@ -36,6 +36,13 @@ export const taskActions: Record<string, TaskAction> = {
       description: 'AI辅助分析系统边界和接口定义'
     }
   },
+  'requirement-book-confirm': {
+    aiHelp: {
+      route: '/ai-capability/book-confirm',
+      title: '需求书确认',
+      description: '确认生成的需求书内容'
+    }
+  },
   // 未来可以添加更多任务类型
 }
 

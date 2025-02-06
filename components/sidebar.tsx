@@ -31,6 +31,7 @@ const mainMenuItems: MenuItem[] = [
       { title: "原始需求分析", href: "/ai-capability/evolution" },
       { title: "需求初稿衍化", href: "/ai-capability/book" },
       { title: "场景边界分析", href: "/ai-capability/scene-analysis" },
+      { title: "需求书确认", href: "/ai-capability/book-confirm" },
       { title: "用户故事拆解", href: "/ai-capability/user-story" },
       { title: "测试用例生成", href: "/ai-capability/test-cases" },
       { title: "测试描述格式化", href: "/ai-capability/test-format" },

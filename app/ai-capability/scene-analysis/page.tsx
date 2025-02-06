@@ -537,32 +537,55 @@ export default function SceneAnalysisPage() {
   }
 
   const handleExport = () => {
-    if (!content) return
-    
-    const mdContent = RequirementExportService.generateOptimizedBook(
-      content,
-      sceneStates
-    )
-    
-    // 创建Blob对象
-    const blob = new Blob([mdContent], { type: 'text/markdown' })
-    
-    // 创建下载链接
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = '需求书优化版.md'
-    
-    // 触发下载
-    document.body.appendChild(a)
-    a.click()
-    
-    // 清理
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    RequirementExportService.saveStructuredRequirementToStorage(content!, sceneStates)
+    toast({
+      title: "导出成功",
+      description: "需求书内容已导出",
+      duration: 3000
+    })
+  }
 
-    // 同时保存结构化数据到localStorage
-    RequirementExportService.saveStructuredRequirementToStorage(content, sceneStates)
+  const handleConfirmAndContinue = async () => {
+    if (!content) {
+      toast({
+        title: "确认失败",
+        description: "请先确保有需求内容",
+        variant: "destructive",
+        duration: 3000
+      })
+      return
+    }
+
+    try {
+      // 保存结构化数据到localStorage
+      RequirementExportService.saveStructuredRequirementToStorage(content, sceneStates)
+
+      // 创建需求书确认任务
+      await createTask({
+        title: "需求书确认",
+        description: "确认生成的需求书内容",
+        type: "requirement-book-confirm",
+        assignee: "SQ",
+        status: "pending"
+      })
+
+      toast({
+        title: "确认成功",
+        description: "已创建需求书确认任务",
+        duration: 3000
+      })
+
+      // 跳转到需求书确认页面
+      window.location.href = "/ai-capability/book-confirm"
+    } catch (error) {
+      console.error('确认失败:', error)
+      toast({
+        title: "确认失败",
+        description: error instanceof Error ? error.message : "操作过程中出现错误",
+        variant: "destructive",
+        duration: 3000
+      })
+    }
   }
 
   if (!content) {
@@ -616,7 +639,7 @@ export default function SceneAnalysisPage() {
   }
 
   return (
-    <div className=" mx-auto py-6 w-[90%] space-y-6">
+    <div className="mx-auto py-6 w-[90%] space-y-6">
       {/* 页面标题 */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">场景边界分析</h1>
@@ -996,12 +1019,10 @@ export default function SceneAnalysisPage() {
           </div>
         )}
       </div>
-      <div className="mt-8 flex justify-end">
-        <Button
-          onClick={handleExport}
-          className="bg-blue-600 hover:bg-blue-700 text-white"
-        >
-          导出需求书优化版
+      <div className="flex justify-end mt-8">
+        <Button onClick={handleConfirmAndContinue} className="w-full bg-orange-500 hover:bg-orange-600">
+          <ArrowRight className="mr-2 h-4 w-4" />
+          确认并继续
         </Button>
       </div>
       <Toaster />
