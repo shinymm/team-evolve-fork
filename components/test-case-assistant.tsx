@@ -17,6 +17,7 @@ import yaml from 'js-yaml'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { StructuredRequirement, StructuredScene } from '@/lib/services/requirement-export-service'
 
 interface TestCase {
   type: string
@@ -24,16 +25,6 @@ interface TestCase {
   preconditions: string
   steps: string
   expected_result: string
-}
-
-interface StructuredScene {
-  sceneName: string
-  sceneOverview: string
-  sceneUserJourney: string[]
-  preconditions: string
-  constraints: string
-  exceptions: string
-  notes: string
 }
 
 export function TestCaseAssistant() {
@@ -78,14 +69,16 @@ export function TestCaseAssistant() {
       const sceneContent = [
         `场景名称：${scene.sceneName}`,
         `场景概述：${scene.sceneOverview}`,
-        `用户旅程：\n${scene.sceneUserJourney.map((step, index) => `${index + 1}. ${step}`).join('\n')}`,
         `前置条件：${scene.preconditions}`,
-        `约束条件：${scene.constraints}`,
-        `异常处理：${scene.exceptions}`,
-        `补充说明：${scene.notes}`
-      ].join('\n\n')
+        `用户旅程：\n${scene.sceneUserJourney}`
+      ]
+
+      // 只有在有全局约束条件且不是'N/A'时才添加
+      if (scene.globalConstraints && scene.globalConstraints !== 'N/A') {
+        sceneContent.push(`全局约束条件：${scene.globalConstraints}`)
+      }
       
-      setRequirements(sceneContent)
+      setRequirements(sceneContent.join('\n\n'))
       setSelectedScene(sceneIndex)
       setIsDialogOpen(false)
     }
@@ -270,7 +263,7 @@ export function TestCaseAssistant() {
               <DialogHeader>
                 <DialogTitle>选择要加载的场景</DialogTitle>
               </DialogHeader>
-              <Select value={selectedScene} onValueChange={handleSceneSelect}>
+              <Select value={selectedScene} onValueChange={handleSceneSelect} name="test-case-scene-select">
                 <SelectTrigger>
                   <SelectValue placeholder="选择要拆解的场景" />
                 </SelectTrigger>

@@ -7,16 +7,7 @@ import { Card } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { userStoryBreakdownService } from '@/lib/services/user-story-breakdown-service'
-
-interface StructuredScene {
-  sceneName: string
-  sceneOverview: string
-  sceneUserJourney: string[]
-  preconditions: string
-  constraints: string
-  exceptions: string
-  notes: string
-}
+import { StructuredRequirement, StructuredScene } from '@/lib/services/requirement-export-service'
 
 export default function UserStoryPage() {
   const [requirementText, setRequirementText] = useState('')
@@ -42,14 +33,16 @@ export default function UserStoryPage() {
       const sceneContent = [
         `场景名称：${scene.sceneName}`,
         `\n场景概述：${scene.sceneOverview}`,
-        `\n用户旅程：\n${scene.sceneUserJourney.map((step, index) => `${index + 1}. ${step}`).join('\n')}`,
         `\n前置条件：${scene.preconditions}`,
-        `\n约束条件：${scene.constraints}`,
-        `\n异常处理：${scene.exceptions}`,
-        `\n补充说明：${scene.notes}`
-      ].join('\n')
+        `\n用户旅程：\n${scene.sceneUserJourney}`,
+      ]
+
+      // 只有在有全局约束条件且不是'N/A'时才添加
+      if (scene.globalConstraints && scene.globalConstraints !== 'N/A') {
+        sceneContent.push(`\n全局约束条件：${scene.globalConstraints}`)
+      }
       
-      setRequirementText(sceneContent)
+      setRequirementText(sceneContent.join('\n'))
       setSelectedScene(sceneIndex)
       setIsDialogOpen(false)
     }
@@ -99,7 +92,7 @@ export default function UserStoryPage() {
               <DialogHeader>
                 <DialogTitle>选择要加载的场景</DialogTitle>
               </DialogHeader>
-              <Select value={selectedScene} onValueChange={handleSceneSelect}>
+              <Select value={selectedScene} onValueChange={handleSceneSelect} name="scene-select">
                 <SelectTrigger>
                   <SelectValue placeholder="选择要拆解的场景" />
                 </SelectTrigger>

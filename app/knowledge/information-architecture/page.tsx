@@ -1,7 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ChevronDown, ChevronRight, PlusCircle, Settings, Trash2, Edit2, Check, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, PlusCircle, Settings, Trash2, Edit2, Check, X, Info, CheckCircle } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 
 interface ArchitectureItem {
   id: string
@@ -18,6 +22,18 @@ interface OverviewParagraph {
 interface Overview {
   title: string;
   content: string;
+}
+
+interface UserNeedsItem {
+  id: string;
+  title: string;
+  features: string;
+  needs: string;
+}
+
+interface UserNeeds {
+  title: string;
+  items: UserNeedsItem[];
 }
 
 const initialArchitecture: ArchitectureItem[] = [
@@ -77,6 +93,36 @@ const initialOverview: Overview = {
   content: "智能客户服务平台，专为现代企业设计，旨在通过先进的AI技术提升客户服务效率和体验。\n\n本系统集成了文本和语音机器人，支持从简单的问答到复杂的外呼任务，无论是零售客户、对公机构还是内部员工，都能通过手机银行、对公网银或内部系统无缝接入。我们的系统不仅能够处理日常查询，还能进行智能外呼和语音导航，极大地减轻了人工坐席的负担。此外，系统还具备强大的知识管理和运营工具，支持从知识库和图谱中提取信息，通过模型训练和数据分析不断优化对话质量。我们的数据看板和系统监控功能确保所有操作透明可控，帮助企业实时监控服务质量和系统性能。"
 };
 
+const initialUserNeeds: UserNeeds = {
+  title: "核心用户与需求",
+  items: [
+    {
+      id: "1",
+      title: "渠道问答用户群体",
+      features: "包括零售客户、对公机构客户及内部员工，通常对服务的即时性和准确性有较高要求。",
+      needs: "希望获得快速、准确的答案，并对服务质量有反馈渠道。"
+    },
+    {
+      id: "2",
+      title: "运营配置团队",
+      features: "一线运营人员，负责机器人及知识库的配置和管理。",
+      needs: "需要简单易用的工具进行配置，快速响应业务需求变化。"
+    },
+    {
+      id: "3",
+      title: "客户经营与数据分析用户群体",
+      features: "客户经理、数据分析师，关注客户满意度及服务质量的提升。",
+      needs: "希望获取详细的满意度数据和分析报告，以支持业务决策。"
+    },
+    {
+      id: "4",
+      title: "会话质检群体",
+      features: "负责会话数据分析的质检员，关注服务质量和客户反馈。",
+      needs: "需要系统化的数据分析工具来评估服务质量。"
+    }
+  ]
+};
+
 export default function InformationArchitecture() {
   const [flatArchitecture, setFlatArchitecture] = useState<ArchitectureItem[]>(initialArchitecture)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -86,6 +132,10 @@ export default function InformationArchitecture() {
   const [overview, setOverview] = useState(initialOverview)
   const [isEditingOverview, setIsEditingOverview] = useState(false)
   const [editingOverviewText, setEditingOverviewText] = useState('')
+  const [isUserNeedsExpanded, setIsUserNeedsExpanded] = useState(true)
+  const [userNeeds, setUserNeeds] = useState(initialUserNeeds)
+  const [editingUserNeedId, setEditingUserNeedId] = useState<string | null>(null)
+  const [editingUserNeedForm, setEditingUserNeedForm] = useState<UserNeedsItem | null>(null)
 
   const generateId = (parentId?: string) => {
     const timestamp = new Date().getTime()
@@ -379,6 +429,35 @@ export default function InformationArchitecture() {
     }
   };
 
+  const handleUserNeedEdit = (item: UserNeedsItem) => {
+    setEditingUserNeedId(item.id);
+    setEditingUserNeedForm({ ...item });
+  };
+
+  const handleUserNeedSave = () => {
+    if (!editingUserNeedForm) return;
+    
+    const newItems = userNeeds.items.map(item => 
+      item.id === editingUserNeedForm.id ? editingUserNeedForm : item
+    );
+    
+    setUserNeeds({ ...userNeeds, items: newItems });
+    setEditingUserNeedId(null);
+    setEditingUserNeedForm(null);
+    
+    // 保存到 localStorage
+    try {
+      localStorage.setItem('qare-user-needs', JSON.stringify({ ...userNeeds, items: newItems }));
+    } catch (error) {
+      console.error('Error saving user needs:', error);
+    }
+  };
+
+  const handleUserNeedCancel = () => {
+    setEditingUserNeedId(null);
+    setEditingUserNeedForm(null);
+  };
+
   // 在组件挂载时从 localStorage 加载数据
   useEffect(() => {
     try {
@@ -395,8 +474,13 @@ export default function InformationArchitecture() {
           setOverview(parsed as Overview);
         }
       }
+
+      const savedUserNeeds = localStorage.getItem('qare-user-needs');
+      if (savedUserNeeds) {
+        setUserNeeds(JSON.parse(savedUserNeeds));
+      }
     } catch (error) {
-      console.error('Error loading overview:', error);
+      console.error('Error loading data:', error);
     }
   }, []);
 
@@ -468,6 +552,11 @@ export default function InformationArchitecture() {
         </p>
       </div>
 
+      {/* 信息架构树 */}
+      <div className="mb-12 space-y-2 bg-white p-6 rounded-lg shadow-sm border">
+        {renderArchitecture()}
+      </div>
+
       {/* 电梯演讲部分 */}
       <div className="mb-12 bg-white rounded-lg shadow-sm border">
         <button
@@ -527,8 +616,114 @@ export default function InformationArchitecture() {
         )}
       </div>
 
-      <div className="space-y-2 bg-white p-6 rounded-lg shadow-sm">
-        {renderArchitecture()}
+      {/* 用户需求部分 */}
+      <div className="mb-12 bg-white rounded-lg shadow-sm border">
+        <button
+          onClick={() => setIsUserNeedsExpanded(!isUserNeedsExpanded)}
+          className="w-full px-6 py-4 flex items-center justify-between text-gray-900 hover:bg-gray-50"
+        >
+          <h2 className="text-lg font-medium">{userNeeds.title}</h2>
+          {isUserNeedsExpanded ? (
+            <ChevronDown className="h-5 w-5 text-gray-500" />
+          ) : (
+            <ChevronRight className="h-5 w-5 text-gray-500" />
+          )}
+        </button>
+        
+        {isUserNeedsExpanded && (
+          <div className="px-6 pb-6">
+            <div className="group relative">
+              <div className="grid grid-cols-4 gap-4">
+                {userNeeds.items.map(item => (
+                  <Card key={item.id} className="group/card">
+                    {editingUserNeedId === item.id ? (
+                      <CardContent className="space-y-3 pt-4">
+                        <Input
+                          value={editingUserNeedForm?.title || ''}
+                          onChange={(e) => setEditingUserNeedForm(prev => prev ? { ...prev, title: e.target.value } : null)}
+                          placeholder="用户群体名称"
+                          className="text-sm"
+                        />
+                        <div>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <Info className="h-3.5 w-3.5 text-blue-500" />
+                            <span className="text-xs font-medium text-gray-700">特征：</span>
+                          </div>
+                          <Textarea
+                            value={editingUserNeedForm?.features || ''}
+                            onChange={(e) => setEditingUserNeedForm(prev => prev ? { ...prev, features: e.target.value } : null)}
+                            placeholder="用户群体特征"
+                            className="text-xs min-h-[60px]"
+                          />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <CheckCircle className="h-3.5 w-3.5 text-green-500" />
+                            <span className="text-xs font-medium text-gray-700">需求特点：</span>
+                          </div>
+                          <Textarea
+                            value={editingUserNeedForm?.needs || ''}
+                            onChange={(e) => setEditingUserNeedForm(prev => prev ? { ...prev, needs: e.target.value } : null)}
+                            placeholder="用户需求特点"
+                            className="text-xs min-h-[60px]"
+                          />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleUserNeedCancel}
+                          >
+                            取消
+                          </Button>
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={handleUserNeedSave}
+                          >
+                            保存
+                          </Button>
+                        </div>
+                      </CardContent>
+                    ) : (
+                      <>
+                        <CardHeader className="pb-2">
+                          <div className="flex justify-between items-center">
+                            <CardTitle className="text-sm font-medium">{item.title}</CardTitle>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 opacity-0 group-hover/card:opacity-100"
+                              onClick={() => handleUserNeedEdit(item)}
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-2 pt-0">
+                          <div className="flex items-start gap-1.5">
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <Info className="h-3.5 w-3.5 text-blue-500" />
+                              <span className="text-xs font-medium text-gray-700">特征：</span>
+                            </div>
+                            <p className="text-xs text-gray-600">{item.features}</p>
+                          </div>
+                          <div className="flex items-start gap-1.5">
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <CheckCircle className="h-3.5 w-3.5 text-green-500" />
+                              <span className="text-xs font-medium text-gray-700">需求特点：</span>
+                            </div>
+                            <p className="text-xs text-gray-600">{item.needs}</p>
+                          </div>
+                        </CardContent>
+                      </>
+                    )}
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
