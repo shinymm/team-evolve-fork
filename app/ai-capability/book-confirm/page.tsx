@@ -77,23 +77,16 @@ export default function BookConfirmPage() {
       md += '#### 场景概述\n\n'
       md += scene.sceneOverview + '\n\n'
       
-      md += '#### 用户旅程\n\n'
-      scene.sceneUserJourney.forEach((step, i) => {
-        md += `${i + 1}. ${step}\n`
-      })
-      md += '\n'
-      
       md += '#### 前置条件\n\n'
       md += scene.preconditions + '\n\n'
       
-      md += '#### 约束条件\n\n'
-      md += scene.constraints + '\n\n'
+      md += '#### 用户旅程\n\n'
+      md += scene.sceneUserJourney + '\n\n'
       
-      md += '#### 异常处理\n\n'
-      md += scene.exceptions + '\n\n'
-      
-      md += '#### 补充说明\n\n'
-      md += scene.notes + '\n\n'
+      if (scene.globalConstraints && scene.globalConstraints !== 'N/A') {
+        md += '#### 全局约束条件\n\n'
+        md += scene.globalConstraints + '\n\n'
+      }
       
       md += '---\n\n'
     })
@@ -162,33 +155,23 @@ export default function BookConfirmPage() {
                     </div>
                     
                     <div>
-                      <h4 className="font-medium mb-1">用户旅程</h4>
-                      <ul className="list-decimal list-inside text-sm">
-                        {scene.sceneUserJourney.map((step, i) => (
-                          <li key={i}>{step}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    
-                    <div>
                       <h4 className="font-medium mb-1">前置条件</h4>
                       <p className="text-sm whitespace-pre-wrap">{scene.preconditions}</p>
                     </div>
                     
                     <div>
-                      <h4 className="font-medium mb-1">约束条件</h4>
-                      <p className="text-sm whitespace-pre-wrap">{scene.constraints}</p>
+                      <h4 className="font-medium mb-1">用户旅程</h4>
+                      <div className="text-sm whitespace-pre-wrap pl-4 space-y-4">
+                        {scene.sceneUserJourney}
+                      </div>
                     </div>
                     
-                    <div>
-                      <h4 className="font-medium mb-1">异常处理</h4>
-                      <p className="text-sm whitespace-pre-wrap">{scene.exceptions}</p>
-                    </div>
-                    
-                    <div>
-                      <h4 className="font-medium mb-1">补充说明</h4>
-                      <p className="text-sm whitespace-pre-wrap">{scene.notes}</p>
-                    </div>
+                    {scene.globalConstraints && scene.globalConstraints !== 'N/A' && (
+                      <div>
+                        <h4 className="font-medium mb-1">全局约束条件</h4>
+                        <p className="text-sm whitespace-pre-wrap">{scene.globalConstraints}</p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
