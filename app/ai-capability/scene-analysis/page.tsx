@@ -560,6 +560,11 @@ export default function SceneAnalysisPage() {
       // 保存结构化数据到localStorage
       RequirementExportService.saveStructuredRequirementToStorage(content, sceneStates)
 
+      // 更新场景边界分析任务状态为已完成
+      // await updateTask('scene-analysis', {
+      //   status: 'completed'
+      // })
+
       // 创建需求书确认任务
       await createTask({
         title: "需求书确认",
@@ -655,7 +660,7 @@ export default function SceneAnalysisPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <CardTitle className="text-sm font-medium text-gray-500">需求书初稿</CardTitle>
-                <span className="text-xs text-gray-400">(点击展开进行调试)</span>
+                <span className="text-xs text-gray-400">(点击展开进行编辑)</span>
               </div>
               {isExpanded ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
             </div>
@@ -663,9 +668,15 @@ export default function SceneAnalysisPage() {
           {isExpanded && (
             <CardContent className="py-0 pb-3">
               <div className="space-y-3">
-                <pre className="whitespace-pre-wrap text-sm text-gray-600 bg-white p-3 rounded-md border max-h-[200px] overflow-y-auto">
-                  {mdContent}
-                </pre>
+                <textarea
+                  className="w-full min-h-[200px] p-3 text-sm text-gray-600 bg-white rounded-md border resize-y"
+                  value={mdContent}
+                  onChange={(e) => {
+                    setMdContent(e.target.value)
+                    localStorage.setItem('requirement-book-content', e.target.value)
+                  }}
+                  placeholder="请在此输入需求书内容..."
+                />
                 <Button 
                   onClick={handleParse}
                   className="w-full bg-orange-500 hover:bg-orange-600"
