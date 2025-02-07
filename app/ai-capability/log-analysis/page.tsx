@@ -207,7 +207,7 @@ export default function LogAnalysis() {
               {/* 统计信息区域 */}
               <div className="mb-8">
                 <h2 className="text-xl font-semibold mb-4">统计信息</h2>
-                <div className="grid grid-cols-6 gap-6">
+                <div className="grid grid-cols-8 gap-6">
                   {/* 总数统计 */}
                   <div className="col-span-1 p-4 bg-gray-50 rounded-lg">
                     <h3 className="text-sm font-medium text-gray-500 mb-2">异常总数</h3>
@@ -220,7 +220,7 @@ export default function LogAnalysis() {
                   </div>
                   
                   {/* 请求路径分布 */}
-                  <div className="col-span-5 p-4 bg-gray-50 rounded-lg">
+                  <div className="col-span-7 p-4 bg-gray-50 rounded-lg">
                     <div className="flex justify-between items-center mb-3">
                       <h3 className="text-sm font-medium text-gray-500">请求路径分布</h3>
                       {selectedPath && (
