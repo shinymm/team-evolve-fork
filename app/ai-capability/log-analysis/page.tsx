@@ -39,6 +39,7 @@ export default function LogAnalysis() {
   const [sortField, setSortField] = useState<SortField>('request')
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
+  const [selectedError, setSelectedError] = useState<string | null>(null)
   const [showAnalysis, setShowAnalysis] = useState(false)
   const [analysisResult, setAnalysisResult] = useState('')
   const [selectedException, setSelectedException] = useState<Exception | null>(null)
@@ -66,9 +67,12 @@ export default function LogAnalysis() {
     }
   }
 
-  const filteredExceptions = selectedPath
-    ? exceptions.filter(e => e.request === selectedPath)
-    : exceptions
+  const filteredExceptions = exceptions
+    .filter(e => {
+      if (selectedPath && e.request !== selectedPath) return false
+      if (selectedError && e.error !== selectedError) return false
+      return true
+    })
 
   const sortedExceptions = [...filteredExceptions].sort((a, b) => {
     const compareResult = sortOrder === 'asc' ? 1 : -1
@@ -90,7 +94,17 @@ export default function LogAnalysis() {
     return acc
   }, {} as Record<string, number>)
 
+  // 计算错误信息统计
+  const errorStats = exceptions.reduce((acc, curr) => {
+    const error = curr.error
+    acc[error] = (acc[error] || 0) + 1
+    return acc
+  }, {} as Record<string, number>)
+
   const sortedStats = Object.entries(requestStats)
+    .sort(([, countA], [, countB]) => countB - countA)
+
+  const sortedErrorStats = Object.entries(errorStats)
     .sort(([, countA], [, countB]) => countB - countA)
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -207,20 +221,17 @@ export default function LogAnalysis() {
               {/* 统计信息区域 */}
               <div className="mb-8">
                 <h2 className="text-xl font-semibold mb-4">统计信息</h2>
-                <div className="grid grid-cols-8 gap-6">
+                <div className="grid grid-cols-9 gap-6">
                   {/* 总数统计 */}
                   <div className="col-span-1 p-4 bg-gray-50 rounded-lg">
                     <h3 className="text-sm font-medium text-gray-500 mb-2">异常总数</h3>
                     <p className="text-2xl font-semibold">
                       {filteredExceptions.length}
-                      {selectedPath && (
-                        <span className="text-sm text-gray-500 ml-2">/ {exceptions.length}</span>
-                      )}
                     </p>
                   </div>
                   
                   {/* 请求路径分布 */}
-                  <div className="col-span-7 p-4 bg-gray-50 rounded-lg">
+                  <div className="col-span-4 p-4 bg-gray-50 rounded-lg">
                     <div className="flex justify-between items-center mb-3">
                       <h3 className="text-sm font-medium text-gray-500">请求路径分布</h3>
                       {selectedPath && (
@@ -245,7 +256,59 @@ export default function LogAnalysis() {
                                 ${selectedPath === path ? 'bg-orange-50' : ''}`}
                               onClick={() => setSelectedPath(path === selectedPath ? null : path)}
                             >
-                              <td className="py-2 pr-4">{path}</td>
+                              <td className="py-2 pr-4 relative group">
+                                <div className="w-[510px] truncate">{path}</div>
+                                {path.length > 80 && (
+                                  <div className="absolute z-50 left-0 top-full mt-1 p-2 bg-gray-900 text-white text-sm rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-normal max-w-[400px] break-all">
+                                    {path}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="py-2 text-right font-medium w-16">{count}</td>
+                              <td className="py-2 pl-4 text-right text-gray-500 w-16">
+                                {((count / exceptions.length) * 100).toFixed(1)}%
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* 错误信息分布 */}
+                  <div className="col-span-4 p-4 bg-gray-50 rounded-lg">
+                    <div className="flex justify-between items-center mb-3">
+                      <h3 className="text-sm font-medium text-gray-500">错误信息分布</h3>
+                      {selectedError && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedError(null)}
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          清除筛选
+                        </Button>
+                      )}
+                    </div>
+                    <div className="max-h-[200px] overflow-y-auto">
+                      <table className="w-full text-sm">
+                        <tbody>
+                          {sortedErrorStats.map(([error, count]) => (
+                            <tr 
+                              key={error} 
+                              className={`border-b last:border-0 hover:bg-gray-100 cursor-pointer
+                                ${selectedError === error ? 'bg-orange-50' : ''}`}
+                              onClick={() => setSelectedError(error === selectedError ? null : error)}
+                            >
+                              <td className="py-2 pr-4 relative group">
+                                <div className="w-[510px] truncate text-red-600">{error}</div>
+                                {error.length > 80 && (
+                                  <div className="absolute z-50 left-0 top-full mt-1 p-2 bg-gray-900 text-white text-sm rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-normal max-w-[400px] break-all">
+                                    {error}
+                                  </div>
+                                )}
+                              </td>
                               <td className="py-2 text-right font-medium w-16">{count}</td>
                               <td className="py-2 pl-4 text-right text-gray-500 w-16">
                                 {((count / exceptions.length) * 100).toFixed(1)}%
@@ -263,11 +326,18 @@ export default function LogAnalysis() {
               <div>
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-xl font-semibold">异常列表</h2>
-                  {selectedPath && (
-                    <div className="text-sm text-gray-500">
-                      已筛选：{selectedPath}
-                    </div>
-                  )}
+                  <div className="flex items-center gap-4 text-sm text-gray-500">
+                    {selectedPath && (
+                      <div>已筛选路径：{selectedPath}</div>
+                    )}
+                    {selectedError && (
+                      <div>已筛选错误：
+                        <span className="text-red-600 max-w-[300px] truncate inline-block align-bottom">
+                          {selectedError}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="border rounded-lg">
                   <Table>

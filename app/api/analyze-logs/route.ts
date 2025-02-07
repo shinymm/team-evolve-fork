@@ -35,8 +35,8 @@ function parseExceptions(text: string): Exception[] {
   const blocks = text.split('全局错误::').filter(Boolean)
   const exceptions: Exception[] = []
   
-  // 只处理前120个异常
-  const maxExceptions = Math.min(blocks.length, 120)
+  // 只处理前150个异常
+  const maxExceptions = Math.min(blocks.length, 150)
   
   for (let i = 0; i < maxExceptions; i++) {
     const block = blocks[i].trim()

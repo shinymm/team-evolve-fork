@@ -24,7 +24,7 @@ interface AIModelConfig {
 }
 
 const presetConfigs = {
-  'zhipu': { baseURL: 'https://open.bigmodel.cn/api/paas/v4/chat/completions', model: 'glm-4v-flash' },
+  'zhipu': { baseURL: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4v-flash' },
   'openai': { baseURL: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
 }
 
