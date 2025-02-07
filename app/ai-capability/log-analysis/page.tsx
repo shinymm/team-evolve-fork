@@ -360,36 +360,37 @@ export default function LogAnalysis() {
       </div>
 
       <Dialog open={showAnalysis} onOpenChange={setShowAnalysis}>
-        <DialogContent className="max-w-5xl max-h-[85vh] overflow-hidden p-0">
-          <div className="p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">异常分析</h3>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setShowAnalysis(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+        <DialogContent className="w-[80vw] h-[85vh] p-0">
+          <div className="h-full flex flex-col">
+            {/* 头部区域 */}
+            <div className="flex-none">
+              <div className="px-6 py-4 flex items-center justify-between border-b">
+                <h3 className="text-lg font-semibold">异常分析</h3>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setShowAnalysis(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
 
-            <div className="border-t -mx-6 px-6 py-4 bg-gray-50">
-              <div className="text-sm space-y-2">
-                <div>
-                  <span className="text-gray-500">请求路径：</span>
-                  <span className="font-medium">{selectedException?.request}</span>
-                </div>
-                <div>
-                  <span className="text-gray-500">错误信息：</span>
-                  <span className="text-red-600">{selectedException?.error}</span>
+              <div className="bg-gray-50 px-6 py-4 border-b">
+                <div className="text-sm space-y-2">
+                  <div className="flex">
+                    <span className="text-gray-500 w-20 shrink-0">请求路径：</span>
+                    <span className="font-medium break-all flex-1">{selectedException?.request}</span>
+                  </div>
+                  <div className="flex">
+                    <span className="text-gray-500 w-20 shrink-0">错误信息：</span>
+                    <span className="text-red-600 break-all flex-1">{selectedException?.error}</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="flex-1 overflow-y-auto -mx-6">
-              <div className="px-6">
-                <div className="flex items-center justify-between mb-4">
+              <div className="px-6 py-4 border-b">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Brain className="h-4 w-4 text-orange-500" />
                     <h3 className="text-lg font-semibold">AI 分析结果</h3>
@@ -401,10 +402,14 @@ export default function LogAnalysis() {
                     </div>
                   )}
                 </div>
-                <div className="prose prose-sm max-w-none">
-                  <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-gray-700">
-                    {analysisResult || (analyzing && '正在思考中...')}
-                  </div>
+              </div>
+            </div>
+
+            {/* 内容区域 - 使用绝对定位和固定高度 */}
+            <div className="absolute inset-x-0 bottom-0 top-[200px] overflow-y-auto">
+              <div className="p-6">
+                <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-gray-700">
+                  {analysisResult || (analyzing && '正在思考中...')}
                 </div>
               </div>
             </div>
