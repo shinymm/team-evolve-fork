@@ -36,6 +36,7 @@ const mainMenuItems: MenuItem[] = [
       { title: "测试用例生成", href: "/ai-capability/test-cases" },
       { title: "测试描述格式化", href: "/ai-capability/test-format" },
       { title: "测试用例细节辅助", href: "/ai-capability/test-detail" },
+      { title: "日志分析", href: "/ai-capability/log-analysis" },
     ]
   },
   {
