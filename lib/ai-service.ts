@@ -1,4 +1,4 @@
-import { ModelConfig } from '@/components/ai-model-settings'
+import { ModelConfig } from '@/lib/types/model-config'
 
 export interface AIModelConfig {
   model: string        // 模型名称
