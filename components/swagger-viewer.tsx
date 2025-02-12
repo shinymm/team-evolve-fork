@@ -1,6 +1,6 @@
 'use client'
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { swaggerDocs, type SwaggerDocs } from "@/lib/swagger-docs"
@@ -25,6 +25,9 @@ export function SwaggerViewer({ isOpen, onClose, endpoint }: SwaggerViewerProps)
       <DialogContent className="max-w-4xl h-[90vh]">
         <DialogHeader>
           <DialogTitle>{spec.info.title}</DialogTitle>
+          <DialogDescription id="dialog-description">
+            {spec.info.description || `查看 ${path} 接口的详细信息`}
+          </DialogDescription>
         </DialogHeader>
         <ScrollArea className="h-full pr-4">
           <div className="space-y-6">

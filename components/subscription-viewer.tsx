@@ -1,6 +1,6 @@
 'use client'
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
 interface SubscriptionViewerProps {
@@ -20,6 +20,9 @@ export function SubscriptionViewer({ isOpen, onClose, apiName, apiEndpoint, subs
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>{apiName} - 订阅系统列表</DialogTitle>
+          <DialogDescription id="dialog-description">
+            显示 {apiEndpoint} 的所有订阅系统信息
+          </DialogDescription>
         </DialogHeader>
         <ScrollArea className="h-full max-h-[60vh] pr-4">
           <div className="border rounded-md">

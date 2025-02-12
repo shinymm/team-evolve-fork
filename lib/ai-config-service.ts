@@ -5,7 +5,7 @@ const AI_CONFIG_KEY = 'aiModelConfigs'
 export function getAIConfig(): AIModelConfig | null {
   try {
     const configStr = localStorage.getItem(AI_CONFIG_KEY)
-    console.log('Reading AI config from:', AI_CONFIG_KEY)
+    // console.log('Reading AI config from:', AI_CONFIG_KEY)
     if (!configStr) return null
 
     const allConfigs = JSON.parse(configStr)
