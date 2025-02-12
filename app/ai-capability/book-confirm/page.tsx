@@ -6,9 +6,14 @@ import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { StructuredRequirement } from '@/lib/services/requirement-export-service'
+import { createArchitectureSuggestionTask, createArchitectureConfirmTask } from '@/lib/services/task-control'
+import { generateArchitectureSuggestions } from '@/lib/services/architecture-suggestion-service'
+import { updateTask } from '@/lib/services/task-service'
+import { getProductInfo } from '@/lib/services/product-info-service'
 
 export default function BookConfirmPage() {
   const [requirement, setRequirement] = useState<StructuredRequirement | null>(null)
+  const [isUpdating, setIsUpdating] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -57,6 +62,66 @@ export default function BookConfirmPage() {
       description: "需求书已导出",
       duration: 3000
     })
+  }
+
+  const handleUpdateKnowledge = async () => {
+    if (!requirement) return
+
+    setIsUpdating(true)
+    toast({
+      title: "更新任务已启动",
+      description: "系统正在分析需求并生成架构调整建议，您可以稍后在产品信息架构页面查看结果",
+      duration: 8000
+    })
+
+    // 获取当前架构数据
+    const { architecture: currentArchitecture } = getProductInfo()
+
+    try {
+      // 1. 创建产品知识更新建议任务
+      const suggestionTask = await createArchitectureSuggestionTask(requirement)
+
+      // 2. 调用架构建议服务获取建议
+      const suggestions = await generateArchitectureSuggestions(requirement, currentArchitecture)
+
+      // 3. 更新建议任务状态为已完成
+      await updateTask(suggestionTask.id, {
+        status: 'completed'
+      })
+
+      // 4. 创建产品知识更新确认任务
+      await createArchitectureConfirmTask(suggestions)
+
+      // 5. 确保 localStorage 保存完成后再跳转
+      setTimeout(() => {
+        window.location.href = '/knowledge/information-architecture'
+      }, 500)  // 给予500ms的延迟确保保存完成
+
+    } catch (error) {
+      console.error('更新产品知识失败:', error)
+      let errorMessage = "请稍后重试"
+      
+      if (error instanceof Error) {
+        if (error.message === '未配置AI模型') {
+          errorMessage = "请先配置AI模型"
+        } else if (error.message === 'AI服务返回为空') {
+          errorMessage = "AI服务未返回有效建议"
+        } else if (error.message.includes('Invalid')) {
+          errorMessage = "AI返回的建议格式不正确"
+        } else {
+          errorMessage = error.message
+        }
+      }
+      
+      toast({
+        title: "更新失败",
+        description: errorMessage,
+        variant: "destructive",
+        duration: 5000
+      })
+    } finally {
+      setIsUpdating(false)
+    }
   }
 
   // 生成Markdown格式的需求书
@@ -121,9 +186,18 @@ export default function BookConfirmPage() {
             确认生成的需求书内容，并导出最终版本
           </p>
         </div>
-        <Button onClick={handleExport} className="bg-orange-500 hover:bg-orange-600">
-          导出需求书
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={handleExport} className="bg-orange-500 hover:bg-orange-600">
+            导出需求书
+          </Button>
+          <Button 
+            onClick={handleUpdateKnowledge} 
+            className="bg-blue-500 hover:bg-blue-600"
+            disabled={isUpdating}
+          >
+            {isUpdating ? '正在更新...' : '更新产品相关知识'}
+          </Button>
+        </div>
       </div>
 
       <Card>

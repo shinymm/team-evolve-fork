@@ -1,3 +1,5 @@
+import { ModelConfig } from '@/components/ai-model-settings'
+
 export interface AIModelConfig {
   model: string        // 模型名称
   apiKey: string      // API密钥
@@ -78,7 +80,7 @@ export async function streamingAICall(
         if (done) break
 
         const chunk = decoder.decode(value)
-        console.log('Raw chunk:', chunk)  // 调试日志
+        // console.log('Raw chunk:', chunk)  // 调试日志
 
         const lines = chunk
           .split('\n')
@@ -90,7 +92,7 @@ export async function streamingAICall(
               const data = JSON.parse(line.replace('data: ', ''))
               const content = data.choices[0]?.delta?.content || ''
               if (content) {
-                console.log('Parsed content:', content)  // 调试日志
+                // console.log('Parsed content:', content)  // 调试日志
                 onContent(content)
               }
             } catch (e) {
@@ -106,5 +108,38 @@ export async function streamingAICall(
       throw new Error('网络请求失败，请检查：\n1. API地址是否正确\n2. 网络连接是否正常\n3. 是否存在跨域限制')
     }
     throw error
+  }
+}
+
+interface Message {
+  role: 'system' | 'user' | 'assistant'
+  content: string
+}
+
+export const callChatCompletion = async (
+  messages: Message[],
+  config: ModelConfig
+): Promise<string | null> => {
+  try {
+    const response = await fetch('/api/ai/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messages,
+        ...config,
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to call AI API')
+    }
+
+    const data = await response.json()
+    return data.content
+  } catch (error) {
+    console.error('Error calling AI API:', error)
+    return null
   }
 } 

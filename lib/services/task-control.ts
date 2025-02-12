@@ -1,4 +1,6 @@
 import { createTask } from './task-service'
+import { StructuredRequirement } from './requirement-export-service'
+import { ArchitectureSuggestion } from './architecture-suggestion-service'
 
 interface SystemSubscription {
   systemId: string
@@ -78,4 +80,30 @@ export async function handleNewSubscription(subscription: SystemSubscription) {
 async function needsArchitectureUpdate(subscription: SystemSubscription): Promise<boolean> {
   // 实现检查逻辑
   return true
+}
+
+export async function createArchitectureSuggestionTask(requirement: StructuredRequirement) {
+  return await createTask({
+    title: '产品知识更新建议',
+    description: '基于需求内容，分析并提供产品架构的调整建议',
+    type: 'architecture-suggestion',
+    assignee: 'system',
+    status: 'pending',
+    metadata: {
+      requirement
+    }
+  })
+}
+
+export async function createArchitectureConfirmTask(suggestions: ArchitectureSuggestion[]) {
+  return await createTask({
+    title: '产品知识更新确认',
+    description: '请确认AI提供的产品架构调整建议',
+    type: 'architecture-confirm',
+    assignee: 'SQ',
+    status: 'pending',
+    metadata: {
+      suggestions
+    }
+  })
 } 

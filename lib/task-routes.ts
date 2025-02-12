@@ -43,6 +43,20 @@ export const taskActions: Record<string, TaskAction> = {
       description: '确认生成的需求书内容'
     }
   },
+  'architecture-suggestion': {
+    aiHelp: {
+      route: '/knowledge/information-architecture',
+      title: '产品知识更新建议',
+      description: 'AI辅助分析需求并提供架构调整建议'
+    }
+  },
+  'architecture-confirm': {
+    aiHelp: {
+      route: '/knowledge/information-architecture',
+      title: '产品知识更新确认',
+      description: '确认产品架构的更新建议'
+    }
+  }
   // 未来可以添加更多任务类型
 }
 

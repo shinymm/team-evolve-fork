@@ -1,3 +1,6 @@
+import { StructuredRequirement } from './requirement-export-service'
+import { ArchitectureSuggestion } from './architecture-suggestion-service'
+
 interface TaskMetadata {
   systemId?: string
   systemName?: string
@@ -12,6 +15,8 @@ interface TaskMetadata {
       userJourney: string[]
     }[]
   }
+  requirement?: StructuredRequirement
+  suggestions?: ArchitectureSuggestion[]
 }
 
 export interface Task {

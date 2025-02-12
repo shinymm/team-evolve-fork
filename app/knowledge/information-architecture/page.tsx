@@ -1,233 +1,115 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ChevronDown, ChevronRight, PlusCircle, Settings, Trash2, Edit2, Check, X, Info, CheckCircle } from 'lucide-react'
+import { ChevronDown, ChevronRight, PlusCircle, Edit2, Check, X, Info, CheckCircle, Trash2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-
-interface ArchitectureItem {
-  id: string
-  title: string
-  description: string
-  parentId?: string
-  children?: ArchitectureItem[]
-}
-
-interface OverviewParagraph {
-  text: string;
-}
-
-interface Overview {
-  title: string;
-  content: string;
-}
-
-interface UserNeedsItem {
-  id: string;
-  title: string;
-  features: string;
-  needs: string;
-}
-
-interface UserNeeds {
-  title: string;
-  items: UserNeedsItem[];
-}
-
-const initialArchitecture: ArchitectureItem[] = [
-
-        { "id": "1", "title": "知识引擎", "description": "支持意图管理、知识管理、脚本维护及更新记录等功能模块" },
-        { "id": "1-1", "parentId": "1", "title": "意图", "description": "支持用户和系统意图的管理与识别" },
-        { "id": "1-2", "parentId": "1", "title": "实体", "description": "用户或系统数据的结构化实体定义和管理" },
-        { "id": "1-3", "parentId": "1", "title": "闲聊", "description": "提供系统与用户之间的非任务型对话能力" },
-        { "id": "1-4", "parentId": "1", "title": "剧本", "description": "设计对话流程与任务剧本的模块" },
-        { "id": "1-5", "parentId": "1", "title": "表格/知识图谱", "description": "用于定义和展示知识表格及知识图谱" },
-        { "id": "1-6", "parentId": "1", "title": "知识分享", "description": "支持知识共享与协同的功能" },
-        { "id": "1-7", "parentId": "1", "title": "更新记录", "description": "对知识和意图变更的记录管理" },
-      
-        { "id": "2", "title": "机器人管理", "description": "包含机器人创建、配置、部署等生命周期管理功能" },
-        { "id": "2-1", "parentId": "2", "title": "机器人创建", "description": "支持文本、外呼、语音和agent类型机器人的创建" },
-        { "id": "2-2", "parentId": "2", "title": "机器人配置", "description": "包括知识、脚本、全局异常及模型相关参数配置" },
-        { "id": "2-3", "parentId": "2", "title": "机器人部署", "description": "机器人上下线的管理" },
-      
-        { "id": "3", "title": "文档管理", "description": "支持文档上传、删除和检索等功能" },
-        { "id": "3-1", "parentId": "3", "title": "上传/删除", "description": "提供文档的上传与删除管理" },
-        { "id": "3-2", "parentId": "3", "title": "搜索", "description": "通过文档内容检索相关信息" },
-      
-        { "id": "4", "title": "模型训练", "description": "支持从数据集到模型的完整训练管理" },
-        { "id": "4-1", "parentId": "4", "title": "数据集管理", "description": "对模型训练所需的数据集进行管理" },
-        { "id": "4-2", "parentId": "4", "title": "训练集/测试集", "description": "训练和测试数据的管理模块" },
-        { "id": "4-3", "parentId": "4", "title": "意图分类", "description": "支持意图数据的分类与整理" },
-        { "id": "4-4", "parentId": "4", "title": "推荐相似问题", "description": "提供问题相似度分析与推荐功能" },
-      
-        { "id": "5", "title": "语音产品", "description": "面向语音外呼和TTS功能的管理模块" },
-        { "id": "5-1", "parentId": "5", "title": "智能外呼", "description": "语音外呼任务的创建与管理" },
-        { "id": "5-2", "parentId": "5", "title": "外呼任务", "description": "外呼任务的策略配置和执行监控" },
-        { "id": "5-3", "parentId": "5", "title": "录音中心", "description": "支持录音上传、下线、发布等管理" },
-        { "id": "5-4", "parentId": "5", "title": "TTS语音合成引擎", "description": "语音合成和情感表达相关功能" },
-      
-        { "id": "6", "title": "运营工具", "description": "包含效果评测、测试集管理、巡检任务等功能模块" },
-        { "id": "6-1", "parentId": "6", "title": "效果测评", "description": "提供对对话效果的测评能力" },
-        { "id": "6-2", "parentId": "6", "title": "巡检任务", "description": "任务完成后的数据巡检工具" },
-        { "id": "6-3", "parentId": "6", "title": "文本聚类", "description": "对对话和数据进行聚类分析" },
-        { "id": "6-4", "parentId": "6", "title": "消息级标注", "description": "支持消息的标注与质量检测" },
-        { "id": "6-5", "parentId": "6", "title": "会话级标注", "description": "支持会话的标注与质量检测" },
-        { "id": "6-6", "parentId": "6", "title": "歧义教育标注", "description": "支持歧义的标注与质量检测" },
-        { "id": "6-7", "parentId": "6", "title": "预警监控中心", "description": "预警与监控的面板" },
-      
-        { "id": "7", "title": "数据看板", "description": "提供实时数据的可视化展示功能" },
-        { "id": "7-1", "parentId": "7", "title": "数据概览", "description": "展示核心数据的总览信息" },
-        { "id": "7-2", "parentId": "7", "title": "会话纬度", "description": "从会话角度展示数据统计" },
-        { "id": "7-3", "parentId": "7", "title": "意图纬度", "description": "以意图为核心展示相关数据" },
-      
-        { "id": "8", "title": "系统监控", "description": "负责系统模型、资源、任务和数据的监控与预警" },
-        { "id": "8-1", "parentId": "8", "title": "模型监控", "description": "对模型训练和使用情况的监控" },
-        { "id": "8-2", "parentId": "8", "title": "任务监控", "description": "对任务执行状态的监控" },
-        { "id": "8-3", "parentId": "8", "title": "数据监控", "description": "提供数据使用与变化的监控能力" }   
-]
-
-const initialOverview: Overview = {
-  title: "产品电梯演讲",
-  content: "智能客户服务平台，专为现代企业设计，旨在通过先进的AI技术提升客户服务效率和体验。\n\n本系统集成了文本和语音机器人，支持从简单的问答到复杂的外呼任务，无论是零售客户、对公机构还是内部员工，都能通过手机银行、对公网银或内部系统无缝接入。我们的系统不仅能够处理日常查询，还能进行智能外呼和语音导航，极大地减轻了人工坐席的负担。此外，系统还具备强大的知识管理和运营工具，支持从知识库和图谱中提取信息，通过模型训练和数据分析不断优化对话质量。我们的数据看板和系统监控功能确保所有操作透明可控，帮助企业实时监控服务质量和系统性能。"
-};
-
-const initialUserNeeds: UserNeeds = {
-  title: "核心用户与需求",
-  items: [
-    {
-      id: "1",
-      title: "渠道问答用户群体",
-      features: "包括零售客户、对公机构客户及内部员工，通常对服务的即时性和准确性有较高要求。",
-      needs: "希望获得快速、准确的答案，并对服务质量有反馈渠道。"
-    },
-    {
-      id: "2",
-      title: "运营配置团队",
-      features: "一线运营人员，负责机器人及知识库的配置和管理。",
-      needs: "需要简单易用的工具进行配置，快速响应业务需求变化。"
-    },
-    {
-      id: "3",
-      title: "客户经营与数据分析用户群体",
-      features: "客户经理、数据分析师，关注客户满意度及服务质量的提升。",
-      needs: "希望获取详细的满意度数据和分析报告，以支持业务决策。"
-    },
-    {
-      id: "4",
-      title: "会话质检群体",
-      features: "负责会话数据分析的质检员，关注服务质量和客户反馈。",
-      needs: "需要系统化的数据分析工具来评估服务质量。"
-    }
-  ]
-};
+import { useProductInfo } from '@/lib/hooks/use-product-info'
+import { useToast } from "@/components/ui/use-toast"
+import { Toaster } from "@/components/ui/toaster"
+import { ArchitectureSuggestion } from '@/lib/services/architecture-suggestion-service'
+import { updateTask, getTasks, Task } from '@/lib/services/task-service'
+import { Badge } from "@/components/ui/badge"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
 
 export default function InformationArchitecture() {
-  const [flatArchitecture, setFlatArchitecture] = useState<ArchitectureItem[]>(initialArchitecture)
+  const {
+    flatArchitecture,
+    overview,
+    userNeeds,
+    addArchitectureItem,
+    updateArchitectureItem,
+    deleteArchitectureItem,
+    getArchitectureTree,
+    updateOverview,
+    updateUserNeed
+  } = useProductInfo()
+
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ title: '', description: '' })
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
   const [isOverviewExpanded, setIsOverviewExpanded] = useState(true)
-  const [overview, setOverview] = useState(initialOverview)
   const [isEditingOverview, setIsEditingOverview] = useState(false)
   const [editingOverviewText, setEditingOverviewText] = useState('')
   const [isUserNeedsExpanded, setIsUserNeedsExpanded] = useState(true)
-  const [userNeeds, setUserNeeds] = useState(initialUserNeeds)
   const [editingUserNeedId, setEditingUserNeedId] = useState<string | null>(null)
-  const [editingUserNeedForm, setEditingUserNeedForm] = useState<UserNeedsItem | null>(null)
+  const [editingUserNeedForm, setEditingUserNeedForm] = useState<{
+    id: string
+    title: string
+    features: string
+    needs: string
+  } | null>(null)
+  const [suggestions, setSuggestions] = useState<ArchitectureSuggestion[]>([])
+  const { toast } = useToast()
 
-  const generateId = (parentId?: string) => {
-    const timestamp = new Date().getTime()
-    return parentId ? `${parentId}-${timestamp}` : `${timestamp}`
-  }
-
-  // 将扁平结构转换为树形结构
-  const buildTree = (items: ArchitectureItem[]): ArchitectureItem[] => {
-    const itemMap = new Map<string, ArchitectureItem & { children?: ArchitectureItem[] }>()
-    const result: (ArchitectureItem & { children?: ArchitectureItem[] })[] = []
-
-    // 首先创建所有节点的映射
-    items.forEach(item => {
-      itemMap.set(item.id, { ...item, children: [] })
-    })
-
-    // 构建树形结构
-    items.forEach(item => {
-      const node = itemMap.get(item.id)!
-      if (item.parentId) {
-        const parent = itemMap.get(item.parentId)
-        if (parent) {
-          parent.children = parent.children || []
-          parent.children.push(node)
-        }
-      } else {
-        result.push(node)
-      }
-    })
-
-    return result
-  }
-
-  // 将树形结构转换回扁平结构
-  const flattenTree = (items: ArchitectureItem[]): ArchitectureItem[] => {
-    const result: ArchitectureItem[] = []
-    const flatten = (item: ArchitectureItem, parentId?: string) => {
-      const flatItem = {
-        id: item.id,
-        title: item.title,
-        description: item.description,
-        parentId
-      }
-      result.push(flatItem)
-      if ('children' in item && item.children) {
-        item.children.forEach(child => flatten(child, item.id))
+  useEffect(() => {
+    // 从localStorage加载架构建议
+    const storedSuggestions = localStorage.getItem('architecture-suggestions')
+    
+    if (storedSuggestions) {
+      try {
+        setSuggestions(JSON.parse(storedSuggestions))
+      } catch (error) {
+        console.error('Failed to parse architecture suggestions:', error)
       }
     }
-    items.forEach(item => flatten(item))
-    return result
-  }
+  }, [])
 
-  const saveToLocalStorage = (data: ArchitectureItem[]) => {
+  // 处理架构建议
+  const handleApplySuggestions = async () => {
     try {
-      localStorage.setItem('qare-architecture', JSON.stringify(data))
+      // 应用所有建议
+      for (const suggestion of suggestions) {
+        switch (suggestion.type) {
+          case 'add':
+            if (suggestion.parentId && suggestion.title && suggestion.description) {
+              addArchitectureItem(suggestion.title, suggestion.description, suggestion.parentId)
+            }
+            break
+          case 'modify':
+            if (suggestion.nodeId && suggestion.title && suggestion.description) {
+              updateArchitectureItem(suggestion.nodeId, suggestion.title, suggestion.description)
+            }
+            break
+          case 'delete':
+            if (suggestion.nodeId) {
+              deleteArchitectureItem(suggestion.nodeId)
+            }
+            break
+        }
+      }
+
+      // 清除建议
+      localStorage.removeItem('architecture-suggestions')
+      setSuggestions([])
+
+      // 更新任务状态
+      const tasks = await getTasks()
+      const confirmTask = tasks.find(t => t.type === 'architecture-confirm')
+      if (confirmTask) {
+        await updateTask(confirmTask.id, { status: 'completed' })
+      }
+
+      toast({
+        title: "更新成功",
+        description: "已应用所有架构调整建议",
+        duration: 3000
+      })
     } catch (error) {
-      console.error('Error saving architecture data:', error)
+      console.error('Failed to apply suggestions:', error)
+      toast({
+        title: "更新失败",
+        description: error instanceof Error ? error.message : "请稍后重试",
+        variant: "destructive",
+        duration: 3000
+      })
     }
   }
 
-  const handleAdd = (parentId?: string) => {
-    const newItem: ArchitectureItem = {
-      id: generateId(parentId),
-      title: "新菜单项",
-      description: "请添加描述",
-      parentId
-    }
-    setFlatArchitecture(prev => {
-      const newData = [...prev, newItem]
-      saveToLocalStorage(newData)
-      return newData
-    })
-  }
-
-  const handleDelete = (id: string) => {
-    setFlatArchitecture(prev => 
-      prev.filter(item => item.id !== id && item.parentId !== id)
-    )
-  }
-
-  const handleSaveEdit = (id: string) => {
-    setFlatArchitecture(prev =>
-      prev.map(item =>
-        item.id === id
-          ? { ...item, title: editForm.title, description: editForm.description }
-          : item
-      )
-    )
-    setEditingId(null)
-  }
-
-  // 添加折叠控制函数
+  // 折叠控制函数
   const toggleExpand = (id: string) => {
     setExpandedItems(prev => {
       const next = new Set(prev)
@@ -249,21 +131,168 @@ export default function InformationArchitecture() {
     setExpandedItems(new Set())
   }
 
-  // 渲染时使用树形结构
-  const renderArchitecture = () => {
-    const tree = buildTree(flatArchitecture)
-    return tree.map(item => renderArchitectureItem(item))
-  }
-
-  const handleEdit = (item: ArchitectureItem) => {
+  const handleEdit = (item: { id: string; title: string; description: string }) => {
     setEditingId(item.id)
     setEditForm({ title: item.title, description: item.description })
   }
 
-  const renderArchitectureItem = (item: ArchitectureItem, level: number = 0) => {
+  const handleSaveEdit = (id: string) => {
+    updateArchitectureItem(id, editForm.title, editForm.description)
+    setEditingId(null)
+  }
+
+  const handleOverviewEdit = () => {
+    setIsEditingOverview(true)
+    setEditingOverviewText(overview.content)
+  }
+
+  const handleOverviewSave = () => {
+    updateOverview({ ...overview, content: editingOverviewText })
+    setIsEditingOverview(false)
+  }
+
+  const handleUserNeedEdit = (item: { id: string; title: string; features: string; needs: string }) => {
+    setEditingUserNeedId(item.id)
+    setEditingUserNeedForm({ ...item })
+  }
+
+  const handleUserNeedSave = () => {
+    if (!editingUserNeedForm) return
+    updateUserNeed(
+      editingUserNeedForm.id,
+      editingUserNeedForm.title,
+      editingUserNeedForm.features,
+      editingUserNeedForm.needs
+    )
+    setEditingUserNeedId(null)
+    setEditingUserNeedForm(null)
+  }
+
+  const handleUserNeedCancel = () => {
+    setEditingUserNeedId(null)
+    setEditingUserNeedForm(null)
+  }
+
+  const handleExport = () => {
+    const dataStr = JSON.stringify(flatArchitecture, null, 2)
+    const blob = new Blob([dataStr], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `qare-architecture-${new Date().toISOString().split('T')[0]}.json`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string
+        const importedData = JSON.parse(content)
+        // 这里我们假设导入的数据会通过 localStorage 自动同步
+        localStorage.setItem('qare-architecture', content)
+        window.location.reload() // 重新加载页面以获取新数据
+      } catch (error) {
+        alert('导入失败：文件格式不正确')
+      }
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
+
+  const handleAcceptSuggestion = async (suggestion: ArchitectureSuggestion, index: number) => {
+    try {
+      // 根据建议类型更新架构
+      switch (suggestion.type) {
+        case 'add':
+          if (suggestion.parentId && suggestion.title && suggestion.description) {
+            addArchitectureItem(suggestion.title, suggestion.description, suggestion.parentId)
+          }
+          break
+        case 'modify':
+          if (suggestion.nodeId && suggestion.title && suggestion.description) {
+            updateArchitectureItem(suggestion.nodeId, suggestion.title, suggestion.description)
+            // 强制刷新架构树显示
+            const updatedTree = getArchitectureTree()
+            setExpandedItems(new Set(Array.from(expandedItems))) // 触发重新渲染
+          }
+          break
+        case 'delete':
+          if (suggestion.nodeId) {
+            deleteArchitectureItem(suggestion.nodeId)
+          }
+          break
+      }
+
+      // 从建议列表中移除该建议
+      const updatedSuggestions = suggestions.filter((_, i) => i !== index)
+      setSuggestions(updatedSuggestions)
+
+      // 更新 localStorage
+      localStorage.setItem('architecture-suggestions', JSON.stringify(updatedSuggestions))
+
+      // 如果没有建议了，清除原始响应并更新任务状态
+      if (updatedSuggestions.length === 0) {
+        // 更新任务状态
+        const tasks = await getTasks()
+        const confirmTask = tasks.find(t => t.type === 'architecture-confirm')
+        if (confirmTask) {
+          await updateTask(confirmTask.id, { status: 'completed' })
+        }
+      }
+
+      toast({
+        title: "已接受建议",
+        description: suggestion.type === 'modify' ? "节点描述已更新" : suggestion.type === 'add' ? "新节点已添加" : "节点已删除",
+        duration: 2000
+      })
+    } catch (error) {
+      console.error('Failed to accept suggestion:', error)
+      toast({
+        title: "更新失败",
+        description: error instanceof Error ? error.message : "请稍后重试",
+        variant: "destructive",
+        duration: 3000
+      })
+    }
+  }
+
+  const handleRejectSuggestion = async (index: number) => {
+    // 从当前建议列表中移除
+    const updatedSuggestions = suggestions.filter((_, i) => i !== index)
+    setSuggestions(updatedSuggestions)
+
+    // 更新 localStorage
+    localStorage.setItem('architecture-suggestions', JSON.stringify(updatedSuggestions))
+
+    // 如果没有建议了，更新任务状态
+    if (updatedSuggestions.length === 0) {
+      // 更新任务状态
+      const tasks = await getTasks()
+      const confirmTask = tasks.find(t => t.type === 'architecture-confirm')
+      if (confirmTask) {
+        await updateTask(confirmTask.id, { status: 'completed' })
+      }
+    }
+
+    toast({
+      title: "已拒绝建议",
+      description: "该建议已被移除",
+      duration: 2000
+    })
+  }
+
+  const renderArchitectureItem = (item: any, level: number = 0) => {
     const isEditing = editingId === item.id
     const isExpanded = expandedItems.has(item.id)
     const hasChildren = item.children && item.children.length > 0
+    const suggestion = suggestions.find(s => s.nodeId === item.id)
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
       if (e.key === 'Enter') {
@@ -275,7 +304,10 @@ export default function InformationArchitecture() {
 
     return (
       <div key={item.id} className={`ml-${level * 3}`}>
-        <div className="group hover:bg-gray-50 rounded-md">
+        <div className={`group hover:bg-gray-50 rounded-md ${
+          suggestion?.type === 'modify' ? 'bg-orange-50' : 
+          suggestion?.type === 'delete' ? 'bg-red-50' : ''
+        }`}>
           <div className="flex items-center gap-1 py-1.5 px-2">
             {isEditing ? (
               <div className="flex-1 flex items-baseline gap-2">
@@ -341,12 +373,17 @@ export default function InformationArchitecture() {
                       <h3 className="text-sm font-medium text-gray-800">{item.title}</h3>
                       <span className="text-xs text-gray-400 mx-1">—</span>
                       <p className="text-xs text-gray-600 flex-1">{item.description}</p>
+                      {suggestion && (
+                        <span className="text-xs text-yellow-600 ml-2">
+                          {suggestion.type === 'modify' ? '建议修改' : suggestion.type === 'delete' ? '建议删除' : ''}
+                        </span>
+                      )}
                     </div>
                     <div className="hidden group-hover:flex items-center gap-1 ml-2 bg-white px-2 py-1 rounded-md shadow-sm">
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          handleAdd(item.id)
+                          addArchitectureItem("新菜单项", "请添加描述", item.id)
                         }}
                         className="p-0.5 hover:text-blue-600 hover:bg-blue-50 rounded"
                         title="添加子项"
@@ -356,7 +393,7 @@ export default function InformationArchitecture() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          handleDelete(item.id)
+                          deleteArchitectureItem(item.id)
                         }}
                         className="p-0.5 hover:text-red-600 hover:bg-red-50 rounded"
                         title="删除"
@@ -372,359 +409,287 @@ export default function InformationArchitecture() {
         </div>
         {item.children && isExpanded && (
           <div className="ml-4 mt-0.5 space-y-0.5 border-l border-gray-200 pl-3">
-            {item.children.map(child => renderArchitectureItem(child, level + 1))}
+            {item.children.map((child: any) => renderArchitectureItem(child, level + 1))}
           </div>
         )}
       </div>
     )
   }
 
-  const handleExport = () => {
-    const dataStr = JSON.stringify(flatArchitecture, null, 2)
-    const blob = new Blob([dataStr], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `qare-architecture-${new Date().toISOString().split('T')[0]}.json`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-  }
-
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      try {
-        const content = e.target?.result as string
-        const importedData = JSON.parse(content) as ArchitectureItem[]
-        setFlatArchitecture(importedData)
-        setExpandedItems(new Set()) // 导入后默认全部折叠
-      } catch (error) {
-        alert('导入失败：文件格式不正确')
-      }
-    }
-    reader.readAsText(file)
-    // 重置 input 以便可以重复导入同一个文件
-    e.target.value = ''
-  }
-
-  const handleOverviewEdit = () => {
-    setIsEditingOverview(true);
-    setEditingOverviewText(overview.content);
-  };
-
-  const handleOverviewSave = () => {
-    setOverview({ ...overview, content: editingOverviewText });
-    setIsEditingOverview(false);
-    
-    // 保存到 localStorage
-    try {
-      localStorage.setItem('qare-overview', JSON.stringify({ ...overview, content: editingOverviewText }));
-    } catch (error) {
-      console.error('Error saving overview:', error);
-    }
-  };
-
-  const handleUserNeedEdit = (item: UserNeedsItem) => {
-    setEditingUserNeedId(item.id);
-    setEditingUserNeedForm({ ...item });
-  };
-
-  const handleUserNeedSave = () => {
-    if (!editingUserNeedForm) return;
-    
-    const newItems = userNeeds.items.map(item => 
-      item.id === editingUserNeedForm.id ? editingUserNeedForm : item
-    );
-    
-    setUserNeeds({ ...userNeeds, items: newItems });
-    setEditingUserNeedId(null);
-    setEditingUserNeedForm(null);
-    
-    // 保存到 localStorage
-    try {
-      localStorage.setItem('qare-user-needs', JSON.stringify({ ...userNeeds, items: newItems }));
-    } catch (error) {
-      console.error('Error saving user needs:', error);
-    }
-  };
-
-  const handleUserNeedCancel = () => {
-    setEditingUserNeedId(null);
-    setEditingUserNeedForm(null);
-  };
-
-  // 在组件挂载时从 localStorage 加载数据
-  useEffect(() => {
-    try {
-      const savedOverview = localStorage.getItem('qare-overview');
-      if (savedOverview) {
-        const parsed = JSON.parse(savedOverview);
-        // 兼容旧的数据结构
-        if (Array.isArray(parsed.content)) {
-          setOverview({
-            title: parsed.title,
-            content: (parsed.content as OverviewParagraph[]).map(p => p.text).join('\n\n')
-          });
-        } else {
-          setOverview(parsed as Overview);
-        }
-      }
-
-      const savedUserNeeds = localStorage.getItem('qare-user-needs');
-      if (savedUserNeeds) {
-        setUserNeeds(JSON.parse(savedUserNeeds));
-      }
-    } catch (error) {
-      console.error('Error loading data:', error);
-    }
-  }, []);
-
   return (
-    <div className="w-[90%] mx-auto py-8">
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-gray-900">产品信息架构</h1>
-          <div className="flex items-center gap-2">
-            <input
-              type="file"
-              accept=".json"
-              onChange={handleImport}
-              className="hidden"
-              id="import-file"
-            />
-            <label
-              htmlFor="import-file"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-green-50 text-green-600 rounded-md hover:bg-green-100 cursor-pointer"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="17 8 12 3 7 8" />
-                <line x1="12" y1="3" x2="12" y2="15" />
-              </svg>
-              <span>导入</span>
+    <div className="mx-auto py-6 w-[90%] space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">产品信息架构</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            管理产品的功能架构、概述和用户需求
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {suggestions.length > 0 && (
+            <Button onClick={handleApplySuggestions} className="bg-orange-500 hover:bg-orange-600">
+              应用信息架构调整建议 ({suggestions.length})
+            </Button>
+          )}
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={expandAll}>展开全部</Button>
+            <Button variant="outline" size="sm" onClick={collapseAll}>折叠全部</Button>
+            <Button variant="outline" size="sm" onClick={handleExport}>导出架构</Button>
+            <label className="cursor-pointer">
+              <Input
+                type="file"
+                accept=".json"
+                onChange={handleImport}
+                className="hidden"
+              />
+              <Button variant="outline" size="sm" asChild>
+                <span>导入架构</span>
+              </Button>
             </label>
-
-            <button
-              onClick={handleExport}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-green-50 text-green-600 rounded-md hover:bg-green-100"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              <span>导出</span>
-            </button>
-
-            <div className="w-px h-6 bg-gray-200 mx-1" />
-
-            <button
-              onClick={() => handleAdd()}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100"
-            >
-              <PlusCircle className="h-3.5 w-3.5" />
-              <span>添加一级菜单</span>
-            </button>
-
-            <button
-              onClick={expandAll}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-gray-50 text-gray-600 rounded-md hover:bg-gray-100"
-            >
-              <ChevronDown className="h-3.5 w-3.5" />
-              <span>展开全部</span>
-            </button>
-            <button
-              onClick={collapseAll}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-gray-50 text-gray-600 rounded-md hover:bg-gray-100"
-            >
-              <ChevronRight className="h-3.5 w-3.5" />
-              <span>折叠全部</span>
-            </button>
           </div>
         </div>
-        <p className="mt-2 text-sm text-gray-500">
-          这里展示了产品的整体功能结构和信息层次关系。支持导入导出功能，方便在平台外批量修改。
-        </p>
       </div>
 
-      {/* 信息架构树 */}
-      <div className="mb-12 space-y-2 bg-white p-6 rounded-lg shadow-sm border">
-        {renderArchitecture()}
-      </div>
+      <div className="space-y-6">
+        {/* 功能架构 */}
+        <Card>
+          <CardHeader className="py-3">
+            <CardTitle className="text-base">功能架构</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="space-y-0.5">
+              {getArchitectureTree().map(item => renderArchitectureItem(item))}
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* 电梯演讲部分 */}
-      <div className="mb-12 bg-white rounded-lg shadow-sm border">
-        <button
-          onClick={() => setIsOverviewExpanded(!isOverviewExpanded)}
-          className="w-full px-6 py-4 flex items-center justify-between text-gray-900 hover:bg-gray-50"
-        >
-          <h2 className="text-lg font-medium">{overview.title}</h2>
-          {isOverviewExpanded ? (
-            <ChevronDown className="h-5 w-5 text-gray-500" />
-          ) : (
-            <ChevronRight className="h-5 w-5 text-gray-500" />
-          )}
-        </button>
-        
-        {isOverviewExpanded && (
-          <div className="px-6 pb-6">
-            <div className="group relative">
+        {/* 架构建议 */}
+        {suggestions.length > 0 && (
+          <Card>
+            <CardHeader className="py-3">
+              <CardTitle className="text-base">架构调整建议</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <ScrollArea className="h-[600px] pr-4">
+                <div className="space-y-2">
+                  {suggestions.map((suggestion, index) => (
+                    <Card key={index} className={`border shadow-sm ${
+                      suggestion.type === 'add' 
+                        ? 'border-green-100 bg-green-50/50' 
+                        : 'border-orange-100 bg-orange-50/50'
+                    }`}>
+                      <CardHeader className="py-2 px-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className={`
+                              ${suggestion.type === 'add' 
+                                ? 'border-green-200 text-green-700 bg-green-50' 
+                                : 'border-orange-200 text-orange-700 bg-orange-50'
+                              }
+                            `}>
+                              {suggestion.type === 'add' ? '新增节点' : suggestion.type === 'modify' ? '修改节点' : '删除节点'}
+                            </Badge>
+                            <span className="text-sm text-gray-600">
+                              {suggestion.type === 'add' ? `父节点: ${suggestion.parentId}` : `节点: ${suggestion.nodeId}`}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-gray-600 hover:text-red-600 hover:bg-red-50"
+                                onClick={() => handleRejectSuggestion(index)}
+                              >
+                                <X className="h-3.5 w-3.5 mr-1" />
+                                拒绝
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50"
+                                onClick={() => handleAcceptSuggestion(suggestion, index)}
+                              >
+                                <Check className="h-3.5 w-3.5 mr-1" />
+                                接受
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="py-2 px-4">
+                        <div className="space-y-1">
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-sm font-medium text-gray-600">标题：</span>
+                            <span className="text-sm text-gray-700">{suggestion.title}</span>
+                          </div>
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-sm font-medium text-gray-600">描述：</span>
+                            <span className="text-sm text-gray-700">{suggestion.description}</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 产品概述 */}
+        <Card>
+          <CardHeader
+            className="py-3 cursor-pointer"
+            onClick={() => setIsOverviewExpanded(!isOverviewExpanded)}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-base">产品概述</CardTitle>
+                {isOverviewExpanded ? (
+                  <ChevronDown className="h-4 w-4 text-gray-500" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-gray-500" />
+                )}
+              </div>
+              {isOverviewExpanded && !isEditingOverview && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleOverviewEdit()
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <Edit2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          {isOverviewExpanded && (
+            <CardContent className="pt-0">
               {isEditingOverview ? (
                 <div className="space-y-2">
-                  <textarea
+                  <Textarea
                     value={editingOverviewText}
                     onChange={(e) => setEditingOverviewText(e.target.value)}
-                    className="w-full p-2 border rounded-md min-h-[200px] text-sm"
+                    className="min-h-[100px]"
                   />
                   <div className="flex justify-end gap-2">
-                    <button
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => setIsEditingOverview(false)}
-                      className="px-3 py-1 text-sm bg-gray-50 text-gray-600 rounded-md hover:bg-gray-100"
                     >
                       取消
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      size="sm"
                       onClick={handleOverviewSave}
-                      className="px-3 py-1 text-sm bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100"
                     >
                       保存
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ) : (
-                <div className="relative">
-                  <div className="space-y-4 text-gray-600 text-sm whitespace-pre-wrap">
-                    {overview.content}
-                  </div>
-                  <button
-                    onClick={handleOverviewEdit}
-                    className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-gray-600"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                    </svg>
-                  </button>
-                </div>
+                <p className="text-sm text-gray-600 whitespace-pre-wrap">
+                  {overview.content}
+                </p>
               )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* 用户需求部分 */}
-      <div className="mb-12 bg-white rounded-lg shadow-sm border">
-        <button
-          onClick={() => setIsUserNeedsExpanded(!isUserNeedsExpanded)}
-          className="w-full px-6 py-4 flex items-center justify-between text-gray-900 hover:bg-gray-50"
-        >
-          <h2 className="text-lg font-medium">{userNeeds.title}</h2>
-          {isUserNeedsExpanded ? (
-            <ChevronDown className="h-5 w-5 text-gray-500" />
-          ) : (
-            <ChevronRight className="h-5 w-5 text-gray-500" />
+            </CardContent>
           )}
-        </button>
-        
-        {isUserNeedsExpanded && (
-          <div className="px-6 pb-6">
-            <div className="group relative">
-              <div className="grid grid-cols-4 gap-4">
+        </Card>
+
+        {/* 用户需求 */}
+        <Card>
+          <CardHeader
+            className="py-3 cursor-pointer"
+            onClick={() => setIsUserNeedsExpanded(!isUserNeedsExpanded)}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-base">用户需求</CardTitle>
+                {isUserNeedsExpanded ? (
+                  <ChevronDown className="h-4 w-4 text-gray-500" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-gray-500" />
+                )}
+              </div>
+            </div>
+          </CardHeader>
+          {isUserNeedsExpanded && (
+            <CardContent className="pt-0">
+              <div className="space-y-4">
                 {userNeeds.items.map(item => (
-                  <Card key={item.id} className="group/card">
+                  <div key={item.id} className="space-y-2">
                     {editingUserNeedId === item.id ? (
-                      <CardContent className="space-y-3 pt-4">
-                        <Input
-                          value={editingUserNeedForm?.title || ''}
-                          onChange={(e) => setEditingUserNeedForm(prev => prev ? { ...prev, title: e.target.value } : null)}
-                          placeholder="用户群体名称"
-                          className="text-sm"
-                        />
+                      <div className="space-y-3">
                         <div>
-                          <div className="flex items-center gap-1.5 mb-1.5">
-                            <Info className="h-3.5 w-3.5 text-blue-500" />
-                            <span className="text-xs font-medium text-gray-700">特征：</span>
-                          </div>
-                          <Textarea
-                            value={editingUserNeedForm?.features || ''}
-                            onChange={(e) => setEditingUserNeedForm(prev => prev ? { ...prev, features: e.target.value } : null)}
-                            placeholder="用户群体特征"
-                            className="text-xs min-h-[60px]"
+                          <label className="text-sm font-medium">用户群体</label>
+                          <Input
+                            value={editingUserNeedForm?.title}
+                            onChange={(e) => setEditingUserNeedForm(prev => prev ? { ...prev, title: e.target.value } : null)}
+                            className="mt-1"
                           />
                         </div>
                         <div>
-                          <div className="flex items-center gap-1.5 mb-1.5">
-                            <CheckCircle className="h-3.5 w-3.5 text-green-500" />
-                            <span className="text-xs font-medium text-gray-700">需求特点：</span>
-                          </div>
+                          <label className="text-sm font-medium">特征描述</label>
                           <Textarea
-                            value={editingUserNeedForm?.needs || ''}
+                            value={editingUserNeedForm?.features}
+                            onChange={(e) => setEditingUserNeedForm(prev => prev ? { ...prev, features: e.target.value } : null)}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium">核心需求</label>
+                          <Textarea
+                            value={editingUserNeedForm?.needs}
                             onChange={(e) => setEditingUserNeedForm(prev => prev ? { ...prev, needs: e.target.value } : null)}
-                            placeholder="用户需求特点"
-                            className="text-xs min-h-[60px]"
+                            className="mt-1"
                           />
                         </div>
                         <div className="flex justify-end gap-2">
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
                             onClick={handleUserNeedCancel}
                           >
                             取消
                           </Button>
                           <Button
-                            variant="default"
                             size="sm"
                             onClick={handleUserNeedSave}
                           >
                             保存
                           </Button>
                         </div>
-                      </CardContent>
+                      </div>
                     ) : (
-                      <>
-                        <CardHeader className="pb-2">
-                          <div className="flex justify-between items-center">
-                            <CardTitle className="text-sm font-medium">{item.title}</CardTitle>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 opacity-0 group-hover/card:opacity-100"
-                              onClick={() => handleUserNeedEdit(item)}
-                            >
-                              <Edit2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="space-y-2 pt-0">
-                          <div className="flex items-start gap-1.5">
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <Info className="h-3.5 w-3.5 text-blue-500" />
-                              <span className="text-xs font-medium text-gray-700">特征：</span>
-                            </div>
-                            <p className="text-xs text-gray-600">{item.features}</p>
-                          </div>
-                          <div className="flex items-start gap-1.5">
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <CheckCircle className="h-3.5 w-3.5 text-green-500" />
-                              <span className="text-xs font-medium text-gray-700">需求特点：</span>
-                            </div>
-                            <p className="text-xs text-gray-600">{item.needs}</p>
-                          </div>
-                        </CardContent>
-                      </>
+                      <div className="group">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-medium">{item.title}</h3>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleUserNeedEdit(item)}
+                            className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-gray-700"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <p className="mt-1 text-sm text-gray-600">{item.features}</p>
+                        <p className="mt-1 text-sm text-gray-600">{item.needs}</p>
+                      </div>
                     )}
-                  </Card>
+                  </div>
                 ))}
               </div>
-            </div>
-          </div>
-        )}
+            </CardContent>
+          )}
+        </Card>
       </div>
+      <Toaster />
     </div>
   )
 } 
