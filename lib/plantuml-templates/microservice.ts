@@ -10,20 +10,20 @@ AddRelTag("backup", $lineStyle = DashedLine())
 System_Ext(upstream, "Upstream", $descr="零售、对公、金市等各上游系统")
 Person(opsUser, "运营团队")
 
-System_Boundary(c1, "QARE-智能对话系统") {
+System_Boundary(c1, "智能对话系统") {
     Container(pre, "PRE 前置", "Java8/SpringCloud", $descr="协议转换、数据处理、会话")
     Container(fe, "qare-ics-vue", "Vue", $descr="运营门户")
-    Container(dashboard, "Dashboard", "Java8/SpringCloud", $descr="外呼看板",$tags="out")
     Container(gateway, "API Gateway", "SpringCloud", $descr="API网关",$tags="gateway")
     Container(robot, "Robot", "Java8/SpringCloud", $descr="会话时-机器人引擎与总控会话记录入es、运营时-机器人配置")
     Boundary(c2, "知识管理") {
         Container(kb, "knowledge", "Java8/SpringCloud", $descr="运营时-知识库/剧本/话术等配置、会话时-知识/剧本节点/话术匹配应答")
-        Container(search, "search", "Java8/SpringCloud", $descr="文档知识检索（未来指向企业级RAG）")
+        Container(search, "search", "Java8/SpringCloud", $descr="文档知识检索")
         ContainerDb(embedding, "向量库", "milvus", $descr="文档向量化",$tags="db")
     }
     Container(platform, "Platform", "Java8/SpringCloud", $descr="用户权限等基础运营管理")
     Container(ude, "UDE", "Java8/SpringCloud", $descr="会话时-整体文本对话过程管理")
-    Container(outcall, "OutCall", "Java8/SpringCloud", $descr="智能外呼核心中控",$tags="out")
+    Container(outcall, "OutCall", "Java8/SpringCloud", $descr="智能外呼核心中控")
+    Container(outcall, "OutCall", "Java8/SpringCloud", $descr="智能外呼核心中控")
     Container(switch, "FreeSwitch", "中间件", $descr="软电话交换机",$tags="gateway")
     Container(opt, "opt", "Java8/SpringCloud", $descr="运营时数据标注、模型训练、发布")
     Boundary(c4, "数据处理") {
@@ -64,7 +64,6 @@ Rel(opt,process, "预警监控/测评巡检", "https")
 Rel(opt,obs, "（发起训练时）转存训练数据集", "file", $tags="backup")
 Rel_R(gateway, platform, "", "HTTPS")
 Rel(gateway, opt, "运营管理", "HTTPS")
-Rel(dashboard, gateway,  "运营监控", "HTTPS")
 Rel(opt, offline, "发起训练任务", "HTTPS")
 Rel(offline, obs, "模型存储", "", $tags="backup")
 Rel(online, obs, "获取模型文件启动", "", $tags="backup")
