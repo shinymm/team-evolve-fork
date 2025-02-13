@@ -10,8 +10,8 @@ const longCang = Long_Cang({
 export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-gray-900">
-      <div className="flex h-14 items-center">
-        <div className="pl-4 flex items-center">
+      <div className="flex h-14 items-center px-4">
+        <div className="w-1/4">
           <Link href="/" className="text-xl hover:opacity-80">
             <span className="font-bold tracking-tight text-white">
               Team Evolve ｜ 
@@ -21,6 +21,12 @@ export function SiteHeader() {
             </span>
           </Link>
         </div>
+        <div className={`${longCang.className} hidden md:flex flex-1 justify-center`}>
+          <span className="text-base text-gray-300 hover:text-orange-400 transition-colors duration-200">
+            知识驱动能力破界，AI召唤协作灵感
+          </span>
+        </div>
+        <div className="w-1/4"></div>
       </div>
     </header>
   )
