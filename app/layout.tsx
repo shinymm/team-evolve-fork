@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { ToastProvider } from "@/components/providers/toast-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { SiteHeader } from "@/components/site-header"
+import { AiTeamSidebar } from "@/components/ai-team-sidebar"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -33,6 +34,7 @@ export default function RootLayout({
               <main className="flex-1 p-6">
                 {children}
               </main>
+              <AiTeamSidebar />
             </div>
           </div>
           <Toaster />
