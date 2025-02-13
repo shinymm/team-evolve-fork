@@ -609,7 +609,7 @@ export default function InformationArchitecture() {
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <CardTitle className="text-base">用户需求</CardTitle>
+                <CardTitle className="text-base">用户画像</CardTitle>
                 {isUserNeedsExpanded ? (
                   <ChevronDown className="h-4 w-4 text-gray-500" />
                 ) : (
