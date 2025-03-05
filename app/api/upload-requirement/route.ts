@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
 import type { AIModelConfig } from '@/lib/ai-service'
+import OpenAI from 'openai'
 
 /**
  * 注意：在服务器端API路由中无法使用localStorage，
@@ -16,7 +17,7 @@ function generateUniqueId(): string {
 /**
  * 处理需求文档上传
  */
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest) {  
   try {
     // 解析表单数据
     const formData = await request.formData()
@@ -68,11 +69,55 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 生成文件ID
-    const fileId = generateUniqueId()
+    // 检查文件大小，防止空文件
+    if (file.size === 0) {
+      return NextResponse.json(
+        { error: '文件内容为空，请选择有效文件' },
+        { status: 400 }
+      )
+    }
 
-    // TODO: 这里可以将文件保存到服务器、对象存储等
-    // 此处仅示例，不做实际文件存储，仅返回成功信息
+    console.log(`上传文件: ${filename}, 大小: ${file.size} 字节, 类型: ${file.type}`)
+    
+    // 创建OpenAI客户端，用于与兼容的API交互
+    const client = new OpenAI({
+      apiKey: apiKey,
+      baseURL: baseURL
+    })
+    
+    let fileId;
+    
+    try {
+      // 将文件内容转换为Buffer，以便上传
+      const arrayBuffer = await file.arrayBuffer()
+      
+      // 创建一个符合OpenAI格式要求的文件对象
+      const fileObject = new File(
+        [arrayBuffer], 
+        filename, 
+        { type: file.type }
+      )
+      
+      console.log(`正在上传文件到 ${baseURL}...`)
+      
+      // 无论是DashScope还是OpenAI，都使用相同的文件上传API
+      // 因为DashScope提供了兼容OpenAI的接口
+      const uploadResponse = await client.files.create({
+        file: fileObject,
+        purpose: "file-extract"  // 使用OpenAI SDK支持的purpose值
+      })
+      
+      // 从上传响应中获取文件ID
+      fileId = uploadResponse.id
+      console.log(`文件上传成功，获取到ID: ${fileId}`)
+    } catch (uploadError: any) {
+      console.error('文件上传失败:', uploadError)
+      const errorMessage = uploadError.message || '未知错误'
+      return NextResponse.json(
+        { error: `文件上传失败: ${errorMessage}` },
+        { status: 400 }
+      )
+    }
 
     return NextResponse.json({
       success: true,

@@ -43,7 +43,7 @@ const mainMenuItems: MenuItem[] = [
     title: "特殊能力胶囊",
     icon: <Flame className="h-4 w-4" />,
     submenu: [
-      { title: "需求书拆解", href: "/special-capability/requirement-upload" }
+      { title: "需求书综合处理", href: "/special-capability/requirement-upload" }
     ]
   },
   {
