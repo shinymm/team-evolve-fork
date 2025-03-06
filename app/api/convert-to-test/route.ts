@@ -89,7 +89,6 @@ export async function POST(request: NextRequest) {
         }
         
         console.log(`[${new Date().toISOString()}] API: 流式响应接收完成，共处理${chunkCounter}个数据块`);
-        await writer.write(encoder.encode("\n\n测试用例生成完毕。"));
         await writer.close();
       } catch (error) {
         console.error(`[${new Date().toISOString()}] API: 流处理错误:`, error);

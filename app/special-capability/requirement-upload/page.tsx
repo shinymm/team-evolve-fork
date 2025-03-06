@@ -448,9 +448,6 @@ export default function RequirementUpload() {
       const selectedFiles = uploadedFiles.filter(file => file.selected)
       const fileIds = selectedFiles.map(file => file.id)
 
-      // 添加初始提示
-      setTestContent('正在生成测试用例，请稍候...\n\n')
-
       await service.convertToTest(
         fileIds,
         aiConfig!,
@@ -465,9 +462,7 @@ export default function RequirementUpload() {
         },
         requirementChapter || undefined
       )
-      
-      // 添加完成提示
-      setTestContent(prev => prev + '\n\n测试用例生成完毕。');
+
       
       console.log('生成测试用例完成 - ' + new Date().toISOString());
     } catch (error) {
