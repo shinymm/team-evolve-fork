@@ -1,16 +1,29 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
-import { Upload, File as FileIcon, X, Trash2, Download, Book, Loader2, AlertCircle } from 'lucide-react'
+import { useState, useRef, useEffect, useCallback, memo } from 'react'
+import { Upload, File as FileIcon, X, Trash2, Download, Book, Loader2, AlertCircle, FileText } from 'lucide-react'
 import { Toaster } from "@/components/ui/toaster"
 import { useToast } from "@/components/ui/use-toast"
 import { getAIConfig } from '@/lib/ai-config-service'
 import type { AIModelConfig } from '@/lib/ai-service'
+import { streamingAICall } from '@/lib/ai-service'
 import { Button } from "@/components/ui/button"
 import { RequirementToMdService } from '@/lib/services/requirement-to-md-service'
+import { RequirementToTestService } from '@/lib/services/requirement-to-test-service'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 // 已上传文件类型定义
 type UploadedFile = {
@@ -20,6 +33,18 @@ type UploadedFile = {
   selected?: boolean;  // 新增：是否被选中
 };
 
+// 添加内容显示组件
+const ContentDisplay = memo(({ content }: { content: string }) => {
+  console.log('ContentDisplay rendering, content length:', content.length);
+  return (
+    <div className="font-mono text-sm whitespace-pre-wrap">
+      {content}
+    </div>
+  );
+});
+
+ContentDisplay.displayName = 'ContentDisplay';
+
 export default function RequirementUpload() {
   const [file, setFile] = useState<File | null>(null)
   const [error, setError] = useState<string>('')
@@ -28,11 +53,31 @@ export default function RequirementUpload() {
   const [aiConfig, setAiConfig] = useState<AIModelConfig | null>(null)
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [mdContent, setMdContent] = useState<string>('')
+  const [testContent, setTestContent] = useState<string>('')
   const [isConverting, setIsConverting] = useState(false)
+  const [isGeneratingTest, setIsGeneratingTest] = useState(false)
   const [fileSelectionAlert, setFileSelectionAlert] = useState<string>('')
+  const [showChapterDialog, setShowChapterDialog] = useState(false)
+  const [requirementChapter, setRequirementChapter] = useState('')
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dropAreaRef = useRef<HTMLDivElement>(null)
+  const mdContentRef = useRef<HTMLPreElement>(null)
+  const testContentRef = useRef<HTMLPreElement>(null)
+  const mdContentBuffer = useRef('');
+
+  // 监听内容变化，自动滚动到底部
+  useEffect(() => {
+    if (mdContentRef.current) {
+      mdContentRef.current.scrollTop = mdContentRef.current.scrollHeight;
+    }
+  }, [mdContent]);
+
+  useEffect(() => {
+    if (testContentRef.current) {
+      testContentRef.current.scrollTop = testContentRef.current.scrollHeight;
+    }
+  }, [testContent]);
 
   // 获取AI配置
   useEffect(() => {
@@ -258,64 +303,70 @@ export default function RequirementUpload() {
 
   // 处理需求书转MD
   const handleConvertToMd = async () => {
-    // 检查是否有文件上传
     if (uploadedFiles.length === 0) {
       toast({
         title: "转换失败",
         description: "请先上传至少一个文件",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
-    
-    // 检查是否有选中的文件
-    const selectedFiles = uploadedFiles.filter(file => file.selected)
-    if (selectedFiles.length === 0) {
-      setFileSelectionAlert("请先选择一个需求文件进行转换")
-      return
-    } else if (selectedFiles.length > 1) {
-      setFileSelectionAlert("需求书转MD功能一次只能处理一个文件，请只选择一个文件")
-      return
+
+    const selectedFiles = uploadedFiles.filter(file => file.selected);
+    if (selectedFiles.length !== 1) {
+      setFileSelectionAlert("需求书转MD功能一次只能处理一个文件，请只选择一个文件");
+      return;
     }
-    
-    setFileSelectionAlert("")
+
+    setFileSelectionAlert("");
 
     if (!aiConfig) {
       toast({
         title: "转换失败",
         description: "请先配置AI模型",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
-    // 重置状态
-    setIsConverting(true)
-    setMdContent('')
+    setIsConverting(true);
+    mdContentBuffer.current = '';
+    setMdContent('正在生成Markdown内容，请稍候...\n\n');
+
+    let animationFrameId: number;
+
+    const updateContent = () => {
+      setMdContent(mdContentBuffer.current);
+      animationFrameId = requestAnimationFrame(updateContent);
+    };
+    animationFrameId = requestAnimationFrame(updateContent);
 
     try {
-      const service = new RequirementToMdService()
-      const fileIds = selectedFiles.map(file => file.id)
+      const service = new RequirementToMdService();
 
       await service.convertToMd(
-        fileIds,
+        [selectedFiles[0].id],
         aiConfig,
         (content: string) => {
-          // 直接更新状态，与其他页面保持一致
-          setMdContent(prev => prev + content)
+          mdContentBuffer.current += content;
+          setMdContent(mdContentBuffer.current); // 立即更新内容
         }
-      )
+      );
+
+      mdContentBuffer.current += '\n\nMarkdown生成完毕。';
+      setMdContent(mdContentBuffer.current);
     } catch (error) {
-      console.error('转换失败:', error)
+      console.error('转换失败:', error);
       toast({
         title: "转换失败",
         description: error instanceof Error ? error.message : "未知错误",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsConverting(false)
+      cancelAnimationFrame(animationFrameId); // 停止动画帧
+      setIsConverting(false);
     }
-  }
+  };
 
   // 处理下载MD文件
   const handleDownloadMd = () => {
@@ -334,6 +385,131 @@ export default function RequirementUpload() {
       toast({
         title: "下载成功",
         description: "需求书内容已保存为 Markdown 文件",
+        duration: 3000
+      })
+    } catch (error) {
+      toast({
+        title: "下载失败",
+        description: "请手动复制内容并保存",
+        variant: "destructive",
+        duration: 3000
+      })
+    }
+  }
+
+  // 处理打开需求章节输入弹窗
+  const handleOpenTestDialog = () => {
+    // 检查是否有文件上传
+    if (uploadedFiles.length === 0) {
+      toast({
+        title: "转换失败",
+        description: "请先上传至少一个文件",
+        variant: "destructive",
+      })
+      return
+    }
+    
+    // 检查是否有选中的文件
+    const selectedFiles = uploadedFiles.filter(file => file.selected)
+    if (selectedFiles.length === 0) {
+      setFileSelectionAlert("请先选择需求文件进行转换")
+      return
+    }
+    
+    setFileSelectionAlert("")
+
+    if (!aiConfig) {
+      toast({
+        title: "转换失败",
+        description: "请先配置AI模型",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // 打开弹窗
+    setRequirementChapter('')
+    setShowChapterDialog(true)
+  }
+
+  const handleConvertToTest = async () => {
+    // 关闭弹窗
+    setShowChapterDialog(false)
+    
+    // 重置状态
+    setIsGeneratingTest(true)
+    setTestContent('')
+    
+    // 添加一个更明显的调试标记，确认函数被调用
+    console.log('开始生成测试用例 - ' + new Date().toISOString());
+
+    try {
+      const service = new RequirementToTestService()
+      const selectedFiles = uploadedFiles.filter(file => file.selected)
+      const fileIds = selectedFiles.map(file => file.id)
+
+      // 添加初始提示
+      setTestContent('正在生成测试用例，请稍候...\n\n')
+
+      await service.convertToTest(
+        fileIds,
+        aiConfig!,
+        (content: string) => {
+          console.log('收到新内容:', content);
+          console.log('当前状态更新时间:', new Date().toISOString());
+          setTestContent(prev => {
+            const newContent = prev + content;
+            console.log('状态更新完成，新内容长度:', newContent.length);
+            return newContent;
+          });
+        },
+        requirementChapter || undefined
+      )
+      
+      // 添加完成提示
+      setTestContent(prev => prev + '\n\n测试用例生成完毕。');
+      
+      console.log('生成测试用例完成 - ' + new Date().toISOString());
+    } catch (error) {
+      console.error('转换失败:', error)
+      toast({
+        title: "转换失败",
+        description: error instanceof Error ? error.message : "未知错误",
+        variant: "destructive",
+      })
+    } finally {
+      setIsGeneratingTest(false)
+    }
+  }
+
+  // 处理下载测试用例
+  const handleDownloadTest = () => {
+    try {
+      if (!testContent) {
+        toast({
+          title: "下载失败",
+          description: "没有可下载的测试用例内容",
+          variant: "destructive",
+          duration: 3000
+        })
+        return
+      }
+
+      const blob = new Blob([testContent], { type: 'text/markdown' })
+      const url = URL.createObjectURL(blob)
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+      
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `测试用例-${timestamp}.md`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      
+      toast({
+        title: "下载成功",
+        description: "测试用例内容已保存为 Markdown 文件",
         duration: 3000
       })
     } catch (error) {
@@ -411,7 +587,7 @@ export default function RequirementUpload() {
                   {uploading ? '上传中...' : '上传文件'}
                 </button>
                 
-                {/* 并排放置的需求书转MD按钮 */}
+                {/* 需求书转MD按钮 */}
                 <Button
                   onClick={handleConvertToMd}
                   disabled={uploadedFiles.length === 0}
@@ -423,6 +599,20 @@ export default function RequirementUpload() {
                 >
                   <Book className="h-4 w-4" />
                   需求书转MD
+                </Button>
+                
+                {/* 需求书转测试用例按钮 */}
+                <Button
+                  onClick={handleOpenTestDialog}
+                  disabled={uploadedFiles.length === 0}
+                  className={`flex items-center gap-2 ${
+                    uploadedFiles.length > 0 
+                      ? 'bg-orange-500 hover:bg-orange-600 text-white' 
+                      : 'bg-gray-400 text-gray-100 cursor-not-allowed'
+                  }`}
+                >
+                  <FileText className="h-4 w-4" />
+                  需求书转测试用例
                 </Button>
               </div>
               
@@ -504,11 +694,11 @@ export default function RequirementUpload() {
               )}
             </div>
             
-            {/* Markdown显示部分 - 直接显示在文件列表下方，而不是弹窗 */}
+            {/* 内容显示部分 */}
             {(mdContent || isConverting) && (
               <div className="border rounded-lg p-6">
                 <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-semibold">需求书Markdown</h2>
+                  <h2 className="text-xl font-semibold">需求书内容</h2>
                   <Button 
                     onClick={handleDownloadMd}
                     disabled={!mdContent || isConverting}
@@ -518,18 +708,45 @@ export default function RequirementUpload() {
                     下载MD文件
                   </Button>
                 </div>
-                <div className="border rounded p-4 bg-gray-50 min-h-[300px]">
+                <div className="border rounded p-4 bg-gray-50 min-h-[300px] overflow-auto">
                   {isConverting ? (
                     <div className="h-full flex items-center justify-center py-10">
                       <div className="flex flex-col items-center">
                         <Loader2 className="h-8 w-8 animate-spin text-orange-500 mb-2" />
-                        <p className="text-sm text-gray-500">正在生成Markdown内容...</p>
+                        <p className="text-sm text-gray-500">正在生成内容...</p>
                       </div>
                     </div>
                   ) : (
-                    <ReactMarkdown className="prose prose-sm max-w-none">
-                      {mdContent}
-                    </ReactMarkdown>
+                    <ContentDisplay content={mdContent} />
+                  )}
+                </div>
+              </div>
+            )}
+            
+            {/* 测试用例显示部分 */}
+            {(testContent || isGeneratingTest) && (
+              <div className="border rounded-lg p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-semibold">测试用例</h2>
+                  <Button 
+                    onClick={handleDownloadTest}
+                    disabled={!testContent || isGeneratingTest}
+                    className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1"
+                  >
+                    <Download className="h-4 w-4" />
+                    下载测试用例
+                  </Button>
+                </div>
+                <div className="border rounded p-4 bg-gray-50 min-h-[300px] overflow-auto">
+                  {isGeneratingTest ? (
+                    <div className="h-full flex items-center justify-center py-10">
+                      <div className="flex flex-col items-center">
+                        <Loader2 className="h-8 w-8 animate-spin text-orange-500 mb-2" />
+                        <p className="text-sm text-gray-500">正在生成测试用例...</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <ContentDisplay content={testContent} />
                   )}
                 </div>
               </div>
@@ -537,6 +754,42 @@ export default function RequirementUpload() {
           </div>
         </div>
       </div>
+      
+      {/* 需求章节输入弹窗 */}
+      <Dialog open={showChapterDialog} onOpenChange={setShowChapterDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>输入需求章节</DialogTitle>
+            <DialogDescription>
+              请输入您想要处理的需求章节标题或描述（50字内），以便更精确地生成测试用例。
+              如果不需要指定章节，可以留空。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="requirementChapter" className="text-right">
+                需求章节
+              </Label>
+              <Input
+                id="requirementChapter"
+                value={requirementChapter}
+                onChange={(e) => setRequirementChapter(e.target.value)}
+                maxLength={50}
+                placeholder="例如：用户登录功能"
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowChapterDialog(false)}>
+              取消
+            </Button>
+            <Button onClick={handleConvertToTest}>
+              开始生成
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       <Toaster />
     </>

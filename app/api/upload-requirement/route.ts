@@ -100,16 +100,28 @@ export async function POST(request: NextRequest) {
       
       console.log(`正在上传文件到 ${baseURL}...`)
       
-      // 无论是DashScope还是OpenAI，都使用相同的文件上传API
-      // 因为DashScope提供了兼容OpenAI的接口
+      // 上传文件到AI服务
       const uploadResponse = await client.files.create({
         file: fileObject,
-        purpose: "file-extract"  // 使用OpenAI SDK支持的purpose值
+        purpose: "assistants"  // 使用assistants用途，这样可以让AI直接访问文件内容
       })
       
       // 从上传响应中获取文件ID
       fileId = uploadResponse.id
       console.log(`文件上传成功，获取到ID: ${fileId}`)
+
+      return NextResponse.json({
+        success: true,
+        id: fileId,
+        message: `文件 ${filename} 上传成功`,
+        file: {
+          id: fileId,
+          name: filename,
+          size: file.size,
+          type: file.type,
+          uploadedAt: new Date().toISOString()
+        }
+      })
     } catch (uploadError: any) {
       console.error('文件上传失败:', uploadError)
       const errorMessage = uploadError.message || '未知错误'
@@ -118,20 +130,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-
-    return NextResponse.json({
-      success: true,
-      id: fileId,
-      message: `文件 ${filename} 上传成功`,
-      // 返回一些文件信息
-      file: {
-        id: fileId,
-        name: filename,
-        size: file.size,
-        type: file.type,
-        uploadedAt: new Date().toISOString()
-      }
-    })
   } catch (error) {
     console.error('处理文件上传出错:', error)
     return NextResponse.json(

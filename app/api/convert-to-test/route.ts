@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requirementToMdPrompt } from '@/lib/prompts/requirement-to-md'
+import { requirementToTestPrompt } from '@/lib/prompts/requirement-to-test'
 import OpenAI from 'openai'
 
 export const dynamic = 'force-dynamic'
@@ -7,8 +7,8 @@ export const runtime = 'edge' // 使用Edge运行时以获得更好的流式处�
 
 export async function POST(request: NextRequest) {
   try {
-    console.log(`[${new Date().toISOString()}] API: 收到需求转MD请求`);
-    const { fileIds, apiConfig } = await request.json()
+    console.log(`[${new Date().toISOString()}] API: 收到需求转测试用例请求`);
+    const { fileIds, apiConfig, requirementChapter } = await request.json()
     
     if (!fileIds || !fileIds.length) {
       return NextResponse.json(
@@ -53,15 +53,15 @@ export async function POST(request: NextRequest) {
         
         // 构建消息，引用已上传的文件
         const messages = [
-          { role: 'system', content: 'You are a helpful assistant that converts requirement documents to Markdown format.' },
+          { role: 'system', content: 'You are a helpful assistant that generates test cases from requirement documents.' },
           ...fileIds.map((id: string) => ({ role: 'system', content: `fileid://${id}` })),
-          { role: 'user', content: requirementToMdPrompt }
+          { role: 'user', content: requirementToTestPrompt(requirementChapter) }
         ]
         
         console.log(`[${new Date().toISOString()}] API: 发送到OpenAI API`);
         
         // 先发送一些初始内容，确保流式处理开始
-        await writer.write(encoder.encode("开始生成Markdown内容...\n\n"));
+        await writer.write(encoder.encode("开始生成测试用例...\n\n"));
         
         // 创建流式完成
         const stream = await client.chat.completions.create({
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
         }
         
         console.log(`[${new Date().toISOString()}] API: 流式响应接收完成，共处理${chunkCounter}个数据块`);
-        await writer.write(encoder.encode("\n\nMarkdown生成完毕。"));
+        await writer.write(encoder.encode("\n\n测试用例生成完毕。"));
         await writer.close();
       } catch (error) {
         console.error(`[${new Date().toISOString()}] API: 流处理错误:`, error);

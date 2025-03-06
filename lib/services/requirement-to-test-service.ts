@@ -1,24 +1,27 @@
 import { AIModelConfig } from '@/lib/ai-service'
 
 /**
- * 处理需求书转Markdown的服务
+ * 处理需求书转测试用例的服务
  */
-export class RequirementToMdService {
+export class RequirementToTestService {
   /**
-   * 流式调用API，将需求文档转换为Markdown格式
+   * 流式调用API，将需求文档转换为测试用例
    * @param fileIds 上传的文件ID列表
    * @param config AI模型配置
    * @param onContent 流式返回内容回调
+   * @param requirementChapter 需求章节描述（可选）
    */
-  async convertToMd(
+  async convertToTest(
     fileIds: string[],
     config: AIModelConfig,
-    onContent: (content: string) => void
+    onContent: (content: string) => void,
+    requirementChapter?: string
   ): Promise<void> {
     try {
-      console.log(`[${new Date().toISOString()}] 开始调用convertToMd，模型: ${config.model}，文件ID: ${fileIds.join(', ')}`);
+      console.log(`[${new Date().toISOString()}] 开始调用convertToTest，模型: ${config.model}，文件ID: ${fileIds.join(', ')}`);
+      console.log(`需求章节信息: ${requirementChapter || '无'}`);
 
-      const response = await fetch('/api/convert-to-md', {
+      const response = await fetch('/api/convert-to-test', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -27,7 +30,8 @@ export class RequirementToMdService {
         },
         body: JSON.stringify({
           fileIds,
-          apiConfig: config
+          apiConfig: config,
+          requirementChapter
         })
       });
 
@@ -72,7 +76,7 @@ export class RequirementToMdService {
 
       console.log(`[${new Date().toISOString()}] 转换完成`);
     } catch (error) {
-      console.error(`[${new Date().toISOString()}] 转换为Markdown失败:`, error);
+      console.error(`[${new Date().toISOString()}] 生成测试用例失败:`, error);
       throw error;
     }
   }
