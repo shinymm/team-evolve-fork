@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
       // 上传文件到AI服务
       const uploadResponse = await client.files.create({
         file: fileObject,
-        purpose: "assistants"  // 使用assistants用途，这样可以让AI直接访问文件内容
+        purpose: "file-extract" as any  // 使用类型断言绕过类型检查
       })
       
       // 从上传响应中获取文件ID
