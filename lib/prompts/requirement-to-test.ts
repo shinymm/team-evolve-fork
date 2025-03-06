@@ -15,6 +15,7 @@ export const requirementToTestPrompt = (requirementChapter?: string) => {
 - 必须按照<需求文档>中的需求点顺序依次生成测试用例
 - 必须为每个测试用例命名，可使用测试点、数据条件或测试场景命名
 - 禁止生成重复或相似的测试用例
+- 请严格使用markdown格式，不要输出表格以外的任何其他文字说明
 </Rules>
 <Input>
 功能说明书:  完整的需求功能说明书，包含整个项目背景及所有功能
