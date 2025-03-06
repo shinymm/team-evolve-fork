@@ -1,5 +1,3 @@
-import { ModelConfig } from '@/lib/types/model-config'
-import { Message } from '@/types/chat'
 import OpenAI from 'openai'
 
 export interface AIModelConfig {
