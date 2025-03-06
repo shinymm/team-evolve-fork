@@ -13,9 +13,10 @@ interface Props {
   onOpenChange: (open: boolean) => void
   rule: BoundaryRule | null
   onSave: (rule: Partial<BoundaryRule>) => void
+  className?: string
 }
 
-export function BoundaryRuleDialog({ open, onOpenChange, rule, onSave }: Props) {
+export function BoundaryRuleDialog({ open, onOpenChange, rule, onSave, className }: Props) {
   const [formData, setFormData] = useState<Partial<BoundaryRule>>({})
   const originalRule = useRef<BoundaryRule | null>(null)
 
@@ -51,7 +52,7 @@ export function BoundaryRuleDialog({ open, onOpenChange, rule, onSave }: Props) 
         onOpenChange(true)
       }
     }}>
-      <DialogContent className="max-w-[80%] w-[80%] max-h-[80vh] overflow-y-auto">
+      <DialogContent className={className || "max-w-[80%] w-[80%] max-h-[80vh] overflow-y-auto"}>
         <DialogHeader>
           <DialogTitle>{rule ? '编辑规则' : '添加规则'}</DialogTitle>
         </DialogHeader>
