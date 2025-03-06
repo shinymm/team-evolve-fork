@@ -51,7 +51,7 @@ export function BoundaryRuleDialog({ open, onOpenChange, rule, onSave }: Props) 
         onOpenChange(true)
       }
     }}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-[80%] w-[80%] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{rule ? '编辑规则' : '添加规则'}</DialogTitle>
         </DialogHeader>

@@ -59,9 +59,7 @@ export async function POST(request: NextRequest) {
         ]
         
         console.log(`[${new Date().toISOString()}] API: 发送到OpenAI API`);
-        
-        // 先发送一些初始内容，确保流式处理开始
-        await writer.write(encoder.encode("开始生成Markdown内容...\n\n"));
+      
         
         // 创建流式完成
         const stream = await client.chat.completions.create({
@@ -89,7 +87,6 @@ export async function POST(request: NextRequest) {
         }
         
         console.log(`[${new Date().toISOString()}] API: 流式响应接收完成，共处理${chunkCounter}个数据块`);
-        await writer.write(encoder.encode("\n\nMarkdown生成完毕。"));
         await writer.close();
       } catch (error) {
         console.error(`[${new Date().toISOString()}] API: 流处理错误:`, error);

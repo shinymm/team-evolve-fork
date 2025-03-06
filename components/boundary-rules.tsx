@@ -238,6 +238,7 @@ export function BoundaryRules() {
         onOpenChange={setShowDialog}
         rule={editingRule}
         onSave={handleSave}
+        className="w-[80%] h-[80%]"
       />
 
       <AlertDialog open={showResetAlert} onOpenChange={setShowResetAlert}>

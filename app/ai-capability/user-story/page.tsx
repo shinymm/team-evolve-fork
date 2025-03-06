@@ -88,7 +88,7 @@ export default function UserStoryPage() {
                 从缓存中加载场景
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-[500px] w-[90%]">
               <DialogHeader>
                 <DialogTitle>选择要加载的场景</DialogTitle>
               </DialogHeader>

@@ -94,7 +94,7 @@ export default function SystemArchitecturePage() {
       </div>
 
       <Dialog open={isEditing} onOpenChange={setIsEditing}>
-        <DialogContent className="sm:max-w-[1200px] h-[90vh]">
+        <DialogContent className="max-w-[80%] w-[80%] h-[90vh]">
           <DialogHeader>
             <DialogTitle>编辑 PlantUML</DialogTitle>
           </DialogHeader>
