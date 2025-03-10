@@ -93,7 +93,9 @@ export function ChatDialog({ assistant, onClose }: ChatDialogProps) {
   }
 
   return (
-    <div className="fixed top-20 right-20 w-[600px] h-[600px] bg-background rounded-lg shadow-lg border flex flex-col z-[9999]">
+    <div 
+      className="fixed top-20 right-20 w-[800px] h-[80vh] bg-background rounded-lg shadow-lg border flex flex-col z-[9999]"
+    >
       {/* 对话框头部 */}
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <div className="flex items-center space-x-3">
