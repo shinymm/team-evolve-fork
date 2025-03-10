@@ -16,11 +16,11 @@ export interface Assistant {
 
 const defaultAssistants: Assistant[] = [
   {
-    id: "calendar",
-    name: "日程助理",
+    id: "epic-discussion",
+    name: "EpicDiscussion助手",
     icon: <Bot className="w-5 h-5" />,
     avatarColor: "bg-zinc-700",
-    welcomeMessage: "你好！我是你的日程助理。我可以帮你：\n• 查看今日会议安排\n• 创建/修改会议日程\n• 发送会议邀请\n• 设置会议提醒\n\n需要我做什么？"
+    welcomeMessage: "你好！我是EpicDiscussion助手，专注于需求专题研讨。我可以帮你：\n• 分析用户需求\n• 分解功能为用户故事\n• 识别核心领域对象和属性\n• 定义业务规则和交互方式\n\n请直接告诉我您想要分析的功能需求，我会基于智能客户服务平台的背景进行深入分析！"
   },
   {
     id: "timesheet",

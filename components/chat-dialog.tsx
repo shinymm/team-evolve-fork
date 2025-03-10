@@ -1,25 +1,99 @@
-import { Bot, X } from "lucide-react"
+import { Bot, X, Send } from "lucide-react"
 import { Assistant } from "./ai-team-sidebar"
 import { cn } from "../lib/utils"
 import { useToast } from "@/components/ui/use-toast"
+import { useState, useRef, useEffect } from "react"
+import { getAIConfig } from "@/lib/ai-config-service"
+import { streamingAICall } from "@/lib/ai-service"
+import { epicDiscussionPrompt } from "@/lib/prompts/epic-discussion"
 
 interface ChatDialogProps {
   assistant: Assistant
   onClose: () => void
 }
 
+interface Message {
+  role: 'assistant' | 'user'
+  content: string
+}
+
 export function ChatDialog({ assistant, onClose }: ChatDialogProps) {
   const { toast } = useToast()
+  const [messages, setMessages] = useState<Message[]>([
+    { role: 'assistant', content: assistant.welcomeMessage || `你好！我是${assistant.name}，有什么可以帮你的吗？` }
+  ])
+  const [inputValue, setInputValue] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const handleSend = () => {
-    toast({
-      description: "功能开发中...",
-      duration: 2000,
-    })
+  // 滚动到最新消息
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  const handleSend = async () => {
+    if (!inputValue.trim() || isLoading) return
+
+    // 添加用户消息
+    const userMessage = { role: 'user' as const, content: inputValue }
+    setMessages(prev => [...prev, userMessage])
+    setInputValue('')
+    setIsLoading(true)
+
+    try {
+      // 获取AI配置
+      const aiConfig = getAIConfig()
+      if (!aiConfig) {
+        toast({
+          description: "未找到AI配置，请先在设置中配置AI模型",
+          variant: "destructive",
+        })
+        setIsLoading(false)
+        return
+      }
+
+      // 生成提示词
+      const prompt = epicDiscussionPrompt(inputValue)
+      
+      // 创建一个临时的响应消息
+      setMessages(prev => [...prev, { role: 'assistant', content: '' }])
+      
+      // 流式调用AI
+      let accumulatedContent = ''
+      await streamingAICall(
+        prompt,
+        aiConfig,
+        (content) => {
+          // 累积内容，而不是替换内容
+          accumulatedContent += content
+          // 更新最后一条消息的内容
+          setMessages(prev => {
+            const newMessages = [...prev]
+            newMessages[newMessages.length - 1].content = accumulatedContent
+            return newMessages
+          })
+        }
+      )
+    } catch (error) {
+      console.error('AI调用错误:', error)
+      toast({
+        description: "AI调用出错，请稍后再试",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSend()
+    }
   }
 
   return (
-    <div className="fixed top-20 right-20 w-96 h-[500px] bg-background rounded-lg shadow-lg border flex flex-col z-[9999]">
+    <div className="fixed top-20 right-20 w-[600px] h-[600px] bg-background rounded-lg shadow-lg border flex flex-col z-[9999]">
       {/* 对话框头部 */}
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <div className="flex items-center space-x-3">
@@ -38,14 +112,22 @@ export function ChatDialog({ assistant, onClose }: ChatDialogProps) {
       
       {/* 消息列表区域 */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        <div className="flex items-start space-x-2">
-          <div className={cn("w-8 h-8 rounded-full flex items-center justify-center text-zinc-100", assistant.avatarColor)}>
-            {assistant.icon}
+        {messages.map((message, index) => (
+          <div key={index} className={`flex items-start space-x-2 ${message.role === 'user' ? 'justify-end' : ''}`}>
+            {message.role === 'assistant' && (
+              <div className={cn("w-8 h-8 rounded-full flex items-center justify-center text-zinc-100", assistant.avatarColor)}>
+                {assistant.icon}
+              </div>
+            )}
+            <div className={cn(
+              "p-3 rounded-lg max-w-[80%]",
+              message.role === 'assistant' ? "bg-muted" : "bg-primary text-primary-foreground"
+            )}>
+              <p className="whitespace-pre-line">{message.content}</p>
+            </div>
           </div>
-          <div className="bg-muted p-3 rounded-lg max-w-[80%]">
-            <p className="whitespace-pre-line">{assistant.welcomeMessage || `你好！我是${assistant.name}，有什么可以帮你的吗？`}</p>
-          </div>
-        </div>
+        ))}
+        <div ref={messagesEndRef} />
       </div>
       
       {/* 输入框区域 */}
@@ -53,14 +135,28 @@ export function ChatDialog({ assistant, onClose }: ChatDialogProps) {
         <div className="flex space-x-2">
           <input
             type="text"
-            placeholder="输入消息..."
+            placeholder="请输入您想要分析的功能需求..."
             className="flex-1 min-h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={isLoading}
           />
           <button 
             onClick={handleSend}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+            className={cn(
+              "px-4 py-2 rounded-md flex items-center justify-center",
+              isLoading 
+                ? "bg-muted text-muted-foreground cursor-not-allowed" 
+                : "bg-primary text-primary-foreground hover:bg-primary/90"
+            )}
+            disabled={isLoading}
           >
-            发送
+            {isLoading ? (
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
           </button>
         </div>
       </div>
