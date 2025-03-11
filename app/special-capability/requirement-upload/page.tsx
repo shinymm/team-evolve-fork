@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback, memo } from 'react'
-import { Upload, File as FileIcon, X, Trash2, Download, Book, Loader2, AlertCircle, FileText } from 'lucide-react'
+import { Upload, File as FileIcon, X, Trash2, Download, Book, Loader2, AlertCircle, FileText, HelpCircle } from 'lucide-react'
 import { Toaster } from "@/components/ui/toaster"
 import { useToast } from "@/components/ui/use-toast"
 import { getAIConfig } from '@/lib/ai-config-service'
@@ -24,6 +24,12 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 // 已上传文件类型定义
 type UploadedFile = {
@@ -548,7 +554,24 @@ export default function RequirementUpload() {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">需求书综合处理</h1>
+              <div className="flex items-center">
+                <h1 className="text-2xl font-bold tracking-tight">需求书综合处理</h1>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="ml-2 cursor-help">
+                        <AlertCircle className="h-5 w-5 text-orange-500" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-md p-4 bg-white shadow-lg rounded-lg border border-gray-200">
+                      <div className="text-sm">
+                        <p className="font-bold text-gray-900 mb-1">重要提示</p>
+                        <p className="text-gray-700">请确保选择<span className="font-bold text-orange-600">长上下文且支持docx附件</span>的大模型（如 qwen-long），以获得最佳处理效果。</p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <p className="text-muted-foreground text-sm mt-2">
                 请上传需求书文档（支持 .docx、.txt、.pdf、.xlsx、.md 格式），我们将帮助您进行智能拆解。
               </p>
@@ -720,7 +743,7 @@ export default function RequirementUpload() {
                 <h2 className="text-xl font-semibold">需求书内容</h2>
                 <Button 
                   onClick={handleDownloadMd}
-                  disabled={!mdContent || isConverting}
+                  disabled={!mdContent}
                   className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1"
                 >
                   <Download className="h-4 w-4" />
@@ -745,7 +768,7 @@ export default function RequirementUpload() {
                 <h2 className="text-xl font-semibold">测试用例</h2>
                 <Button 
                   onClick={handleDownloadTest}
-                  disabled={!testContent || isGeneratingTest}
+                  disabled={!testContent}
                   className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1"
                 >
                   <Download className="h-4 w-4" />
