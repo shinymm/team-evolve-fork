@@ -20,7 +20,7 @@ Person(c, "柜员", $sprite="person2")
 Person(branch_user, "分行员工", $sprite="person2")
 Person(jituan_user, "集团用户", $sprite="person2")
 
-Boundary(c1, "QARE", $link="https://github.com/plantuml-stdlib/C4-PlantUML") {
+Boundary(c1, "智能对话", $link="https://github.com/plantuml-stdlib/C4-PlantUML") {
     System(qare, "智能对话系统", "", $descr="智能外呼、文本/语音机器人、会话质检、知识运营、机器人引擎运营")
 }
 Boundary(c2, "零售", $link="https://github.com/plantuml-stdlib/C4-PlantUML") {
