@@ -7,29 +7,30 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 
 interface SubscriptionFormProps {
-  isOpen: boolean
-  onClose: () => void
+  open: boolean
+  onOpenChange: (open: boolean) => void
   apiName: string
   onSubmit: (data: { systemId: string; systemName: string }) => void
 }
 
-export function SubscriptionForm({ isOpen, onClose, apiName, onSubmit }: SubscriptionFormProps) {
+export function SubscriptionForm({ open, onOpenChange, apiName, onSubmit }: SubscriptionFormProps) {
   const [systemId, setSystemId] = useState('')
   const [systemName, setSystemName] = useState('')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!systemId || !systemName) return
+    
     onSubmit({ systemId, systemName })
     setSystemId('')
     setSystemName('')
-    onClose()
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[400px]">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>订阅 {apiName}</DialogTitle>
+          <DialogTitle>订阅 {apiName} 接口</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -38,7 +39,7 @@ export function SubscriptionForm({ isOpen, onClose, apiName, onSubmit }: Subscri
               id="systemId"
               value={systemId}
               onChange={(e) => setSystemId(e.target.value)}
-              placeholder="如: mobile"
+              placeholder="请输入系统编号"
               required
             />
           </div>
@@ -48,17 +49,15 @@ export function SubscriptionForm({ isOpen, onClose, apiName, onSubmit }: Subscri
               id="systemName"
               value={systemName}
               onChange={(e) => setSystemName(e.target.value)}
-              placeholder="如: 手机银行"
+              placeholder="请输入系统名称"
               required
             />
           </div>
-          <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={onClose}>
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               取消
             </Button>
-            <Button type="submit">
-              确认订阅
-            </Button>
+            <Button type="submit">提交</Button>
           </div>
         </form>
       </DialogContent>

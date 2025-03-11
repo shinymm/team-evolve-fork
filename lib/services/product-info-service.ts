@@ -1,6 +1,6 @@
 import { ArchitectureItem, Overview, UserNeeds, ProductInfo } from '@/types/product-info'
 
-const DEFAULT_ARCHITECTURE: ArchitectureItem[] = [
+export const DEFAULT_ARCHITECTURE: ArchitectureItem[] = [
   { "id": "1", "title": "知识引擎", "description": "支持意图管理、知识管理、脚本维护及更新记录等功能模块" },
   { "id": "1-1", "parentId": "1", "title": "意图", "description": "支持用户和系统意图的管理与识别" },
   { "id": "1-2", "parentId": "1", "title": "实体", "description": "用户或系统数据的结构化实体定义和管理" },
@@ -53,12 +53,12 @@ const DEFAULT_ARCHITECTURE: ArchitectureItem[] = [
   { "id": "9", "title": "运营后台统一登陆", "description": "支持运营用户使用有效的用户名和密码进行登录，并提供重置密码的选项" }
 ]
 
-const DEFAULT_OVERVIEW: Overview = {
+export const DEFAULT_OVERVIEW: Overview = {
   title: "产品电梯演讲",
   content: "智能客户服务平台，专为现代企业设计，旨在通过先进的AI技术提升客户服务效率和体验。\n\n本系统集成了文本和语音机器人，支持从简单的问答到复杂的外呼任务，无论是零售客户、对公机构还是内部员工，都能通过手机银行、对公网银或内部系统无缝接入。我们的系统不仅能够处理日常查询，还能进行智能外呼和语音导航，极大地减轻了人工坐席的负担。此外，系统还具备强大的知识管理和运营工具，支持从知识库和图谱中提取信息，通过模型训练和数据分析不断优化对话质量。我们的数据看板和系统监控功能确保所有操作透明可控，帮助企业实时监控服务质量和系统性能。"
 }
 
-const DEFAULT_USER_NEEDS: UserNeeds = {
+export const DEFAULT_USER_NEEDS: UserNeeds = {
   title: "核心用户与需求",
   items: [
     {

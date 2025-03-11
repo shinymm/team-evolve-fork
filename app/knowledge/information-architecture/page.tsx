@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { useProductInfo } from '@/lib/hooks/use-product-info'
+import { useProductInfoStore } from '@/lib/stores/product-info-store'
 import { useToast } from "@/components/ui/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { ArchitectureSuggestion } from '@/lib/services/architecture-suggestion-service'
@@ -25,8 +25,9 @@ export default function InformationArchitecture() {
     deleteArchitectureItem,
     getArchitectureTree,
     updateOverview,
-    updateUserNeed
-  } = useProductInfo()
+    updateUserNeed,
+    updateUserNeedsOverview
+  } = useProductInfoStore()
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ title: '', description: '' })

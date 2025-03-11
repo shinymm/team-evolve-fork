@@ -1,6 +1,7 @@
 import { streamingAICall } from '@/lib/ai-service'
 import { getAIConfig } from '@/lib/ai-config-service'
 import { sceneBoundaryPromptTemplate } from '@/lib/prompts/scene-boundary'
+import { useBoundaryRulesStore } from '@/lib/stores/boundary-rules-store'
 
 interface Scene {
   name: string
@@ -14,19 +15,18 @@ interface BoundaryAnalysisParams {
   scene: Scene
 }
 
-// 从localStorage获取边界识别知识规则表格
+// 从Zustand store获取边界识别知识规则表格
 const getRulesTable = () => {
-  const storedRules = localStorage.getItem('boundaryRules')
-  if (!storedRules) return ''
-  
-  const rules = JSON.parse(storedRules)
+  // 使用Zustand store的getState方法获取当前状态
+  const { rules } = useBoundaryRulesStore.getState()
+  if (!rules || rules.length === 0) return ''
   
   // 构建表格头
   let table = '| 检查项 | 适用场景 | 检查要点 | 需求示例 | 边界示例 |\n'
   table += '|---------|------------|------------|------------|------------|\n'
   
   // 添加表格内容
-  table += rules.map((rule: any) => {
+  table += rules.map((rule) => {
     // 处理每个字段中可能存在的换行符，替换为空格
     const checkItem = rule.checkItem?.replace(/\n/g, ' ') || ''
     const scenario = rule.scenario?.replace(/\n/g, ' ') || ''

@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,17 +12,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/components/ui/use-toast"
 import { streamingAICall } from '@/lib/ai-service'
 import { cn } from '@/lib/utils'
-import { setAIConfig } from '@/lib/ai-config-service'
-
-interface AIModelConfig {
-  id: string
-  name: string
-  baseURL: string
-  model: string
-  temperature: number
-  apiKey: string
-  isDefault: boolean
-}
+import { useAIConfigStore } from '@/lib/stores/ai-config-store'
+import type { AIModelConfig } from '@/lib/ai-service'
 
 const presetConfigs = {
   'zhipu': { baseURL: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4v-flash' },
@@ -30,7 +21,7 @@ const presetConfigs = {
 }
 
 export const AIModelSettings = () => {
-  const [configs, setConfigs] = useState<AIModelConfig[]>([])
+  const { configs, addConfig, deleteConfig, setDefaultConfig, defaultConfig } = useAIConfigStore()
   const [newConfig, setNewConfig] = useState<Partial<AIModelConfig>>({
     temperature: 0.2,
   })
@@ -39,31 +30,12 @@ export const AIModelSettings = () => {
   const [testResults, setTestResults] = useState<Record<string, boolean>>({})
   const { toast } = useToast()
 
-  useEffect(() => {
-    const storedConfigs = localStorage.getItem('aiModelConfigs')
-    if (storedConfigs) {
-      setConfigs(JSON.parse(storedConfigs))
-    }
-  }, [])
-
-  useEffect(() => {
-    if (configs.length > 0) {
-      localStorage.setItem('aiModelConfigs', JSON.stringify(configs))
-    } else {
-      localStorage.removeItem('aiModelConfigs')
-    }
-  }, [configs])
-
   const handleAddConfig = () => {
     if (newConfig.baseURL && newConfig.model && newConfig.apiKey) {
-      const configToAdd = {
+      addConfig({
         ...newConfig,
-        id: Date.now().toString(),
         name: `${newConfig.model} (${new Date().toLocaleString()})`,
-        temperature: newConfig.temperature || 0.2,
-        isDefault: configs.length === 0,
-      } as AIModelConfig
-      setConfigs([...configs, configToAdd])
+      })
       setNewConfig({ temperature: 0.2 })
       setShowAddForm(false)
       toast({
@@ -75,11 +47,7 @@ export const AIModelSettings = () => {
   }
 
   const handleDeleteConfig = (id: string) => {
-    const updatedConfigs = configs.filter(config => config.id !== id)
-    if (configs.find(config => config.id === id)?.isDefault && updatedConfigs.length > 0) {
-      updatedConfigs[0].isDefault = true
-    }
-    setConfigs(updatedConfigs)
+    deleteConfig(id)
     setTestResults(prev => {
       const newResults = { ...prev }
       delete newResults[id]
@@ -88,26 +56,12 @@ export const AIModelSettings = () => {
   }
 
   const handleSetDefault = (id: string) => {
-    const newConfigs = configs.map(config => ({
-      ...config,
-      isDefault: config.id === id
-    }))
-    setConfigs(newConfigs)
+    setDefaultConfig(id)
     
-    const defaultConfig = newConfigs.find(config => config.id === id)
-    if (defaultConfig) {
-      setAIConfig({
-        model: defaultConfig.model,
-        apiKey: defaultConfig.apiKey,
-        baseURL: defaultConfig.baseURL,
-        temperature: defaultConfig.temperature
-      })
-      
-      toast({
-        title: "已更新默认配置",
-        description: "AI模型配置已更新",
-      })
-    }
+    toast({
+      title: "已更新默认配置",
+      description: "AI模型配置已更新",
+    })
   }
 
   const handlePresetChange = (preset: keyof typeof presetConfigs) => {
@@ -118,7 +72,7 @@ export const AIModelSettings = () => {
   }
 
   const handleTestConfig = async (config: AIModelConfig) => {
-    setTestingId(config.id)
+    setTestingId(config.id || '')
     let responseContent = ''
 
     try {
@@ -142,7 +96,7 @@ export const AIModelSettings = () => {
         }
       )
 
-      setTestResults(prev => ({ ...prev, [config.id]: true }))
+      setTestResults(prev => ({ ...prev, [config.id || '']: true }))
       toast({
         title: "链接测试成功",
         description: `${responseContent.slice(0, 50)}...`,
@@ -151,7 +105,7 @@ export const AIModelSettings = () => {
 
     } catch (error) {
       console.error('Test config error:', error)
-      setTestResults(prev => ({ ...prev, [config.id]: false }))
+      setTestResults(prev => ({ ...prev, [config.id || '']: false }))
       toast({
         variant: "destructive",
         title: "链接测试失败",
@@ -194,7 +148,7 @@ export const AIModelSettings = () => {
                   <input
                     type="radio"
                     checked={config.isDefault}
-                    onChange={() => handleSetDefault(config.id)}
+                    onChange={() => handleSetDefault(config.id || '')}
                   />
                 </TableCell>
                 <TableCell>
@@ -205,8 +159,8 @@ export const AIModelSettings = () => {
                       onClick={() => handleTestConfig(config)}
                       disabled={testingId === config.id}
                       className={cn(
-                        testResults[config.id] === true && "bg-green-50 text-green-600 hover:bg-green-100",
-                        testResults[config.id] === false && "bg-red-50 text-red-600 hover:bg-red-100"
+                        testResults[config.id || ''] === true && "bg-green-50 text-green-600 hover:bg-green-100",
+                        testResults[config.id || ''] === false && "bg-red-50 text-red-600 hover:bg-red-100"
                       )}
                     >
                       {testingId === config.id ? (
@@ -224,7 +178,7 @@ export const AIModelSettings = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDeleteConfig(config.id)}
+                      onClick={() => handleDeleteConfig(config.id || '')}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

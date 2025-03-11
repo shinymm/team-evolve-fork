@@ -1,63 +1,31 @@
 import type { AIModelConfig } from './ai-service'
+import { useAIConfigStore } from './stores/ai-config-store'
 
-const AI_CONFIG_KEY = 'aiModelConfigs'
-
+// 这些函数现在只是对Zustand store的包装，保持API兼容性
 export function getAIConfig(): AIModelConfig | null {
-  try {
-    const configStr = localStorage.getItem(AI_CONFIG_KEY)
-    // console.log('Reading AI config from:', AI_CONFIG_KEY)
-    if (!configStr) return null
-
-    const allConfigs = JSON.parse(configStr)
-    const defaultConfig = allConfigs.find((c: any) => c.isDefault)
-    // console.log('Found default config:', defaultConfig)
-
-    if (!defaultConfig) return null
-
-    return {
-      model: defaultConfig.model,
-      apiKey: defaultConfig.apiKey,
-      baseURL: defaultConfig.baseURL,
-      temperature: defaultConfig.temperature
-    }
-  } catch (error) {
-    console.error('Error loading AI config:', error)
-    return null
-  }
+  return useAIConfigStore.getState().getConfig()
 }
 
 export const setAIConfig = (config: AIModelConfig) => {
-  if (typeof window === 'undefined') return
+  const store = useAIConfigStore.getState()
+  const existingDefault = store.configs.find(c => c.id === 'default')
   
-  try {
-    const configStr = localStorage.getItem(AI_CONFIG_KEY)
-    const allConfigs = configStr ? JSON.parse(configStr) : []
-    
-    const defaultConfig = {
+  if (existingDefault) {
+    store.updateConfig('default', {
+      ...config,
+      isDefault: true
+    })
+  } else {
+    store.addConfig({
+      ...config,
       id: 'default',
       name: 'Default Configuration',
-      model: config.model,
-      apiKey: config.apiKey,
-      baseURL: config.baseURL,
-      temperature: config.temperature,
       isDefault: true
-    }
-
-    const updatedConfigs = allConfigs.map((c: any) => ({
-      ...c,
-      isDefault: false
-    }))
-
-    const existingDefaultIndex = updatedConfigs.findIndex((c: any) => c.id === 'default')
-    if (existingDefaultIndex >= 0) {
-      updatedConfigs[existingDefaultIndex] = defaultConfig
-    } else {
-      updatedConfigs.push(defaultConfig)
-    }
-
-    localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(updatedConfigs))
-    console.log('Saved AI config:', updatedConfigs)
-  } catch (error) {
-    console.error('Error setting AI config:', error)
+    })
   }
+}
+
+// 添加新的辅助函数，方便获取所有配置
+export const getAllAIConfigs = (): AIModelConfig[] => {
+  return useAIConfigStore.getState().configs
 } 

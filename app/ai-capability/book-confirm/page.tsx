@@ -10,11 +10,13 @@ import { createArchitectureSuggestionTask, createArchitectureConfirmTask } from 
 import { generateArchitectureSuggestions } from '@/lib/services/architecture-suggestion-service'
 import { updateTask } from '@/lib/services/task-service'
 import { getProductInfo } from '@/lib/services/product-info-service'
+import { useProductInfoStore } from '@/lib/stores/product-info-store'
 
 export default function BookConfirmPage() {
   const [requirement, setRequirement] = useState<StructuredRequirement | null>(null)
   const [isUpdating, setIsUpdating] = useState(false)
   const { toast } = useToast()
+  const { flatArchitecture } = useProductInfoStore()
 
   useEffect(() => {
     // 从localStorage加载结构化需求数据
@@ -65,7 +67,15 @@ export default function BookConfirmPage() {
   }
 
   const handleUpdateKnowledge = async () => {
-    if (!requirement) return
+    if (!requirement) {
+      toast({
+        title: "无法更新",
+        description: "未找到需求数据",
+        variant: "destructive",
+        duration: 3000
+      })
+      return
+    }
 
     setIsUpdating(true)
     toast({
@@ -74,8 +84,8 @@ export default function BookConfirmPage() {
       duration: 8000
     })
 
-    // 获取当前架构数据
-    const { architecture: currentArchitecture } = getProductInfo()
+    // 使用Zustand store获取当前架构数据
+    const currentArchitecture = flatArchitecture
 
     try {
       // 1. 创建产品知识更新建议任务

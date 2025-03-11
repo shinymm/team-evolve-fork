@@ -21,53 +21,22 @@ export async function streamingAICall(
   onContent: (content: string) => void
 ) {
   try {
-    const modelToUse = config.model
-    const urlToUse = config.baseURL
-
     console.log('Calling AI with config:', {
-      baseURL: urlToUse,
-      model: modelToUse,
+      baseURL: config.baseURL,
+      model: config.model,
       temperature: config.temperature
     })
 
-    // 移除末尾的斜杠
-    const baseURL = urlToUse.replace(/\/+$/, '')
-    
-    // 根据不同的 AI 服务提供商使用不同的 endpoint 和请求头
-    let endpoint = ''
-    let headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    }
-
-    if (baseURL.includes('open.bigmodel.cn')) {
-      // 智谱 AI
-      endpoint = `${baseURL}/chat/completions`
-      headers['Authorization'] = `Bearer ${config.apiKey}`
-    } else if (baseURL.includes('openai.com')) {
-      // OpenAI
-      endpoint = `${baseURL}/chat/completions`
-      headers['Authorization'] = `Bearer ${config.apiKey}`
-    } else {
-      // 其他服务，使用默认 endpoint
-      endpoint = baseURL.endsWith('/chat/completions') ? baseURL : `${baseURL}/chat/completions`
-      headers['Authorization'] = `Bearer ${config.apiKey}`
-    }
-    
-    console.log('Using endpoint:', endpoint)  // 调试日志
-    
-    const response = await fetch(endpoint, {
+    // 使用我们的API路由代理请求
+    const response = await fetch('/api/ai', {
       method: 'POST',
-      headers,
+      headers: {
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({
-        model: modelToUse,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: config.temperature ?? 0.7,
-        stream: true
-      }),
-      // 添加额外的 fetch 选项
-      mode: 'cors',
-      cache: 'no-cache',
-      credentials: 'same-origin',
+        prompt,
+        config
+      })
     })
 
     if (!response.ok) {
@@ -87,21 +56,20 @@ export async function streamingAICall(
         const chunk = decoder.decode(value)
         // console.log('Raw chunk:', chunk)  // 调试日志
 
-        const lines = chunk
-          .split('\n')
-          .filter(line => line.trim() !== '' && line.trim() !== 'data: [DONE]')
-
+        const lines = chunk.split('\n').filter(line => line.trim() !== '')
+        
         for (const line of lines) {
-          if (line.includes('data: ')) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6)
             try {
-              const data = JSON.parse(line.replace('data: ', ''))
-              const content = data.choices[0]?.delta?.content || ''
-              if (content) {
-                // console.log('Parsed content:', content)  // 调试日志
-                onContent(content)
+              const parsed = JSON.parse(data)
+              if (parsed.content) {
+                onContent(parsed.content)
+              } else if (parsed.error) {
+                throw new Error(parsed.error)
               }
             } catch (e) {
-              console.error('Error parsing SSE message:', e, line)
+              console.error('解析响应数据失败:', e)
             }
           }
         }
@@ -109,9 +77,6 @@ export async function streamingAICall(
     }
   } catch (error) {
     console.error('AI service error:', error)
-    if (error instanceof TypeError && error.message === 'Failed to fetch') {
-      throw new Error('网络请求失败，请检查：\n1. API地址是否正确\n2. 网络连接是否正常\n3. 是否存在跨域限制')
-    }
     throw error
   }
 }

@@ -6,11 +6,7 @@ import PlantUmlViewer from '@/components/plantuml-viewer';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { highLevelArchitecture } from '@/lib/plantuml-templates/high-level';
-import { microserviceArchitecture } from '@/lib/plantuml-templates/microservice';
-import { deploymentArchitecture } from '@/lib/plantuml-templates/deployment';
-
-type ArchitectureType = 'high-level' | 'microservice' | 'deployment';
+import { useArchitectureStore, type ArchitectureType } from '@/lib/stores/architecture-store';
 
 const tabs: { id: ArchitectureType; name: string }[] = [
   { id: 'high-level', name: '高阶系统架构' },
@@ -22,24 +18,23 @@ export default function SystemArchitecturePage() {
   const [selectedArchitecture, setSelectedArchitecture] = useState<ArchitectureType>('high-level');
   const [isEditing, setIsEditing] = useState(false);
   const [editingContent, setEditingContent] = useState('');
-
-  const [architectureUml, setArchitectureUml] = useState({
-    'high-level': highLevelArchitecture,
-    'microservice': microserviceArchitecture,
-    'deployment': deploymentArchitecture
-  });
+  
+  const { architectures, updateArchitecture, resetArchitecture } = useArchitectureStore();
 
   const handleEdit = () => {
-    setEditingContent(architectureUml[selectedArchitecture]);
+    setEditingContent(architectures[selectedArchitecture]);
     setIsEditing(true);
   };
 
   const handleSave = () => {
-    setArchitectureUml(prev => ({
-      ...prev,
-      [selectedArchitecture]: editingContent
-    }));
+    updateArchitecture(selectedArchitecture, editingContent);
     setIsEditing(false);
+  };
+
+  const handleReset = () => {
+    if (confirm('确定要重置当前架构图为默认内容吗？')) {
+      resetArchitecture(selectedArchitecture);
+    }
   };
 
   return (
@@ -67,7 +62,16 @@ export default function SystemArchitecturePage() {
               >
                 <div 
                   className="flex items-center gap-2"
-                  onClick={() => setSelectedArchitecture(tab.id)}
+                  onClick={() => {
+                    if (isEditing && selectedArchitecture !== tab.id) {
+                      if (confirm('切换标签页将丢失未保存的更改，确定要继续吗？')) {
+                        setIsEditing(false);
+                        setSelectedArchitecture(tab.id);
+                      }
+                    } else {
+                      setSelectedArchitecture(tab.id);
+                    }
+                  }}
                 >
                   {tab.name}
                   {selectedArchitecture === tab.id && (
@@ -90,7 +94,7 @@ export default function SystemArchitecturePage() {
       </div>
 
       <div className="border rounded-lg p-6 bg-white">
-        <PlantUmlViewer content={architectureUml[selectedArchitecture]} />
+        <PlantUmlViewer content={architectures[selectedArchitecture]} />
       </div>
 
       <Dialog open={isEditing} onOpenChange={setIsEditing}>
@@ -106,13 +110,18 @@ export default function SystemArchitecturePage() {
               placeholder="输入 PlantUML 内容..."
             />
           </div>
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setIsEditing(false)}>
-              取消
+          <div className="flex justify-between gap-3">
+            <Button variant="outline" onClick={handleReset}>
+              重置为默认
             </Button>
-            <Button onClick={handleSave}>
-              保存
-            </Button>
+            <div>
+              <Button variant="outline" onClick={() => setIsEditing(false)} className="mr-2">
+                取消
+              </Button>
+              <Button onClick={handleSave}>
+                保存
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
