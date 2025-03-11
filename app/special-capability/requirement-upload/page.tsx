@@ -37,6 +37,7 @@ type UploadedFile = {
   name: string;
   uploadTime: Date;
   selected?: boolean;  // 新增：是否被选中
+  provider: string; // 新增：文件提供者
 };
 
 // 添加内容显示组件，使用ReactMarkdown展示Markdown内容
@@ -150,7 +151,8 @@ export default function RequirementUpload() {
         const filesWithDates = parsedFiles.map((file: any) => ({
           ...file,
           uploadTime: new Date(file.uploadTime),
-          selected: parsedFiles.length === 1 ? true : false // 只有一个文件时默认选中
+          selected: parsedFiles.length === 1 ? true : false, // 只有一个文件时默认选中
+          provider: file.provider || 'openai' // 记录文件提供者
         }))
         setUploadedFiles(filesWithDates)
       } catch (e) {
@@ -237,13 +239,8 @@ export default function RequirementUpload() {
       return
     }
 
-    if (!aiConfig || !aiConfig.apiKey) {
-      setError('未设置AI模型配置或API密钥为空')
-      toast({
-        variant: "destructive",
-        title: "配置错误",
-        description: "请先在设置中配置AI模型",
-      })
+    if (!aiConfig) {
+      setError('请先配置AI模型')
       return
     }
 
@@ -251,64 +248,52 @@ export default function RequirementUpload() {
     setError('')
 
     try {
-      // 创建 FormData 对象
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('filename', file.name)
-      // 添加AI配置信息
       formData.append('apiKey', aiConfig.apiKey)
       formData.append('baseURL', aiConfig.baseURL)
+      formData.append('model', aiConfig.model)
 
-      // 通过自定义API端点处理文件
       const response = await fetch('/api/upload-requirement', {
         method: 'POST',
         body: formData
       })
 
+      const result = await response.json()
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => null)
-        const errorText = errorData?.error || response.statusText
-        throw new Error(`上传失败: ${response.status} ${errorText}`)
+        throw new Error(result.error || '上传失败')
       }
 
-      const data = await response.json()
-      const fileId = data.id || data.fileId
-      
-      // 保存文件ID供后续使用
-      setFileId(fileId)
-      
-      // 添加到已上传文件列表
-      const newFile = {
-        id: fileId,
-        name: file.name,
-        uploadTime: new Date(),
-        selected: uploadedFiles.length === 0 // 如果是第一个文件，默认选中
-      }
-      
-      // 如果只有这一个新文件，设为选中状态
-      const updatedFiles = [...uploadedFiles, newFile]
-      setUploadedFiles(updatedFiles)
-      
-      // 保存到localStorage
-      localStorage.setItem('uploaded-requirement-files', JSON.stringify(updatedFiles))
-      
-      // 显示成功提示
+      console.log('上传成功:', result)
+
+      // 添加到文件列表
+      setUploadedFiles(prev => [
+        ...prev,
+        {
+          id: result.file.id,
+          name: result.file.name,
+          uploadTime: new Date(),
+          selected: true,
+          provider: result.file.provider
+        }
+      ])
+
+      // 重置文件选择
+      setFile(null)
+      setError('')
+      setFileId(result.file.id)
       toast({
         title: "上传成功",
-        description: `文件 ${file.name} A已成功上传，文件ID: ${fileId}`,
+        description: `文件 ${result.file.name} 已成功上传，文件ID: ${result.file.id}`,
       })
-      
-      // 重置文件选择状态，以便继续上传新文件
-      setFile(null)
-      
-      console.log('上传成功:', data)
-    } catch (err) {
-      console.error('上传错误:', err)
-      setError(`上传失败: ${err instanceof Error ? err.message : '未知错误'}`)
+    } catch (error) {
+      console.error('上传文件出错:', error)
+      setError(error instanceof Error ? error.message : '未知错误')
       toast({
         variant: "destructive",
         title: "上传失败",
-        description: `${err instanceof Error ? err.message : '未知错误'}`,
+        description: error instanceof Error ? error.message : "未知错误",
       })
     } finally {
       setUploading(false)

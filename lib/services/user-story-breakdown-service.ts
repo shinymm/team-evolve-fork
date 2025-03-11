@@ -1,6 +1,7 @@
 import { userStoryBreakdownPrompt } from '../prompts';
 import { streamingAICall } from '../ai-service';
 import type { AIModelConfig } from '../ai-service';
+import { getAIConfig } from '../ai-config-service';
 
 export class UserStoryBreakdownService {
   async breakdownUserStory(sceneDescription: string): Promise<(onContent: (content: string) => void) => void> {
@@ -16,24 +17,20 @@ export class UserStoryBreakdownService {
         .replace('{{reqBackground}}', reqBackground)
         .replace('{{sceneDescription}}', sceneDescription);
 
-      // 从localStorage获取AI配置
-      const aiConfig = localStorage.getItem('aiModelConfigs');
-      if (!aiConfig) {
+      // 使用getAIConfig获取AI配置，与其他页面保持一致
+      const config = getAIConfig();
+      
+      if (!config) {
         throw new Error('未找到AI配置信息');
       }
 
-      const configs = JSON.parse(aiConfig);
-      const defaultConf = configs.find((c: any) => c.isDefault);
-      if (!defaultConf) {
-        throw new Error('未找到默认AI配置');
-      }
-
-      const config: AIModelConfig = {
-        model: defaultConf.model,
-        apiKey: defaultConf.apiKey,
-        baseURL: defaultConf.baseURL,
-        temperature: defaultConf.temperature
-      };
+      // 添加调试日志
+      console.log('用户故事拆解使用的模型配置:', {
+        model: config.model,
+        baseURL: config.baseURL,
+        temperature: config.temperature,
+        isGemini: config.model.toLowerCase().startsWith('gemini')
+      });
 
       // 返回一个函数，该函数接受回调函数作为参数
       return (onContent: (content: string) => void) => {

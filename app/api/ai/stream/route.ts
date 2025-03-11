@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { AIModelConfig, isGeminiModel } from '@/lib/ai-service'
+import { AIModelConfig, getApiEndpointAndHeaders, isGeminiModel } from '@/lib/ai-service'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
 export const dynamic = 'force-dynamic'
@@ -18,11 +18,18 @@ export async function POST(request: NextRequest) {
       )
     }
     
+    console.log('流式API配置:', {
+      model: config.model,
+      baseURL: config.baseURL ? '已设置' : '未设置',
+      apiKey: config.apiKey ? '已设置' : '未设置',
+      temperature: config.temperature
+    })
+
     // 创建一个新的响应流
     const stream = new TransformStream()
     const writer = stream.writable.getWriter()
-    
-    // 统一处理所有模型的请求
+
+    // 统一处理所有模型的流式请求
     handleStream(prompt, config, writer)
     
     return new NextResponse(stream.readable, {
@@ -41,41 +48,31 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 统一处理所有模型的请求
+// 统一处理所有模型的流式请求
 async function handleStream(prompt: string, config: AIModelConfig, writer: WritableStreamDefaultWriter) {
   // 检查是否是Google Gemini模型
   const isGemini = isGeminiModel(config.model)
   
-  console.log('handleStream检测模型类型:', {
-    model: config.model,
-    isGemini,
-    baseURL: config.baseURL
-  })
-  
   if (isGemini) {
-    // 处理Google Gemini模型的请求
+    // 处理Google Gemini模型的流式请求
     handleGeminiStream(prompt, config, writer)
   } else {
-    // 处理标准OpenAI兼容API的请求
+    // 处理标准OpenAI兼容API的流式请求
     handleStandardStream(prompt, config, writer)
   }
 }
 
-// 处理标准OpenAI兼容API的请求
+// 处理标准OpenAI兼容API的流式请求
 async function handleStandardStream(prompt: string, config: AIModelConfig, writer: WritableStreamDefaultWriter) {
   try {
-    // 移除末尾的斜杠
-    const baseURL = config.baseURL.replace(/\/+$/, '')
+    // 获取API端点和请求头
+    const { endpoint, headers } = getApiEndpointAndHeaders(config)
     
-    // 根据不同的 AI 服务提供商使用不同的 endpoint 和请求头
-    let endpoint = ''
-    let headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    }
-
-    endpoint = baseURL.endsWith('/chat/completions') ? baseURL : `${baseURL}/chat/completions`
-    headers['Authorization'] = `Bearer ${config.apiKey}`
-    console.log('使用API端点:', endpoint)
+    console.log('标准流式请求:', {
+      endpoint,
+      model: config.model,
+      temperature: config.temperature
+    })
     
     // 发送请求到AI服务
     const response = await fetch(endpoint, {
@@ -91,6 +88,7 @@ async function handleStandardStream(prompt: string, config: AIModelConfig, write
 
     if (!response.ok) {
       const errorText = await response.text()
+      console.error('标准API错误响应:', errorText)
       writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ error: `API 请求失败 (${response.status}): ${errorText}` })}\n\n`))
       writer.close()
       return
@@ -125,7 +123,7 @@ async function handleStandardStream(prompt: string, config: AIModelConfig, write
                 writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ content })}\n\n`))
               }
             } catch (e) {
-              console.error('解析响应数据失败:', e)
+              console.error('解析响应数据失败:', e, data)
             }
           }
         }
@@ -146,7 +144,7 @@ async function handleStandardStream(prompt: string, config: AIModelConfig, write
 // 处理Google Gemini模型的流式请求
 async function handleGeminiStream(prompt: string, config: AIModelConfig, writer: WritableStreamDefaultWriter) {
   try {
-    console.log('Gemini API请求配置:', {
+    console.log('Gemini流式请求配置:', {
       model: config.model,
       apiKey: config.apiKey ? '已设置' : '未设置',
       temperature: config.temperature
@@ -180,6 +178,7 @@ async function handleGeminiStream(prompt: string, config: AIModelConfig, writer:
     for await (const chunk of result.stream) {
       const text = chunk.text()
       if (text) {
+        console.log('Gemini响应块:', text)
         writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ content: text })}\n\n`))
       }
     }
