@@ -33,17 +33,42 @@ type UploadedFile = {
   selected?: boolean;  // 新增：是否被选中
 };
 
-// 添加内容显示组件
-const ContentDisplay = memo(({ content }: { content: string }) => {
+// 添加内容显示组件，使用ReactMarkdown展示Markdown内容
+const ContentDisplay = ({ content }: { content: string }) => {
   console.log('ContentDisplay rendering, content length:', content.length);
+  
+  // 添加一个直接显示内容的div，用于调试
   return (
-    <div className="font-mono text-sm whitespace-pre-wrap">
-      {content}
+    <div>
+      <div className="markdown-content">
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{
+            h1: ({children}) => <h1 className="text-xl font-bold mb-2 pb-1 border-b">{children}</h1>,
+            h2: ({children}) => <h2 className="text-lg font-semibold mb-2 mt-3">{children}</h2>,
+            h3: ({children}) => <h3 className="text-base font-medium mb-1 mt-2">{children}</h3>,
+            p: ({children}) => <p className="text-gray-600 my-1 leading-normal text-sm">{children}</p>,
+            ul: ({children}) => <ul className="list-disc pl-4 my-1 space-y-0.5">{children}</ul>,
+            ol: ({children}) => <ol className="list-decimal pl-4 my-1 space-y-0.5">{children}</ol>,
+            li: ({children}) => <li className="text-gray-600 text-sm">{children}</li>,
+            blockquote: ({children}) => <blockquote className="border-l-4 border-gray-300 pl-3 my-1 italic text-sm">{children}</blockquote>,
+            code: ({children}) => <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{children}</code>,
+            pre: ({children}) => (
+              <div className="relative">
+                <pre className="bg-gray-50 rounded-lg p-3 my-2 overflow-auto text-sm">{children}</pre>
+              </div>
+            )
+          }}
+        >
+          {content}
+        </ReactMarkdown>
+      </div>
+      <div className="mt-4 p-2 bg-gray-100 rounded">
+        <p className="text-xs text-gray-500">内容长度: {content.length}</p>
+      </div>
     </div>
   );
-});
-
-ContentDisplay.displayName = 'ContentDisplay';
+};
 
 export default function RequirementUpload() {
   const [file, setFile] = useState<File | null>(null)
@@ -62,22 +87,38 @@ export default function RequirementUpload() {
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dropAreaRef = useRef<HTMLDivElement>(null)
-  const mdContentRef = useRef<HTMLPreElement>(null)
-  const testContentRef = useRef<HTMLPreElement>(null)
-  const mdContentBuffer = useRef('');
-
+  const mdContentRef = useRef<HTMLDivElement>(null)
+  const testContentRef = useRef<HTMLDivElement>(null)
+  
   // 监听内容变化，自动滚动到底部
   useEffect(() => {
     if (mdContentRef.current) {
       mdContentRef.current.scrollTop = mdContentRef.current.scrollHeight;
     }
+    console.log('mdContent变化了，新长度:', mdContent.length);
   }, [mdContent]);
 
   useEffect(() => {
     if (testContentRef.current) {
       testContentRef.current.scrollTop = testContentRef.current.scrollHeight;
     }
+    console.log('testContent变化了，新长度:', testContent.length);
   }, [testContent]);
+
+  // 添加一个强制重新渲染的机制
+  const [, forceUpdate] = useState({});
+  
+  // 当内容变化时，强制重新渲染
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (isConverting || isGeneratingTest) {
+        console.log('强制重新渲染，当前时间:', new Date().toISOString());
+        forceUpdate({});
+      }
+    }, 500); // 每500ms强制重新渲染一次
+    
+    return () => clearInterval(timer);
+  }, [isConverting, isGeneratingTest]);
 
   // 获取AI配置
   useEffect(() => {
@@ -329,17 +370,8 @@ export default function RequirementUpload() {
       return;
     }
 
-    setIsConverting(true);
-    mdContentBuffer.current = '';
-    setMdContent('正在生成Markdown内容，请稍候...\n\n');
-
-    let animationFrameId: number;
-
-    const updateContent = () => {
-      setMdContent(mdContentBuffer.current);
-      animationFrameId = requestAnimationFrame(updateContent);
-    };
-    animationFrameId = requestAnimationFrame(updateContent);
+    // 初始化内容
+    console.log('初始化mdContent:', '正在生成Markdown内容，请稍候...\n\n');
 
     try {
       const service = new RequirementToMdService();
@@ -348,13 +380,11 @@ export default function RequirementUpload() {
         [selectedFiles[0].id],
         aiConfig,
         (content: string) => {
-          mdContentBuffer.current += content;
-          setMdContent(mdContentBuffer.current); // 立即更新内容
+          console.log('收到新内容，长度:', content.length);
+          // 使用函数式更新，确保基于最新状态
+          setMdContent(prev => prev + content);
         }
       );
-
-      mdContentBuffer.current += '\n\nMarkdown生成完毕。';
-      setMdContent(mdContentBuffer.current);
     } catch (error) {
       console.error('转换失败:', error);
       toast({
@@ -363,8 +393,7 @@ export default function RequirementUpload() {
         variant: "destructive",
       });
     } finally {
-      cancelAnimationFrame(animationFrameId); // 停止动画帧
-      setIsConverting(false);
+      console.log('转换完成');
     }
   };
 
@@ -437,8 +466,8 @@ export default function RequirementUpload() {
     setShowChapterDialog(false)
     
     // 重置状态
-    setIsGeneratingTest(true)
-    setTestContent('')
+    // 初始化内容
+    setTestContent('');
     
     // 添加一个更明显的调试标记，确认函数被调用
     console.log('开始生成测试用例 - ' + new Date().toISOString());
@@ -452,18 +481,13 @@ export default function RequirementUpload() {
         fileIds,
         aiConfig!,
         (content: string) => {
-          console.log('收到新内容:', content);
-          console.log('当前状态更新时间:', new Date().toISOString());
-          setTestContent(prev => {
-            const newContent = prev + content;
-            console.log('状态更新完成，新内容长度:', newContent.length);
-            return newContent;
-          });
+          console.log('收到新内容，长度:', content.length);
+          // 使用函数式更新，确保基于最新状态
+          setTestContent(prev => prev + content);
         },
         requirementChapter || undefined
       )
 
-      
       console.log('生成测试用例完成 - ' + new Date().toISOString());
     } catch (error) {
       console.error('转换失败:', error)
@@ -473,7 +497,8 @@ export default function RequirementUpload() {
         variant: "destructive",
       })
     } finally {
-      setIsGeneratingTest(false)
+      // 移除isGeneratingTest状态的设置
+      console.log('测试用例生成完成');
     }
   }
 
@@ -689,63 +714,55 @@ export default function RequirementUpload() {
               )}
             </div>
             
-            {/* 内容显示部分 */}
-            {(mdContent || isConverting) && (
-              <div className="border rounded-lg p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-semibold">需求书内容</h2>
-                  <Button 
-                    onClick={handleDownloadMd}
-                    disabled={!mdContent || isConverting}
-                    className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1"
-                  >
-                    <Download className="h-4 w-4" />
-                    下载MD文件
-                  </Button>
-                </div>
-                <div className="border rounded p-4 bg-gray-50 min-h-[300px] overflow-auto">
-                  {isConverting ? (
-                    <div className="h-full flex items-center justify-center py-10">
-                      <div className="flex flex-col items-center">
-                        <Loader2 className="h-8 w-8 animate-spin text-orange-500 mb-2" />
-                        <p className="text-sm text-gray-500">正在生成内容...</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <ContentDisplay content={mdContent} />
-                  )}
-                </div>
+            {/* 内容显示部分 - 始终显示，无论是否有内容 */}
+            <div className="border rounded-lg p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">需求书内容</h2>
+                <Button 
+                  onClick={handleDownloadMd}
+                  disabled={!mdContent || isConverting}
+                  className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1"
+                >
+                  <Download className="h-4 w-4" />
+                  下载MD文件
+                </Button>
               </div>
-            )}
+              <div className="border rounded p-4 bg-gray-50 min-h-[300px] overflow-auto" ref={mdContentRef}>
+                {/* 添加调试信息，使用自执行函数避免返回void */}
+                {(() => {
+                  console.log('渲染Markdown内容区域, isConverting:', isConverting, 'mdContent长度:', mdContent.length);
+                  return null;
+                })()}
+                
+                {/* 显示内容，无论是否为空 */}
+                <ContentDisplay content={mdContent} />
+              </div>
+            </div>
             
-            {/* 测试用例显示部分 */}
-            {(testContent || isGeneratingTest) && (
-              <div className="border rounded-lg p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-semibold">测试用例</h2>
-                  <Button 
-                    onClick={handleDownloadTest}
-                    disabled={!testContent || isGeneratingTest}
-                    className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1"
-                  >
-                    <Download className="h-4 w-4" />
-                    下载测试用例
-                  </Button>
-                </div>
-                <div className="border rounded p-4 bg-gray-50 min-h-[300px] overflow-auto">
-                  {isGeneratingTest ? (
-                    <div className="h-full flex items-center justify-center py-10">
-                      <div className="flex flex-col items-center">
-                        <Loader2 className="h-8 w-8 animate-spin text-orange-500 mb-2" />
-                        <p className="text-sm text-gray-500">正在生成测试用例...</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <ContentDisplay content={testContent} />
-                  )}
-                </div>
+            {/* 测试用例显示部分 - 始终显示，无论是否有内容 */}
+            <div className="border rounded-lg p-6 mt-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">测试用例</h2>
+                <Button 
+                  onClick={handleDownloadTest}
+                  disabled={!testContent || isGeneratingTest}
+                  className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1"
+                >
+                  <Download className="h-4 w-4" />
+                  下载测试用例
+                </Button>
               </div>
-            )}
+              <div className="border rounded p-4 bg-gray-50 min-h-[300px] overflow-auto" ref={testContentRef}>
+                {/* 添加调试信息，使用自执行函数避免返回void */}
+                {(() => {
+                  console.log('渲染测试用例区域, isGeneratingTest:', isGeneratingTest, 'testContent长度:', testContent.length);
+                  return null;
+                })()}
+                
+                {/* 显示内容，无论是否为空 */}
+                <ContentDisplay content={testContent} />
+              </div>
+            </div>
           </div>
         </div>
       </div>
