@@ -11,7 +11,7 @@ import { GoogleGenerativeAI, Part } from '@google/generative-ai'
 import { GoogleAIFileManager } from '@google/generative-ai/server'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 300 // 设置最大执行时间为5分钟
+export const maxDuration = 60 // 设置最大执行时间为60秒，符合 Vercel hobby 计划限制
 
 // 临时文件存储目录
 const TEMP_DIR = join(process.cwd(), 'tmp')
