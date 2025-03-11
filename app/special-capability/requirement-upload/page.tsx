@@ -361,8 +361,9 @@ export default function RequirementUpload() {
       return;
     }
 
-    // 初始化内容
-    console.log('初始化mdContent:', '正在生成Markdown内容，请稍候...\n\n');
+    // 清空之前的内容
+    setMdContent('');
+    setIsConverting(true);
 
     try {
       const service = new RequirementToMdService();
@@ -385,6 +386,7 @@ export default function RequirementUpload() {
       });
     } finally {
       console.log('转换完成');
+      setIsConverting(false);
     }
   };
 
@@ -454,11 +456,11 @@ export default function RequirementUpload() {
 
   const handleConvertToTest = async () => {
     // 关闭弹窗
-    setShowChapterDialog(false)
+    setShowChapterDialog(false);
     
-    // 重置状态
-    // 初始化内容
+    // 清空之前的内容
     setTestContent('');
+    setIsGeneratingTest(true);
     
     // 添加一个更明显的调试标记，确认函数被调用
     console.log('开始生成测试用例 - ' + new Date().toISOString());
@@ -488,7 +490,7 @@ export default function RequirementUpload() {
         variant: "destructive",
       })
     } finally {
-      // 移除isGeneratingTest状态的设置
+      setIsGeneratingTest(false);
       console.log('测试用例生成完成');
     }
   }
