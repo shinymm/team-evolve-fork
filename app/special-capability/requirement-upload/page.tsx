@@ -620,29 +620,37 @@ export default function RequirementUpload() {
                 {/* 需求书转MD按钮 */}
                 <Button
                   onClick={handleConvertToMd}
-                  disabled={uploadedFiles.length === 0}
+                  disabled={uploadedFiles.length === 0 || isConverting}
                   className={`flex items-center gap-2 ${
-                    uploadedFiles.length > 0 
+                    uploadedFiles.length > 0 && !isConverting
                       ? 'bg-orange-500 hover:bg-orange-600 text-white' 
                       : 'bg-gray-400 text-gray-100 cursor-not-allowed'
                   }`}
                 >
-                  <Book className="h-4 w-4" />
-                  需求书转MD
+                  {isConverting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Book className="h-4 w-4" />
+                  )}
+                  {isConverting ? '转换中...' : '需求书转MD'}
                 </Button>
                 
                 {/* 需求书转测试用例按钮 */}
                 <Button
                   onClick={handleOpenTestDialog}
-                  disabled={uploadedFiles.length === 0}
+                  disabled={uploadedFiles.length === 0 || isGeneratingTest}
                   className={`flex items-center gap-2 ${
-                    uploadedFiles.length > 0 
+                    uploadedFiles.length > 0 && !isGeneratingTest
                       ? 'bg-orange-500 hover:bg-orange-600 text-white' 
                       : 'bg-gray-400 text-gray-100 cursor-not-allowed'
                   }`}
                 >
-                  <FileText className="h-4 w-4" />
-                  需求书转测试用例
+                  {isGeneratingTest ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileText className="h-4 w-4" />
+                  )}
+                  {isGeneratingTest ? '生成中...' : '需求书转测试用例'}
                 </Button>
               </div>
               
