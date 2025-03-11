@@ -63,7 +63,7 @@ export async function handleNewSubscription(subscription: SystemSubscription) {
   if (await needsArchitectureUpdate(subscription)) {
     await createTask({
       title: `更新系统架构图 - 添加 ${subscription.systemName}`,
-      description: `在高阶系统架构图中添加 ${subscription.systemName}(${subscription.systemId}) 与 QARE 的问答关联关系`,
+      description: `在高阶系统架构图中添加 ${subscription.systemName}(${subscription.systemId}) 与 智能对话系统 的问答关联关系`,
       type: 'architecture',
       assignee: 'SaraQian',
       status: 'pending',
