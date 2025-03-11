@@ -17,6 +17,7 @@ import { Toaster } from "@/components/ui/toaster"
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { getTasks } from '@/lib/services/task-service'
+import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store'
 
 export default function RequirementBook() {
   const [originalRequirement, setOriginalRequirement] = useState('')
@@ -36,9 +37,10 @@ export default function RequirementBook() {
         
         // 只有当原始需求分析任务完成时，才加载历史数据
         if (requirementAnalysisTask?.status === 'completed') {
-          const savedAnalysis = localStorage.getItem('requirement-analysis-content')
-          if (savedAnalysis) {
-            setOriginalRequirement(savedAnalysis)
+          // 从store中获取pinnedAnalysis
+          const { pinnedAnalysis } = useRequirementAnalysisStore.getState()
+          if (pinnedAnalysis) {
+            setOriginalRequirement(pinnedAnalysis)
           }
         } 
       } catch (error) {
@@ -197,8 +199,8 @@ export default function RequirementBook() {
     try {
       console.log('开始更新任务状态...');
       
-      // 保存需求书MD内容到localStorage
-      localStorage.setItem('requirement-book-content', requirementBook);
+      // 保存需求书MD内容到store
+      useRequirementAnalysisStore.getState().setRequirementBook(requirementBook);
       
       // 1. 更新需求书任务状态为完成
       console.log('更新需求书任务状态...');
@@ -270,9 +272,10 @@ export default function RequirementBook() {
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    const savedAnalysis = localStorage.getItem('requirement-analysis-content')
-                    if (savedAnalysis) {
-                      setOriginalRequirement(savedAnalysis)
+                    // 从store中获取pinnedAnalysis
+                    const { pinnedAnalysis } = useRequirementAnalysisStore.getState()
+                    if (pinnedAnalysis) {
+                      setOriginalRequirement(pinnedAnalysis)
                       toast({
                         title: "加载成功",
                         description: "已重新加载需求分析内容",
@@ -281,7 +284,7 @@ export default function RequirementBook() {
                     } else {
                       toast({
                         title: "加载失败",
-                        description: "未找到保存的需求分析内容",
+                        description: "未找到需求分析内容",
                         variant: "destructive",
                         duration: 3000
                       })
@@ -323,46 +326,46 @@ export default function RequirementBook() {
               <div className="space-y-4">
                 <div className="flex gap-2 justify-end">
                   <Button
-                    variant="outline"
-                    size="sm"
+                    variant="ghost"
+                    size="icon"
                     onClick={handleCopy}
-                    className="text-gray-500 hover:text-gray-700"
+                    className="text-gray-500 hover:text-gray-700 h-9 w-9"
                     disabled={isGenerating}
+                    title="复制内容"
                   >
-                    <Copy className="mr-2 h-4 w-4" />
-                    复制内容
+                    <Copy className="h-4 w-4" />
                   </Button>
                   <Button
-                    variant="outline"
-                    size="sm"
+                    variant="ghost"
+                    size="icon"
                     onClick={handleDownload}
-                    className="text-gray-500 hover:text-gray-700"
+                    className="text-gray-500 hover:text-gray-700 h-9 w-9"
                     disabled={isGenerating}
+                    title="下载需求书"
                   >
-                    <Download className="mr-2 h-4 w-4" />
-                    下载需求书
+                    <Download className="h-4 w-4" />
                   </Button>
                   {!isEditing ? (
                     <Button
-                      variant="outline"
-                      size="sm"
+                      variant="ghost"
+                      size="icon"
                       onClick={handleEdit}
-                      className="text-gray-500 hover:text-gray-700"
+                      className="text-gray-500 hover:text-gray-700 h-9 w-9"
                       disabled={isGenerating}
+                      title="编辑内容"
                     >
-                      <Edit2 className="mr-2 h-4 w-4" />
-                      编辑内容
+                      <Edit2 className="h-4 w-4" />
                     </Button>
                   ) : (
                     <Button
-                      variant="outline"
-                      size="sm"
+                      variant="ghost"
+                      size="icon"
                       onClick={handleSave}
-                      className="text-orange-600 hover:text-orange-700"
+                      className="text-orange-600 hover:text-orange-700 h-9 w-9"
                       disabled={isGenerating}
+                      title="保存修改"
                     >
-                      <Save className="mr-2 h-4 w-4" />
-                      保存修改
+                      <Save className="h-4 w-4" />
                     </Button>
                   )}
                 </div>

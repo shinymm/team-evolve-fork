@@ -16,6 +16,7 @@ import { streamingAICall, AIModelConfig } from '@/lib/ai-service'
 import { SceneRequirementService } from '@/lib/services/scene-requirement-service'
 import { getAIConfig } from '@/lib/ai-config-service'
 import { RequirementExportService } from '@/lib/services/requirement-export-service'
+import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store'
 
 interface Scene {
   name: string
@@ -75,7 +76,7 @@ export default function SceneAnalysisPage() {
     }
     
     // 加载需求书内容
-    const storedMdContent = localStorage.getItem('requirement-book-content')
+    const storedMdContent = useRequirementAnalysisStore.getState().requirementBook;
     if (storedMdContent) {
       setMdContent(storedMdContent)
     }
@@ -620,7 +621,10 @@ export default function SceneAnalysisPage() {
                 <textarea
                   className="w-full min-h-[200px] p-3 text-sm text-gray-600 bg-white rounded-md border resize-y"
                   value={mdContent}
-                  onChange={(e) => setMdContent(e.target.value)}
+                  onChange={(e) => {
+                    setMdContent(e.target.value)
+                    useRequirementAnalysisStore.getState().setRequirementBook(e.target.value);
+                  }}
                   placeholder="请在此输入需求书内容..."
                 />
                 <Button 
@@ -673,7 +677,7 @@ export default function SceneAnalysisPage() {
                   value={mdContent}
                   onChange={(e) => {
                     setMdContent(e.target.value)
-                    localStorage.setItem('requirement-book-content', e.target.value)
+                    useRequirementAnalysisStore.getState().setRequirementBook(e.target.value);
                   }}
                   placeholder="请在此输入需求书内容..."
                 />

@@ -1,7 +1,6 @@
 import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
+import { persist } from 'zustand/middleware'
 import type { AIModelConfig } from '../ai-service'
-import { StateCreator } from 'zustand'
 
 interface AIConfigState {
   configs: AIModelConfig[]
@@ -15,16 +14,9 @@ interface AIConfigState {
   getConfig: () => AIModelConfig | null
 }
 
-type AIConfigPersist = (
-  config: StateCreator<AIConfigState>,
-  options: {
-    name: string
-    storage: ReturnType<typeof createJSONStorage>
-  }
-) => StateCreator<AIConfigState>
-
+// 简化 store 的实现，完全依赖 Zustand 的 persist 中间件
 export const useAIConfigStore = create<AIConfigState>()(
-  (persist as AIConfigPersist)(
+  persist(
     (set, get) => ({
       configs: [],
       defaultConfig: null,
@@ -45,16 +37,12 @@ export const useAIConfigStore = create<AIConfigState>()(
           isDefault: config.isDefault || get().configs.length === 0,
         }
 
-        set((state: AIConfigState) => {
+        set((state) => {
           // 如果新配置是默认配置，则更新其他配置为非默认
-          let updatedConfigs = [...state.configs]
-          
-          if (configToAdd.isDefault) {
-            updatedConfigs = updatedConfigs.map(c => ({
-              ...c,
-              isDefault: false
-            }))
-          }
+          let updatedConfigs = state.configs.map(c => ({
+            ...c,
+            isDefault: configToAdd.isDefault ? false : c.isDefault
+          }))
           
           return {
             configs: [...updatedConfigs, configToAdd],
@@ -64,14 +52,17 @@ export const useAIConfigStore = create<AIConfigState>()(
       },
 
       deleteConfig: (id: string) => {
-        set((state: AIConfigState) => {
+        set((state) => {
           const configToDelete = state.configs.find(c => c.id === id)
           const updatedConfigs = state.configs.filter(c => c.id !== id)
           
           // 如果删除的是默认配置且还有其他配置，则将第一个配置设为默认
           let newDefaultConfig = state.defaultConfig
           if (configToDelete?.isDefault && updatedConfigs.length > 0) {
-            updatedConfigs[0].isDefault = true
+            updatedConfigs[0] = {
+              ...updatedConfigs[0],
+              isDefault: true
+            }
             newDefaultConfig = updatedConfigs[0]
           } else if (updatedConfigs.length === 0) {
             newDefaultConfig = null
@@ -85,7 +76,7 @@ export const useAIConfigStore = create<AIConfigState>()(
       },
 
       setDefaultConfig: (id: string) => {
-        set((state: AIConfigState) => {
+        set((state) => {
           const updatedConfigs = state.configs.map(config => ({
             ...config,
             isDefault: config.id === id
@@ -101,7 +92,7 @@ export const useAIConfigStore = create<AIConfigState>()(
       },
 
       updateConfig: (id: string, updatedConfig: Partial<AIModelConfig>) => {
-        set((state: AIConfigState) => {
+        set((state) => {
           const updatedConfigs = state.configs.map(config => 
             config.id === id ? { ...config, ...updatedConfig } : config
           )
@@ -123,8 +114,7 @@ export const useAIConfigStore = create<AIConfigState>()(
       }
     }),
     {
-      name: 'ai-model-configs',
-      storage: createJSONStorage(() => localStorage)
+      name: 'ai-model-configs'
     }
   )
 )

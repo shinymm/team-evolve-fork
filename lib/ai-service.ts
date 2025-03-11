@@ -21,11 +21,11 @@ export async function streamingAICall(
   onContent: (content: string) => void
 ) {
   try {
-    console.log('Calling AI with config:', {
-      baseURL: config.baseURL,
-      model: config.model,
-      temperature: config.temperature
-    })
+    // console.log('Calling AI with config:', {
+    //   baseURL: config.baseURL,
+    //   model: config.model,
+    //   temperature: config.temperature
+    // })
 
     // 使用我们的API路由代理请求
     const response = await fetch('/api/ai', {

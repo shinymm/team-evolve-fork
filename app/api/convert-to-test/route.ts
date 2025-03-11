@@ -57,11 +57,7 @@ export async function POST(request: NextRequest) {
           ...fileIds.map((id: string) => ({ role: 'system', content: `fileid://${id}` })),
           { role: 'user', content: requirementToTestPrompt(requirementChapter) }
         ]
-        
-        console.log(`[${new Date().toISOString()}] API: 发送到OpenAI API`);
-        
-        // 先发送一些初始内容，确保流式处理开始
-        await writer.write(encoder.encode("开始生成测试用例...\n\n"));
+
         
         // 创建流式完成
         const stream = await client.chat.completions.create({
@@ -71,8 +67,6 @@ export async function POST(request: NextRequest) {
           temperature: 0.7,
           max_tokens: 4000
         })
-        
-        console.log(`[${new Date().toISOString()}] API: 开始接收OpenAI流式响应`);
         
         let chunkCounter = 0;
         

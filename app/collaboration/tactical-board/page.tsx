@@ -6,6 +6,7 @@ import { Hexagon } from '@/components/hexagon'
 import { TaskCard } from '@/components/task-card'
 import { toast } from '@/components/ui/use-toast'
 import type { Task } from '@/lib/services/task-service'
+import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store'
 
 interface HexPosition {
   x: number
@@ -34,8 +35,9 @@ export default function TacticalBoardPage() {
       localStorage.removeItem('qare-tasks');
       
       // 清空指定的缓存数据
-      localStorage.removeItem('requirement-analysis-content');
-      localStorage.removeItem('requirement-book-content');
+      // 清空store中的数据，而不是localStorage
+      useRequirementAnalysisStore.getState().clearPinnedAnalysis();
+      useRequirementAnalysisStore.getState().clearRequirementBook();
       localStorage.removeItem('requirement-input');
       localStorage.removeItem('requirement-structured-content');
       localStorage.removeItem('scene-analysis-states');
