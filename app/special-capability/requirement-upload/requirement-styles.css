@@ -1,0 +1,63 @@
+/* 表格样式 */
+.markdown-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+  table-layout: fixed;
+  overflow-wrap: break-word;
+}
+
+.markdown-content table th,
+.markdown-content table td {
+  padding: 0.5rem;
+  border: 1px solid #e2e8f0;
+}
+
+.markdown-content table th {
+  background-color: #f8fafc;
+  font-weight: 600;
+}
+
+.markdown-content table tr:nth-child(even) {
+  background-color: #f8fafc;
+}
+
+/* 确保内容不会溢出 */
+.markdown-content {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.markdown-content pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-width: 100%;
+}
+
+/* 添加响应式表格 */
+@media (max-width: 640px) {
+  .markdown-content table {
+    display: block;
+    overflow-x: auto;
+  }
+}
+
+/* 添加内容区域滚动条样式 */
+.markdown-content::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.markdown-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.markdown-content::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 4px;
+}
+
+.markdown-content::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
+} 

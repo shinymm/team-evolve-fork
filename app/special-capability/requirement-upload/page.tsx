@@ -10,6 +10,7 @@ import { streamingAICall } from '@/lib/ai-service'
 import { Button } from "@/components/ui/button"
 import { RequirementToMdService } from '@/lib/services/requirement-to-md-service'
 import { RequirementToTestService } from '@/lib/services/requirement-to-test-service'
+import { RequirementBoundaryComparisonService } from '@/lib/services/requirement-boundary-comparison-service'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -31,6 +32,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 
+// 添加全局样式
+import './requirement-styles.css'
+
 // 已上传文件类型定义
 type UploadedFile = {
   id: string;
@@ -44,10 +48,9 @@ type UploadedFile = {
 const ContentDisplay = ({ content }: { content: string }) => {
   console.log('ContentDisplay rendering, content length:', content.length);
   
-  // 添加一个直接显示内容的div，用于调试
   return (
-    <div>
-      <div className="markdown-content">
+    <div className="w-full">
+      <div className="markdown-content overflow-x-auto w-full">
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           components={{
@@ -64,7 +67,17 @@ const ContentDisplay = ({ content }: { content: string }) => {
               <div className="relative">
                 <pre className="bg-gray-50 rounded-lg p-3 my-2 overflow-auto text-sm">{children}</pre>
               </div>
-            )
+            ),
+            table: ({children}) => (
+              <div className="overflow-x-auto my-2 md:max-w-full">
+                <table className="min-w-full divide-y divide-gray-200 border border-gray-200 text-sm table-fixed">{children}</table>
+              </div>
+            ),
+            thead: ({children}) => <thead className="bg-gray-50">{children}</thead>,
+            tbody: ({children}) => <tbody className="divide-y divide-gray-200">{children}</tbody>,
+            tr: ({children}) => <tr className="border-b border-gray-200">{children}</tr>,
+            th: ({children}) => <th className="px-3 py-2 text-left font-medium text-gray-700 border-r border-gray-200 last:border-r-0 break-words">{children}</th>,
+            td: ({children}) => <td className="px-3 py-2 whitespace-normal border-r border-gray-200 last:border-r-0 break-words align-top">{children}</td>
           }}
         >
           {content}
@@ -86,8 +99,10 @@ export default function RequirementUpload() {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [mdContent, setMdContent] = useState<string>('')
   const [testContent, setTestContent] = useState<string>('')
+  const [boundaryContent, setBoundaryContent] = useState<string>('')
   const [isConverting, setIsConverting] = useState(false)
   const [isGeneratingTest, setIsGeneratingTest] = useState(false)
+  const [isComparing, setIsComparing] = useState(false)
   const [fileSelectionAlert, setFileSelectionAlert] = useState<string>('')
   const [showChapterDialog, setShowChapterDialog] = useState(false)
   const [requirementChapter, setRequirementChapter] = useState('')
@@ -96,6 +111,13 @@ export default function RequirementUpload() {
   const dropAreaRef = useRef<HTMLDivElement>(null)
   const mdContentRef = useRef<HTMLDivElement>(null)
   const testContentRef = useRef<HTMLDivElement>(null)
+  const boundaryContentRef = useRef<HTMLDivElement>(null)
+  
+  // 添加一个强制重新渲染的机制
+  const [, forceUpdate] = useState({});
+  
+  // 添加标签页状态
+  const [activeTab, setActiveTab] = useState<'md' | 'test' | 'boundary'>('md');
   
   // 监听内容变化，自动滚动到底部
   useEffect(() => {
@@ -112,20 +134,24 @@ export default function RequirementUpload() {
     console.log('testContent变化了，新长度:', testContent.length);
   }, [testContent]);
 
-  // 添加一个强制重新渲染的机制
-  const [, forceUpdate] = useState({});
-  
+  useEffect(() => {
+    if (boundaryContentRef.current) {
+      boundaryContentRef.current.scrollTop = boundaryContentRef.current.scrollHeight;
+    }
+    console.log('boundaryContent变化了，新长度:', boundaryContent.length);
+  }, [boundaryContent]);
+
   // 当内容变化时，强制重新渲染
   useEffect(() => {
     const timer = setInterval(() => {
-      if (isConverting || isGeneratingTest) {
+      if (isConverting || isGeneratingTest || isComparing) {
         console.log('强制重新渲染，当前时间:', new Date().toISOString());
         forceUpdate({});
       }
     }, 500); // 每500ms强制重新渲染一次
     
     return () => clearInterval(timer);
-  }, [isConverting, isGeneratingTest]);
+  }, [isConverting, isGeneratingTest, isComparing]);
 
   // 获取AI配置
   useEffect(() => {
@@ -323,10 +349,10 @@ export default function RequirementUpload() {
   
   // 处理文件选择状态变更
   const handleSelectFile = (fileId: string, checked: boolean) => {
-    // 需求书转MD功能只能选择一个文件，所以选中一个时，取消其他所有文件的选中状态
+    // 更新为支持多选功能
     const updatedFiles = uploadedFiles.map(file => ({
       ...file,
-      selected: file.id === fileId ? checked : false
+      selected: file.id === fileId ? checked : file.selected
     }))
     
     setUploadedFiles(updatedFiles)
@@ -364,6 +390,8 @@ export default function RequirementUpload() {
     // 清空之前的内容
     setMdContent('');
     setIsConverting(true);
+    // 激活MD标签页
+    setActiveTab('md');
 
     try {
       const service = new RequirementToMdService();
@@ -434,7 +462,7 @@ export default function RequirementUpload() {
     // 检查是否有选中的文件
     const selectedFiles = uploadedFiles.filter(file => file.selected)
     if (selectedFiles.length === 0) {
-      setFileSelectionAlert("请先选择需求文件进行转换")
+      setFileSelectionAlert("请至少选择一个需求文件进行转换")
       return
     }
     
@@ -461,6 +489,8 @@ export default function RequirementUpload() {
     // 清空之前的内容
     setTestContent('');
     setIsGeneratingTest(true);
+    // 激活测试用例标签页
+    setActiveTab('test');
     
     // 添加一个更明显的调试标记，确认函数被调用
     console.log('开始生成测试用例 - ' + new Date().toISOString());
@@ -535,10 +565,109 @@ export default function RequirementUpload() {
     }
   }
 
+  // 处理需求对比抽取边界知识
+  const handleCompareRequirements = async () => {
+    if (uploadedFiles.length < 2) {
+      toast({
+        title: "对比失败",
+        description: "请先上传至少两个文件",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const selectedFiles = uploadedFiles.filter(file => file.selected);
+    if (selectedFiles.length !== 2) {
+      setFileSelectionAlert("需求对比功能需要选择两个文件（初稿和终稿），请确保选择且仅选择两个文件");
+      return;
+    }
+
+    setFileSelectionAlert("");
+
+    if (!aiConfig) {
+      toast({
+        title: "对比失败",
+        description: "请先配置AI模型",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // 清空之前的内容
+    setBoundaryContent('');
+    setIsComparing(true);
+    // 激活边界知识标签页
+    setActiveTab('boundary');
+
+    try {
+      const service = new RequirementBoundaryComparisonService();
+
+      await service.compareRequirements(
+        [selectedFiles[0].id, selectedFiles[1].id],
+        aiConfig,
+        (content: string) => {
+          console.log('收到新内容，长度:', content.length);
+          // 使用函数式更新，确保基于最新状态
+          setBoundaryContent(prev => prev + content);
+        }
+      );
+    } catch (error) {
+      console.error('对比失败:', error);
+      toast({
+        title: "对比失败",
+        description: error instanceof Error ? error.message : "未知错误",
+        variant: "destructive",
+      });
+    } finally {
+      console.log('对比完成');
+      setIsComparing(false);
+    }
+  };
+
+  // 处理下载边界知识
+  const handleDownloadBoundary = () => {
+    try {
+      if (!boundaryContent) {
+        toast({
+          title: "下载失败",
+          description: "没有可下载的边界知识内容",
+          variant: "destructive",
+          duration: 3000
+        });
+        return;
+      }
+
+      const blob = new Blob([boundaryContent], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `需求边界知识-${timestamp}.md`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast({
+        title: "下载成功",
+        description: "边界知识内容已保存为 Markdown 文件",
+        duration: 3000
+      });
+    } catch (error) {
+      toast({
+        title: "下载失败",
+        description: "请手动复制内容并保存",
+        variant: "destructive",
+        duration: 3000
+      });
+    }
+  };
+
   return (
     <>
-      <div className="mx-auto py-6 w-[90%]">
-        <div className="space-y-6">
+      <div className="w-full max-w-full overflow-x-hidden">
+        <div className="space-y-6 px-6 py-6">
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center">
@@ -570,7 +699,7 @@ export default function RequirementUpload() {
             </div>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-x-auto">
             <div className="border rounded-lg p-6">
               <div 
                 ref={dropAreaRef}
@@ -652,6 +781,24 @@ export default function RequirementUpload() {
                   )}
                   {isGeneratingTest ? '生成中...' : '需求书转测试用例'}
                 </Button>
+                
+                {/* 需求对比抽取边界知识按钮 */}
+                <Button
+                  onClick={handleCompareRequirements}
+                  disabled={uploadedFiles.length < 2 || isComparing}
+                  className={`flex items-center gap-2 ${
+                    uploadedFiles.length >= 2 && !isComparing
+                      ? 'bg-orange-500 hover:bg-orange-600 text-white' 
+                      : 'bg-gray-400 text-gray-100 cursor-not-allowed'
+                  }`}
+                >
+                  {isComparing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <HelpCircle className="h-4 w-4" />
+                  )}
+                  {isComparing ? '对比中...' : '需求对比抽取边界知识'}
+                </Button>
               </div>
               
               {/* 文件选择警告提示 */}
@@ -669,7 +816,10 @@ export default function RequirementUpload() {
               {uploadedFiles.length > 0 && (
                 <div className="mt-8">
                   <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-sm font-medium text-gray-700">已上传文件列表</h3>
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-700">已上传文件列表</h3>
+                      <p className="text-xs text-gray-500 mt-1">可多选文件：需求书转MD仅支持单选，测试用例生成支持多选，需求对比需选择两个文件</p>
+                    </div>
                   </div>
                   
                   <div className="border rounded-md overflow-hidden">
@@ -732,54 +882,121 @@ export default function RequirementUpload() {
               )}
             </div>
             
-            {/* 内容显示部分 - 始终显示，无论是否有内容 */}
-            <div className="border rounded-lg p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold">需求书内容</h2>
-                <Button 
-                  onClick={handleDownloadMd}
-                  disabled={!mdContent}
-                  className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1"
-                >
-                  <Download className="h-4 w-4" />
-                  下载MD文件
-                </Button>
-              </div>
-              <div className="border rounded p-4 bg-gray-50 min-h-[300px] overflow-auto" ref={mdContentRef}>
-                {/* 添加调试信息，使用自执行函数避免返回void */}
-                {(() => {
-                  console.log('渲染Markdown内容区域, isConverting:', isConverting, 'mdContent长度:', mdContent.length);
-                  return null;
-                })()}
-                
-                {/* 显示内容，无论是否为空 */}
-                <ContentDisplay content={mdContent} />
-              </div>
-            </div>
-            
-            {/* 测试用例显示部分 - 始终显示，无论是否有内容 */}
+            {/* 输出内容标签页UI */}
             <div className="border rounded-lg p-6 mt-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold">测试用例</h2>
-                <Button 
-                  onClick={handleDownloadTest}
-                  disabled={!testContent}
-                  className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1"
+              <div className="flex border-b mb-4">
+                <button
+                  onClick={() => setActiveTab('md')}
+                  className={`px-4 py-2 font-medium text-sm rounded-t-lg mr-2 transition-colors ${
+                    activeTab === 'md' 
+                      ? 'bg-orange-500 text-white' 
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  }`}
                 >
-                  <Download className="h-4 w-4" />
-                  下载测试用例
-                </Button>
+                  需求书内容
+                </button>
+                <button
+                  onClick={() => setActiveTab('test')}
+                  className={`px-4 py-2 font-medium text-sm rounded-t-lg mr-2 transition-colors ${
+                    activeTab === 'test' 
+                      ? 'bg-orange-500 text-white' 
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  测试用例
+                </button>
+                <button
+                  onClick={() => setActiveTab('boundary')}
+                  className={`px-4 py-2 font-medium text-sm rounded-t-lg transition-colors ${
+                    activeTab === 'boundary' 
+                      ? 'bg-orange-500 text-white' 
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  需求边界知识
+                </button>
               </div>
-              <div className="border rounded p-4 bg-gray-50 min-h-[300px] overflow-auto" ref={testContentRef}>
-                {/* 添加调试信息，使用自执行函数避免返回void */}
-                {(() => {
-                  console.log('渲染测试用例区域, isGeneratingTest:', isGeneratingTest, 'testContent长度:', testContent.length);
-                  return null;
-                })()}
-                
-                {/* 显示内容，无论是否为空 */}
-                <ContentDisplay content={testContent} />
-              </div>
+              
+              {/* 需求书内容 */}
+              {activeTab === 'md' && (
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-semibold">需求书内容</h2>
+                    <Button 
+                      onClick={handleDownloadMd}
+                      disabled={!mdContent}
+                      className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1"
+                    >
+                      <Download className="h-4 w-4" />
+                      下载MD文件
+                    </Button>
+                  </div>
+                  <div className="border rounded p-4 bg-gray-50 min-h-[300px] max-h-[600px] overflow-auto" ref={mdContentRef}>
+                    {/* 添加调试信息，使用自执行函数避免返回void */}
+                    {(() => {
+                      console.log('渲染Markdown内容区域, isConverting:', isConverting, 'mdContent长度:', mdContent.length);
+                      return null;
+                    })()}
+                    
+                    {/* 显示内容，无论是否为空 */}
+                    <ContentDisplay content={mdContent} />
+                  </div>
+                </div>
+              )}
+              
+              {/* 测试用例 */}
+              {activeTab === 'test' && (
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-semibold">测试用例</h2>
+                    <Button 
+                      onClick={handleDownloadTest}
+                      disabled={!testContent}
+                      className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1"
+                    >
+                      <Download className="h-4 w-4" />
+                      下载测试用例
+                    </Button>
+                  </div>
+                  <div className="border rounded p-4 bg-gray-50 min-h-[300px] max-h-[600px] overflow-auto" ref={testContentRef}>
+                    {/* 添加调试信息，使用自执行函数避免返回void */}
+                    {(() => {
+                      console.log('渲染测试用例区域, isGeneratingTest:', isGeneratingTest, 'testContent长度:', testContent.length);
+                      return null;
+                    })()}
+                    
+                    {/* 显示内容，无论是否为空 */}
+                    <ContentDisplay content={testContent} />
+                  </div>
+                </div>
+              )}
+              
+              {/* 边界知识 */}
+              {activeTab === 'boundary' && (
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-semibold">需求边界知识</h2>
+                    <Button 
+                      onClick={handleDownloadBoundary}
+                      disabled={!boundaryContent}
+                      className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1"
+                    >
+                      <Download className="h-4 w-4" />
+                      下载边界知识
+                    </Button>
+                  </div>
+                  <div className="border rounded p-4 bg-gray-50 min-h-[300px] max-h-[600px] overflow-auto" ref={boundaryContentRef}>
+                    {/* 添加调试信息，使用自执行函数避免返回void */}
+                    {(() => {
+                      console.log('渲染边界知识区域, isComparing:', isComparing, 'boundaryContent长度:', boundaryContent.length);
+                      return null;
+                    })()}
+                    
+                    {/* 显示内容，无论是否为空 */}
+                    <ContentDisplay content={boundaryContent} />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
