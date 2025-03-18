@@ -1,0 +1,79 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  // 添加预览特性支持
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  // 启用pgvector扩展
+  extensions = [vector]
+}
+
+// 向量模型配置
+model VectorModelConfig {
+  id        String   @id @default(uuid())
+  name      String
+  baseURL   String
+  apiKey    String
+  model     String
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([isDefault])
+}
+
+// 用户模型
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 术语表模型
+model Glossary {
+  id          Int       @id @default(autoincrement())
+  term        String    @db.VarChar(255)
+  english     String?   @db.VarChar(255)
+  explanation String    @db.Text
+  domain      String    @db.VarChar(255)
+  status      String    @default("pending") @db.VarChar(20)
+  // 向量字段需要使用Unsupported类型，因为Prisma不直接支持PostgreSQL的vector类型
+  // 我们添加注释以便理解，但实际上需要使用原始SQL创建
+  /// @PostgreSQL.Vector(1536)
+  embedding   Unsupported("vector(1536)")?
+  approvedAt  DateTime?
+  approvedBy  String?   @db.VarChar(100)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+  createdBy   String?   @db.VarChar(100)
+
+  // 添加联合唯一约束，使每个领域内的术语唯一
+  @@unique([term, domain])
+  // 在Prisma中添加索引
+  @@index([term])
+  @@index([status])
+  @@index([domain])
+  // 向量索引需要使用原始SQL创建
+}
+
+// 添加更多模型，例如：
+// model Task {
+//   id          String   @id @default(uuid())
+//   title       String
+//   description String?
+//   completed   Boolean  @default(false)
+//   createdAt   DateTime @default(now())
+//   updatedAt   DateTime @updatedAt
+//   userId      String
+//   user        User     @relation(fields: [userId], references: [id])
+// }

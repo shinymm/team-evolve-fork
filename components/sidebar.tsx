@@ -50,6 +50,7 @@ const mainMenuItems: MenuItem[] = [
     title: "知识熔炉",
     icon: <Database className="h-4 w-4" />,
     submenu: [
+      { title: "术语管理", href: "/knowledge/glossary" },
       { title: "产品信息架构", href: "/knowledge/information-architecture" },
       { title: "系统架构", href: "/knowledge/system-architecture" },
       { title: "API 开放接口", href: "/knowledge/api-interfaces" },

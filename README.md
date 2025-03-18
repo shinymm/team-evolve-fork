@@ -82,7 +82,7 @@ interface AIModelConfig {
 ```
 
 注意事项：
-1. 配置存储在 localStorage 的 `aiModelConfigs` 中
+1. 配置存储在 localStorage 的 `ai-model-configs` 中
 2. 使用前需检查配置是否存在
 3. 配置获取失败时需给出友好提示
 4. 建议在组件初始化时获取配置并保存到状态中

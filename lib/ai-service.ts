@@ -58,17 +58,38 @@ export function isGeminiModel(modelName: string): boolean {
   return modelName.toLowerCase().startsWith('gemini')
 }
 
+/**
+ * 流式AI调用，自动处理配置
+ * @param prompt 用户提示
+ * @param onContent 处理回复内容的回调函数
+ * @param config 可选的AI模型配置，如果不提供则使用默认配置
+ * @returns 
+ */
 export async function streamingAICall(
   prompt: string,
-  config: AIModelConfig,
-  onContent: (content: string) => void
+  onContent: (content: string) => void,
+  config?: AIModelConfig
 ) {
   try {
+    // 如果未提供配置，尝试从store获取默认配置
+    let finalConfig = config;
+    
+    if (!finalConfig) {
+      const store = await import('./stores/ai-config-store');
+      const defaultConfig = store.useAIConfigStore.getState().getConfig();
+      
+      if (!defaultConfig) {
+        throw new Error('未找到AI模型配置，请先在设置中配置模型');
+      }
+      
+      finalConfig = defaultConfig;
+    }
+    
     console.log('AI调用配置:', {
-      model: config.model,
-      baseURL: config.baseURL,
-      apiKey: config.apiKey ? '已设置' : '未设置',
-      temperature: config.temperature
+      model: finalConfig.model,
+      baseURL: finalConfig.baseURL,
+      apiKey: finalConfig.apiKey ? '已设置' : '未设置',
+      temperature: finalConfig.temperature
     })
     
     // 使用统一的API路由处理请求
@@ -83,7 +104,7 @@ export async function streamingAICall(
       },
       body: JSON.stringify({
         prompt,
-        config
+        config: finalConfig
       })
     })
 
@@ -137,20 +158,43 @@ interface Message {
   content: string
 }
 
+/**
+ * 聊天完成调用
+ * @param messages 消息数组
+ * @param config 可选的模型配置，如果不提供则使用默认配置
+ * @returns 聊天响应文本或null（如果出错）
+ */
 export const callChatCompletion = async (
   messages: Message[],
-  config: ModelConfig
+  config?: ModelConfig
 ): Promise<string | null> => {
   try {
+    // 如果未提供配置，尝试从store获取默认配置
+    let fullConfig = config as AIModelConfig;
+    
+    if (!config || !config.model) {
+      const store = await import('./stores/ai-config-store');
+      const defaultConfig = store.useAIConfigStore.getState().getConfig();
+      
+      if (!defaultConfig) {
+        throw new Error('未找到AI模型配置，请先在设置中配置模型');
+      }
+      
+      fullConfig = {
+        ...defaultConfig,
+        ...config
+      };
+    }
+    
     // 检查是否是Google Gemini模型
-    const isGemini = isGeminiModel(config.model)
+    const isGemini = isGeminiModel(fullConfig.model)
     
     console.log('聊天调用配置:', {
-      model: config.model,
+      model: fullConfig.model,
       isGemini,
-      baseURL: config.baseURL ? '已设置' : '未设置',
-      apiKey: config.apiKey ? '已设置' : '未设置',
-      temperature: config.temperature
+      baseURL: fullConfig.baseURL ? '已设置' : '未设置',
+      apiKey: fullConfig.apiKey ? '已设置' : '未设置',
+      temperature: fullConfig.temperature
     })
     
     const response = await fetch('/api/ai/chat', {
@@ -160,10 +204,10 @@ export const callChatCompletion = async (
       },
       body: JSON.stringify({
         messages,
-        model: config.model,
-        temperature: config.temperature,
-        apiKey: config.apiKey,
-        baseURL: config.baseURL
+        model: fullConfig.model,
+        temperature: fullConfig.temperature,
+        apiKey: fullConfig.apiKey,
+        baseURL: fullConfig.baseURL
       }),
     })
 
@@ -191,21 +235,36 @@ export async function streamingFileAICall(params: {
   fileIds: string[]
   systemPrompt: string
   userPrompt: string
-  apiConfig: AIModelConfig
   onContent: (content: string) => void
+  apiConfig?: AIModelConfig // 改为可选参数
 }) {
-  const { fileIds, systemPrompt, userPrompt, apiConfig, onContent } = params;
+  const { fileIds, systemPrompt, userPrompt, onContent } = params;
+  let { apiConfig } = params;
   
   try {
+    // 如果未提供配置，尝试从store获取默认配置
+    let finalConfig = apiConfig;
+    
+    if (!finalConfig) {
+      const store = await import('./stores/ai-config-store');
+      const defaultConfig = store.useAIConfigStore.getState().getConfig();
+      
+      if (!defaultConfig) {
+        throw new Error('未找到AI模型配置，请先在设置中配置模型');
+      }
+      
+      finalConfig = defaultConfig;
+    }
+    
     // 检查是否是Google Gemini模型
-    const isGemini = isGeminiModel(apiConfig.model)
+    const isGemini = isGeminiModel(finalConfig.model)
     
     console.log('文件AI调用配置:', {
-      model: apiConfig.model,
+      model: finalConfig.model,
       isGemini,
-      baseURL: apiConfig.baseURL,
-      apiKey: apiConfig.apiKey ? '已设置' : '未设置',
-      temperature: apiConfig.temperature,
+      baseURL: finalConfig.baseURL,
+      apiKey: finalConfig.apiKey ? '已设置' : '未设置',
+      temperature: finalConfig.temperature,
       fileIds
     })
 
@@ -229,7 +288,7 @@ export async function streamingFileAICall(params: {
     const formData = new FormData();
     formData.append('systemPrompt', systemPrompt);
     formData.append('userPrompt', userPrompt);
-    formData.append('config', JSON.stringify(apiConfig));
+    formData.append('config', JSON.stringify(finalConfig));
     
     // 添加文件
     for (const file of files) {

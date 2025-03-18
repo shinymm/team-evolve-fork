@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo, useState, useCallback } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -8,81 +8,84 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Plus, Trash2, Zap, AlertCircle } from 'lucide-react'
 import { toast } from "@/components/ui/use-toast"
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useVectorConfigStore } from '@/lib/stores/vector-config-store'
 import { cn } from '@/lib/utils'
-import VectorSettings from '@/components/vector-settings'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useAIConfigStore } from '@/lib/stores/ai-config-store'
-import type { AIModelConfig } from '@/lib/ai-service'
-import { streamingAICall } from '@/lib/ai-service'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 
-// 可用的AI模型预设
-const modelPresets = [
+interface VectorModelConfig {
+  id?: string
+  name: string
+  baseURL: string
+  apiKey: string
+  model: string
+  isDefault?: boolean
+}
+
+// 可用的向量模型预设
+const vectorModelPresets = [
   {
     name: 'OpenAI',
     baseURL: 'https://api.openai.com/v1',
-    models: ['gpt-4', 'gpt-4o','gpt-4o-mini','gpt-3.5-turbo']
+    models: [
+      'text-embedding-3-small',   // 更小、更快、更便宜
+      'text-embedding-3-large',   // 最强性能
+      'text-embedding-ada-002'    // 旧版本，向后兼容
+    ]
   },
   {
     name: '智谱AI',
-    baseURL: 'https://open.bigmodel.cn/api/paas/v3',
-    models: ['glm-4-long', 'glm-4-flash', 'glm-4-plus', 'GLM-Zero-Preview']
-  },
-  {
-    name: 'Qwen',
-    baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-    models: ['qwen-long']
-  },
-  {
-    name: 'Deepseek',
-    baseURL: 'https://api.deepseek.com',
-    models: ['deepseek-chat']
-  },
-  {
-    name: 'Gemini',
-    baseURL: 'https://generativelanguage.googleapis.com/v1beta',
-    models: ['gemini-2.0-flash-lite','gemini-2.0-flash-thinking-exp-01-21']
+    baseURL: 'https://open.bigmodel.cn/api/paas/v4',
+    models: [
+      'embedding-2',     // 通用文本向量
+      'embedding-2-1',   // 增强版文本向量
+      'embedding-3'      // 最新版本
+    ]
   }
 ]
 
-export function AIModelSettings() {
+export default function VectorSettings() {
   // 使用 Zustand store 获取配置
-  const { configs, addConfig, updateConfig, deleteConfig, setDefaultConfig } = useAIConfigStore()
+  const { configs, addConfig, updateConfig, deleteConfig, setDefaultConfig } = useVectorConfigStore()
   
   // UI状态
   const [showAddForm, setShowAddForm] = useState(false)
-  const [newConfig, setNewConfig] = useState<Partial<AIModelConfig>>({})
+  const [newConfig, setNewConfig] = useState<Partial<VectorModelConfig>>({})
   const [testingId, setTestingId] = useState<string | null>(null)
   const [testResults, setTestResults] = useState<Record<string, boolean>>({})
-  const [selectedTab, setSelectedTab] = useState('models')
+  const [isDefault, setIsDefault] = useState(false)
 
   // 处理预设选择
   const handlePresetChange = useCallback((preset: string) => {
-    const [provider, ...modelParts] = preset.split('-');
-    const model = modelParts.join('-'); // 重新组合模型名称，保留所有部分
+    // 找到第一个连字符的位置
+    const firstHyphenIndex = preset.indexOf('-');
+    
+    // 提取提供商名称和模型名称
+    const provider = preset.slice(0, firstHyphenIndex);
+    const model = preset.slice(firstHyphenIndex + 1);
     
     let baseURL = '';
     
-    const providerData = modelPresets.find(p => p.name === provider);
+    const providerData = vectorModelPresets.find(p => p.name === provider);
     if (providerData) {
       baseURL = providerData.baseURL;
     }
     
     setNewConfig({
       ...newConfig,
-      name: preset, // 使用完整的预设名称
-      model, // 使用完整的模型名称
+      name: `${provider}-${model}`,
+      model,
       baseURL
     });
   }, [newConfig])
 
   // 添加新配置
   const handleAddConfig = useCallback(() => {
-    if (!newConfig.name || !newConfig.baseURL || !newConfig.apiKey) {
+    if (!newConfig.name || !newConfig.baseURL || !newConfig.apiKey || !newConfig.model) {
       toast({
         title: '验证失败',
-        description: 'API地址、模型名称和API Key是必填项',
+        description: 'API地址、模型名称、API Key和向量模型名称是必填项',
         variant: 'destructive',
       })
       return
@@ -91,39 +94,42 @@ export function AIModelSettings() {
     // 为新配置生成唯一ID
     const id = Date.now().toString()
     
-    // 如果是第一个配置，自动设为默认
-    const isFirstConfig = configs.length === 0
-    
-    const configToAdd: AIModelConfig = {
+    const configToAdd: VectorModelConfig = {
       id,
-      name: newConfig.name || '',
-      baseURL: newConfig.baseURL || '',
-      apiKey: newConfig.apiKey || '',
-      temperature: newConfig.temperature || 0.7,
-      model: newConfig.model || '',
-      isDefault: isFirstConfig // 第一个配置默认设为默认配置
+      name: newConfig.name,
+      baseURL: newConfig.baseURL.trim(),
+      apiKey: newConfig.apiKey.trim(),
+      model: newConfig.model.trim(),
+      isDefault: isDefault // 使用用户选择的默认设置
     }
+    
+    console.log('准备添加配置:', configToAdd)
     
     // 添加到 store
     addConfig(configToAdd)
     
     // 重置表单
     setNewConfig({})
+    setIsDefault(false)
     setShowAddForm(false)
     
     toast({
       title: '添加成功',
-      description: '新的AI模型配置已添加',
+      description: '新的向量模型配置已添加',
     })
-  }, [configs.length, newConfig, addConfig])
+  }, [newConfig, addConfig, isDefault])
 
   // 删除配置
   const handleDeleteConfig = useCallback((id: string) => {
+    if (!confirm('确定要删除这个配置吗？')) return
+    
+    console.log('准备删除配置:', id) // 添加日志
+    
     // 从 store 删除配置
     deleteConfig(id)
     
     // 清除该配置的测试结果
-    setTestResults(prev => {
+    setTestResults((prev: Record<string, boolean>) => {
       const newResults = { ...prev }
       delete newResults[id]
       return newResults
@@ -131,58 +137,64 @@ export function AIModelSettings() {
     
     toast({
       title: '删除成功',
-      description: 'AI模型配置已删除',
+      description: '向量模型配置已删除',
     })
   }, [deleteConfig])
 
   // 设置默认配置
   const handleSetDefault = useCallback((id: string) => {
+    console.log('准备设置默认配置:', id) // 添加日志
+    
     // 更新 store 中的默认配置
     setDefaultConfig(id)
     
     toast({
       title: '已更新默认配置',
-      description: 'AI模型默认配置已更新',
+      description: '向量模型默认配置已更新',
     })
   }, [setDefaultConfig])
 
   // 测试连接
-  const handleTestConfig = useCallback(async (config: AIModelConfig) => {
+  const handleTestConfig = useCallback(async (config: VectorModelConfig) => {
     if (!config.id) return;
     
     setTestingId(config.id)
     
     try {
-      // 使用统一的 AI 接口进行测试
-      let responseContent = '';
-      await new Promise<void>((resolve, reject) => {
-        streamingAICall(
-          "测试连接", // 最简单的测试提示词
-          (content) => {
-            responseContent += content;
-            // 收到任何响应就表示连接成功
-            resolve();
-          },
-          config // 使用当前配置
-        ).catch(reject);
-      });
+      const response = await fetch('/api/glossary/test-embedding', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          baseURL: config.baseURL,
+          apiKey: config.apiKey,
+          model: config.model
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(await response.text())
+      }
+
+      const data = await response.json()
       
-      setTestResults(prev => ({ 
+      setTestResults((prev: Record<string, boolean>) => ({ 
         ...prev, 
         [config.id as string]: true 
       }))
       toast({
         title: '测试成功',
-        description: `成功连接到${config.name}\n模型返回：${responseContent}`,
+        description: `成功连接到${config.name}\n测试文本：${data.data.testText}\n向量维度：${data.data.dimensions}\n示例向量：${data.data.embedding.join(', ')}`,
       })
     } catch (error) {
-      setTestResults(prev => ({ 
+      setTestResults((prev: Record<string, boolean>) => ({ 
         ...prev, 
         [config.id as string]: false 
       }))
       toast({
         title: '测试失败',
-        description: error instanceof Error ? error.message : '无法连接到AI服务',
+        description: error instanceof Error ? error.message : '无法连接到向量服务',
         variant: 'destructive',
       })
     } finally {
@@ -192,14 +204,14 @@ export function AIModelSettings() {
 
   // 使用 useMemo 缓存配置列表渲染
   const configRows = useMemo(() => {
-    return configs.map((config) => {
+    return configs.map((config: VectorModelConfig) => {
       // 确保配置有id
       if (!config.id) return null;
       
       return (
         <TableRow key={config.id}>
           <TableCell className="font-medium">{config.name}</TableCell>
-          <TableCell>{config.model || '-'}</TableCell>
+          <TableCell>{config.model}</TableCell>
           <TableCell>{config.baseURL}</TableCell>
           <TableCell className="text-center">
             <div
@@ -259,13 +271,13 @@ export function AIModelSettings() {
         <h2 className="text-lg font-semibold">添加新配置</h2>
         <div className="space-y-3">
           <div className="grid grid-cols-[120px,1fr] items-center gap-4">
-            <Label htmlFor="ai-preset">预设模型</Label>
+            <Label htmlFor="vector-preset">预设模型</Label>
             <Select onValueChange={handlePresetChange}>
-              <SelectTrigger id="ai-preset">
+              <SelectTrigger id="vector-preset">
                 <SelectValue placeholder="选择预设" />
               </SelectTrigger>
               <SelectContent>
-                {modelPresets.map(provider => (
+                {vectorModelPresets.map(provider => (
                   <React.Fragment key={provider.name}>
                     {provider.models.map(model => (
                       <SelectItem key={`${provider.name}-${model}`} value={`${provider.name}-${model}`}>
@@ -279,29 +291,29 @@ export function AIModelSettings() {
           </div>
 
           <div className="grid grid-cols-[120px,1fr] items-center gap-4">
-            <Label htmlFor="ai-name">名称</Label>
+            <Label htmlFor="vector-name">名称</Label>
             <Input
-              id="ai-name"
+              id="vector-name"
               value={newConfig.name || ''}
               onChange={(e) => setNewConfig(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="例如: OpenAI GPT-4"
+              placeholder="例如: OpenAI Embedding"
             />
           </div>
 
           <div className="grid grid-cols-[120px,1fr] items-center gap-4">
-            <Label htmlFor="ai-model">模型名称</Label>
+            <Label htmlFor="vector-model">模型名称</Label>
             <Input
-              id="ai-model"
+              id="vector-model"
               value={newConfig.model || ''}
               onChange={(e) => setNewConfig(prev => ({ ...prev, model: e.target.value }))}
-              placeholder="例如: gpt-4-turbo, text-embedding-3-small"
+              placeholder="例如: text-embedding-3-small"
             />
           </div>
 
           <div className="grid grid-cols-[120px,1fr] items-center gap-4">
-            <Label htmlFor="ai-url">API 地址</Label>
+            <Label htmlFor="vector-url">API 地址</Label>
             <Input
-              id="ai-url"
+              id="vector-url"
               value={newConfig.baseURL || ''}
               onChange={(e) => setNewConfig(prev => ({ ...prev, baseURL: e.target.value }))}
               placeholder="例如: https://api.openai.com/v1"
@@ -309,9 +321,9 @@ export function AIModelSettings() {
           </div>
 
           <div className="grid grid-cols-[120px,1fr] items-center gap-4">
-            <Label htmlFor="ai-api-key">API Key</Label>
+            <Label htmlFor="vector-api-key">API Key</Label>
             <Input
-              id="ai-api-key"
+              id="vector-api-key"
               type="password"
               value={newConfig.apiKey || ''}
               onChange={(e) => setNewConfig(prev => ({ ...prev, apiKey: e.target.value }))}
@@ -319,8 +331,24 @@ export function AIModelSettings() {
             />
           </div>
 
+          <div className="grid grid-cols-[120px,1fr] items-center gap-4">
+            <Label htmlFor="vector-default">设为默认</Label>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="vector-default"
+                checked={isDefault}
+                onCheckedChange={(checked) => setIsDefault(checked as boolean)}
+              />
+              <Label htmlFor="vector-default">将此配置设为默认向量模型</Label>
+            </div>
+          </div>
+
           <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={() => setShowAddForm(false)}>
+            <Button variant="outline" onClick={() => {
+              setShowAddForm(false)
+              setIsDefault(false)
+              setNewConfig({})
+            }}>
               取消
             </Button>
             <Button onClick={handleAddConfig}>
@@ -330,70 +358,51 @@ export function AIModelSettings() {
         </div>
       </div>
     )
-  }, [showAddForm, newConfig, handlePresetChange, handleAddConfig])
+  }, [showAddForm, newConfig, handlePresetChange, handleAddConfig, isDefault])
 
   return (
-    <div className="space-y-6">
-      <Tabs defaultValue="models" value={selectedTab} onValueChange={setSelectedTab}>
-        <TabsList>
-          <TabsTrigger value="models">AI模型设置</TabsTrigger>
-          <TabsTrigger value="vector">向量模型设置</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="models" className="space-y-6 pt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>AI模型配置</CardTitle>
-              <CardDescription>
-                配置用于AI助手和问答的大语言模型
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {!showAddForm && (
-                  <div className="flex justify-end items-center mb-4">
-                    <Button onClick={() => setShowAddForm(true)}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      添加配置
-                    </Button>
-                  </div>
-                )}
-                
-                {addForm}
-                
-                {configs.length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>名称</TableHead>
-                        <TableHead>模型</TableHead>
-                        <TableHead>API地址</TableHead>
-                        <TableHead>默认</TableHead>
-                        <TableHead>操作</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {configRows}
-                    </TableBody>
-                  </Table>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    暂无AI模型配置，请点击"添加配置"按钮添加
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="vector" className="pt-4">
-          <VectorSettings />
-        </TabsContent>
-      </Tabs>
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>向量模型配置</CardTitle>
+        <CardDescription>
+          配置用于生成文本向量的嵌入模型
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {!showAddForm && (
+            <div className="flex justify-end items-center mb-4">
+              <Button onClick={() => setShowAddForm(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                添加配置
+              </Button>
+            </div>
+          )}
+          
+          {addForm}
+          
+          {configs.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>名称</TableHead>
+                  <TableHead>模型</TableHead>
+                  <TableHead>API地址</TableHead>
+                  <TableHead>默认</TableHead>
+                  <TableHead>操作</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {configRows}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              暂无向量模型配置，请点击"添加配置"按钮添加
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   )
-}
-
-// 导出为默认组件，以便与 React.lazy 配合使用
-export default AIModelSettings
-
+} 

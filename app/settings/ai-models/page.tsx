@@ -17,7 +17,7 @@ export default function AIModelsPage() {
   }, [])
   
   return (
-    <div className="container mx-auto p-6">
+    <div className="w-[90%] mx-auto">
       {isLoading ? (
         <div className="space-y-4">
           <Skeleton className="h-8 w-64" />
