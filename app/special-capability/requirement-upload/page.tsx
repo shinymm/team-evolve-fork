@@ -194,17 +194,6 @@ export default function RequirementUpload() {
     }
   }, [uploadedFiles])
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0]
-    setError('')
-
-    if (!selectedFile) {
-      return
-    }
-
-    validateAndSetFile(selectedFile)
-  }
-
   const validateAndSetFile = (selectedFile: File) => {
     // 支持的文件类型列表
     const validTypes = [
@@ -222,10 +211,29 @@ export default function RequirementUpload() {
     
     if (!validTypes.includes(selectedFile.type) && !validExtensions.includes(fileExtension || '')) {
       setError('不支持的文件格式，请上传 Word、TXT、PDF、Excel 或 Markdown 文件');
-      return;
+      return false;
     }
 
     setFile(selectedFile);
+    return true;
+  }
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0]
+    setError('')
+
+    if (!selectedFile) {
+      return
+    }
+
+    validateAndSetFile(selectedFile)
+    
+    // 选择文件后自动上传
+    if (selectedFile) {
+      setTimeout(() => {
+        handleUploadFile(selectedFile);
+      }, 100);
+    }
   }
 
   // 处理拖拽事件
@@ -255,12 +263,18 @@ export default function RequirementUpload() {
     
     const droppedFile = e.dataTransfer.files[0]
     if (droppedFile) {
-      validateAndSetFile(droppedFile)
+      const isValid = validateAndSetFile(droppedFile)
+      // 如果文件有效，自动上传
+      if (isValid) {
+        setTimeout(() => {
+          handleUploadFile(droppedFile);
+        }, 100);
+      }
     }
   }
 
-  const handleUpload = async () => {
-    if (!file) {
+  const handleUploadFile = async (fileToUpload: File) => {
+    if (!fileToUpload) {
       setError('请先选择文件')
       return
     }
@@ -275,7 +289,7 @@ export default function RequirementUpload() {
 
     try {
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', fileToUpload)
       formData.append('apiKey', aiConfig.apiKey)
       formData.append('baseURL', aiConfig.baseURL)
       formData.append('model', aiConfig.model)
@@ -324,6 +338,16 @@ export default function RequirementUpload() {
     } finally {
       setUploading(false)
     }
+  }
+  
+  // 保留原有的handleUpload函数，但修改为使用handleUploadFile
+  const handleUpload = async () => {
+    if (!file) {
+      setError('请先选择文件')
+      return
+    }
+    
+    await handleUploadFile(file);
   }
 
   const handleDeleteFile = (fileId: string) => {
@@ -667,7 +691,7 @@ export default function RequirementUpload() {
   return (
     <>
       <div className="w-full max-w-full overflow-x-hidden">
-        <div className="space-y-6 px-6 py-6">
+        <div className="space-y-4 px-4 py-4 mx-auto w-[90%]">
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center">
@@ -676,7 +700,7 @@ export default function RequirementUpload() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="ml-2 cursor-help">
-                        <AlertCircle className="h-5 w-5 text-orange-500" />
+                        <AlertCircle className="h-4 w-4 text-orange-500" />
                       </div>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-md p-4 bg-white shadow-lg rounded-lg border border-gray-200">
@@ -688,29 +712,29 @@ export default function RequirementUpload() {
                   </Tooltip>
                 </TooltipProvider>
               </div>
-              <p className="text-muted-foreground text-sm mt-2">
+              <p className="text-muted-foreground text-xs mt-1">
                 请上传需求书文档（支持 .docx、.txt、.pdf、.xlsx、.md 格式），我们将帮助您进行智能拆解。
               </p>
               {!aiConfig && (
-                <p className="text-red-500 text-sm mt-2">
+                <p className="text-red-500 text-xs mt-1">
                   未检测到AI模型配置，请先在设置中配置模型
                 </p>
               )}
             </div>
           </div>
 
-          <div className="space-y-4 overflow-x-auto">
-            <div className="border rounded-lg p-6">
+          <div className="space-y-3 overflow-x-auto">
+            <div className="border rounded-lg p-3">
               <div 
                 ref={dropAreaRef}
-                className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition-colors duration-200"
+                className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center transition-colors duration-200"
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
               >
-                <div className="flex flex-col items-center justify-center space-y-4">
-                  <Upload className="h-12 w-12 text-gray-400" />
-                  <div className="text-sm text-gray-600">
+                <div className="flex flex-col items-center justify-center space-y-2">
+                  <Upload className="h-8 w-8 text-gray-400" />
+                  <div className="text-xs text-gray-600">
                     {file ? (
                       <p className="text-green-600">已选择文件: {file.name}</p>
                     ) : (
@@ -729,15 +753,15 @@ export default function RequirementUpload() {
                       </>
                     )}
                   </div>
-                  {error && <p className="text-red-500 text-sm">{error}</p>}
+                  {error && <p className="text-red-500 text-xs">{error}</p>}
                 </div>
               </div>
 
-              <div className="mt-6 flex justify-center gap-3">
+              <div className="mt-3 flex justify-center gap-2">
                 <button
                   onClick={handleUpload}
                   disabled={!file || uploading || !aiConfig}
-                  className={`px-4 py-2 rounded-md text-white text-sm
+                  className={`px-3 py-1.5 rounded-md text-white text-xs
                     ${file && !uploading && aiConfig
                       ? 'bg-orange-500 hover:bg-orange-600' 
                       : 'bg-gray-400 cursor-not-allowed'
@@ -750,16 +774,16 @@ export default function RequirementUpload() {
                 <Button
                   onClick={handleConvertToMd}
                   disabled={uploadedFiles.length === 0 || isConverting}
-                  className={`flex items-center gap-2 ${
+                  className={`flex items-center gap-1 px-3 py-1.5 h-auto text-xs ${
                     uploadedFiles.length > 0 && !isConverting
                       ? 'bg-orange-500 hover:bg-orange-600 text-white' 
                       : 'bg-gray-400 text-gray-100 cursor-not-allowed'
                   }`}
                 >
                   {isConverting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
-                    <Book className="h-4 w-4" />
+                    <Book className="h-3 w-3" />
                   )}
                   {isConverting ? '转换中...' : '需求书转MD'}
                 </Button>
@@ -768,16 +792,16 @@ export default function RequirementUpload() {
                 <Button
                   onClick={handleOpenTestDialog}
                   disabled={uploadedFiles.length === 0 || isGeneratingTest}
-                  className={`flex items-center gap-2 ${
+                  className={`flex items-center gap-1 px-3 py-1.5 h-auto text-xs ${
                     uploadedFiles.length > 0 && !isGeneratingTest
                       ? 'bg-orange-500 hover:bg-orange-600 text-white' 
                       : 'bg-gray-400 text-gray-100 cursor-not-allowed'
                   }`}
                 >
                   {isGeneratingTest ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
-                    <FileText className="h-4 w-4" />
+                    <FileText className="h-3 w-3" />
                   )}
                   {isGeneratingTest ? '生成中...' : '需求书转测试用例'}
                 </Button>
@@ -786,16 +810,16 @@ export default function RequirementUpload() {
                 <Button
                   onClick={handleCompareRequirements}
                   disabled={uploadedFiles.length < 2 || isComparing}
-                  className={`flex items-center gap-2 ${
+                  className={`flex items-center gap-1 px-3 py-1.5 h-auto text-xs ${
                     uploadedFiles.length >= 2 && !isComparing
                       ? 'bg-orange-500 hover:bg-orange-600 text-white' 
                       : 'bg-gray-400 text-gray-100 cursor-not-allowed'
                   }`}
                 >
                   {isComparing ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
-                    <HelpCircle className="h-4 w-4" />
+                    <HelpCircle className="h-3 w-3" />
                   )}
                   {isComparing ? '对比中...' : '需求对比抽取边界知识'}
                 </Button>
@@ -803,10 +827,10 @@ export default function RequirementUpload() {
               
               {/* 文件选择警告提示 */}
               {fileSelectionAlert && (
-                <Alert variant="destructive" className="mt-4">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>警告</AlertTitle>
-                  <AlertDescription>
+                <Alert variant="destructive" className="mt-2 py-2">
+                  <AlertCircle className="h-3 w-3" />
+                  <AlertTitle className="text-xs">警告</AlertTitle>
+                  <AlertDescription className="text-xs">
                     {fileSelectionAlert}
                   </AlertDescription>
                 </Alert>
@@ -814,31 +838,31 @@ export default function RequirementUpload() {
               
               {/* 已上传文件列表和操作区域 */}
               {uploadedFiles.length > 0 && (
-                <div className="mt-8">
-                  <div className="flex justify-between items-center mb-2">
+                <div className="mt-3">
+                  <div className="flex justify-between items-center mb-1">
                     <div>
-                      <h3 className="text-sm font-medium text-gray-700">已上传文件列表</h3>
-                      <p className="text-xs text-gray-500 mt-1">可多选文件：需求书转MD仅支持单选，测试用例生成支持多选，需求对比需选择两个文件</p>
+                      <h3 className="text-xs font-medium text-gray-700">已上传文件列表</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">可多选文件：需求书转MD仅支持单选，测试用例生成支持多选，需求对比需选择两个文件</p>
                     </div>
                   </div>
                   
-                  <div className="border rounded-md overflow-hidden">
+                  <div className="border rounded-md overflow-hidden max-h-[150px] overflow-y-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th scope="col" className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             选择
                           </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             文件名
                           </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             文件ID
                           </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             上传时间
                           </th>
-                          <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th scope="col" className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                             操作
                           </th>
                         </tr>
@@ -846,31 +870,31 @@ export default function RequirementUpload() {
                       <tbody className="bg-white divide-y divide-gray-200">
                         {uploadedFiles.map((file) => (
                           <tr key={file.id}>
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900">
                               <Checkbox
                                 checked={file.selected}
                                 onCheckedChange={(checked) => handleSelectFile(file.id, checked === true)}
                                 aria-label={`选择文件 ${file.name}`}
                               />
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 flex items-center">
-                              <FileIcon className="h-4 w-4 mr-2 text-orange-500" />
+                            <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900 flex items-center">
+                              <FileIcon className="h-3 w-3 mr-1 text-orange-500" />
                               {file.name}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
                               {file.id}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
                               {file.uploadTime.toLocaleString('zh-CN')}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+                            <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500 text-right">
                               <button
                                 onClick={() => handleDeleteFile(file.id)}
-                                className="text-red-500 hover:text-red-700 rounded-full p-1 hover:bg-red-50 transition-colors"
+                                className="text-red-500 hover:text-red-700 rounded-full p-0.5 hover:bg-red-50 transition-colors"
                                 title="删除文件"
                                 aria-label="删除文件"
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-3 w-3" />
                               </button>
                             </td>
                           </tr>
@@ -883,11 +907,11 @@ export default function RequirementUpload() {
             </div>
             
             {/* 输出内容标签页UI */}
-            <div className="border rounded-lg p-6 mt-6">
-              <div className="flex border-b mb-4">
+            <div className="border rounded-lg p-4 mt-3 overflow-hidden">
+              <div className="flex border-b mb-3">
                 <button
                   onClick={() => setActiveTab('md')}
-                  className={`px-4 py-2 font-medium text-sm rounded-t-lg mr-2 transition-colors ${
+                  className={`px-3 py-1.5 font-medium text-xs rounded-t-lg mr-2 transition-colors ${
                     activeTab === 'md' 
                       ? 'bg-orange-500 text-white' 
                       : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
@@ -897,7 +921,7 @@ export default function RequirementUpload() {
                 </button>
                 <button
                   onClick={() => setActiveTab('test')}
-                  className={`px-4 py-2 font-medium text-sm rounded-t-lg mr-2 transition-colors ${
+                  className={`px-3 py-1.5 font-medium text-xs rounded-t-lg mr-2 transition-colors ${
                     activeTab === 'test' 
                       ? 'bg-orange-500 text-white' 
                       : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
@@ -907,7 +931,7 @@ export default function RequirementUpload() {
                 </button>
                 <button
                   onClick={() => setActiveTab('boundary')}
-                  className={`px-4 py-2 font-medium text-sm rounded-t-lg transition-colors ${
+                  className={`px-3 py-1.5 font-medium text-xs rounded-t-lg transition-colors ${
                     activeTab === 'boundary' 
                       ? 'bg-orange-500 text-white' 
                       : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
@@ -920,18 +944,18 @@ export default function RequirementUpload() {
               {/* 需求书内容 */}
               {activeTab === 'md' && (
                 <div>
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold">需求书内容</h2>
+                  <div className="flex justify-between items-center mb-2">
+                    <h2 className="text-base font-semibold">需求书内容</h2>
                     <Button 
                       onClick={handleDownloadMd}
                       disabled={!mdContent}
-                      className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1"
+                      className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1 px-3 py-1 h-8 text-xs"
                     >
-                      <Download className="h-4 w-4" />
+                      <Download className="h-3 w-3" />
                       下载MD文件
                     </Button>
                   </div>
-                  <div className="border rounded p-4 bg-gray-50 min-h-[300px] max-h-[600px] overflow-auto" ref={mdContentRef}>
+                  <div className="border rounded p-3 bg-gray-50 min-h-[800px] max-h-[1400px] overflow-auto w-full" ref={mdContentRef}>
                     {/* 添加调试信息，使用自执行函数避免返回void */}
                     {(() => {
                       console.log('渲染Markdown内容区域, isConverting:', isConverting, 'mdContent长度:', mdContent.length);
@@ -947,18 +971,18 @@ export default function RequirementUpload() {
               {/* 测试用例 */}
               {activeTab === 'test' && (
                 <div>
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold">测试用例</h2>
+                  <div className="flex justify-between items-center mb-2">
+                    <h2 className="text-base font-semibold">测试用例</h2>
                     <Button 
                       onClick={handleDownloadTest}
                       disabled={!testContent}
-                      className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1"
+                      className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1 px-3 py-1 h-8 text-xs"
                     >
-                      <Download className="h-4 w-4" />
+                      <Download className="h-3 w-3" />
                       下载测试用例
                     </Button>
                   </div>
-                  <div className="border rounded p-4 bg-gray-50 min-h-[300px] max-h-[600px] overflow-auto" ref={testContentRef}>
+                  <div className="border rounded p-3 bg-gray-50 min-h-[800px] max-h-[1400px] overflow-auto w-full" ref={testContentRef}>
                     {/* 添加调试信息，使用自执行函数避免返回void */}
                     {(() => {
                       console.log('渲染测试用例区域, isGeneratingTest:', isGeneratingTest, 'testContent长度:', testContent.length);
@@ -974,18 +998,18 @@ export default function RequirementUpload() {
               {/* 边界知识 */}
               {activeTab === 'boundary' && (
                 <div>
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold">需求边界知识</h2>
+                  <div className="flex justify-between items-center mb-2">
+                    <h2 className="text-base font-semibold">需求边界知识</h2>
                     <Button 
                       onClick={handleDownloadBoundary}
                       disabled={!boundaryContent}
-                      className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1"
+                      className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1 px-3 py-1 h-8 text-xs"
                     >
-                      <Download className="h-4 w-4" />
+                      <Download className="h-3 w-3" />
                       下载边界知识
                     </Button>
                   </div>
-                  <div className="border rounded p-4 bg-gray-50 min-h-[300px] max-h-[600px] overflow-auto" ref={boundaryContentRef}>
+                  <div className="border rounded p-3 bg-gray-50 min-h-[800px] max-h-[1400px] overflow-auto w-full" ref={boundaryContentRef}>
                     {/* 添加调试信息，使用自执行函数避免返回void */}
                     {(() => {
                       console.log('渲染边界知识区域, isComparing:', isComparing, 'boundaryContent长度:', boundaryContent.length);

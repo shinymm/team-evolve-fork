@@ -1,4 +1,4 @@
-export const userStoryBreakdownPrompt = `
+export const userPersonaPrompt = `
 ## 角色与任务
 我是软件产品设计专家，你是我在用户研究方面经验丰富的助手。我希望你指导我创建用户细分和用户画像描述。
 
