@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button"
 import { RequirementToMdService } from '@/lib/services/requirement-to-md-service'
 import { RequirementToTestService } from '@/lib/services/requirement-to-test-service'
 import { RequirementBoundaryComparisonService } from '@/lib/services/requirement-boundary-comparison-service'
+import { RequirementTerminologyService } from '@/lib/services/requirement-terminology-service'
+import { RequirementArchitectureService } from '@/lib/services/requirement-architecture-service'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -100,9 +102,13 @@ export default function RequirementUpload() {
   const [mdContent, setMdContent] = useState<string>('')
   const [testContent, setTestContent] = useState<string>('')
   const [boundaryContent, setBoundaryContent] = useState<string>('')
+  const [terminologyContent, setTerminologyContent] = useState<string>('')
+  const [architectureContent, setArchitectureContent] = useState<string>('')
   const [isConverting, setIsConverting] = useState(false)
   const [isGeneratingTest, setIsGeneratingTest] = useState(false)
   const [isComparing, setIsComparing] = useState(false)
+  const [isExtractingTerminology, setIsExtractingTerminology] = useState(false)
+  const [isExtractingArchitecture, setIsExtractingArchitecture] = useState(false)
   const [fileSelectionAlert, setFileSelectionAlert] = useState<string>('')
   const [showChapterDialog, setShowChapterDialog] = useState(false)
   const [requirementChapter, setRequirementChapter] = useState('')
@@ -112,12 +118,14 @@ export default function RequirementUpload() {
   const mdContentRef = useRef<HTMLDivElement>(null)
   const testContentRef = useRef<HTMLDivElement>(null)
   const boundaryContentRef = useRef<HTMLDivElement>(null)
+  const terminologyContentRef = useRef<HTMLDivElement>(null)
+  const architectureContentRef = useRef<HTMLDivElement>(null)
   
   // 添加一个强制重新渲染的机制
   const [, forceUpdate] = useState({});
   
   // 添加标签页状态
-  const [activeTab, setActiveTab] = useState<'md' | 'test' | 'boundary'>('md');
+  const [activeTab, setActiveTab] = useState<'md' | 'test' | 'boundary' | 'terminology' | 'architecture'>('md');
   
   // 监听内容变化，自动滚动到底部
   useEffect(() => {
@@ -141,17 +149,31 @@ export default function RequirementUpload() {
     console.log('boundaryContent变化了，新长度:', boundaryContent.length);
   }, [boundaryContent]);
 
+  useEffect(() => {
+    if (terminologyContentRef.current) {
+      terminologyContentRef.current.scrollTop = terminologyContentRef.current.scrollHeight;
+    }
+    console.log('terminologyContent变化了，新长度:', terminologyContent.length);
+  }, [terminologyContent]);
+
+  useEffect(() => {
+    if (architectureContentRef.current) {
+      architectureContentRef.current.scrollTop = architectureContentRef.current.scrollHeight;
+    }
+    console.log('architectureContent变化了，新长度:', architectureContent.length);
+  }, [architectureContent]);
+
   // 当内容变化时，强制重新渲染
   useEffect(() => {
     const timer = setInterval(() => {
-      if (isConverting || isGeneratingTest || isComparing) {
+      if (isConverting || isGeneratingTest || isComparing || isExtractingTerminology || isExtractingArchitecture) {
         console.log('强制重新渲染，当前时间:', new Date().toISOString());
         forceUpdate({});
       }
     }, 500); // 每500ms强制重新渲染一次
     
     return () => clearInterval(timer);
-  }, [isConverting, isGeneratingTest, isComparing]);
+  }, [isConverting, isGeneratingTest, isComparing, isExtractingTerminology, isExtractingArchitecture]);
 
   // 获取AI配置
   useEffect(() => {
@@ -688,6 +710,206 @@ export default function RequirementUpload() {
     }
   };
 
+  // 处理术语知识抽取
+  const handleExtractTerminology = async () => {
+    if (uploadedFiles.length === 0) {
+      toast({
+        title: "抽取失败",
+        description: "请先上传至少一个文件",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const selectedFiles = uploadedFiles.filter(file => file.selected);
+    if (selectedFiles.length === 0) {
+      setFileSelectionAlert("请至少选择一个文件进行术语抽取");
+      return;
+    }
+
+    setFileSelectionAlert("");
+
+    if (!aiConfig) {
+      toast({
+        title: "抽取失败",
+        description: "请先配置AI模型",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // 清空之前的内容
+    setTerminologyContent('');
+    setIsExtractingTerminology(true);
+    // 激活术语知识标签页
+    setActiveTab('terminology');
+
+    try {
+      const service = new RequirementTerminologyService();
+      const fileIds = selectedFiles.map(file => file.id);
+
+      await service.extractTerminology(
+        fileIds,
+        aiConfig,
+        (content: string) => {
+          console.log('收到新内容，长度:', content.length);
+          // 使用函数式更新，确保基于最新状态
+          setTerminologyContent(prev => prev + content);
+        }
+      );
+    } catch (error) {
+      console.error('术语抽取失败:', error);
+      toast({
+        title: "抽取失败",
+        description: error instanceof Error ? error.message : "未知错误",
+        variant: "destructive",
+      });
+    } finally {
+      console.log('术语抽取完成');
+      setIsExtractingTerminology(false);
+    }
+  };
+
+  // 处理下载术语知识
+  const handleDownloadTerminology = () => {
+    try {
+      if (!terminologyContent) {
+        toast({
+          title: "下载失败",
+          description: "没有可下载的术语知识内容",
+          variant: "destructive",
+          duration: 3000
+        });
+        return;
+      }
+
+      const blob = new Blob([terminologyContent], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `业务术语知识-${timestamp}.md`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast({
+        title: "下载成功",
+        description: "术语知识内容已保存为 Markdown 文件",
+        duration: 3000
+      });
+    } catch (error) {
+      toast({
+        title: "下载失败",
+        description: "请手动复制内容并保存",
+        variant: "destructive",
+        duration: 3000
+      });
+    }
+  };
+
+  // 处理信息架构树抽取
+  const handleExtractArchitecture = async () => {
+    if (uploadedFiles.length === 0) {
+      toast({
+        title: "抽取失败",
+        description: "请先上传至少一个文件",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const selectedFiles = uploadedFiles.filter(file => file.selected);
+    if (selectedFiles.length === 0) {
+      setFileSelectionAlert("请至少选择一个文件进行信息架构抽取");
+      return;
+    }
+
+    setFileSelectionAlert("");
+
+    if (!aiConfig) {
+      toast({
+        title: "抽取失败",
+        description: "请先配置AI模型",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // 清空之前的内容
+    setArchitectureContent('');
+    setIsExtractingArchitecture(true);
+    // 激活信息架构标签页
+    setActiveTab('architecture');
+
+    try {
+      const service = new RequirementArchitectureService();
+      const fileIds = selectedFiles.map(file => file.id);
+
+      await service.extractArchitecture(
+        fileIds,
+        aiConfig,
+        (content: string) => {
+          console.log('收到新内容，长度:', content.length);
+          // 使用函数式更新，确保基于最新状态
+          setArchitectureContent(prev => prev + content);
+        }
+      );
+    } catch (error) {
+      console.error('信息架构抽取失败:', error);
+      toast({
+        title: "抽取失败",
+        description: error instanceof Error ? error.message : "未知错误",
+        variant: "destructive",
+      });
+    } finally {
+      console.log('信息架构抽取完成');
+      setIsExtractingArchitecture(false);
+    }
+  };
+
+  // 处理下载信息架构
+  const handleDownloadArchitecture = () => {
+    try {
+      if (!architectureContent) {
+        toast({
+          title: "下载失败",
+          description: "没有可下载的信息架构内容",
+          variant: "destructive",
+          duration: 3000
+        });
+        return;
+      }
+
+      const blob = new Blob([architectureContent], { type: 'text/typescript' });
+      const url = URL.createObjectURL(blob);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `信息架构树-${timestamp}.ts`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast({
+        title: "下载成功",
+        description: "信息架构内容已保存为 TypeScript 文件",
+        duration: 3000
+      });
+    } catch (error) {
+      toast({
+        title: "下载失败",
+        description: "请手动复制内容并保存",
+        variant: "destructive",
+        duration: 3000
+      });
+    }
+  };
+
   return (
     <>
       <div className="w-full max-w-full overflow-x-hidden">
@@ -713,7 +935,7 @@ export default function RequirementUpload() {
                 </TooltipProvider>
               </div>
               <p className="text-muted-foreground text-xs mt-1">
-                请上传需求书文档（支持 .docx、.txt、.pdf、.xlsx、.md 格式），我们将帮助您进行智能拆解。
+                请上传需求书文档（建议Qwen-long使用docx格式， Gemini使用PDF格式），我们将帮助您进行智能拆解。
               </p>
               {!aiConfig && (
                 <p className="text-red-500 text-xs mt-1">
@@ -821,7 +1043,43 @@ export default function RequirementUpload() {
                   ) : (
                     <HelpCircle className="h-3 w-3" />
                   )}
-                  {isComparing ? '对比中...' : '需求对比抽取边界知识'}
+                  {isComparing ? '对比中...' : '抽取边界知识'}
+                </Button>
+                
+                {/* 术语知识抽取按钮 */}
+                <Button
+                  onClick={handleExtractTerminology}
+                  disabled={uploadedFiles.length === 0 || isExtractingTerminology}
+                  className={`flex items-center gap-1 px-3 py-1.5 h-auto text-xs ${
+                    uploadedFiles.length > 0 && !isExtractingTerminology
+                      ? 'bg-orange-500 hover:bg-orange-600 text-white' 
+                      : 'bg-gray-400 text-gray-100 cursor-not-allowed'
+                  }`}
+                >
+                  {isExtractingTerminology ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Book className="h-3 w-3" />
+                  )}
+                  {isExtractingTerminology ? '抽取中...' : '抽取术语知识'}
+                </Button>
+                
+                {/* 信息架构树抽取按钮 */}
+                <Button
+                  onClick={handleExtractArchitecture}
+                  disabled={uploadedFiles.length === 0 || isExtractingArchitecture}
+                  className={`flex items-center gap-1 px-3 py-1.5 h-auto text-xs ${
+                    uploadedFiles.length > 0 && !isExtractingArchitecture
+                      ? 'bg-orange-500 hover:bg-orange-600 text-white' 
+                      : 'bg-gray-400 text-gray-100 cursor-not-allowed'
+                  }`}
+                >
+                  {isExtractingArchitecture ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <FileText className="h-3 w-3" />
+                  )}
+                  {isExtractingArchitecture ? '抽取中...' : '抽取信息架构树'}
                 </Button>
               </div>
               
@@ -931,13 +1189,33 @@ export default function RequirementUpload() {
                 </button>
                 <button
                   onClick={() => setActiveTab('boundary')}
-                  className={`px-3 py-1.5 font-medium text-xs rounded-t-lg transition-colors ${
+                  className={`px-3 py-1.5 font-medium text-xs rounded-t-lg mr-2 transition-colors ${
                     activeTab === 'boundary' 
                       ? 'bg-orange-500 text-white' 
                       : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                   }`}
                 >
                   需求边界知识
+                </button>
+                <button
+                  onClick={() => setActiveTab('terminology')}
+                  className={`px-3 py-1.5 font-medium text-xs rounded-t-lg mr-2 transition-colors ${
+                    activeTab === 'terminology' 
+                      ? 'bg-orange-500 text-white' 
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  术语知识
+                </button>
+                <button
+                  onClick={() => setActiveTab('architecture')}
+                  className={`px-3 py-1.5 font-medium text-xs rounded-t-lg transition-colors ${
+                    activeTab === 'architecture' 
+                      ? 'bg-orange-500 text-white' 
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  信息架构树
                 </button>
               </div>
               
@@ -1018,6 +1296,60 @@ export default function RequirementUpload() {
                     
                     {/* 显示内容，无论是否为空 */}
                     <ContentDisplay content={boundaryContent} />
+                  </div>
+                </div>
+              )}
+              
+              {/* 术语知识 */}
+              {activeTab === 'terminology' && (
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <h2 className="text-base font-semibold">业务术语知识</h2>
+                    <Button 
+                      onClick={handleDownloadTerminology}
+                      disabled={!terminologyContent}
+                      className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1 px-3 py-1 h-8 text-xs"
+                    >
+                      <Download className="h-3 w-3" />
+                      下载术语知识
+                    </Button>
+                  </div>
+                  <div className="border rounded p-3 bg-gray-50 min-h-[800px] max-h-[1400px] overflow-auto w-full" ref={terminologyContentRef}>
+                    {/* 添加调试信息，使用自执行函数避免返回void */}
+                    {(() => {
+                      console.log('渲染术语知识区域, isExtractingTerminology:', isExtractingTerminology, 'terminologyContent长度:', terminologyContent.length);
+                      return null;
+                    })()}
+                    
+                    {/* 显示内容，无论是否为空 */}
+                    <ContentDisplay content={terminologyContent} />
+                  </div>
+                </div>
+              )}
+              
+              {/* 信息架构树 */}
+              {activeTab === 'architecture' && (
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <h2 className="text-base font-semibold">信息架构树</h2>
+                    <Button 
+                      onClick={handleDownloadArchitecture}
+                      disabled={!architectureContent}
+                      className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1 px-3 py-1 h-8 text-xs"
+                    >
+                      <Download className="h-3 w-3" />
+                      下载信息架构
+                    </Button>
+                  </div>
+                  <div className="border rounded p-3 bg-gray-50 min-h-[800px] max-h-[1400px] overflow-auto w-full" ref={architectureContentRef}>
+                    {/* 添加调试信息，使用自执行函数避免返回void */}
+                    {(() => {
+                      console.log('渲染信息架构区域, isExtractingArchitecture:', isExtractingArchitecture, 'architectureContent长度:', architectureContent.length);
+                      return null;
+                    })()}
+                    
+                    {/* 显示内容，无论是否为空 */}
+                    <ContentDisplay content={architectureContent} />
                   </div>
                 </div>
               )}
