@@ -1,4 +1,4 @@
-import { Bot, Plus, Brain, ExternalLink, Code2, Paintbrush, FileSearch, Coffee, MessageSquare, Briefcase, BookOpen, Target, TestTube, Bug, GitBranch, Rocket, Box, Cpu, HelpCircle, Network, Lightbulb, FileText, Sparkles, Layers, Wand2, Zap } from "lucide-react"
+import { Bot, Plus, Brain, ExternalLink, Code2, Paintbrush, FileSearch, Coffee, MessageSquare, Briefcase, BookOpen, Target, TestTube, Bug, GitBranch, Rocket, Box, Cpu, HelpCircle, Network, Lightbulb, FileText, Sparkles, Layers, Wand2, Zap, Clock } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Assistant } from "./ai-team-sidebar"
 import { cn } from "@/lib/utils"
@@ -49,6 +49,13 @@ const developmentAgents: Assistant[] = [
     welcomeMessage: "你好！我是产品助理。我可以帮你：\n• 收集用户反馈\n• 分析产品数据\n• 撰写产品文档\n• 规划产品路线\n\n需要我做什么？"
   },
   {
+    id: "user-persona",
+    name: "用户画像助手",
+    icon: <Clock className="w-5 h-5" />,
+    avatarColor: "bg-zinc-700",
+    welcomeMessage: "Hi，我是您的用户研究专家助手，可以帮助您创建详细的用户细分和用户画像描述！\n请告诉我您想要分析的产品和用户群体，我将通过四个步骤指导您完成用户研究：\n- 生成结构化的用户画像基础描述\n- 分析用户群体的细分维度\n- 提出具体的用户群体建议\n- 为每个用户群体创建详细画像\n准备好了吗？请提供您的产品和用户群体信息，我们一起开始吧！"
+  },
+  {
     id: "test",
     name: "测试助理",
     icon: <TestTube className="w-5 h-5" />,
@@ -92,13 +99,6 @@ const officeAgents: Assistant[] = [
     icon: <Bot className="w-5 h-5" />,
     avatarColor: "bg-zinc-700",
     welcomeMessage: "你好！我是你的日程助理。我可以帮你：\n• 查看今日会议安排\n• 创建/修改会议日程\n• 发送会议邀请\n• 设置会议提醒\n\n需要我做什么？"
-  },
-  {
-    id: "timesheet",
-    name: "工时助理",
-    icon: <Briefcase className="w-5 h-5" />,
-    avatarColor: "bg-zinc-700",
-    welcomeMessage: "Hi，我是工时助理。我可以帮你：\n• 对接Timesheet填报工时\n• 生成工作日报\n• 生成周报\n\n要我现在就帮你处理今天的工时记录吗？"
   },
   {
     id: "doc",
