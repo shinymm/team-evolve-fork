@@ -81,6 +81,7 @@
   "devDependencies": {
     "@shadcn/ui": "^0.0.4",
     "@types/js-yaml": "^4.0.9",
-    "@types/plantuml-encoder": "^1.4.2"
+    "@types/plantuml-encoder": "^1.4.2",
+    "@types/ws": "^8.18.0"
   }
 }
