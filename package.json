@@ -66,10 +66,15 @@
     "typescript": "5.1.6",
     "uuid": "^11.1.0",
     "zod": "^3.24.1",
-    "zustand": "^5.0.3"
+    "zustand": "^5.0.3",
+    "@prisma/adapter-neon": "^5.10.2",
+    "ws": "^8.16.0"
   },
   "scripts": {
-    "dev": "next dev"
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "lint": "next lint"
   },
   "devDependencies": {
     "@shadcn/ui": "^0.0.4",

@@ -11,9 +11,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-  // 启用pgvector扩展
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL") // 用于直接连接（比如数据库迁移）
   extensions = [vector]
 }
 
