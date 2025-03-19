@@ -61,15 +61,27 @@ export function isGeminiModel(modelName: string): boolean {
 /**
  * 流式AI调用，自动处理配置
  * @param prompt 用户提示
- * @param onContent 处理回复内容的回调函数
- * @param config 可选的AI模型配置，如果不提供则使用默认配置
+ * @param onContentOrConfig 处理回复内容的回调函数或AI配置
+ * @param configOrOnContent 可选的AI模型配置或回调函数
  * @returns 
  */
 export async function streamingAICall(
   prompt: string,
-  onContent: (content: string) => void,
-  config?: AIModelConfig
+  onContentOrConfig: ((content: string) => void) | AIModelConfig,
+  configOrOnContent?: AIModelConfig | ((content: string) => void)
 ) {
+  // 确定正确的参数顺序
+  let onContent: (content: string) => void;
+  let config: AIModelConfig | undefined;
+
+  if (typeof onContentOrConfig === 'function') {
+    onContent = onContentOrConfig;
+    config = configOrOnContent as AIModelConfig;
+  } else {
+    onContent = configOrOnContent as (content: string) => void;
+    config = onContentOrConfig;
+  }
+
   try {
     // 如果未提供配置，尝试从store获取默认配置
     let finalConfig = config;

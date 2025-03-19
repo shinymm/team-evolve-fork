@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Pencil, Trash2, Plus, Check, X } from 'lucide-react'
+import { Pencil, Trash2, Plus, Check, X, Loader2 } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -56,6 +56,7 @@ export default function GlossaryPage() {
   const [items, setItems] = useState<GlossaryItem[]>([])
   const [pagination, setPagination] = useState<Pagination>({ total: 0, page: 1, limit: 10, totalPages: 0 })
   const [isLoading, setIsLoading] = useState(true)
+  const [isApproving, setIsApproving] = useState(false)  // 新增审核中状态
   const [selectedItems, setSelectedItems] = useState<number[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
@@ -283,7 +284,7 @@ export default function GlossaryPage() {
     
     if (!confirm(`确定要审核通过选中的 ${selectedItems.length} 个术语吗？这将生成它们的向量嵌入值，可能需要一些时间。`)) return
     
-    setIsLoading(true)
+    setIsApproving(true)  // 使用新的审核中状态
     
     try {
       const results = []
@@ -373,7 +374,7 @@ export default function GlossaryPage() {
       })
       console.error(error)
     } finally {
-      setIsLoading(false)
+      setIsApproving(false)  // 重置审核中状态
     }
   }
   
@@ -503,9 +504,15 @@ export default function GlossaryPage() {
           
           <Button
             onClick={handleBatchApprove}
-            disabled={selectedItems.length === 0}
+            disabled={selectedItems.length === 0 || isApproving}
             variant="outline"
+            className="relative"
           >
+            {isApproving && (
+              <div className="absolute inset-0 flex items-center justify-center bg-background/80">
+                <Loader2 className="h-4 w-4 animate-spin" />
+              </div>
+            )}
             审核通过 ({selectedItems.length})
           </Button>
         </div>
@@ -522,7 +529,10 @@ export default function GlossaryPage() {
                     <div className="flex items-center gap-2">
                       <h3 className="text-lg font-bold">{item.term}</h3>
                       {item.english && <span className="text-muted-foreground">({item.english})</span>}
-                      <Badge variant={item.status === 'approved' ? 'default' : 'outline'}>
+                      <Badge variant={item.status === 'approved' ? 'outline' : 'outline'} className={item.status === 'approved' 
+                        ? "bg-orange-500 hover:bg-orange-600 text-white border-orange-400"
+                        : "bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100"
+                      }>
                         {item.status === 'approved' ? '已审核' : '待审核'}
                       </Badge>
                     </div>
@@ -545,7 +555,7 @@ export default function GlossaryPage() {
       ) : (
         <div className="rounded-md border">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-gray-50/80">
               <TableRow>
                 <TableHead className="w-[50px]">
                   <Checkbox
@@ -640,12 +650,17 @@ export default function GlossaryPage() {
                     </TableRow>
                   )}
                   {items.map((item) => (
-                    <TableRow key={item.id}>
+                    <TableRow key={item.id} className={selectedItems.includes(item.id) && isApproving ? 'relative opacity-50' : ''}>
+                      {selectedItems.includes(item.id) && isApproving && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-background/30 z-10">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        </div>
+                      )}
                       <TableCell>
                         <Checkbox
                           checked={selectedItems.includes(item.id)}
                           onCheckedChange={() => toggleSelectItem(item.id)}
-                          disabled={item.status === 'approved'}
+                          disabled={item.status === 'approved' || (isApproving && selectedItems.includes(item.id))}
                         />
                       </TableCell>
                       <TableCell>
@@ -691,7 +706,9 @@ export default function GlossaryPage() {
                       </TableCell>
                       <TableCell>
                         {item.status === 'approved' ? (
-                          <Badge variant="default">已审核</Badge>
+                          <Badge variant="outline" className="bg-orange-500 hover:bg-orange-600 text-white border-orange-400">
+                            已审核
+                          </Badge>
                         ) : (
                           <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100">
                             待审核

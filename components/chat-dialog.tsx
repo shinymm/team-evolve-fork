@@ -105,7 +105,6 @@ export function ChatDialog({ assistant, onClose }: ChatDialogProps) {
       let accumulatedContent = ''
       await streamingAICall(
         prompt,
-        aiConfig,
         (content) => {
           // 累积内容，而不是替换内容
           accumulatedContent += content
@@ -115,7 +114,8 @@ export function ChatDialog({ assistant, onClose }: ChatDialogProps) {
             newMessages[newMessages.length - 1].content = accumulatedContent
             return newMessages
           })
-        }
+        },
+        aiConfig
       )
     } catch (error) {
       console.error('AI调用错误:', error)

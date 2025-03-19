@@ -93,50 +93,23 @@ export async function POST(request: Request) {
       )
     }
     
-    try {
-      // 生成向量嵌入
-      const embedding = await generateGlossaryEmbedding(term, explanation, english)
-      
-      // 创建术语记录
-      const glossary = await prisma.glossary.create({
-        data: {
-          term,
-          english: english || "", 
-          explanation,
-          domain: domain || "qare",
-          status,
-          embedding,
-          createdBy: createdBy || null,
-        },
-      })
-      
-      return NextResponse.json({
-        id: glossary.id,
-        term: glossary.term,
-        message: `术语 "${term}" 已成功添加`
-      })
-    } catch (embedError) {
-      console.error('无法生成嵌入向量，仍将保存术语:', embedError)
-      
-      // 即使无法生成嵌入也保存术语
-      const glossary = await prisma.glossary.create({
-        data: {
-          term,
-          english: english || "",
-          explanation,
-          domain: domain || "qare",
-          status,
-          // 不包含embedding字段
-          createdBy: createdBy || null,
-        },
-      })
-      
-      return NextResponse.json({
-        id: glossary.id,
-        term: glossary.term,
-        message: `术语 "${term}" 已添加，但无法生成向量嵌入`
-      })
-    }
+    // 创建术语记录
+    const glossary = await prisma.glossary.create({
+      data: {
+        term,
+        english: english || "",
+        explanation,
+        domain: domain || "qare",
+        status,
+        createdBy: createdBy || null,
+      },
+    })
+    
+    return NextResponse.json({
+      id: glossary.id,
+      term: glossary.term,
+      message: `术语 "${term}" 已成功添加`
+    })
   } catch (error) {
     console.error('术语添加失败:', error)
     return NextResponse.json(

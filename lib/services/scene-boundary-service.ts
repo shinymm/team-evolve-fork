@@ -68,13 +68,13 @@ export class SceneBoundaryService {
     // 调用AI服务进行分析
     await streamingAICall(
       prompt,
+      onContent,
       {
         model: aiConfig.model,
         apiKey: aiConfig.apiKey,
         baseURL: aiConfig.baseURL,
         temperature: aiConfig.temperature || 0.7
-      },
-      onContent
+      }
     )
   }
 } 
