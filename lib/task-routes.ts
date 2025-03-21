@@ -17,42 +17,42 @@ export interface TaskAction {
 export const taskActions: Record<string, TaskAction> = {
   'requirement-analysis': {
     aiHelp: {
-      route: '/ai-capability/evolution',
+      route: '/page/ai-capability/book-evolution',
       title: '需求分析',
       description: 'AI辅助分析需求，帮助细化和完善需求'
     }
   },
   'requirement-book': {
     aiHelp: {
-      route: '/ai-capability/book',
+      route: '/page/ai-capability/book',
       title: '需求衍化',
       description: 'AI辅助生成结构化需求书'
     }
   },
   'scene-analysis': {
     aiHelp: {
-      route: '/ai-capability/scene-analysis',
+      route: '/page/ai-capability/scene-analysis',
       title: '场景边界分析',
       description: 'AI辅助分析系统边界和接口定义'
     }
   },
   'requirement-book-confirm': {
     aiHelp: {
-      route: '/ai-capability/book-confirm',
+      route: '/page/ai-capability/book-confirm',
       title: '需求书确认',
       description: '确认生成的需求书内容'
     }
   },
   'architecture-suggestion': {
     aiHelp: {
-      route: '/knowledge/information-architecture',
+      route: '/page/knowledge/information-architecture',
       title: '产品知识更新建议',
       description: 'AI辅助分析需求并提供架构调整建议'
     }
   },
   'architecture-confirm': {
     aiHelp: {
-      route: '/knowledge/information-architecture',
+      route: '/page/knowledge/information-architecture',
       title: '产品知识更新确认',
       description: '确认产品架构的更新建议'
     }
