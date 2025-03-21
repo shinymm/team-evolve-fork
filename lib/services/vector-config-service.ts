@@ -1,5 +1,5 @@
-import type { VectorModelConfig } from './stores/vector-config-store'
-import { useVectorConfigStore } from './stores/vector-config-store'
+import type { VectorModelConfig } from '../stores/vector-config-store'
+import { useVectorConfigStore } from '../stores/vector-config-store'
 
 /**
  * 获取默认向量模型配置

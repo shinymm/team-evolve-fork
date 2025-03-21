@@ -7,16 +7,16 @@ import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2, Wand2, Check, X, Copy } from 'lucide-react'
-import { streamingAICall } from '@/lib/ai-service'
-import type { AIModelConfig } from '@/lib/ai-service'
+import { streamingAICall } from '@/lib/services/ai-service'
+import type { AIModelConfig } from '@/lib/services/ai-service'
 import { generateDetailPromptTemplate, generateSummaryPromptTemplate, optimizeSummaryPromptTemplate, generateFromStepsPromptTemplate } from '@/lib/prompts'
 import yaml from 'js-yaml'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { RotateCcw } from 'lucide-react'
 import { PathInputDialog } from "@/components/path-input-dialog"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { getAIConfig } from '@/lib/ai-config-service'
-import { getFormattedArchitecture } from '@/lib/architecture-service'
+import { getAIConfig } from '@/lib/services/ai-config-service'
+import { getFormattedArchitecture } from '@/lib/services/architecture-service'
 
 interface TestCaseDetail {
   summary: string

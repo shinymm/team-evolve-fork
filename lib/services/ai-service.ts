@@ -68,7 +68,7 @@ export async function streamingAICall(
       let finalConfig = aiConfig;
       
       if (!finalConfig) {
-        const store = await import('./stores/ai-config-store');
+        const store = await import('../stores/ai-config-store');
         const defaultConfig = store.useAIConfigStore.getState().getConfig();
         
         if (!defaultConfig) {
@@ -192,7 +192,7 @@ export const callChatCompletion = async (
     let fullConfig = config as AIModelConfig;
     
     if (!config || !config.model) {
-      const store = await import('./stores/ai-config-store');
+      const store = await import('../stores/ai-config-store');
       const defaultConfig = store.useAIConfigStore.getState().getConfig();
       
       if (!defaultConfig) {
@@ -265,7 +265,7 @@ export async function streamingFileAICall(params: {
     let finalConfig = apiConfig;
     
     if (!finalConfig) {
-      const store = await import('./stores/ai-config-store');
+      const store = await import('../stores/ai-config-store');
       const defaultConfig = store.useAIConfigStore.getState().getConfig();
       
       if (!defaultConfig) {

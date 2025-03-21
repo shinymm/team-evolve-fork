@@ -1,5 +1,5 @@
 import type { AIModelConfig } from './ai-service'
-import { useAIConfigStore } from './stores/ai-config-store'
+import { useAIConfigStore } from '../stores/ai-config-store'
 
 /**
  * 获取默认AI模型配置

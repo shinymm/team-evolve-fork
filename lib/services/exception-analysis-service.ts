@@ -1,6 +1,6 @@
 import { EXCEPTION_ANALYSIS_TEMPLATE } from '../prompts/exception-analysis'
-import { getAIConfig } from '../ai-config-service'
-import type { AIModelConfig } from '../ai-service'
+import { getAIConfig } from './ai-config-service'
+import type { AIModelConfig } from './ai-service'
 
 export class ExceptionAnalysisService {
   private static replaceTemplateVariables(template: string, variables: Record<string, string>) {

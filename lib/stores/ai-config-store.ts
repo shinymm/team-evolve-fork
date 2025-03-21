@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { AIModelConfig } from '../ai-service'
+import type { AIModelConfig } from '../services/ai-service'
 
 interface AIConfigState {
   configs: AIModelConfig[]

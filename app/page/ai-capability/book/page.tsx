@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
-import { streamingAICall } from '@/lib/ai-service'
-import { getAIConfig } from '@/lib/ai-config-service'
+import { streamingAICall } from '@/lib/services/ai-service'
+import { getAIConfig } from '@/lib/services/ai-config-service'
 import { Card } from "@/components/ui/card"
 import { Loader2, Copy, Download, Edit2, Save, ArrowRight } from "lucide-react"
 import { requirementBookPrompt } from '@/lib/prompts/requirement-book'

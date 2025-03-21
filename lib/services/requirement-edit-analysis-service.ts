@@ -1,5 +1,5 @@
-import { streamingAICall } from '@/lib/ai-service'
-import { getAIConfig } from '@/lib/ai-config-service'
+import { streamingAICall } from '@/lib/services/ai-service'
+import { getAIConfig } from '@/lib/services/ai-config-service'
 import { requirementAnalysisPrompt } from '@/lib/prompts/requirement-analysis'
 import { template } from '@/lib/prompts/requirement-edit-analysis'
 

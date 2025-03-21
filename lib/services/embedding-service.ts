@@ -1,6 +1,6 @@
 import OpenAI from 'openai'
 import fetch from 'node-fetch'
-import { useVectorConfigStore } from './stores/vector-config-store'
+import { useVectorConfigStore } from '../stores/vector-config-store'
 
 // 向量模型配置类型
 export type VectorModelConfig = {

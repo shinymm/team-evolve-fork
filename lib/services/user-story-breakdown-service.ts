@@ -1,7 +1,7 @@
 import { userStoryBreakdownPrompt } from '../prompts';
-import { streamingAICall } from '../ai-service';
-import type { AIModelConfig } from '../ai-service';
-import { getAIConfig } from '../ai-config-service';
+import { streamingAICall } from './ai-service';
+import type { AIModelConfig } from './ai-service';
+import { getAIConfig } from './ai-config-service';
 
 export class UserStoryBreakdownService {
   async breakdownUserStory(sceneDescription: string): Promise<(onContent: (content: string) => void) => void> {

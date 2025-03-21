@@ -1,0 +1,30 @@
+## 技术栈规范
+* 主要技术：TypeScript, Next.js App Router, React, Shadcn UI, Tailwind CSS
+* 开发模式：函数式编程，避免使用类
+
+## 文件夹结构规范
+项目根目录/
+├── app/                # Next.js App Router & 页面
+│   └── api/            # API Router API
+│   └── page/           # 页面
+├── components/         # React 组件
+├── lib/               # 工具函数和服务
+│   └── prompts/       # AI 提示词模板
+│   └── services/      # 业务逻辑
+│   └── stores/        # 缓存store
+│   └── types/         # 类型定义
+├── hooks/             # React Hooks
+├── styles/            # 全局样式
+├── public/            # 静态资源
+└── prisma/            # 数据库模型
+
+## 性能优化原则
+* 优先使用 React Server Components
+* 最小化 use client 指令的使用
+* 组件按需加载
+* 图片优化（WebP格式、懒加载）
+
+## TypeScript 使用规范
+* 所有代码使用 TypeScript
+* 优先使用 interface 而非 type
+* 避免使用 enum，改用 map

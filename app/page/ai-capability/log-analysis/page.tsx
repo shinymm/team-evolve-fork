@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/context-menu"
 import { ExceptionAnalysisService } from '@/lib/services/exception-analysis-service'
 import { Dialog, DialogContent } from "@/components/ui/dialog"
-import { getAIConfig } from '@/lib/ai-config-service'
+import { getAIConfig } from '@/lib/services/ai-config-service'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 interface Exception {

@@ -14,8 +14,8 @@ import VectorSettings from '@/components/vector-settings'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAIConfigStore } from '@/lib/stores/ai-config-store'
-import type { AIModelConfig } from '@/lib/ai-service'
-import { streamingAICall } from '@/lib/ai-service'
+import type { AIModelConfig } from '@/lib/services/ai-service'
+import { streamingAICall } from '@/lib/services/ai-service'
 
 // 可用的AI模型预设
 const modelPresets = [

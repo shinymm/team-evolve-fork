@@ -1,4 +1,4 @@
-import { streamingAICall, AIModelConfig } from '../ai-service'
+import { streamingAICall, AIModelConfig } from './ai-service'
 import { sceneRequirementPromptTemplate } from '../prompts/scene-requirement'
 
 export interface Scene {
