@@ -6,7 +6,6 @@ import { Toaster } from "@/components/ui/toaster"
 import { useToast } from "@/components/ui/use-toast"
 import { getAIConfig } from '@/lib/ai-config-service'
 import type { AIModelConfig } from '@/lib/ai-service'
-import { streamingAICall } from '@/lib/ai-service'
 import { Button } from "@/components/ui/button"
 import { RequirementToMdService } from '@/lib/services/requirement-to-md-service'
 import { RequirementToTestService } from '@/lib/services/requirement-to-test-service'

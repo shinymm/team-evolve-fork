@@ -29,7 +29,9 @@ export async function POST(request: NextRequest) {
       headers: {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive'
+        'Connection': 'keep-alive',
+        'Keep-Alive': 'timeout=300, max=1000',  // 5分钟超时，最多1000个请求
+        'Transfer-Encoding': 'chunked'
       }
     })
   } catch (error) {
@@ -78,16 +80,22 @@ async function handleStandardStream(prompt: string, config: AIModelConfig, write
     console.log('使用API端点:', endpoint)
     
     // 发送请求到AI服务
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 300000); // 5分钟超时
+    
     const response = await fetch(endpoint, {
       method: 'POST',
       headers,
+      signal: controller.signal,
       body: JSON.stringify({
         model: config.model,
         messages: [{ role: 'user', content: prompt }],
         temperature: config.temperature ?? 0.7,
         stream: true
       })
-    })
+    });
+    
+    clearTimeout(timeout);
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -168,8 +176,6 @@ async function handleGeminiStream(prompt: string, config: AIModelConfig, writer:
     if (config.temperature !== undefined) {
       model.generationConfig = { temperature: config.temperature }
     }
-    
-    console.log('Gemini请求:', JSON.stringify(request, null, 2))
     
     // 发送流式请求
     const result = await model.generateContentStream(request)

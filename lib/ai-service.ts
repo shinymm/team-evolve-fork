@@ -31,20 +31,8 @@ export function getApiEndpointAndHeaders(config: AIModelConfig): { endpoint: str
   let headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
-
-  if (baseURL.includes('open.bigmodel.cn')) {
-    // 智谱 AI
-    endpoint = `${baseURL}/chat/completions`
-    headers['Authorization'] = `Bearer ${config.apiKey}`
-  } else if (baseURL.includes('openai.com')) {
-    // OpenAI
-    endpoint = `${baseURL}/chat/completions`
-    headers['Authorization'] = `Bearer ${config.apiKey}`
-  } else {
-    // 其他服务，使用默认 endpoint
-    endpoint = baseURL.endsWith('/chat/completions') ? baseURL : `${baseURL}/chat/completions`
-    headers['Authorization'] = `Bearer ${config.apiKey}`
-  }
+  endpoint = baseURL.endsWith('/chat/completions') ? baseURL : `${baseURL}/chat/completions`
+  headers['Authorization'] = `Bearer ${config.apiKey}`
   
   return { endpoint, headers }
 }
@@ -61,108 +49,127 @@ export function isGeminiModel(modelName: string): boolean {
 /**
  * 流式AI调用，自动处理配置
  * @param prompt 用户提示
- * @param onContentOrConfig 处理回复内容的回调函数或AI配置
- * @param configOrOnContent 可选的AI模型配置或回调函数
+ * @param aiConfig 可选的AI模型配置
+ * @param onContent 处理回复内容的回调函数
  * @returns 
  */
 export async function streamingAICall(
   prompt: string,
-  onContentOrConfig: ((content: string) => void) | AIModelConfig,
-  configOrOnContent?: AIModelConfig | ((content: string) => void)
+  aiConfig: AIModelConfig,
+  onContent: ((content: string) => void)
 ) {
-  // 确定正确的参数顺序
-  let onContent: (content: string) => void;
-  let config: AIModelConfig | undefined;
-
-  if (typeof onContentOrConfig === 'function') {
-    onContent = onContentOrConfig;
-    config = configOrOnContent as AIModelConfig;
-  } else {
-    onContent = configOrOnContent as (content: string) => void;
-    config = onContentOrConfig;
-  }
-
-  try {
-    // 如果未提供配置，尝试从store获取默认配置
-    let finalConfig = config;
-    
-    if (!finalConfig) {
-      const store = await import('./stores/ai-config-store');
-      const defaultConfig = store.useAIConfigStore.getState().getConfig();
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY = 1000; // 1秒
+  let retryCount = 0;
+  
+  const makeRequest = async () => {
+    try {
+      // 如果未提供配置，尝试从store获取默认配置
+      let finalConfig = aiConfig;
       
-      if (!defaultConfig) {
-        throw new Error('未找到AI模型配置，请先在设置中配置模型');
+      if (!finalConfig) {
+        const store = await import('./stores/ai-config-store');
+        const defaultConfig = store.useAIConfigStore.getState().getConfig();
+        
+        if (!defaultConfig) {
+          throw new Error('未找到AI模型配置，请先在设置中配置模型');
+        }
+        
+        finalConfig = defaultConfig;
       }
       
-      finalConfig = defaultConfig;
-    }
-    
-    console.log('AI调用配置:', {
-      model: finalConfig.model,
-      baseURL: finalConfig.baseURL,
-      apiKey: finalConfig.apiKey ? '已设置' : '未设置',
-      temperature: finalConfig.temperature
-    })
-    
-    // 使用统一的API路由处理请求
-    const apiEndpoint = '/api/ai'
-    console.log('使用API端点:', apiEndpoint)
+      console.log('AI调用配置:', {
+        model: finalConfig.model,
+        baseURL: finalConfig.baseURL ? '已设置' : '未设置',
+        apiKey: finalConfig.apiKey ? '已设置' : '未设置',
+        temperature: finalConfig.temperature
+      });
 
-    // 使用我们的API路由代理请求
-    const response = await fetch(apiEndpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        prompt,
-        config: finalConfig
-      })
-    })
+      // 使用统一的API路由处理请求
+      const apiEndpoint = '/api/ai';
+      console.log('使用API端点:', apiEndpoint);
 
-    if (!response.ok) {
-      const error = await response.text()
-      console.error('API错误响应:', error)
-      throw new Error(`API 请求失败 (${response.status}): ${error}`)
-    }
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 300000); // 5分钟超时
 
-    if (response.body) {
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
+      // 使用我们的API路由代理请求
+      const response = await fetch(apiEndpoint, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt,
+          config: finalConfig
+        })
+      });
 
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
+      clearTimeout(timeout);
 
-        const chunk = decoder.decode(value)
-        console.log('原始响应块:', chunk)  // 调试日志
+      if (!response.ok) {
+        const error = await response.text();
+        console.error('API错误响应:', error);
+        throw new Error(`API 请求失败 (${response.status}): ${error}`);
+      }
 
-        const lines = chunk.split('\n').filter(line => line.trim() !== '')
-        
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6)
-            try {
-              console.log('解析前的数据:', data)  // 调试日志
-              const parsed = JSON.parse(data)
-              console.log('解析后的数据:', parsed)  // 调试日志
-              
-              if (parsed.content) {
-                onContent(parsed.content)
-              } else if (parsed.error) {
-                throw new Error(parsed.error)
+      if (response.body) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          buffer += chunk;
+          
+          // 按行处理数据
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || ''; // 保留最后一个不完整的行
+          
+          for (const line of lines) {
+            if (line.trim() === '') continue;
+            
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              try {
+                console.log('解析前的数据:', data);
+                const parsed = JSON.parse(data);
+                console.log('解析后的数据:', parsed);
+                
+                if (parsed.content) {
+                  onContent(parsed.content);
+                } else if (parsed.error) {
+                  throw new Error(parsed.error);
+                }
+              } catch (e) {
+                console.error('解析响应数据失败:', e, data);
               }
-            } catch (e) {
-              console.error('解析响应数据失败:', e, data)
             }
           }
         }
       }
+    } catch (error) {
+      console.error('AI service error:', error);
+      
+      // 对于某些错误类型进行重试
+      if (retryCount < MAX_RETRIES && (
+        error instanceof TypeError || // 网络错误
+        (error instanceof Error && error.message.includes('timeout')) // 超时错误
+      )) {
+        retryCount++;
+        console.log(`重试第 ${retryCount} 次...`);
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * retryCount));
+        return makeRequest();
+      }
+      
+      throw error;
     }
-  } catch (error) {
-    console.error('AI service error:', error)
-    throw error
-  }
+  };
+
+  return makeRequest();
 }
 
 interface Message {

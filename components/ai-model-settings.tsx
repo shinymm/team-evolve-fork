@@ -157,13 +157,14 @@ export function AIModelSettings() {
       let responseContent = '';
       await new Promise<void>((resolve, reject) => {
         streamingAICall(
-          "测试连接", // 最简单的测试提示词
+          "测试连接,请简洁回复", // 最简单的测试提示词
+          config, // 使用当前配置
           (content) => {
             responseContent += content;
             // 收到任何响应就表示连接成功
             resolve();
           },
-          config // 使用当前配置
+          
         ).catch(reject);
       });
       

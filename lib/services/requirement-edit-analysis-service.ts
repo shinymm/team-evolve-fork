@@ -26,8 +26,8 @@ export async function analyzeRequirementEdit(
 
     await streamingAICall(
       prompt,
-      onProgress,
-      aiConfig
+      aiConfig,
+      onProgress
     )
 
     return { success: true }

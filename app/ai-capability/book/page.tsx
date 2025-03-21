@@ -71,10 +71,10 @@ export default function RequirementBook() {
       const prompt = requirementBookPrompt(content)
       await streamingAICall(
         prompt,
+        aiConfig,
         (content) => {
           setRequirementBook(prev => prev + content)
-        },
-        aiConfig
+        }
       )
     } catch (error) {
       toast({
@@ -117,10 +117,10 @@ export default function RequirementBook() {
       const prompt = requirementBookPrompt(originalRequirement)
       await streamingAICall(
         prompt,
+        aiConfig,
         (content) => {
           setRequirementBook(prev => prev + content)
-        },
-        aiConfig
+        }
       )
     } catch (error) {
       toast({

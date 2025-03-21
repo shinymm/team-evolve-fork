@@ -22,6 +22,6 @@ export class SceneRequirementService {
     onProgress: (content: string) => void
   ): Promise<void> {
     const prompt = sceneRequirementPromptTemplate(params)
-    await streamingAICall(prompt, onProgress, this.config)
+    await streamingAICall(prompt, this.config,onProgress, )
   }
 } 

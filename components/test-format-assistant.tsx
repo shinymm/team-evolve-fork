@@ -137,12 +137,7 @@ export function TestFormatAssistant() {
 
       await streamingAICall(
         prompt,
-        {
-          model: aiConfig.model,
-          apiKey: aiConfig.apiKey,
-          baseURL: aiConfig.baseURL,
-          temperature: 0.5
-        },
+        aiConfig,
         (content: string) => {
           formattedResult += content
           setResult(formattedResult)
