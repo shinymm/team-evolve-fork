@@ -62,7 +62,7 @@ export async function streamingAICall(
   const RETRY_DELAY = 1000; // 1秒
   let retryCount = 0;
   
-  const makeRequest = async () => {
+  const makeRequest = async (): Promise<void> => {
     try {
       // 如果未提供配置，尝试从store获取默认配置
       let finalConfig = aiConfig;
