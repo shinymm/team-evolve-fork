@@ -1,5 +1,5 @@
 import { streamingAICall } from '@/lib/services/ai-service'
-import { getAIConfig } from '@/lib/services/ai-config-service'
+import { getDefaultAIConfig } from '@/lib/services/ai-config-service'
 import { sceneBoundaryPromptTemplate } from '@/lib/prompts/scene-boundary'
 import { useBoundaryRulesStore } from '@/lib/stores/boundary-rules-store'
 
@@ -43,7 +43,7 @@ const getRulesTable = () => {
 
 export class SceneBoundaryService {
   async analyzeScene(params: BoundaryAnalysisParams, onContent: (content: string) => void) {
-    const aiConfig = getAIConfig()
+    const aiConfig = await getDefaultAIConfig()
     if (!aiConfig) {
       throw new Error('未配置AI模型')
     }
@@ -70,6 +70,9 @@ export class SceneBoundaryService {
       prompt,
       aiConfig,
       onContent,
+      (error: string) => {
+        throw new Error(`场景边界分析失败: ${error}`)
+      }
     )
   }
 } 

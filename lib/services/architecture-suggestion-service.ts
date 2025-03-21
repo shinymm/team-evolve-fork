@@ -2,7 +2,7 @@ import { StructuredRequirement } from './requirement-export-service'
 import { ArchitectureItem } from '@/types/product-info'
 import { ARCHITECTURE_SUGGESTION_PROMPT } from '../prompts/architecture-suggestion'
 import { streamingAICall } from '@/lib/services/ai-service'
-import { getAIConfig } from '@/lib/services/ai-config-service'
+import { getDefaultAIConfig } from '@/lib/services/ai-config-service'
 import yaml from 'js-yaml'
 
 export interface ArchitectureSuggestion {
@@ -52,7 +52,7 @@ export async function generateArchitectureSuggestions(
   currentArchitecture: ArchitectureItem[]
 ): Promise<ArchitectureSuggestion[]> {
   try {
-    const aiConfig = getAIConfig()
+    const aiConfig = await getDefaultAIConfig()
     if (!aiConfig) {
       throw new Error('AI配置未找到')
     }
@@ -80,6 +80,9 @@ ${scene.sceneUserJourney}
       aiConfig,
       (content) => {
         fullResponse += content
+      },
+      (error) => {
+        throw new Error(`生成架构建议失败: ${error}`)
       }
     )
 

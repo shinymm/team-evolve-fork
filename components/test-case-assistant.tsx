@@ -8,7 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2, Copy, Pencil, Trash2, RotateCcw } from 'lucide-react'
 import { streamingAICall } from '@/lib/services/ai-service'
-import { getAIConfig } from '@/lib/services/ai-config-service'
+import { getDefaultAIConfig } from '@/lib/services/ai-config-service'
 import type { AIModelConfig } from '@/lib/services/ai-service'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -45,10 +45,13 @@ export function TestCaseAssistant() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
   useEffect(() => {
-    const config = getAIConfig()
-    if (config) {
-      setAiConfig(config)
+    const loadConfig = async () => {
+      const config = await getDefaultAIConfig()
+      if (config) {
+        setAiConfig(config)
+      }
     }
+    loadConfig()
 
     // 从localStorage获取结构化需求
     const storedRequirement = localStorage.getItem('structuredRequirement')
@@ -116,9 +119,7 @@ export function TestCaseAssistant() {
       await streamingAICall(
         prompt,
         {
-          model: aiConfig.model,
-          apiKey: aiConfig.apiKey,
-          baseURL: aiConfig.baseURL,
+          ...aiConfig,
           temperature: 0.7
         },
         (content: string) => {
@@ -158,6 +159,9 @@ export function TestCaseAssistant() {
           
           // 始终更新原始结果，用于在解析失败时显示
           setResult(generatedResult)
+        },
+        (error: string) => {
+          throw new Error(`测试用例生成失败: ${error}`)
         }
       )
 

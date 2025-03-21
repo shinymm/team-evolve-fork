@@ -19,15 +19,15 @@ datasource db {
 
 // 向量模型配置
 model VectorModelConfig {
-  id        String   @id @default(uuid())
-  name      String
-  baseURL   String
-  apiKey    String
-  model     String
-  isDefault Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  @@index([isDefault])
+  id          String   @id @default(cuid())
+  name        String
+  model       String
+  baseURL     String
+  apiKey      String
+  dimension   Int
+  isDefault   Boolean  @default(false)
+  provider    String?
+  createdAt   DateTime @default(now())
 }
 
 // 用户模型
@@ -77,3 +77,15 @@ model Glossary {
 //   userId      String
 //   user        User     @relation(fields: [userId], references: [id])
 // }
+
+model AIModelConfig {
+  id          String   @id @default(cuid())
+  name        String
+  model       String
+  baseUrl     String
+  apiKey      String
+  temperature Float    @default(0.7)
+  isDefault   Boolean  @default(false)
+  provider    String?
+  createdAt   DateTime @default(now())
+}

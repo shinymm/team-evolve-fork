@@ -1,4 +1,5 @@
 import { AIModelConfig } from '@/lib/services/ai-service'
+import { getDefaultAIConfig } from '@/lib/services/ai-config-service'
 
 /**
  * 处理需求对比抽取边界知识的服务
@@ -7,15 +8,18 @@ export class RequirementBoundaryComparisonService {
   /**
    * 流式调用API，对比需求文档初稿和终稿，提取边界条件知识
    * @param fileIds 上传的文件ID列表（需要包含两个文件ID，初稿和终稿）
-   * @param config AI模型配置
    * @param onContent 流式返回内容回调
    */
   async compareRequirements(
     fileIds: string[],
-    config: AIModelConfig,
     onContent: (content: string) => void
   ): Promise<void> {
     try {
+      const config = await getDefaultAIConfig()
+      if (!config) {
+        throw new Error('未找到AI配置信息')
+      }
+
       console.log(`[${new Date().toISOString()}] 开始调用compareRequirements，模型: ${config.model}，文件ID: ${fileIds.join(', ')}`);
 
       if (fileIds.length !== 2) {

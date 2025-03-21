@@ -76,7 +76,7 @@ if (!aiConfig) {
 interface AIModelConfig {
   model: string        // 模型名称
   apiKey: string      // API密钥
-  baseURL: string     // API基础URL
+  baseUrl: string     // API基础URL
   temperature?: number // 温度参数
 }
 ```

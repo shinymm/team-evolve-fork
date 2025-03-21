@@ -1,14 +1,8 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 
-export interface VectorModelConfig {
-  id?: string;
-  name: string;
-  baseURL: string;
-  model: string;
-  apiKey: string;
-  isDefault?: boolean;
-}
+// 从service中导入VectorModelConfig接口
+import type { VectorModelConfig } from '../services/vector-config-service';
 
 interface VectorConfigState {
   configs: VectorModelConfig[];

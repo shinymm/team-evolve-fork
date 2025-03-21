@@ -8,7 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2, Copy, Pencil, Trash2, RotateCcw } from 'lucide-react'
 import { streamingAICall } from '@/lib/services/ai-service'
-import { getAIConfig } from '@/lib/services/ai-config-service'
+import { getDefaultAIConfig } from '@/lib/services/ai-config-service'
 import type { AIModelConfig } from '@/lib/services/ai-service'
 import yaml from 'yaml'
 import { testFormatPromptTemplate } from '@/lib/prompts'
@@ -41,10 +41,13 @@ export function TestFormatAssistant() {
   const [isOutputComplete, setIsOutputComplete] = useState(false)
 
   useEffect(() => {
-    const config = getAIConfig()
-    if (config) {
-      setAiConfig(config)
+    const loadConfig = async () => {
+      const config = await getDefaultAIConfig()
+      if (config) {
+        setAiConfig(config)
+      }
     }
+    loadConfig()
   }, [])
 
   // 当 parsedResult 更新时，同步更新 editableTestCases
@@ -141,6 +144,9 @@ export function TestFormatAssistant() {
         (content: string) => {
           formattedResult += content
           setResult(formattedResult)
+        },
+        (error: string) => {
+          throw new Error(`测试用例格式化失败: ${error}`)
         }
       )
 

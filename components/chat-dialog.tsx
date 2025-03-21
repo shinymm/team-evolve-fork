@@ -3,7 +3,7 @@ import { Assistant } from "./ai-team-sidebar"
 import { cn } from "../lib/utils"
 import { useToast } from "@/components/ui/use-toast"
 import { useState, useRef, useEffect } from "react"
-import { getAIConfig } from "@/lib/services/ai-config-service"
+import { getDefaultAIConfig } from "@/lib/services/ai-config-service"
 import { streamingAICall } from "@/lib/services/ai-service"
 import { epicDiscussionPrompt } from "@/lib/prompts/epic-discussion"
 import { userPersonaPrompt } from "@/lib/prompts/user-persona"
@@ -52,7 +52,7 @@ export function ChatDialog({ assistant, onClose }: ChatDialogProps) {
 
     try {
       // 获取AI配置
-      const aiConfig = getAIConfig()
+      const aiConfig = await getDefaultAIConfig()
       if (!aiConfig) {
         toast({
           description: "未找到AI配置，请先在设置中配置AI模型",
@@ -115,8 +115,10 @@ export function ChatDialog({ assistant, onClose }: ChatDialogProps) {
             newMessages[newMessages.length - 1].content = accumulatedContent
             return newMessages
           })
+        },
+        (error: string) => {
+          throw new Error(`Chat Dialog - AI调用错误: ${error}`)
         }
-        
       )
     } catch (error) {
       console.error('AI调用错误:', error)

@@ -358,33 +358,22 @@ export default function SceneAnalysisPage() {
 
   const handleOptimizeRequirement = async (scene: Scene, index: number) => {
     if (!content) return
+    
     setIsOptimizing(true)
-    setOptimizeResult('')
     setSelectedScene(scene)
-
-    // 立即更新场景状态，显示优化中的卡片
-    setSceneStates(prev => ({
-      ...prev,
-      [scene.name]: {
-        ...prev[scene.name],
-        taskId: prev[scene.name]?.taskId,
-        isOptimizing: true,
-        isOptimizeConfirming: false,
-        optimizeResult: undefined
-      } as SceneAnalysisState
-    }))
+    setOptimizeResult('')
 
     try {
-      // 创建任务
+      // 创建优化任务
       const task = await createTask({
-        title: `完善场景${index + 1}需求`,
-        description: `优化场景"${scene.name}"的需求描述`,
-        type: 'requirement-optimize',
-        assignee: 'system',
-        status: 'pending'
+        title: `优化场景"${scene.name}"的需求描述`,
+        description: "使用AI优化场景需求描述",
+        type: "scene-requirement-optimize",
+        assignee: "AI",
+        status: "in_progress"
       })
 
-      // 更新任务ID
+      // 更新场景状态为正在优化
       setSceneStates(prev => ({
         ...prev,
         [scene.name]: {
@@ -393,12 +382,7 @@ export default function SceneAnalysisPage() {
         } as SceneAnalysisState
       }))
 
-      const config = getAIConfig()
-      if (!config) {
-        throw new Error('未配置AI模型')
-      }
-
-      const service = new SceneRequirementService(config)
+      const service = new SceneRequirementService()
       
       await service.optimize(
         {

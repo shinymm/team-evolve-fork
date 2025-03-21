@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
 import { streamingAICall } from '@/lib/services/ai-service'
-import { getAIConfig } from '@/lib/services/ai-config-service'
+import { getDefaultAIConfig } from '@/lib/services/ai-config-service'
 import { Card } from "@/components/ui/card"
 import { Loader2, Copy, Download, Edit2, Save, ArrowRight, Pin, PinOff } from "lucide-react"
 import { requirementAnalysisPrompt } from '@/lib/prompts/requirement-analysis'
@@ -56,7 +56,7 @@ export default function RequirementAnalysis() {
       return
     }
 
-    const aiConfig = getAIConfig()
+    const aiConfig = await getDefaultAIConfig()
     if (!aiConfig) {
       toast({
         title: "配置错误",
@@ -79,6 +79,14 @@ export default function RequirementAnalysis() {
         (content: string) => {
           currentAnalysis += content;
           setAnalysis(currentAnalysis);
+        },
+        (error: string) => {
+          toast({
+            title: "分析失败",
+            description: error,
+            variant: "destructive",
+            duration: 3000
+          })
         }
       )
     } catch (error) {

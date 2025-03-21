@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
 import { streamingAICall } from '@/lib/services/ai-service'
-import { getAIConfig } from '@/lib/services/ai-config-service'
+import { getDefaultAIConfig } from '@/lib/services/ai-config-service'
 import { Card } from "@/components/ui/card"
 import { Loader2, Copy, Download, Edit2, Save, ArrowRight } from "lucide-react"
 import { requirementBookPrompt } from '@/lib/prompts/requirement-book'
@@ -53,7 +53,7 @@ export default function RequirementBook() {
 
   // 自动生成的处理函数，与handleSubmit类似但接受内容参数
   const handleAutoGenerate = async (content: string) => {
-    const aiConfig = getAIConfig()
+    const aiConfig = getDefaultAIConfig()
     if (!aiConfig) {
       toast({
         title: "配置错误",
@@ -74,6 +74,9 @@ export default function RequirementBook() {
         aiConfig,
         (content) => {
           setRequirementBook(prev => prev + content)
+        },
+        (error: string) => {
+          throw new Error(`需求书衍化失败: ${error}`)
         }
       )
     } catch (error) {
@@ -120,6 +123,9 @@ export default function RequirementBook() {
         aiConfig,
         (content) => {
           setRequirementBook(prev => prev + content)
+        },
+        (error: string) => {
+          throw new Error(`需求书衍化失败: ${error}`)
         }
       )
     } catch (error) {

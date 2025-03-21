@@ -1,13 +1,17 @@
 import OpenAI from 'openai'
+import { PrismaClient } from '@prisma/client';
+import { decrypt } from '@/lib/utils/encryption-utils'
+
+const prisma = new PrismaClient();
 
 export interface AIModelConfig {
-  model: string        // 模型名称
-  apiKey: string      // API密钥
-  baseURL: string     // API基础URL
-  temperature?: number // 温度参数
-  id?: string         // 配置项ID（仅用于UI管理）
-  name?: string       // 配置项显示名称（仅用于UI管理）
-  isDefault?: boolean // 是否为默认配置（仅用于UI管理）
+  id: string
+  name: string
+  baseUrl: string
+  apiKey: string
+  model: string
+  temperature?: number
+  isDefault?: boolean
 }
 
 export interface ModelConfig {
@@ -22,17 +26,31 @@ export interface ModelConfig {
  * @param config AI模型配置
  * @returns 包含endpoint和headers的对象
  */
-export function getApiEndpointAndHeaders(config: AIModelConfig): { endpoint: string, headers: Record<string, string> } {
-  // 移除末尾的斜杠
-  const baseURL = config.baseURL.replace(/\/+$/, '')
-  
-  // 根据不同的 AI 服务提供商使用不同的 endpoint 和请求头
-  let endpoint = ''
-  let headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+export function getApiEndpointAndHeaders(config: AIModelConfig) {
+  // 检查是否是 Gemini 模型
+  if (isGeminiModel(config.model)) {
+    return {
+      endpoint: `${config.baseUrl}/models/${config.model}:streamGenerateContent`,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': config.apiKey
+      }
+    }
   }
-  endpoint = baseURL.endsWith('/chat/completions') ? baseURL : `${baseURL}/chat/completions`
-  headers['Authorization'] = `Bearer ${config.apiKey}`
+
+  // 标准 OpenAI 兼容的 API
+  let endpoint = config.baseUrl
+  if (!endpoint.endsWith('/chat/completions')) {
+    // 移除尾部的斜杠（如果有）
+    endpoint = endpoint.replace(/\/+$/, '')
+    // 添加 chat/completions 路径
+    endpoint = `${endpoint}/chat/completions`
+  }
+  
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${config.apiKey}`
+  }
   
   return { endpoint, headers }
 }
@@ -49,127 +67,94 @@ export function isGeminiModel(modelName: string): boolean {
 /**
  * 流式AI调用，自动处理配置
  * @param prompt 用户提示
- * @param aiConfig 可选的AI模型配置
- * @param onContent 处理回复内容的回调函数
+ * @param config 可选的AI模型配置
+ * @param onData 处理回复内容的回调函数
+ * @param onError 处理错误信息的回调函数
  * @returns 
  */
 export async function streamingAICall(
   prompt: string,
-  aiConfig: AIModelConfig,
-  onContent: ((content: string) => void)
+  config: AIModelConfig,
+  onData: (content: string) => void,
+  onError: (error: string) => void
 ) {
-  const MAX_RETRIES = 3;
-  const RETRY_DELAY = 1000; // 1秒
-  let retryCount = 0;
-  
-  const makeRequest = async (): Promise<void> => {
-    try {
-      // 如果未提供配置，尝试从store获取默认配置
-      let finalConfig = aiConfig;
-      
-      if (!finalConfig) {
-        const store = await import('../stores/ai-config-store');
-        const defaultConfig = store.useAIConfigStore.getState().getConfig();
-        
-        if (!defaultConfig) {
-          throw new Error('未找到AI模型配置，请先在设置中配置模型');
-        }
-        
-        finalConfig = defaultConfig;
-      }
-      
-      console.log('AI调用配置:', {
-        model: finalConfig.model,
-        baseURL: finalConfig.baseURL ? '已设置' : '未设置',
-        apiKey: finalConfig.apiKey ? '已设置' : '未设置',
-        temperature: finalConfig.temperature
-      });
-
-      // 使用统一的API路由处理请求
-      const apiEndpoint = '/api/ai';
-      console.log('使用API端点:', apiEndpoint);
-
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 300000); // 5分钟超时
-
-      // 使用我们的API路由代理请求
-      const response = await fetch(apiEndpoint, {
-        method: 'POST',
-        signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt,
-          config: finalConfig
-        })
-      });
-
-      clearTimeout(timeout);
-
-      if (!response.ok) {
-        const error = await response.text();
-        console.error('API错误响应:', error);
-        throw new Error(`API 请求失败 (${response.status}): ${error}`);
-      }
-
-      if (response.body) {
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value, { stream: true });
-          buffer += chunk;
-          
-          // 按行处理数据
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || ''; // 保留最后一个不完整的行
-          
-          for (const line of lines) {
-            if (line.trim() === '') continue;
-            
-            if (line.startsWith('data: ')) {
-              const data = line.slice(6);
-              try {
-                console.log('解析前的数据:', data);
-                const parsed = JSON.parse(data);
-                console.log('解析后的数据:', parsed);
-                
-                if (parsed.content) {
-                  onContent(parsed.content);
-                } else if (parsed.error) {
-                  throw new Error(parsed.error);
-                }
-              } catch (e) {
-                console.error('解析响应数据失败:', e, data);
-              }
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('AI service error:', error);
-      
-      // 对于某些错误类型进行重试
-      if (retryCount < MAX_RETRIES && (
-        error instanceof TypeError || // 网络错误
-        (error instanceof Error && error.message.includes('timeout')) // 超时错误
-      )) {
-        retryCount++;
-        console.log(`重试第 ${retryCount} 次...`);
-        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * retryCount));
-        return makeRequest();
-      }
-      
-      throw error;
+  try {
+    // 解密 API Key
+    const decryptedApiKey = await decrypt(config.apiKey)
+    const configWithDecryptedKey = {
+      id: config.id,
+      name: config.name,
+      model: config.model,
+      baseUrl: config.baseUrl,
+      apiKey: decryptedApiKey,
+      temperature: config.temperature,
+      isDefault: config.isDefault
     }
-  };
 
-  return makeRequest();
+    console.log('发起 AI 调用:', {
+      model: config.model,
+      hasApiKey: !!decryptedApiKey
+    })
+
+    const response = await fetch('/api/ai', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        prompt,
+        config: configWithDecryptedKey
+      })
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`API 请求失败 (${response.status}): ${error}`)
+    }
+
+    const reader = response.body?.getReader()
+    if (!reader) {
+      throw new Error('无法获取响应流')
+    }
+
+    const decoder = new TextDecoder()
+    
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      const chunk = decoder.decode(value)
+      const lines = chunk.split('\n')
+
+      for (const line of lines) {
+        if (line.trim() === '') continue
+        if (!line.startsWith('data: ')) continue
+
+        try {
+          const data = JSON.parse(line.slice(6))
+          if (data.error) {
+            onError(data.error)
+            return
+          }
+          if (data.content) {
+            // 构造与 OpenAI API 格式兼容的响应
+            const formattedData = {
+              choices: [{
+                delta: { content: data.content }
+              }]
+            }
+            onData(data.content)
+          }
+        } catch (e) {
+          console.error('解析响应数据失败:', e)
+        }
+      }
+    }
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : '未知错误'
+    console.error('AI 调用错误:', errorMessage)
+    onError(errorMessage)
+  }
 }
 
 interface Message {
@@ -199,9 +184,17 @@ export const callChatCompletion = async (
         throw new Error('未找到AI模型配置，请先在设置中配置模型');
       }
       
+      // 解密apiKey
       fullConfig = {
         ...defaultConfig,
-        ...config
+        ...config,
+        apiKey: await decrypt(defaultConfig.apiKey)
+      };
+    } else if (fullConfig.apiKey) {
+      // 如果提供了配置，也需要解密apiKey
+      fullConfig = {
+        ...fullConfig,
+        apiKey: await decrypt(fullConfig.apiKey)
       };
     }
     
@@ -211,7 +204,7 @@ export const callChatCompletion = async (
     console.log('聊天调用配置:', {
       model: fullConfig.model,
       isGemini,
-      baseURL: fullConfig.baseURL ? '已设置' : '未设置',
+      baseURL: fullConfig.baseUrl ? '已设置' : '未设置',
       apiKey: fullConfig.apiKey ? '已设置' : '未设置',
       temperature: fullConfig.temperature
     })
@@ -226,7 +219,7 @@ export const callChatCompletion = async (
         model: fullConfig.model,
         temperature: fullConfig.temperature,
         apiKey: fullConfig.apiKey,
-        baseURL: fullConfig.baseURL
+        baseURL: fullConfig.baseUrl
       }),
     })
 
@@ -272,7 +265,17 @@ export async function streamingFileAICall(params: {
         throw new Error('未找到AI模型配置，请先在设置中配置模型');
       }
       
-      finalConfig = defaultConfig;
+      // 解密apiKey
+      finalConfig = {
+        ...defaultConfig,
+        apiKey: await decrypt(defaultConfig.apiKey)
+      };
+    } else if (finalConfig.apiKey) {
+      // 如果提供了配置，也需要解密apiKey
+      finalConfig = {
+        ...finalConfig,
+        apiKey: await decrypt(finalConfig.apiKey)
+      };
     }
     
     // 检查是否是Google Gemini模型
@@ -281,7 +284,7 @@ export async function streamingFileAICall(params: {
     console.log('文件AI调用配置:', {
       model: finalConfig.model,
       isGemini,
-      baseURL: finalConfig.baseURL,
+      baseURL: finalConfig.baseUrl,
       apiKey: finalConfig.apiKey ? '已设置' : '未设置',
       temperature: finalConfig.temperature,
       fileIds

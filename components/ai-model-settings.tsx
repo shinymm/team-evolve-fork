@@ -12,73 +12,93 @@ import { cn } from '@/lib/utils'
 import VectorSettings from '@/components/vector-settings'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useAIConfigStore } from '@/lib/stores/ai-config-store'
 import type { AIModelConfig } from '@/lib/services/ai-service'
 import { streamingAICall } from '@/lib/services/ai-service'
+import { addAIConfig, updateAIConfig, deleteAIConfig, setDefaultAIConfig, getAllAIConfigs } from '@/lib/services/ai-config-service'
 
 // 可用的AI模型预设
 const modelPresets = [
   {
     name: 'OpenAI',
-    baseURL: 'https://api.openai.com/v1',
+    baseUrl: 'https://api.openai.com/v1',
     models: ['gpt-4', 'gpt-4o','gpt-4o-mini','gpt-3.5-turbo']
   },
   {
     name: '智谱AI',
-    baseURL: 'https://open.bigmodel.cn/api/paas/v3',
+    baseUrl: 'https://open.bigmodel.cn/api/paas/v3',
     models: ['glm-4-long', 'glm-4-flash', 'glm-4-plus', 'GLM-Zero-Preview']
   },
   {
     name: 'Qwen',
-    baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     models: ['qwen-long']
   },
   {
     name: 'Deepseek',
-    baseURL: 'https://api.deepseek.com',
+    baseUrl: 'https://api.deepseek.com',
     models: ['deepseek-chat']
   },
   {
     name: 'Gemini',
-    baseURL: 'https://generativelanguage.googleapis.com/v1beta',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
     models: ['gemini-2.0-flash-lite','gemini-2.0-flash-thinking-exp-01-21']
   }
 ]
 
 export function AIModelSettings() {
-  // 使用 Zustand store 获取配置
-  const { configs, addConfig, updateConfig, deleteConfig, setDefaultConfig } = useAIConfigStore()
-  
-  // UI状态
+  const [configs, setConfigs] = useState<AIModelConfig[]>([])
   const [showAddForm, setShowAddForm] = useState(false)
   const [newConfig, setNewConfig] = useState<Partial<AIModelConfig>>({})
   const [testingId, setTestingId] = useState<string | null>(null)
-  const [testResults, setTestResults] = useState<Record<string, boolean>>({})
+  const [testResults, setTestResults] = useState<Record<string, boolean | null>>({})
   const [selectedTab, setSelectedTab] = useState('models')
+  const [isLoading, setIsLoading] = useState(true)
+
+  // 加载配置
+  const loadConfigs = useCallback(async () => {
+    try {
+      setIsLoading(true)
+      const loadedConfigs = await getAllAIConfigs()
+      setConfigs(loadedConfigs)
+    } catch (error) {
+      toast({
+        title: '加载失败',
+        description: error instanceof Error ? error.message : '加载配置时发生错误',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  // 初始加载
+  useEffect(() => {
+    loadConfigs()
+  }, [loadConfigs])
 
   // 处理预设选择
   const handlePresetChange = useCallback((preset: string) => {
     const [provider, ...modelParts] = preset.split('-');
     const model = modelParts.join('-'); // 重新组合模型名称，保留所有部分
     
-    let baseURL = '';
+    let baseUrl = '';
     
     const providerData = modelPresets.find(p => p.name === provider);
     if (providerData) {
-      baseURL = providerData.baseURL;
+      baseUrl = providerData.baseUrl;
     }
     
     setNewConfig({
       ...newConfig,
       name: preset, // 使用完整的预设名称
       model, // 使用完整的模型名称
-      baseURL
+      baseUrl
     });
   }, [newConfig])
 
   // 添加新配置
-  const handleAddConfig = useCallback(() => {
-    if (!newConfig.name || !newConfig.baseURL || !newConfig.apiKey) {
+  const handleAddConfig = useCallback(async () => {
+    if (!newConfig.name || !newConfig.baseUrl || !newConfig.apiKey) {
       toast({
         title: '验证失败',
         description: 'API地址、模型名称和API Key是必填项',
@@ -87,94 +107,126 @@ export function AIModelSettings() {
       return
     }
 
-    // 为新配置生成唯一ID
-    const id = Date.now().toString()
-    
-    // 如果是第一个配置，自动设为默认
-    const isFirstConfig = configs.length === 0
-    
-    const configToAdd: AIModelConfig = {
-      id,
-      name: newConfig.name || '',
-      baseURL: newConfig.baseURL || '',
-      apiKey: newConfig.apiKey || '',
-      temperature: newConfig.temperature || 0.7,
-      model: newConfig.model || '',
-      isDefault: isFirstConfig // 第一个配置默认设为默认配置
+    try {
+      // 为新配置生成唯一ID
+      const id = Date.now().toString()
+      
+      // 如果是第一个配置，自动设为默认
+      const isFirstConfig = configs.length === 0
+      
+      const configToAdd: AIModelConfig = {
+        id,
+        name: newConfig.name || '',
+        baseUrl: newConfig.baseUrl || '',
+        apiKey: newConfig.apiKey || '',
+        temperature: newConfig.temperature || 0.7,
+        model: newConfig.model || '',
+        isDefault: isFirstConfig
+      }
+      
+      // 添加配置
+      await addAIConfig(configToAdd)
+      
+      // 重新加载配置列表
+      await loadConfigs()
+      
+      // 重置表单
+      setNewConfig({})
+      setShowAddForm(false)
+      
+      toast({
+        title: '添加成功',
+        description: '新的AI模型配置已添加',
+      })
+    } catch (error) {
+      toast({
+        title: '添加失败',
+        description: error instanceof Error ? error.message : '添加配置时发生错误',
+        variant: 'destructive',
+      })
     }
-    
-    // 添加到 store
-    addConfig(configToAdd)
-    
-    // 重置表单
-    setNewConfig({})
-    setShowAddForm(false)
-    
-    toast({
-      title: '添加成功',
-      description: '新的AI模型配置已添加',
-    })
-  }, [configs.length, newConfig, addConfig])
+  }, [configs.length, newConfig, loadConfigs])
 
   // 删除配置
-  const handleDeleteConfig = useCallback((id: string) => {
-    // 从 store 删除配置
-    deleteConfig(id)
-    
-    // 清除该配置的测试结果
-    setTestResults(prev => {
-      const newResults = { ...prev }
-      delete newResults[id]
-      return newResults
-    })
-    
-    toast({
-      title: '删除成功',
-      description: 'AI模型配置已删除',
-    })
-  }, [deleteConfig])
+  const handleDeleteConfig = useCallback(async (id: string) => {
+    try {
+      await deleteAIConfig(id)
+      await loadConfigs()
+      
+      // 清除该配置的测试结果
+      setTestResults(prev => {
+        const newResults = { ...prev }
+        delete newResults[id]
+        return newResults
+      })
+      
+      toast({
+        title: '删除成功',
+        description: 'AI模型配置已删除',
+      })
+    } catch (error) {
+      toast({
+        title: '删除失败',
+        description: error instanceof Error ? error.message : '删除配置时发生错误',
+        variant: 'destructive',
+      })
+    }
+  }, [loadConfigs])
 
   // 设置默认配置
-  const handleSetDefault = useCallback((id: string) => {
-    // 更新 store 中的默认配置
-    setDefaultConfig(id)
-    
-    toast({
-      title: '已更新默认配置',
-      description: 'AI模型默认配置已更新',
-    })
-  }, [setDefaultConfig])
+  const handleSetDefault = useCallback(async (id: string) => {
+    try {
+      await setDefaultAIConfig(id)
+      await loadConfigs()
+      
+      toast({
+        title: '已更新默认配置',
+        description: 'AI模型默认配置已更新',
+      })
+    } catch (error) {
+      toast({
+        title: '设置失败',
+        description: error instanceof Error ? error.message : '设置默认配置时发生错误',
+        variant: 'destructive',
+      })
+    }
+  }, [loadConfigs])
 
   // 测试连接
   const handleTestConfig = useCallback(async (config: AIModelConfig) => {
     if (!config.id) return;
     
     setTestingId(config.id)
+    setTestResults(prev => ({ ...prev, [config.id as string]: null }))
     
     try {
       // 使用统一的 AI 接口进行测试
       let responseContent = '';
-      await new Promise<void>((resolve, reject) => {
-        streamingAICall(
-          "测试连接,请简洁回复", // 最简单的测试提示词
-          config, // 使用当前配置
-          (content) => {
-            responseContent += content;
-            // 收到任何响应就表示连接成功
-            resolve();
-          },
-          
-        ).catch(reject);
-      });
+      await streamingAICall(
+        "测试连接,请简洁回复", // 最简单的测试提示词
+        config, // 使用当前配置
+        (content) => {
+          responseContent += content;
+          // 收到任何响应就表示连接成功
+          setTestResults(prev => ({ ...prev, [config.id as string]: true }))
+        },
+        (error) => {
+          console.error('测试连接失败:', error)
+          setTestResults(prev => ({ ...prev, [config.id as string]: false }))
+          toast({
+            title: '测试失败',
+            description: error,
+            variant: 'destructive',
+          })
+        }
+      )
       
-      setTestResults(prev => ({ 
-        ...prev, 
-        [config.id as string]: true 
-      }))
-      toast({
-        title: '测试成功',
-        description: `成功连接到${config.name}\n模型返回：${responseContent}`,
-      })
+      if (responseContent) {
+        toast({
+          title: '测试成功',
+          description: `成功连接到${config.name}\n模型返回：${responseContent}`,
+        })
+      }
     } catch (error) {
       setTestResults(prev => ({ 
         ...prev, 
@@ -200,7 +252,8 @@ export function AIModelSettings() {
         <TableRow key={config.id}>
           <TableCell className="font-medium">{config.name}</TableCell>
           <TableCell>{config.model || '-'}</TableCell>
-          <TableCell>{config.baseURL}</TableCell>
+          <TableCell>{config.baseUrl}</TableCell>
+          <TableCell>{config.temperature || '0.2'}</TableCell>
           <TableCell className="text-center">
             <div
               className={cn(
@@ -302,8 +355,8 @@ export function AIModelSettings() {
             <Label htmlFor="ai-url">API 地址</Label>
             <Input
               id="ai-url"
-              value={newConfig.baseURL || ''}
-              onChange={(e) => setNewConfig(prev => ({ ...prev, baseURL: e.target.value }))}
+              value={newConfig.baseUrl || ''}
+              onChange={(e) => setNewConfig(prev => ({ ...prev, baseUrl: e.target.value }))}
               placeholder="例如: https://api.openai.com/v1"
             />
           </div>
@@ -316,6 +369,20 @@ export function AIModelSettings() {
               value={newConfig.apiKey || ''}
               onChange={(e) => setNewConfig(prev => ({ ...prev, apiKey: e.target.value }))}
               placeholder="输入您的API密钥"
+            />
+          </div>
+
+          <div className="grid grid-cols-[120px,1fr] items-center gap-4">
+            <Label htmlFor="ai-temperature">温度</Label>
+            <Input
+              id="ai-temperature"
+              type="number"
+              min="0"
+              max="1"
+              step="0.1"
+              value={newConfig.temperature || 0.2}
+              onChange={(e) => setNewConfig(prev => ({ ...prev, temperature: parseFloat(e.target.value) }))}
+              placeholder="输入温度值（0-1之间）"
             />
           </div>
 
@@ -368,6 +435,7 @@ export function AIModelSettings() {
                         <TableHead>名称</TableHead>
                         <TableHead>模型</TableHead>
                         <TableHead>API地址</TableHead>
+                        <TableHead>温度</TableHead>
                         <TableHead>默认</TableHead>
                         <TableHead>操作</TableHead>
                       </TableRow>

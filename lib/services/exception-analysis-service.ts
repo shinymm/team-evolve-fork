@@ -1,6 +1,7 @@
 import { EXCEPTION_ANALYSIS_TEMPLATE } from '../prompts/exception-analysis'
-import { getAIConfig } from './ai-config-service'
 import type { AIModelConfig } from './ai-service'
+import { getDefaultAIConfig } from '@/lib/services/ai-config-service'
+import { streamingAICall } from '@/lib/services/ai-service'
 
 export class ExceptionAnalysisService {
   private static replaceTemplateVariables(template: string, variables: Record<string, string>) {
@@ -18,41 +19,52 @@ export class ExceptionAnalysisService {
     }
   ): Promise<ReadableStream> {
     try {
-      const config = getAIConfig()
+      // 获取默认配置
+      const config = await getDefaultAIConfig()
       if (!config) {
-        throw new Error('未配置AI模型')
+        throw new Error('未找到AI配置信息，请先在设置中配置AI模型')
       }
 
+      // 构建提示词
       const prompt = this.replaceTemplateVariables(EXCEPTION_ANALYSIS_TEMPLATE, {
         request: exception.request,
         error: exception.error,
         stackTrace: exception.stackTrace.join('\n')
       })
 
-      const response = await fetch(`${config.baseURL}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${config.apiKey}`
+      console.log(`[${new Date().toISOString()}] 开始异常分析，模型: ${config.model}`)
+
+      // 创建一个新的 TransformStream 来处理数据
+      const { readable, writable } = new TransformStream()
+      const writer = writable.getWriter()
+      const encoder = new TextEncoder()
+
+      // 在后台处理流
+      streamingAICall(
+        prompt,
+        config,
+        (content: string) => {
+          // 直接传递内容，因为 streamingAICall 已经处理了格式化
+          writer.write(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`))
         },
-        body: JSON.stringify({
-          model: config.model,
-          messages: [
-            { role: 'system', content: '你是一个专业的软件开发工程师，擅长分析程序异常并提供专业的建议。' },
-            { role: 'user', content: prompt }
-          ],
-          stream: true
-        })
-      })
+        async (error: string) => {
+          console.error(`[${new Date().toISOString()}] 异常分析错误:`, error)
+          await writer.write(encoder.encode(`data: ${JSON.stringify({ error })}\n\n`))
+          await writer.close()
+        }
+      )
 
-      if (!response.ok) {
-        throw new Error('AI 分析请求失败')
-      }
-
-      return response.body as ReadableStream
+      return readable
     } catch (error) {
-      console.error('Exception analysis failed:', error)
-      throw error
+      console.error(`[${new Date().toISOString()}] 异常分析失败:`, error)
+      // 创建一个新的 TransformStream 来返回错误
+      const { readable, writable } = new TransformStream()
+      const writer = writable.getWriter()
+      const encoder = new TextEncoder()
+      const errorMessage = error instanceof Error ? error.message : '未知错误'
+      writer.write(encoder.encode(`data: ${JSON.stringify({ error: errorMessage })}\n\n`))
+      writer.close()
+      return readable
     }
   }
 } 

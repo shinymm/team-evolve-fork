@@ -20,8 +20,9 @@ import {
 } from "@/components/ui/context-menu"
 import { ExceptionAnalysisService } from '@/lib/services/exception-analysis-service'
 import { Dialog, DialogContent } from "@/components/ui/dialog"
-import { getAIConfig } from '@/lib/services/ai-config-service'
+import { getDefaultAIConfig } from '@/lib/services/ai-config-service'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { toast } from "@/components/ui/use-toast"
 
 interface Exception {
   request: string
@@ -47,7 +48,20 @@ export default function LogAnalysis() {
   const [aiConfig, setAiConfig] = useState<any>(null)
 
   useEffect(() => {
-    setAiConfig(getAIConfig())
+    const loadConfig = async () => {
+      try {
+        const config = await getDefaultAIConfig()
+        setAiConfig(config)
+      } catch (error) {
+        console.error('加载AI配置失败:', error)
+        toast({
+          title: '配置加载失败',
+          description: '无法加载AI配置，请检查设置',
+          variant: 'destructive',
+        })
+      }
+    }
+    loadConfig()
   }, [])
 
   const toggleRow = (index: number) => {
@@ -162,20 +176,26 @@ export default function LogAnalysis() {
         
         for (const line of lines) {
           if (line.startsWith('data: ')) {
-            const data = line.slice(6)
-            if (data === '[DONE]') continue
             try {
-              const parsed = JSON.parse(data)
-              const content = parsed.choices[0]?.delta?.content || ''
-              setAnalysisResult(prev => prev + content)
+              const data = JSON.parse(line.slice(6))
+              // 检查是否有错误信息
+              if (data.error) {
+                console.error('分析错误:', data.error)
+                setAnalysisResult(prev => prev + `\n错误: ${data.error}`)
+                continue
+              }
+              // 检查并提取内容
+              if (data.content) {
+                setAnalysisResult(prev => prev + data.content)
+              }
             } catch (e) {
-              console.error('Failed to parse SSE message:', e)
+              console.error('解析 SSE 消息失败:', e, line)
             }
           }
         }
       }
     } catch (error) {
-      console.error('Analysis failed:', error)
+      console.error('分析失败:', error)
       setAnalysisResult('分析过程中出现错误，请稍后重试。如果问题持续存在，请检查 AI 配置是否正确。')
     } finally {
       setAnalyzing(false)

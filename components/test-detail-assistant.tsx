@@ -15,7 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { RotateCcw } from 'lucide-react'
 import { PathInputDialog } from "@/components/path-input-dialog"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { getAIConfig } from '@/lib/services/ai-config-service'
+import { getDefaultAIConfig } from '@/lib/services/ai-config-service'
 import { getFormattedArchitecture } from '@/lib/services/architecture-service'
 
 interface TestCaseDetail {
@@ -62,10 +62,13 @@ export function TestDetailAssistant() {
   const [aiConfig, setAiConfig] = useState<AIModelConfig | null>(null)
 
   useEffect(() => {
-    const config = getAIConfig()
-    if (config) {
-      setAiConfig(config)
+    const loadConfig = async () => {
+      const config = await getDefaultAIConfig()
+      if (config) {
+        setAiConfig(config)
+      }
     }
+    loadConfig()
   }, [])
 
   const handleInputChange = (field: keyof TestCaseDetail) => (
@@ -93,9 +96,7 @@ export function TestDetailAssistant() {
       await streamingAICall(
         prompt,
         {
-          model: aiConfig.model,
-          apiKey: aiConfig.apiKey,
-          baseURL: aiConfig.baseURL,
+          ...aiConfig,
           temperature: 0.7
         },
         (content: string) => {
@@ -113,6 +114,9 @@ export function TestDetailAssistant() {
           } catch (e) {
             // 解析错误时继续累积内容
           }
+        },
+        (error: string) => {
+          throw new Error(`生成用例细节失败: ${error}`)
         }
       )
 
@@ -150,9 +154,7 @@ export function TestDetailAssistant() {
       await streamingAICall(
         prompt,
         {
-          model: aiConfig.model,
-          apiKey: aiConfig.apiKey,
-          baseURL: aiConfig.baseURL,
+          ...aiConfig,
           temperature: 0.7
         },
         (content: string) => {
@@ -175,6 +177,9 @@ export function TestDetailAssistant() {
           } catch (e) {
             console.log('Parse error:', e)
           }
+        },
+        (error: string) => {
+          throw new Error(`优化用例概述失败: ${error}`)
         }
       )
 
@@ -315,9 +320,7 @@ export function TestDetailAssistant() {
       await streamingAICall(
         prompt,
         {
-          model: aiConfig.model,
-          apiKey: aiConfig.apiKey,
-          baseURL: aiConfig.baseURL,
+          ...aiConfig,
           temperature: 0.7
         },
         (content: string) => {
@@ -335,6 +338,9 @@ export function TestDetailAssistant() {
           } catch (e) {
             // 解析错误时继续累积内容
           }
+        },
+        (error: string) => {
+          throw new Error(`生成用例步骤失败: ${error}`)
         }
       )
 

@@ -1,5 +1,5 @@
 import { streamingAICall } from '@/lib/services/ai-service'
-import { getAIConfig } from '@/lib/services/ai-config-service'
+import { getDefaultAIConfig } from '@/lib/services/ai-config-service'
 import { requirementAnalysisPrompt } from '@/lib/prompts/requirement-analysis'
 import { template } from '@/lib/prompts/requirement-edit-analysis'
 
@@ -14,7 +14,7 @@ export async function analyzeRequirementEdit(
   onProgress: (content: string) => void
 ): Promise<EditAnalysisResult> {
   try {
-    const aiConfig = getAIConfig()
+    const aiConfig = await getDefaultAIConfig()
     if (!aiConfig) {
       throw new Error('AI配置未找到')
     }
@@ -27,7 +27,10 @@ export async function analyzeRequirementEdit(
     await streamingAICall(
       prompt,
       aiConfig,
-      onProgress
+      onProgress,
+      (error: string) => {
+        throw new Error(`req-edit-analysis AI调用错误: ${error}`)
+      }
     )
 
     return { success: true }

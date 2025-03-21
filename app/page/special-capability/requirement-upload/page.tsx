@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback, memo } from 'react'
 import { Upload, File as FileIcon, X, Trash2, Download, Book, Loader2, AlertCircle, FileText, HelpCircle } from 'lucide-react'
 import { Toaster } from "@/components/ui/toaster"
 import { useToast } from "@/components/ui/use-toast"
-import { getAIConfig } from '@/lib/services/ai-config-service'
+import { getAIConfig, getDefaultAIConfig } from '@/lib/services/ai-config-service'
 import type { AIModelConfig } from '@/lib/services/ai-service'
 import { Button } from "@/components/ui/button"
 import { RequirementToMdService } from '@/lib/services/requirement-to-md-service'
@@ -176,18 +176,22 @@ export default function RequirementUpload() {
 
   // 获取AI配置
   useEffect(() => {
-    // 直接获取配置放入状态
-    const config = getAIConfig()
-    setAiConfig(config)
-    
-    if (!config) {
-      setError('未设置AI模型配置，请先在设置中配置模型')
-    } else {
-      console.log('获取到AI模型配置:', {
-        model: config.model,
-        baseURL: config.baseURL
-      })
+    // 异步获取配置
+    const loadConfig = async () => {
+      const config = await getDefaultAIConfig()
+      setAiConfig(config)
+      
+      if (!config) {
+        setError('未设置AI模型配置，请先在设置中配置模型')
+      } else {
+        console.log('获取到AI模型配置:', {
+          model: config.model,
+          baseUrl: config.baseUrl
+        })
+      }
     }
+
+    loadConfig()
 
     // 从localStorage恢复已上传文件列表
     const storedFiles = localStorage.getItem('uploaded-requirement-files')
@@ -300,8 +304,9 @@ export default function RequirementUpload() {
       return
     }
 
-    if (!aiConfig) {
-      setError('请先配置AI模型')
+    const config = await getDefaultAIConfig()
+    if (!config) {
+      setError('未找到AI配置信息')
       return
     }
 
@@ -311,9 +316,9 @@ export default function RequirementUpload() {
     try {
       const formData = new FormData()
       formData.append('file', fileToUpload)
-      formData.append('apiKey', aiConfig.apiKey)
-      formData.append('baseURL', aiConfig.baseURL)
-      formData.append('model', aiConfig.model)
+      formData.append('apiKey', config.apiKey)
+      formData.append('baseUrl', config.baseUrl)
+      formData.append('model', config.model)
 
       const response = await fetch('/api/upload-requirement', {
         method: 'POST',
@@ -443,7 +448,6 @@ export default function RequirementUpload() {
 
       await service.convertToMd(
         [selectedFiles[0].id],
-        aiConfig,
         (content: string) => {
           console.log('收到新内容，长度:', content.length);
           // 使用函数式更新，确保基于最新状态
@@ -547,7 +551,6 @@ export default function RequirementUpload() {
 
       await service.convertToTest(
         fileIds,
-        aiConfig!,
         (content: string) => {
           console.log('收到新内容，长度:', content.length);
           // 使用函数式更新，确保基于最新状态
@@ -649,7 +652,6 @@ export default function RequirementUpload() {
 
       await service.compareRequirements(
         [selectedFiles[0].id, selectedFiles[1].id],
-        aiConfig,
         (content: string) => {
           console.log('收到新内容，长度:', content.length);
           // 使用函数式更新，确保基于最新状态
@@ -745,11 +747,9 @@ export default function RequirementUpload() {
 
     try {
       const service = new RequirementTerminologyService();
-      const fileIds = selectedFiles.map(file => file.id);
 
       await service.extractTerminology(
-        fileIds,
-        aiConfig,
+        selectedFiles.map(file => file.id),
         (content: string) => {
           console.log('收到新内容，长度:', content.length);
           // 使用函数式更新，确保基于最新状态
@@ -845,11 +845,9 @@ export default function RequirementUpload() {
 
     try {
       const service = new RequirementArchitectureService();
-      const fileIds = selectedFiles.map(file => file.id);
 
       await service.extractArchitecture(
-        fileIds,
-        aiConfig,
+        selectedFiles.map(file => file.id),
         (content: string) => {
           console.log('收到新内容，长度:', content.length);
           // 使用函数式更新，确保基于最新状态
