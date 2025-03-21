@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { getEmbedding } from '@/lib/embedding-service'
+import { getEmbedding } from '@/lib/services/embedding-service'
 import { z } from 'zod'
 import { Prisma } from '@prisma/client'
 

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { generateGlossaryEmbedding } from '@/lib/embedding-service'
+import { generateGlossaryEmbedding } from '@/lib/services/embedding-service'
 import { z } from 'zod'
 
 // 获取术语列表

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { setServerSideConfig } from '@/lib/embedding-service'
+import { setServerSideConfig } from '@/lib/services/embedding-service'
 
 export async function GET() {
   try {

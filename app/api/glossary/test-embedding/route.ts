@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { VectorModelConfig } from '@/lib/embedding-service'
-import { getEmbedding } from '@/lib/embedding-service'
+import { VectorModelConfig } from '@/lib/services/embedding-service'
+import { getEmbedding } from '@/lib/services/embedding-service'
 
 export async function POST(request: Request) {
   try {

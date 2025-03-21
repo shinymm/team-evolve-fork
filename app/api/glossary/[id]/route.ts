@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { Prisma } from '@prisma/client'
-import { getEmbedding } from '@/lib/embedding-service'
+import { getEmbedding } from '@/lib/services/embedding-service'
 import { z } from 'zod'
 
 // 获取单个术语详情
