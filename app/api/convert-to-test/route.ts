@@ -3,7 +3,7 @@ import { requirementToTestPrompt } from '@/lib/prompts/requirement-to-test'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { GoogleAIFileManager } from '@google/generative-ai/server'
 import OpenAI from 'openai'
-import { isGeminiModel } from '@/lib/ai-service'
+import { isGeminiModel } from '@/lib/services/ai-service'
 import { join } from 'path'
 
 // 文件类型定义

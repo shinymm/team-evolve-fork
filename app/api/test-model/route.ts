@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import type { AIModelConfig } from '@/lib/ai-service'
+import type { AIModelConfig } from '@/lib/services/ai-service'
 
 export async function POST(request: Request) {
   try {

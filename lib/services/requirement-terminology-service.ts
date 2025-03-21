@@ -1,4 +1,4 @@
-import { AIModelConfig } from '@/lib/ai-service'
+import { AIModelConfig } from '@/lib/services/ai-service'
 
 /**
  * 处理从需求文档抽取术语知识的服务

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requirementToMdPrompt } from '@/lib/prompts/requirement-to-md'
 import OpenAI from 'openai'
-import { isGeminiModel } from '@/lib/ai-service'
+import { isGeminiModel } from '@/lib/services/ai-service'
 import { GoogleGenerativeAI, Part } from '@google/generative-ai'
 import { GoogleAIFileManager } from '@google/generative-ai/server'
 

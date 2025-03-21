@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { AIModelConfig, getApiEndpointAndHeaders, isGeminiModel } from '@/lib/ai-service'
+import { AIModelConfig, getApiEndpointAndHeaders, isGeminiModel } from '@/lib/services/ai-service'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
 export const dynamic = 'force-dynamic'

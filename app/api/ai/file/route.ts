@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { AIModelConfig, getApiEndpointAndHeaders, isGeminiModel } from '@/lib/ai-service'
+import { AIModelConfig, getApiEndpointAndHeaders, isGeminiModel } from '@/lib/services/ai-service'
 import OpenAI from 'openai'
 import { writeFile, readFile, stat, readdir } from 'fs/promises'
 import { join } from 'path'

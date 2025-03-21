@@ -1,4 +1,4 @@
-import { AIModelConfig } from '@/lib/ai-service'
+import { AIModelConfig } from '@/lib/services/ai-service'
 
 /**
  * 处理需求书转测试用例的服务
