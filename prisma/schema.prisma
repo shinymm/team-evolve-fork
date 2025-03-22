@@ -82,7 +82,7 @@ model AIModelConfig {
   id          String   @id @default(cuid())
   name        String
   model       String
-  baseUrl     String
+  baseURL     String
   apiKey      String
   temperature Float    @default(0.7)
   isDefault   Boolean  @default(false)

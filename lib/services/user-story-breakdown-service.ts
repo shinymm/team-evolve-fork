@@ -27,7 +27,7 @@ export class UserStoryBreakdownService {
       // 添加调试日志
       console.log('用户故事拆解使用的模型配置:', {
         model: config.model,
-        baseUrl: config.baseUrl,
+        baseURL: config.baseURL,
         temperature: config.temperature,
         isGemini: config.model.toLowerCase().startsWith('gemini')
       });

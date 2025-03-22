@@ -1,13 +1,15 @@
 import OpenAI from 'openai'
 import { PrismaClient } from '@prisma/client';
 import { decrypt } from '@/lib/utils/encryption-utils'
+import { join } from 'path'
+import { readFile } from 'fs/promises'
 
 const prisma = new PrismaClient();
 
 export interface AIModelConfig {
   id: string
   name: string
-  baseUrl: string
+  baseURL: string
   apiKey: string
   model: string
   temperature?: number
@@ -30,7 +32,7 @@ export function getApiEndpointAndHeaders(config: AIModelConfig) {
   // 检查是否是 Gemini 模型
   if (isGeminiModel(config.model)) {
     return {
-      endpoint: `${config.baseUrl}/models/${config.model}:streamGenerateContent`,
+      endpoint: `${config.baseURL}/models/${config.model}:streamGenerateContent`,
       headers: {
         'Content-Type': 'application/json',
         'x-goog-api-key': config.apiKey
@@ -39,7 +41,7 @@ export function getApiEndpointAndHeaders(config: AIModelConfig) {
   }
 
   // 标准 OpenAI 兼容的 API
-  let endpoint = config.baseUrl
+  let endpoint = config.baseURL
   if (!endpoint.endsWith('/chat/completions')) {
     // 移除尾部的斜杠（如果有）
     endpoint = endpoint.replace(/\/+$/, '')
@@ -85,7 +87,7 @@ export async function streamingAICall(
       id: config.id,
       name: config.name,
       model: config.model,
-      baseUrl: config.baseUrl,
+      baseURL: config.baseURL,
       apiKey: decryptedApiKey,
       temperature: config.temperature,
       isDefault: config.isDefault
@@ -204,7 +206,7 @@ export const callChatCompletion = async (
     console.log('聊天调用配置:', {
       model: fullConfig.model,
       isGemini,
-      baseURL: fullConfig.baseUrl ? '已设置' : '未设置',
+      baseURL: fullConfig.baseURL ? '已设置' : '未设置',
       apiKey: fullConfig.apiKey ? '已设置' : '未设置',
       temperature: fullConfig.temperature
     })
@@ -218,8 +220,8 @@ export const callChatCompletion = async (
         messages,
         model: fullConfig.model,
         temperature: fullConfig.temperature,
-        apiKey: fullConfig.apiKey,
-        baseURL: fullConfig.baseUrl
+        apiKey: await decrypt(fullConfig.apiKey),
+        baseURL: fullConfig.baseURL
       }),
     })
 
@@ -248,12 +250,14 @@ export async function streamingFileAICall(params: {
   systemPrompt: string
   userPrompt: string
   onContent: (content: string) => void
-  apiConfig?: AIModelConfig // 改为可选参数
+  apiConfig?: AIModelConfig
 }) {
   const { fileIds, systemPrompt, userPrompt, onContent } = params;
   let { apiConfig } = params;
   
   try {
+    console.log(`🔄 开始执行文件AI调用，文件数: ${fileIds.length}`);
+    
     // 如果未提供配置，尝试从store获取默认配置
     let finalConfig = apiConfig;
     
@@ -262,110 +266,101 @@ export async function streamingFileAICall(params: {
       const defaultConfig = store.useAIConfigStore.getState().getConfig();
       
       if (!defaultConfig) {
-        throw new Error('未找到AI模型配置，请先在设置中配置模型');
+        throw new Error('未找到AI配置信息，请先在设置中配置模型');
       }
-      
-      // 解密apiKey
-      finalConfig = {
-        ...defaultConfig,
-        apiKey: await decrypt(defaultConfig.apiKey)
-      };
-    } else if (finalConfig.apiKey) {
-      // 如果提供了配置，也需要解密apiKey
-      finalConfig = {
-        ...finalConfig,
-        apiKey: await decrypt(finalConfig.apiKey)
-      };
-    }
-    
-    // 检查是否是Google Gemini模型
-    const isGemini = isGeminiModel(finalConfig.model)
-    
-    console.log('文件AI调用配置:', {
-      model: finalConfig.model,
-      isGemini,
-      baseURL: finalConfig.baseUrl,
-      apiKey: finalConfig.apiKey ? '已设置' : '未设置',
-      temperature: finalConfig.temperature,
-      fileIds
-    })
 
-    // 使用新的文件API路由处理文件请求
-    // 首先需要获取文件内容
-    const files = await Promise.all(
-      fileIds.map(async (fileId) => {
-        try {
-          // 这里应该实现从服务器获取文件内容的逻辑
-          // 在实际应用中，可能需要从数据库或存储中获取文件
-          // 这里假设我们已经有了文件对象
-          return { id: fileId, name: fileId, content: `文件内容 ${fileId}` };
-        } catch (error) {
-          console.error(`获取文件 ${fileId} 失败:`, error);
-          throw error;
-        }
-      })
-    );
+      finalConfig = defaultConfig
+    } 
     
     // 创建FormData对象
-    const formData = new FormData();
-    formData.append('systemPrompt', systemPrompt);
-    formData.append('userPrompt', userPrompt);
-    formData.append('config', JSON.stringify(finalConfig));
+    const formData = new FormData()
+    formData.append('systemPrompt', systemPrompt)
+    formData.append('userPrompt', userPrompt)
+    formData.append('config', JSON.stringify(finalConfig))
     
-    // 添加文件
-    for (const file of files) {
-      // 这里需要将文件内容转换为Blob对象
-      const blob = new Blob([file.content], { type: 'text/plain' });
-      formData.append('files', blob, file.name);
-    }
-    
-    // 发送请求到文件API路由
-    const response = await fetch('/api/ai/file', {
-      method: 'POST',
-      body: formData
+    // 添加文件ID
+    fileIds.forEach(fileId => {
+      formData.append('fileIds', fileId)
     });
     
+    console.log(`🔄 发送请求到后端API，可能需要数秒至数十秒等待首次响应...`);
+    
+    // 发送请求到后端
+    const response = await fetch('/api/ai/file', {
+      method: 'POST',
+      body: formData,
+      // 确保不缓存
+      cache: 'no-store'
+    });
+
     if (!response.ok) {
       const error = await response.text();
-      console.error('API错误响应:', error);
+      console.error(`🔄 API响应错误:`, error);
       throw new Error(`API请求失败 (${response.status}): ${error}`);
     }
-    
+
     if (!response.body) {
       throw new Error('响应中没有body');
     }
-    
+
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     
+    console.log(`🔄 开始读取流式数据...`);
+    
+    // 简化的流处理逻辑
+    let counter = 0;
+    
     while (true) {
       const { done, value } = await reader.read();
-      if (done) break;
       
+      if (done) {
+        console.log(`🔄 流读取完成，共处理 ${counter} 个数据块`);
+        break;
+      }
+
+      counter++;
       const chunk = decoder.decode(value);
+      
+      // 处理接收到的数据块
       const lines = chunk
         .split('\n')
         .filter(line => line.trim() !== '' && line.trim() !== 'data: [DONE]');
-      
+
       for (const line of lines) {
         if (line.includes('data: ')) {
           try {
-            const data = JSON.parse(line.replace('data: ', ''));
-            const content = data.content || '';
-            if (content) {
-              onContent(content);
+            const jsonStr = line.replace('data: ', '');
+            const data = JSON.parse(jsonStr);
+            
+            // 直接处理错误
+            if (data.error) {
+              console.error(`🔄 收到错误:`, data.error);
+              onContent(`\n\n[错误] ${data.error}`);
+              continue;
+            }
+            
+            // 提取并直接发送内容 - 不做任何缓存或延迟处理
+            if (data.content) {
+              console.log(`🔄 立即处理内容块 #${counter}，长度: ${data.content.length}字符`);
+              // 直接调用回调，立即传递内容
+              onContent(data.content);
             }
           } catch (e) {
-            console.error('解析SSE消息错误:', e, line);
+            console.error(`🔄 解析数据出错:`, e);
           }
         }
       }
     }
+    
+    console.log(`🔄 文件AI调用完成`);
   } catch (error) {
-    console.error('AI服务错误:', error);
-    if (error instanceof TypeError && error.message === 'Failed to fetch') {
-      throw new Error('网络请求失败，请检查：\n1. API地址是否正确\n2. 网络连接是否正常\n3. 是否存在跨域限制');
-    }
+    console.error(`🔄 AI服务错误:`, error);
+    
+    // 向前端发送错误消息
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    onContent(`\n\n[错误] ${errorMessage}`);
+    
     throw error;
   }
 } 

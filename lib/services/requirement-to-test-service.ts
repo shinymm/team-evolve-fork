@@ -1,6 +1,6 @@
-import { AIModelConfig } from '@/lib/services/ai-service'
+import { AIModelConfig, streamingFileAICall } from '@/lib/services/ai-service'
 import { getDefaultAIConfig } from '@/lib/services/ai-config-service'
-import { streamingAICall } from '@/lib/services/ai-service'
+import { requirementToTestPrompt } from '@/lib/prompts/requirement-to-test'
 
 /**
  * 处理需求书转测试用例的服务
@@ -30,24 +30,18 @@ export class RequirementToTestService {
         throw new Error('请至少选择一个文件进行转换')
       }
 
-      // 获取文件内容
-      const files = await this.getFilesData(fileIds)
-      console.log(`获取到 ${files.length} 个文件的内容`)
+      // 使用预定义的提示词
+      const systemPrompt = requirementToTestPrompt(requirementChapter)
+      const userPrompt = '请按照上述规则和说明，生成测试用例。'
 
-      // 构建提示词
-      const prompt = `请将以下文件转换为测试用例：
-文件列表：${fileIds.join(', ')}
-${requirementChapter ? `需求章节：${requirementChapter}` : ''}`
-
-      // 使用统一的streamingAICall方法
-      await streamingAICall(
-        prompt,
-        config,
+      // 使用streamingFileAICall方法
+      await streamingFileAICall({
+        fileIds,
+        systemPrompt,
+        userPrompt,
         onContent,
-        (error: string) => {
-          throw new Error(`生成测试用例失败: ${error}`)
-        }
-      )
+        apiConfig: config
+      })
 
       console.log(`[${new Date().toISOString()}] 转换完成`)
     } catch (error) {

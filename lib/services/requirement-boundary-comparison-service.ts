@@ -66,7 +66,7 @@ export class RequirementBoundaryComparisonService {
           
           chunkCounter++;
           const chunk = decoder.decode(value, { stream: true });
-          console.log(`[${new Date().toISOString()}] 收到数据块#${chunkCounter}，长度: ${chunk.length}字节`);
+          console.log(`[${new Date().toISOString()}] requirement-boundary-comparison-service 收到数据块#${chunkCounter}，长度: ${chunk.length}字节`);
           
           if (chunk && chunk.length > 0) {
             // 确保回调被调用，即使内容块很小

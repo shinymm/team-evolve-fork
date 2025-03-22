@@ -1,12 +1,9 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback, memo } from 'react'
-import { Upload, File as FileIcon, X, Trash2, Download, Book, Loader2, AlertCircle, FileText, HelpCircle } from 'lucide-react'
-import { Toaster } from "@/components/ui/toaster"
 import { useToast } from "@/components/ui/use-toast"
-import { getAIConfig, getDefaultAIConfig } from '@/lib/services/ai-config-service'
+import { getDefaultAIConfig } from '@/lib/services/ai-config-service'
 import type { AIModelConfig } from '@/lib/services/ai-service'
-import { Button } from "@/components/ui/button"
 import { RequirementToMdService } from '@/lib/services/requirement-to-md-service'
 import { RequirementToTestService } from '@/lib/services/requirement-to-test-service'
 import { RequirementBoundaryComparisonService } from '@/lib/services/requirement-boundary-comparison-service'
@@ -14,24 +11,23 @@ import { RequirementTerminologyService } from '@/lib/services/requirement-termin
 import { RequirementArchitectureService } from '@/lib/services/requirement-architecture-service'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Button } from "@/components/ui/button"
+import { Upload, File as FileIcon, X, Trash2, Download, Book, Loader2, AlertCircle, FileText, HelpCircle } from 'lucide-react'
+import { Toaster } from "@/components/ui/toaster"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
+  DialogTitle
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import { flushSync } from 'react-dom'
 
 // 添加全局样式
 import './requirement-styles.css'
@@ -46,50 +42,172 @@ type UploadedFile = {
 };
 
 // 添加内容显示组件，使用ReactMarkdown展示Markdown内容
-const ContentDisplay = ({ content }: { content: string }) => {
-  console.log('ContentDisplay rendering, content length:', content.length);
+const ContentDisplay = memo(({ content }: { content: string }) => {
+  // 使用state存储当前渲染时间和状态
+  const [renderTime, setRenderTime] = useState<string>(new Date().toISOString());
+  const [isScrolling, setIsScrolling] = useState<boolean>(false);
+  const [renderError, setRenderError] = useState<string | null>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  // 用于计算内容变化的参考
+  const prevContentLength = useRef<number>(0);
   
-  return (
-    <div className="w-full">
-      <div className="markdown-content overflow-x-auto w-full">
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          components={{
-            h1: ({children}) => <h1 className="text-xl font-bold mb-2 pb-1 border-b">{children}</h1>,
-            h2: ({children}) => <h2 className="text-lg font-semibold mb-2 mt-3">{children}</h2>,
-            h3: ({children}) => <h3 className="text-base font-medium mb-1 mt-2">{children}</h3>,
-            p: ({children}) => <p className="text-gray-600 my-1 leading-normal text-sm">{children}</p>,
-            ul: ({children}) => <ul className="list-disc pl-4 my-1 space-y-0.5">{children}</ul>,
-            ol: ({children}) => <ol className="list-decimal pl-4 my-1 space-y-0.5">{children}</ol>,
-            li: ({children}) => <li className="text-gray-600 text-sm">{children}</li>,
-            blockquote: ({children}) => <blockquote className="border-l-4 border-gray-300 pl-3 my-1 italic text-sm">{children}</blockquote>,
-            code: ({children}) => <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{children}</code>,
-            pre: ({children}) => (
-              <div className="relative">
-                <pre className="bg-gray-50 rounded-lg p-3 my-2 overflow-auto text-sm">{children}</pre>
-              </div>
-            ),
-            table: ({children}) => (
-              <div className="overflow-x-auto my-2 md:max-w-full">
-                <table className="min-w-full divide-y divide-gray-200 border border-gray-200 text-sm table-fixed">{children}</table>
-              </div>
-            ),
-            thead: ({children}) => <thead className="bg-gray-50">{children}</thead>,
-            tbody: ({children}) => <tbody className="divide-y divide-gray-200">{children}</tbody>,
-            tr: ({children}) => <tr className="border-b border-gray-200">{children}</tr>,
-            th: ({children}) => <th className="px-3 py-2 text-left font-medium text-gray-700 border-r border-gray-200 last:border-r-0 break-words">{children}</th>,
-            td: ({children}) => <td className="px-3 py-2 whitespace-normal border-r border-gray-200 last:border-r-0 break-words align-top">{children}</td>
-          }}
-        >
-          {content}
-        </ReactMarkdown>
+  // 用于管理滚动和防抖
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 内容变化时的处理
+  useEffect(() => {
+    try {
+      // 设置渲染时间
+      const now = new Date();
+      setRenderTime(now.toISOString());
+      
+      // 计算内容长度变化
+      const currentLength = content?.length || 0;
+      const lengthDiff = currentLength - prevContentLength.current;
+      
+      // 只有内容有增加时才记录日志
+      if (lengthDiff > 0) {
+        console.log(`📄 [ContentDisplay] 内容更新: +${lengthDiff}字符，总计: ${currentLength}字符，时间: ${now.toISOString()}`);
+      }
+      
+      // 更新前一次内容长度
+      prevContentLength.current = currentLength;
+      
+      // 当内容变化且有实际内容时，立即滚动到底部
+      if (contentRef.current && lengthDiff > 0) {
+        // 清除之前的定时器
+        if (scrollTimeoutRef.current) {
+          clearTimeout(scrollTimeoutRef.current);
+        }
+        
+        // 标记正在滚动
+        setIsScrolling(true);
+        
+        // 使用RAF+setTimeout确保在DOM更新后再执行滚动
+        scrollTimeoutRef.current = setTimeout(() => {
+          if (contentRef.current) {
+            try {
+              // 使用 requestAnimationFrame 延迟到浏览器下一帧，确保DOM已更新
+              requestAnimationFrame(() => {
+                if (contentRef.current) {
+                  // 使用scrollTo方法，更可靠
+                  contentRef.current.scrollTo({
+                    top: contentRef.current.scrollHeight,
+                    behavior: 'auto' // 使用 'auto' 而非 'smooth'，避免流式内容时的连续滚动效果
+                  });
+                  
+                  // 兜底方案：直接设置scrollTop
+                  contentRef.current.scrollTop = contentRef.current.scrollHeight;
+                  
+                  // 确保滚动完成后更新状态
+                  setTimeout(() => setIsScrolling(false), 50);
+                }
+              });
+            } catch (e) {
+              console.warn('滚动尝试失败，使用简单方法', e);
+              // 兜底方案
+              contentRef.current.scrollTop = contentRef.current.scrollHeight;
+              setIsScrolling(false);
+            }
+          }
+        }, 10);
+      } else if (lengthDiff === 0) {
+        // 内容没变化，不需要滚动
+        setIsScrolling(false);
+      }
+      
+      // 清除错误状态
+      setRenderError(null);
+    } catch (error) {
+      console.error('内容处理错误', error);
+      setRenderError(error instanceof Error ? error.message : '未知错误');
+    }
+    
+    return () => {
+      // 组件卸载时清除定时器
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, [content]); // 只在content变化时触发
+  
+  // 直接显示内容长度，便于调试
+  const contentLength = content?.length || 0;
+
+  // 如果内容为空，显示提示
+  if (!content) {
+    return (
+      <div className="text-gray-500 text-sm flex items-center gap-2">
+        <span>暂无内容</span>
       </div>
-      <div className="mt-4 p-2 bg-gray-100 rounded">
-        <p className="text-xs text-gray-500">内容长度: {content.length}</p>
+    );
+  }
+
+  // 如果内容是空白字符，也显示提示
+  if (content.trim() === '') {
+    return (
+      <div className="text-gray-500 text-sm">
+        内容为空白字符
+      </div>
+    );
+  }
+
+  // 如果有渲染错误
+  if (renderError) {
+    return (
+      <div className="text-red-500 text-sm border border-red-300 p-2 rounded">
+        <p>内容渲染错误: {renderError}</p>
+        <p className="mt-1">原始内容长度: {contentLength} 字符</p>
+        <pre className="mt-2 text-xs bg-gray-100 p-2 overflow-auto max-h-[200px]">{content}</pre>
+      </div>
+    );
+  }
+
+  // 尝试渲染Markdown
+  const formattedTime = (() => {
+    try {
+      if (renderTime && renderTime.includes('T')) {
+        return renderTime.split('T')[1].split('.')[0];
+      }
+      return new Date().toTimeString().split(' ')[0];
+    } catch (e) {
+      return new Date().toTimeString().split(' ')[0];
+    }
+  })();
+
+  // 渲染内容
+  return (
+    <div ref={contentRef} className="prose prose-sm max-w-none break-words whitespace-pre-wrap relative">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+      <div className="text-xs text-gray-400 mt-2 flex justify-between">
+        <span>当前内容长度: {contentLength} 字符</span>
+        {isScrolling && <span className="text-orange-500">内容更新中...</span>}
+        <span className="text-gray-400">更新时间: {formattedTime}</span>
       </div>
     </div>
   );
-};
+}, (prevProps, nextProps) => {
+  // 优化：仅在内容实际变化时重渲染
+  if (prevProps.content === nextProps.content) {
+    return true; // 内容相同，不重渲染
+  }
+  
+  // 当内容为空时，优先重渲染
+  if (!prevProps.content || !nextProps.content) {
+    return false;
+  }
+  
+  // 内容长度变化超过阈值时，强制重渲染
+  const lengthDiff = nextProps.content.length - prevProps.content.length;
+  if (lengthDiff > 0) { // 任何内容增加都重渲染，确保实时更新流式内容
+    return false;
+  }
+  
+  // 默认重渲染
+  return false;
+});
+
+ContentDisplay.displayName = 'ContentDisplay';
 
 export default function RequirementUpload() {
   const [file, setFile] = useState<File | null>(null)
@@ -118,13 +236,21 @@ export default function RequirementUpload() {
   const testContentRef = useRef<HTMLDivElement>(null)
   const boundaryContentRef = useRef<HTMLDivElement>(null)
   const terminologyContentRef = useRef<HTMLDivElement>(null)
+  const terminologyTextRef = useRef<string>('')
   const architectureContentRef = useRef<HTMLDivElement>(null)
+  
+  // 批处理设置参数
+  const batchSizeRef = useRef<number>(200); // 默认批量大小
   
   // 添加一个强制重新渲染的机制
   const [, forceUpdate] = useState({});
   
   // 添加标签页状态
   const [activeTab, setActiveTab] = useState<'md' | 'test' | 'boundary' | 'terminology' | 'architecture'>('md');
+  
+  // 创建一个状态来跟踪最后一次内容更新
+  const [lastUpdateTime, setLastUpdateTime] = useState<number>(0);
+  const pendingContentRef = useRef<string>('');
   
   // 监听内容变化，自动滚动到底部
   useEffect(() => {
@@ -164,12 +290,24 @@ export default function RequirementUpload() {
 
   // 当内容变化时，强制重新渲染
   useEffect(() => {
+    // 确保只在客户端运行
+    if (typeof window === 'undefined') return;
+    
     const timer = setInterval(() => {
       if (isConverting || isGeneratingTest || isComparing || isExtractingTerminology || isExtractingArchitecture) {
-        console.log('强制重新渲染，当前时间:', new Date().toISOString());
+        console.log('⏱️ 定时检查状态:', {
+          isConverting,
+          isGeneratingTest,
+          isComparing,
+          isExtractingTerminology,
+          isExtractingArchitecture,
+          时间: new Date().toISOString()
+        });
+        
+        // 仅在有处理过程进行时才更新
         forceUpdate({});
       }
-    }, 500); // 每500ms强制重新渲染一次
+    }, 1000); // 降低到每秒更新一次，减少性能负担
     
     return () => clearInterval(timer);
   }, [isConverting, isGeneratingTest, isComparing, isExtractingTerminology, isExtractingArchitecture]);
@@ -186,7 +324,7 @@ export default function RequirementUpload() {
       } else {
         console.log('获取到AI模型配置:', {
           model: config.model,
-          baseUrl: config.baseUrl
+          baseURL: config.baseURL
         })
       }
     }
@@ -317,8 +455,10 @@ export default function RequirementUpload() {
       const formData = new FormData()
       formData.append('file', fileToUpload)
       formData.append('apiKey', config.apiKey)
-      formData.append('baseUrl', config.baseUrl)
+      formData.append('baseURL', config.baseURL)
       formData.append('model', config.model)
+
+      console.log(`正在上传文件到 ${config.baseURL}...`)
 
       const response = await fetch('/api/upload-requirement', {
         method: 'POST',
@@ -711,8 +851,22 @@ export default function RequirementUpload() {
     }
   };
 
-  // 处理术语知识抽取
+  // 使用DOM操作直接更新内容的回调函数
+  const directUpdateCallback = useCallback((content: string) => {
+    console.log(`[${new Date().toISOString()}] 旧回调被调用，但已不使用`);
+    // 这个函数已不再使用，我们使用simpleCallback替代
+  }, []);
+  
+  // 使用一个定时器来定期更新DOM，作为备份机制
+  useEffect(() => {
+    // 这个useEffect已不再需要，已被simpleCallback替代
+    return () => {};
+  }, [isExtractingTerminology]);
+
   const handleExtractTerminology = async () => {
+    console.log('🚀 开始抽取术语知识');
+    
+    // 检查是否有文件上传和选择
     if (uploadedFiles.length === 0) {
       toast({
         title: "抽取失败",
@@ -721,50 +875,158 @@ export default function RequirementUpload() {
       });
       return;
     }
-
+    
     const selectedFiles = uploadedFiles.filter(file => file.selected);
     if (selectedFiles.length === 0) {
-      setFileSelectionAlert("请至少选择一个文件进行术语抽取");
-      return;
-    }
-
-    setFileSelectionAlert("");
-
-    if (!aiConfig) {
       toast({
-        title: "抽取失败",
-        description: "请先配置AI模型",
+        title: "请选择文件",
         variant: "destructive",
       });
       return;
     }
-
-    // 清空之前的内容
-    setTerminologyContent('');
+    
+    // 清空已有内容，并设置状态
+    setTerminologyContent("等待大模型处理文件中...\n正在连接API，请耐心等待首次响应（通常需要5-20秒）...");
     setIsExtractingTerminology(true);
+    
     // 激活术语知识标签页
     setActiveTab('terminology');
-
+    
+    toast({
+      title: "开始抽取术语知识",
+      description: "正在处理，可能需要一段时间等待首次响应...",
+    });
+    
+    // 设置超时保护
+    const maxTimeoutMs = 180000; // 3分钟
+    const timeoutId = setTimeout(() => {
+      console.error('🔶 术语抽取超时，已运行', maxTimeoutMs/1000, '秒');
+      if (isExtractingTerminology) {
+        // 如果还在进行中，则强制结束
+        setIsExtractingTerminology(false);
+        setTerminologyContent(prev => 
+          prev + '\n\n[系统提示] 请求处理时间过长（3分钟），已自动停止。您可以查看已获取的内容或重试。'
+        );
+        toast({
+          title: "抽取超时",
+          description: "处理时间超过3分钟，已自动停止",
+          variant: "destructive",
+        });
+      }
+    }, maxTimeoutMs);
+    
     try {
+      // 准备服务和回调
       const service = new RequirementTerminologyService();
-
+      
+      // 记录起始时间
+      const startTime = Date.now();
+      
+      // 显示进度更新
+      let waitSeconds = 0;
+      const waitInterval = setInterval(() => {
+        waitSeconds += 5;
+        if (waitSeconds <= 90 && isExtractingTerminology) {
+          setTerminologyContent(prev => {
+            // 只在还没有收到实际内容时更新等待消息
+            if (prev.includes("已等待") || prev.includes("等待大模型处理") || prev.includes("正在连接API")) {
+              if (prev.includes("已等待")) {
+                return prev.replace(/已等待 \d+ 秒/, `已等待 ${waitSeconds} 秒`);
+              } else {
+                return prev + `\n已等待 ${waitSeconds} 秒，模型处理较大文件需要一定时间...`;
+              }
+            } 
+            return prev; // 已经有实际内容，不再更新等待消息
+          });
+        } else {
+          clearInterval(waitInterval);
+        }
+      }, 5000);
+      
+      // 标记是否已收到第一个实际内容
+      let receivedFirstContent = false;
+      
+      // 使用回调函数直接更新状态
       await service.extractTerminology(
         selectedFiles.map(file => file.id),
         (content: string) => {
-          console.log('收到新内容，长度:', content.length);
-          // 使用函数式更新，确保基于最新状态
-          setTerminologyContent(prev => prev + content);
+          console.log(`🔶 收到内容，长度: ${content.length}字符, 首次内容?: ${!receivedFirstContent}`);
+          
+          // 检查是否是错误消息
+          if (content.includes('[错误]')) {
+            console.error('🔶 收到错误:', content);
+            toast({
+              title: "抽取出错",
+              description: "请查看错误信息",
+              variant: "destructive",
+            });
+          }
+          
+          try {
+            // 处理第一个实际内容（非等待消息）
+            if (!receivedFirstContent && content.length > 0) {
+              receivedFirstContent = true;
+              clearInterval(waitInterval);
+              
+              // 检查内容是否是服务端的等待提示
+              if (content.includes("正在连接模型API") || content.includes("请耐心等待")) {
+                // 如果是服务端的等待提示，保留原来的等待信息，不重置内容
+                console.log('🔶 收到服务端等待提示，保留当前内容');
+                // 不替换当前内容，但也要确保这条消息显示出来
+                setTerminologyContent(prev => prev + "\n" + content);
+              } else {
+                // 如果是实际内容，完全替换掉等待提示
+                console.log('🔶 收到第一个实际内容，替换等待提示');
+                setTerminologyContent(content);
+              }
+            } else if (receivedFirstContent) {
+              // 后续内容直接追加
+              setTerminologyContent(prev => prev + content);
+            } else if (content.includes("正在连接模型API") || content.includes("请耐心等待")) {
+              // 服务端发来的等待提示，替换前端的等待提示
+              console.log('🔶 收到服务端等待提示，设置为当前内容');
+              setTerminologyContent(content);
+            } else {
+              // 其他情况追加内容
+              console.log('🔶.其他内容，追加显示');
+              setTerminologyContent(prev => prev + content);
+            }
+          } catch (err) {
+            // 如果内容处理出错，确保不会阻断后续内容显示
+            console.error('🔶 内容处理错误:', err);
+            // 安全地追加内容
+            setTerminologyContent(prev => prev + "\n[内容处理错误，继续接收...]" + content);
+          }
+          
+          // 滚动到底部
+          const terminologyArea = document.getElementById('terminology-knowledge-area');
+          if (terminologyArea) {
+            terminologyArea.scrollTop = terminologyArea.scrollHeight;
+          }
+          
+          // 强制刷新UI - 确保React渲染内容
+          forceUpdate({});
         }
       );
-    } catch (error) {
-      console.error('术语抽取失败:', error);
+      
+      clearInterval(waitInterval);
+      
+      const timeElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`🔶 术语抽取完成，耗时: ${timeElapsed}秒`);
+      
       toast({
-        title: "抽取失败",
+        title: "术语抽取完成",
+        description: `耗时: ${timeElapsed}秒`,
+      });
+    } catch (error) {
+      console.error('🔶 术语抽取错误:', error);
+      toast({
+        title: "术语抽取失败",
         description: error instanceof Error ? error.message : "未知错误",
         variant: "destructive",
       });
     } finally {
-      console.log('术语抽取完成');
+      clearTimeout(timeoutId);
       setIsExtractingTerminology(false);
     }
   };
@@ -782,6 +1044,14 @@ export default function RequirementUpload() {
         return;
       }
 
+      // 显示下载进度
+      toast({
+        title: "准备下载",
+        description: `正在准备 ${(terminologyContent.length / 1024).toFixed(2)} KB 内容...`,
+        duration: 2000
+      });
+
+      // 创建Blob并下载
       const blob = new Blob([terminologyContent], { type: 'text/markdown' });
       const url = URL.createObjectURL(blob);
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -796,10 +1066,11 @@ export default function RequirementUpload() {
       
       toast({
         title: "下载成功",
-        description: "术语知识内容已保存为 Markdown 文件",
+        description: `术语知识内容 (${(terminologyContent.length / 1024).toFixed(2)} KB) 已保存为 Markdown 文件`,
         duration: 3000
       });
     } catch (error) {
+      console.error(`下载术语内容失败:`, error);
       toast({
         title: "下载失败",
         description: "请手动复制内容并保存",
@@ -906,6 +1177,36 @@ export default function RequirementUpload() {
       });
     }
   };
+
+  // 加载指示器管理
+  useEffect(() => {
+    // 加载指示器的管理
+    if (isExtractingTerminology) {
+      // 加载开始时，添加一个固定位置的加载指示器
+      const indicator = document.createElement('div');
+      indicator.id = 'fixed-loading-indicator';
+      indicator.className = 'fixed bottom-4 right-4 bg-orange-500 text-white px-4 py-2 rounded-full shadow-lg z-50';
+      indicator.innerHTML = `<div class="flex items-center gap-2">
+        <div class="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent"></div>
+        <span>接收内容中...</span>
+      </div>`;
+      document.body.appendChild(indicator);
+    } else {
+      // 加载结束时，移除加载指示器
+      const indicator = document.getElementById('fixed-loading-indicator');
+      if (indicator && indicator.parentNode) {
+        indicator.parentNode.removeChild(indicator);
+      }
+      
+      // 更新内容长度显示
+      if (terminologyContentRef.current) {
+        const lengthDisplay = terminologyContentRef.current.querySelector('.terminology-length');
+        if (lengthDisplay) {
+          lengthDisplay.innerHTML = `<span class="text-green-500 font-medium">完成</span> | 总内容长度: ${terminologyTextRef.current.length} 字符`;
+        }
+      }
+    }
+  }, [isExtractingTerminology]);
 
   return (
     <>
@@ -1078,6 +1379,7 @@ export default function RequirementUpload() {
                   )}
                   {isExtractingArchitecture ? '抽取中...' : '抽取信息架构树'}
                 </Button>
+
               </div>
               
               {/* 文件选择警告提示 */}
@@ -1304,14 +1606,18 @@ export default function RequirementUpload() {
                     <h2 className="text-base font-semibold">业务术语知识</h2>
                     <Button 
                       onClick={handleDownloadTerminology}
-                      disabled={!terminologyContent}
+                      disabled={isExtractingTerminology || !terminologyContent}
                       className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1 px-3 py-1 h-8 text-xs"
                     >
                       <Download className="h-3 w-3" />
                       下载术语知识
                     </Button>
                   </div>
-                  <div className="border rounded p-3 bg-gray-50 min-h-[800px] max-h-[1400px] overflow-auto w-full" ref={terminologyContentRef}>
+                  <div 
+                    id="terminology-content"
+                    className="border rounded p-3 bg-gray-50 min-h-[800px] max-h-[1400px] overflow-auto w-full relative" 
+                    ref={terminologyContentRef}
+                  >
                     {/* 添加调试信息，使用自执行函数避免返回void */}
                     {(() => {
                       console.log('渲染术语知识区域, isExtractingTerminology:', isExtractingTerminology, 'terminologyContent长度:', terminologyContent.length);
@@ -1321,6 +1627,14 @@ export default function RequirementUpload() {
                     {/* 显示内容，无论是否为空 */}
                     <ContentDisplay content={terminologyContent} />
                   </div>
+                  
+                  {/* 添加显式的状态指示器 */}
+                  {isExtractingTerminology && (
+                    <div className="mt-2 text-sm text-orange-600 flex items-center gap-2">
+                      <div className="animate-spin h-3 w-3 border-2 border-orange-500 rounded-full border-t-transparent"></div>
+                      正在接收内容...
+                    </div>
+                  )}
                 </div>
               )}
               

@@ -20,27 +20,27 @@ import { addAIConfig, updateAIConfig, deleteAIConfig, setDefaultAIConfig, getAll
 const modelPresets = [
   {
     name: 'OpenAI',
-    baseUrl: 'https://api.openai.com/v1',
+    baseURL: 'https://api.openai.com/v1',
     models: ['gpt-4', 'gpt-4o','gpt-4o-mini','gpt-3.5-turbo']
   },
   {
     name: '智谱AI',
-    baseUrl: 'https://open.bigmodel.cn/api/paas/v3',
+    baseURL: 'https://open.bigmodel.cn/api/paas/v3',
     models: ['glm-4-long', 'glm-4-flash', 'glm-4-plus', 'GLM-Zero-Preview']
   },
   {
     name: 'Qwen',
-    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     models: ['qwen-long']
   },
   {
     name: 'Deepseek',
-    baseUrl: 'https://api.deepseek.com',
+    baseURL: 'https://api.deepseek.com',
     models: ['deepseek-chat']
   },
   {
     name: 'Gemini',
-    baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+    baseURL: 'https://generativelanguage.googleapis.com/v1beta',
     models: ['gemini-2.0-flash-lite','gemini-2.0-flash-thinking-exp-01-21']
   }
 ]
@@ -81,24 +81,24 @@ export function AIModelSettings() {
     const [provider, ...modelParts] = preset.split('-');
     const model = modelParts.join('-'); // 重新组合模型名称，保留所有部分
     
-    let baseUrl = '';
+    let baseURL = '';
     
     const providerData = modelPresets.find(p => p.name === provider);
     if (providerData) {
-      baseUrl = providerData.baseUrl;
+      baseURL = providerData.baseURL;
     }
     
     setNewConfig({
       ...newConfig,
       name: preset, // 使用完整的预设名称
       model, // 使用完整的模型名称
-      baseUrl
+      baseURL
     });
   }, [newConfig])
 
   // 添加新配置
   const handleAddConfig = useCallback(async () => {
-    if (!newConfig.name || !newConfig.baseUrl || !newConfig.apiKey) {
+    if (!newConfig.name || !newConfig.baseURL || !newConfig.apiKey) {
       toast({
         title: '验证失败',
         description: 'API地址、模型名称和API Key是必填项',
@@ -117,7 +117,7 @@ export function AIModelSettings() {
       const configToAdd: AIModelConfig = {
         id,
         name: newConfig.name || '',
-        baseUrl: newConfig.baseUrl || '',
+        baseURL: newConfig.baseURL || '',
         apiKey: newConfig.apiKey || '',
         temperature: newConfig.temperature || 0.7,
         model: newConfig.model || '',
@@ -252,7 +252,7 @@ export function AIModelSettings() {
         <TableRow key={config.id}>
           <TableCell className="font-medium">{config.name}</TableCell>
           <TableCell>{config.model || '-'}</TableCell>
-          <TableCell>{config.baseUrl}</TableCell>
+          <TableCell>{config.baseURL}</TableCell>
           <TableCell>{config.temperature || '0.2'}</TableCell>
           <TableCell className="text-center">
             <div
@@ -355,8 +355,8 @@ export function AIModelSettings() {
             <Label htmlFor="ai-url">API 地址</Label>
             <Input
               id="ai-url"
-              value={newConfig.baseUrl || ''}
-              onChange={(e) => setNewConfig(prev => ({ ...prev, baseUrl: e.target.value }))}
+              value={newConfig.baseURL || ''}
+              onChange={(e) => setNewConfig(prev => ({ ...prev, baseURL: e.target.value }))}
               placeholder="例如: https://api.openai.com/v1"
             />
           </div>

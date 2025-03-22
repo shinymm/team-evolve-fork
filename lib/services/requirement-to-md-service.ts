@@ -1,6 +1,6 @@
-import { AIModelConfig } from '@/lib/services/ai-service'
+import { AIModelConfig, streamingFileAICall } from '@/lib/services/ai-service'
 import { getDefaultAIConfig } from '@/lib/services/ai-config-service'
-import { streamingAICall } from '@/lib/services/ai-service'
+import { requirementToMdPrompt } from '@/lib/prompts/requirement-to-md'
 
 /**
  * 处理需求书转Markdown的服务
@@ -27,18 +27,18 @@ export class RequirementToMdService {
         throw new Error('请至少选择一个文件进行转换')
       }
 
-      // 构建提示词
-      const prompt = `请将以下文件转换为Markdown格式：${fileIds.join(', ')}`
+      // 使用预定义的提示词
+      const systemPrompt = 'You are a helpful assistant that converts requirement documents to Markdown format.'
+      const userPrompt = requirementToMdPrompt
 
-      // 使用统一的streamingAICall方法
-      await streamingAICall(
-        prompt,
-        config,
+      // 使用streamingFileAICall方法
+      await streamingFileAICall({
+        fileIds,
+        systemPrompt,
+        userPrompt,
         onContent,
-        (error: string) => {
-          throw new Error(`转换为Markdown失败: ${error}`)
-        }
-      )
+        apiConfig: config
+      })
 
       console.log(`[${new Date().toISOString()}] 转换完成`)
     } catch (error) {

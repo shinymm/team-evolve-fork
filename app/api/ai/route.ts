@@ -83,9 +83,9 @@ export async function POST(request: NextRequest) {
             }
           }
         } else {
-          // 对于非 Gemini 模型，检查 baseUrl
-          if (!config.baseUrl) {
-            throw new Error('未提供有效的API配置：缺少 API 地址')
+          // 对于非 Gemini 模型，检查 baseURL
+          if (!config.baseURL) {
+            return new Response('缺少 API 地址配置', { status: 400 })
           }
 
           // 处理标准 OpenAI 兼容的 API
@@ -93,7 +93,8 @@ export async function POST(request: NextRequest) {
           
           console.log('调用AI服务 @ ai.route.ts:', {
             endpoint,
-            model: config.model
+            model: config.model,
+            baseURL: config.baseURL
           })
 
           const response = await fetch(endpoint, {
@@ -257,7 +258,7 @@ async function handleStream(prompt: string, config: AIModelConfig, writer: Writa
   console.log('handleStream检测模型类型:', {
     model: config.model,
     isGemini,
-    baseUrl: config.baseUrl
+    baseURL: config.baseURL
   })
   
   if (isGemini) {
@@ -273,7 +274,7 @@ async function handleStream(prompt: string, config: AIModelConfig, writer: Writa
 async function handleStandardStream(prompt: string, config: AIModelConfig, writer: WritableStreamDefaultWriter) {
   try {
     // 移除末尾的斜杠
-    const baseUrl = config.baseUrl.replace(/\/+$/, '')
+    const baseURL = config.baseURL.replace(/\/+$/, '')
     
     // 根据不同的 AI 服务提供商使用不同的 endpoint 和请求头
     let endpoint = ''
@@ -281,7 +282,7 @@ async function handleStandardStream(prompt: string, config: AIModelConfig, write
       'Content-Type': 'application/json',
     }
 
-    endpoint = baseUrl.endsWith('/chat/completions') ? baseUrl : `${baseUrl}/chat/completions`
+    endpoint = baseURL.endsWith('/chat/completions') ? baseURL : `${baseURL}/chat/completions`
     headers['Authorization'] = `Bearer ${config.apiKey}`
     console.log('使用API端点:', endpoint)
     

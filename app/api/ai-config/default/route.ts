@@ -13,14 +13,7 @@ export async function GET() {
       return NextResponse.json(null)
     }
 
-    // 转换字段名
-    const transformedConfig = {
-      ...defaultConfig,
-      baseUrl: defaultConfig.baseURL,
-      baseURL: undefined
-    }
-
-    return NextResponse.json(transformedConfig)
+    return NextResponse.json(defaultConfig)
   } catch (error) {
     console.error('获取默认AI配置失败:', error)
     return NextResponse.json({ error: '获取默认AI配置失败' }, { status: 500 })

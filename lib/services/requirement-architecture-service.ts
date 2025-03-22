@@ -1,6 +1,6 @@
-import { AIModelConfig } from '@/lib/services/ai-service'
+import { AIModelConfig, streamingFileAICall } from '@/lib/services/ai-service'
 import { getDefaultAIConfig } from '@/lib/services/ai-config-service'
-import { streamingAICall } from '@/lib/services/ai-service'
+import { requirementArchitecturePrompt } from '@/lib/prompts/requirement-architecture'
 
 /**
  * 处理从需求文档抽取信息架构树的服务
@@ -27,18 +27,18 @@ export class RequirementArchitectureService {
         throw new Error('请至少选择一个文件进行信息架构抽取')
       }
 
-      // 构建提示词
-      const prompt = `请从以下文件中抽取信息架构树：${fileIds.join(', ')}`
+      // 使用预定义的提示词
+      const systemPrompt = requirementArchitecturePrompt
+      const userPrompt = '请按照上述规则和说明，从文档中抽取信息架构树。'
 
-      // 使用统一的streamingAICall方法
-      await streamingAICall(
-        prompt,
-        config,
+      // 使用streamingFileAICall方法
+      await streamingFileAICall({
+        fileIds,
+        systemPrompt,
+        userPrompt,
         onContent,
-        (error: string) => {
-          throw new Error(`信息架构抽取失败: ${error}`)
-        }
-      )
+        apiConfig: config
+      })
 
       console.log(`[${new Date().toISOString()}] 抽取完成`)
     } catch (error) {
