@@ -6,6 +6,56 @@ import { encrypt, decrypt } from '@/lib/utils/encryption-utils'
 const prisma = new PrismaClient()
 
 /**
+ * 强制同步本地存储
+ * 这个函数会获取数据库中的最新配置并更新本地存储
+ */
+export async function syncLocalStorage(): Promise<void> {
+  try {
+    // 完全清除localStorage中的ai-model-configs
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('ai-model-configs');
+      console.log('已清除localStorage中的配置缓存');
+    }
+    
+    // 从服务器获取所有配置
+    const response = await fetch('/api/ai-config')
+    if (!response.ok) {
+      throw new Error(`获取配置失败: ${response.status}`)
+    }
+    
+    const configs = await response.json() as AIModelConfig[]
+    
+    // 找到服务器标记的默认配置
+    const defaultConfig = configs.find((c: AIModelConfig) => c.isDefault === true)
+    const defaultId = defaultConfig?.id
+    
+    console.log('服务器返回的配置:', configs)
+    console.log('服务器标记的默认配置ID:', defaultId)
+    
+    const store = useAIConfigStore.getState()
+    
+    // 完全重建store配置
+    store.configs.forEach(config => {
+      store.deleteConfig(config.id)
+    })
+    
+    // 添加从服务器获取的配置
+    for (const config of configs) {
+      store.addConfig(config)
+    }
+    
+    // 如果有默认配置，确保store中的defaultConfig正确设置
+    if (defaultId) {
+      store.setDefaultConfig(defaultId)
+    }
+    
+    console.log('本地存储已同步，默认ID:', defaultId)
+  } catch (error) {
+    console.error('同步本地存储时出错:', error)
+  }
+}
+
+/**
  * 获取默认AI模型配置
  * @returns 默认AI模型配置，如果没有则返回null
  */
@@ -136,6 +186,10 @@ export async function addAIConfig(config: AIModelConfig): Promise<AIModelConfig>
     }
 
     const savedConfig = await response.json()
+    
+    // 同步本地存储
+    await syncLocalStorage()
+    
     console.log('成功添加配置')
     return savedConfig
   } catch (error) {
@@ -173,6 +227,10 @@ export async function updateAIConfig(config: AIModelConfig): Promise<AIModelConf
     }
 
     const updatedConfig = await response.json()
+    
+    // 同步本地存储
+    await syncLocalStorage()
+    
     console.log('成功更新配置')
     return updatedConfig
   } catch (error) {
@@ -188,6 +246,7 @@ export async function updateAIConfig(config: AIModelConfig): Promise<AIModelConf
 export async function deleteAIConfig(id: string): Promise<void> {
   try {
     console.log('删除 AI 配置:', id)
+    
     const response = await fetch(`/api/ai-config/${id}`, {
       method: 'DELETE'
     })
@@ -195,6 +254,9 @@ export async function deleteAIConfig(id: string): Promise<void> {
     if (!response.ok) {
       throw new Error(`删除配置失败: ${response.status}`)
     }
+    
+    // 同步本地存储
+    await syncLocalStorage()
 
     console.log('成功删除配置')
   } catch (error) {
@@ -217,6 +279,12 @@ export async function setDefaultAIConfig(id: string): Promise<void> {
     if (!response.ok) {
       throw new Error(`设置默认配置失败: ${response.status}`)
     }
+
+    // 获取更新后的配置
+    const updatedConfig = await response.json()
+    
+    // 同步本地存储
+    await syncLocalStorage()
 
     console.log('成功设置默认配置')
   } catch (error) {

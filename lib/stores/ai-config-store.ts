@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 import type { AIModelConfig } from '../services/ai-service'
 
 interface AIConfigState {
@@ -34,15 +34,21 @@ export const useAIConfigStore = create<AIConfigState>()(
           temperature: config.temperature || 0.2,
           id: config.id || Date.now().toString(),
           name: config.name || `${config.model} (${new Date().toLocaleString()})`,
-          isDefault: config.isDefault || get().configs.length === 0,
+          isDefault: !!config.isDefault,
         }
+        
+        console.log(`添加配置 ${configToAdd.id} (${configToAdd.name}): isDefault = ${configToAdd.isDefault}`)
 
         set((state) => {
-          // 如果新配置是默认配置，则更新其他配置为非默认
-          let updatedConfigs = state.configs.map(c => ({
-            ...c,
-            isDefault: configToAdd.isDefault ? false : c.isDefault
-          }))
+          let updatedConfigs: AIModelConfig[] = [...state.configs]
+          
+          // 如果新配置是默认配置，则确保所有其他配置都设为非默认
+          if (configToAdd.isDefault) {
+            updatedConfigs = updatedConfigs.map(c => ({
+              ...c,
+              isDefault: false
+            }))
+          }
           
           return {
             configs: [...updatedConfigs, configToAdd],
@@ -76,31 +82,55 @@ export const useAIConfigStore = create<AIConfigState>()(
       },
 
       setDefaultConfig: (id: string) => {
+        console.log("设置默认配置ID:", id);
         set((state) => {
-          const updatedConfigs = state.configs.map(config => ({
-            ...config,
-            isDefault: config.id === id
-          }))
+          // 确保所有配置都设为非默认，除了指定的那个
+          const updatedConfigs = state.configs.map(config => {
+            const isDefault = config.id === id;
+            console.log(`配置 ${config.id} (${config.name}): isDefault = ${isDefault}`);
+            return {
+              ...config,
+              isDefault
+            };
+          });
           
-          const newDefaultConfig = updatedConfigs.find(config => config.id === id) || null
+          const newDefaultConfig = updatedConfigs.find(config => config.id === id) || null;
+          
+          if (newDefaultConfig) {
+            console.log("新的默认配置:", newDefaultConfig.name);
+          } else {
+            console.log("未找到匹配的默认配置");
+          }
           
           return {
             configs: updatedConfigs,
             defaultConfig: newDefaultConfig
-          }
-        })
+          };
+        });
       },
 
       updateConfig: (id: string, updatedConfig: Partial<AIModelConfig>) => {
         set((state) => {
-          const updatedConfigs = state.configs.map(config => 
-            config.id === id ? { ...config, ...updatedConfig } : config
-          )
+          // 检查是否设置为默认配置
+          const isBeingSetToDefault = updatedConfig.isDefault === true
           
-          // 如果更新的是默认配置，则更新defaultConfig
-          const newDefaultConfig = state.defaultConfig?.id === id 
-            ? { ...state.defaultConfig, ...updatedConfig }
-            : state.defaultConfig
+          // 如果正在设置为默认，则确保其他配置都不是默认
+          let updatedConfigs = state.configs.map(config => {
+            if (config.id === id) {
+              return { ...config, ...updatedConfig }
+            }
+            // 如果当前配置被设为默认，则其他配置都设为非默认
+            return isBeingSetToDefault 
+              ? { ...config, isDefault: false } 
+              : config
+          })
+          
+          // 更新defaultConfig
+          const newDefaultConfig = isBeingSetToDefault
+            ? updatedConfigs.find(c => c.id === id) || state.defaultConfig
+            : (state.defaultConfig?.id === id 
+                ? { ...state.defaultConfig, ...updatedConfig }
+                : state.defaultConfig)
           
           return {
             configs: updatedConfigs,
@@ -110,11 +140,42 @@ export const useAIConfigStore = create<AIConfigState>()(
       },
 
       getConfig: () => {
-        return get().defaultConfig
+        // 先尝试从defaultConfig获取
+        const defaultConfig = get().defaultConfig;
+        if (defaultConfig) {
+          return defaultConfig;
+        }
+        
+        // 如果defaultConfig为null，尝试从configs中找到isDefault为true的配置
+        const configs = get().configs;
+        const configWithIsDefault = configs.find(config => config.isDefault);
+        if (configWithIsDefault) {
+          return configWithIsDefault;
+        }
+        
+        // 如果没有找到默认配置，返回null
+        return null;
       }
     }),
     {
-      name: 'ai-model-configs'
+      name: 'ai-model-configs',
+      // 强制每次都将完整状态写入localStorage，解决部分更新问题
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({ 
+        configs: state.configs,
+        defaultConfig: state.configs.find(c => c.isDefault) || null
+      }),
+      // 每次从localStorage读取后，确保defaultConfig与configs中的isDefault一致
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          // 找到标记为默认的配置
+          const defaultConfig = state.configs.find(c => c.isDefault);
+          if (defaultConfig) {
+            state.defaultConfig = defaultConfig;
+          }
+          console.log('存储已恢复，默认配置:', state.defaultConfig?.name);
+        }
+      },
     }
   )
 )

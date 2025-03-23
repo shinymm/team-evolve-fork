@@ -43,79 +43,10 @@ export async function POST(request: Request) {
   }
 }
 
-export async function PUT(request: Request) {
-  try {
-    const config = await request.json()
-    
-    const result = await prisma.aIModelConfig.update({
-      where: { id: config.id },
-      data: {
-        name: config.name,
-        model: config.model,
-        baseURL: config.baseURL,
-        apiKey: config.apiKey,
-        temperature: config.temperature,
-        isDefault: config.isDefault,
-        provider: config.provider,
-      },
-    })
-    
-    return NextResponse.json(result)
-  } catch (error) {
-    console.error('更新AI配置失败:', error)
-    return NextResponse.json({ error: '更新AI配置失败' }, { status: 500 })
-  }
-}
+// PUT方法转移到[id]/route.ts文件中处理
 
-export async function DELETE(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const id = searchParams.get('id')
-    
-    if (!id) {
-      return NextResponse.json({ error: '缺少ID参数' }, { status: 400 })
-    }
-    
-    await prisma.aIModelConfig.delete({
-      where: { id },
-    })
-    
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error('删除AI配置失败:', error)
-    return NextResponse.json({ error: '删除AI配置失败' }, { status: 500 })
-  }
-}
+// DELETE方法转移到[id]/route.ts文件中处理
+// 此处的DELETE方法已废弃，请使用[id]/route.ts中的DELETE方法
 
-// 设置默认配置的专用接口
-export async function PATCH(request: Request) {
-  try {
-    const config = await request.json()
-    
-    // 如果设置新的默认配置，先将所有配置的isDefault设为false
-    if (config.isDefault) {
-      await prisma.aIModelConfig.updateMany({
-        where: { isDefault: true },
-        data: { isDefault: false },
-      })
-    }
-    
-    const result = await prisma.aIModelConfig.update({
-      where: { id: config.id },
-      data: {
-        name: config.name,
-        model: config.model,
-        baseURL: config.baseURL,
-        apiKey: config.apiKey,
-        temperature: config.temperature,
-        isDefault: config.isDefault,
-        provider: config.provider,
-      },
-    })
-    
-    return NextResponse.json(result)
-  } catch (error) {
-    console.error('更新AI配置失败:', error)
-    return NextResponse.json({ error: '更新AI配置失败' }, { status: 500 })
-  }
-} 
+// 设置默认配置的专用接口转移到[id]/default/route.ts文件中处理
+// 此处的PATCH方法已废弃，请使用[id]/default/route.ts中的PATCH方法 

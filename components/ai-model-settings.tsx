@@ -14,7 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { AIModelConfig } from '@/lib/services/ai-service'
 import { streamingAICall } from '@/lib/services/ai-service'
-import { addAIConfig, updateAIConfig, deleteAIConfig, setDefaultAIConfig, getAllAIConfigs } from '@/lib/services/ai-config-service'
+import { addAIConfig, updateAIConfig, deleteAIConfig, setDefaultAIConfig, getAllAIConfigs, syncLocalStorage } from '@/lib/services/ai-config-service'
 
 // 可用的AI模型预设
 const modelPresets = [
@@ -58,8 +58,14 @@ export function AIModelSettings() {
   const loadConfigs = useCallback(async () => {
     try {
       setIsLoading(true)
+      // 先同步本地存储
+      await syncLocalStorage()
       const loadedConfigs = await getAllAIConfigs()
-      setConfigs(loadedConfigs)
+      // 按照名称排序
+      const sortedConfigs = [...loadedConfigs].sort((a, b) => 
+        (a.name || '').localeCompare(b.name || '')
+      )
+      setConfigs(sortedConfigs)
     } catch (error) {
       toast({
         title: '加载失败',
@@ -73,7 +79,31 @@ export function AIModelSettings() {
 
   // 初始加载
   useEffect(() => {
-    loadConfigs()
+    // 每次加载都强制同步
+    const forceSync = async () => {
+      try {
+        // 清除localStorage
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('ai-model-configs');
+          console.log('已强制清除localStorage中的AI配置缓存');
+        }
+        
+        setIsLoading(true);
+        await syncLocalStorage();
+        await loadConfigs();
+      } catch (error) {
+        console.error('初始化同步失败:', error);
+        toast({
+          title: '初始化失败',
+          description: '无法同步AI模型配置，请检查网络连接',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    forceSync();
   }, [loadConfigs])
 
   // 处理预设选择
@@ -244,7 +274,12 @@ export function AIModelSettings() {
 
   // 使用 useMemo 缓存配置列表渲染
   const configRows = useMemo(() => {
-    return configs.map((config) => {
+    // 确保列表始终按名称排序
+    const sortedConfigs = [...configs].sort((a, b) => 
+      (a.name || '').localeCompare(b.name || '')
+    )
+    
+    return sortedConfigs.map((config) => {
       // 确保配置有id
       if (!config.id) return null;
       
@@ -418,7 +453,28 @@ export function AIModelSettings() {
             <CardContent>
               <div className="space-y-4">
                 {!showAddForm && (
-                  <div className="flex justify-end items-center mb-4">
+                  <div className="flex justify-end items-center mb-4 gap-2">
+                    <Button 
+                      variant="outline" 
+                      onClick={async () => {
+                        try {
+                          await syncLocalStorage();
+                          await loadConfigs();
+                          toast({
+                            title: '同步成功',
+                            description: '配置已从服务器同步',
+                          });
+                        } catch (error) {
+                          toast({
+                            title: '同步失败',
+                            description: error instanceof Error ? error.message : '同步配置时发生错误',
+                            variant: 'destructive',
+                          });
+                        }
+                      }}
+                    >
+                      同步配置
+                    </Button>
                     <Button onClick={() => setShowAddForm(true)}>
                       <Plus className="mr-2 h-4 w-4" />
                       添加配置

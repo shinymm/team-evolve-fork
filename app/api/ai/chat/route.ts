@@ -17,6 +17,8 @@ export async function POST(request: NextRequest) {
 
     // 从请求中获取API配置
     const apiConfig: AIModelConfig = {
+      id: `request-${Date.now()}`, // 为每个请求生成唯一ID
+      name: `${model}-request`, // 为请求生成名称
       model,
       apiKey: apiKey || '',
       baseURL: baseURL || '',
