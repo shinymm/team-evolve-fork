@@ -5,7 +5,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { decrypt } from "@/lib/utils/encryption-utils";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 180; // 设置最大执行时间为3分钟
+export const maxDuration = 60; // 设置最大执行时间为60秒（Vercel hobby计划的最大限制）
 
 // 判断是否是 Qwen API
 function isQwenAPI(config: AIModelConfig): boolean {
