@@ -1,4 +1,4 @@
-import { getRedisClient, setRedisValue, getRedisValue, closeRedisConnection } from '../redis';
+import { getRedisClient, setRedisValue, getRedisValue, closeRedisConnections } from '../redis';
 
 /**
  * 测试Redis连接和基本操作的函数
@@ -42,7 +42,7 @@ export async function testRedisConnection() {
     return false;
   } finally {
     // 测试完成后不关闭连接，因为在应用中我们会保持连接
-    // await closeRedisConnection();
+    // await closeRedisConnections();
   }
 }
 
