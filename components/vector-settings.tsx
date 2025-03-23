@@ -13,15 +13,7 @@ import { useVectorConfigStore } from '@/lib/stores/vector-config-store'
 import { cn } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-
-interface VectorModelConfig {
-  id?: string
-  name: string
-  baseURL: string
-  apiKey: string
-  model: string
-  isDefault?: boolean
-}
+import { VectorModelConfig } from '@/lib/services/vector-config-service'
 
 // 可用的向量模型预设
 const vectorModelPresets = [
@@ -32,7 +24,12 @@ const vectorModelPresets = [
       'text-embedding-3-small',   // 更小、更快、更便宜
       'text-embedding-3-large',   // 最强性能
       'text-embedding-ada-002'    // 旧版本，向后兼容
-    ]
+    ],
+    dimensions: {  // 不同模型的维度
+      'text-embedding-3-small': 1536,
+      'text-embedding-3-large': 3072, 
+      'text-embedding-ada-002': 1536
+    } as Record<string, number>
   },
   {
     name: '智谱AI',
@@ -41,7 +38,12 @@ const vectorModelPresets = [
       'embedding-2',     // 通用文本向量
       'embedding-2-1',   // 增强版文本向量
       'embedding-3'      // 最新版本
-    ]
+    ],
+    dimensions: {  // 不同模型的维度
+      'embedding-2': 1024,
+      'embedding-2-1': 1024,
+      'embedding-3': 1536
+    } as Record<string, number>
   }
 ]
 
@@ -94,13 +96,27 @@ export default function VectorSettings() {
     // 为新配置生成唯一ID
     const id = Date.now().toString()
     
+    // 确定模型维度
+    let dimension = 1536; // 默认维度
+    
+    // 从预设中查找维度
+    const [provider] = newConfig.name?.split('-') || [];
+    const modelName = newConfig.model || '';
+    const presetProvider = vectorModelPresets.find(p => p.name === provider);
+    
+    if (presetProvider?.dimensions && modelName in presetProvider.dimensions) {
+      dimension = presetProvider.dimensions[modelName as keyof typeof presetProvider.dimensions];
+    }
+    
     const configToAdd: VectorModelConfig = {
       id,
       name: newConfig.name,
       baseURL: newConfig.baseURL.trim(),
       apiKey: newConfig.apiKey.trim(),
       model: newConfig.model.trim(),
-      isDefault: isDefault // 使用用户选择的默认设置
+      isDefault: isDefault, // 使用用户选择的默认设置
+      dimension, // 添加维度属性
+      provider // 添加提供商属性
     }
     
     console.log('准备添加配置:', configToAdd)

@@ -53,21 +53,21 @@ export default function RequirementBook() {
 
   // 自动生成的处理函数，与handleSubmit类似但接受内容参数
   const handleAutoGenerate = async (content: string) => {
-    const aiConfig = getDefaultAIConfig()
-    if (!aiConfig) {
-      toast({
-        title: "配置错误",
-        description: "请先配置AI模型参数",
-        variant: "destructive",
-        duration: 3000
-      })
-      return
-    }
-
-    setIsGenerating(true)
-    setRequirementBook('')
-
     try {
+      const aiConfig = await getDefaultAIConfig()
+      if (!aiConfig) {
+        toast({
+          title: "配置错误",
+          description: "请先配置AI模型参数",
+          variant: "destructive",
+          duration: 3000
+        })
+        return
+      }
+
+      setIsGenerating(true)
+      setRequirementBook('')
+
       const prompt = requirementBookPrompt(content)
       await streamingAICall(
         prompt,
@@ -102,21 +102,21 @@ export default function RequirementBook() {
       return
     }
 
-    const aiConfig = getAIConfig()
-    if (!aiConfig) {
-      toast({
-        title: "配置错误",
-        description: "请先配置AI模型参数",
-        variant: "destructive",
-        duration: 3000
-      })
-      return
-    }
-
-    setIsGenerating(true)
-    setRequirementBook('')
-
     try {
+      const aiConfig = await getDefaultAIConfig()
+      if (!aiConfig) {
+        toast({
+          title: "配置错误",
+          description: "请先配置AI模型参数",
+          variant: "destructive",
+          duration: 3000
+        })
+        return
+      }
+
+      setIsGenerating(true)
+      setRequirementBook('')
+
       const prompt = requirementBookPrompt(originalRequirement)
       await streamingAICall(
         prompt,
