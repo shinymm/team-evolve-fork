@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Skeleton } from "@/components/ui/skeleton"
 import { AIModelSettings } from '@/components/ai-model-settings'
+import RedisConfigStatus from '@/components/ai-config/RedisConfigStatus'
 
 export default function AIModelsPage() {
   const [isLoading, setIsLoading] = useState(true)
@@ -24,7 +25,14 @@ export default function AIModelsPage() {
           <Skeleton className="h-[400px]" />
         </div>
       ) : (
-        <AIModelSettings />
+        <div className="space-y-8">
+          <AIModelSettings />
+          
+          <div className="mt-8">
+            <h2 className="text-xl font-semibold mb-4">模型缓存状态</h2>
+            <RedisConfigStatus />
+          </div>
+        </div>
       )}
     </div>
   )

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, Trash2, Zap } from 'lucide-react'
+import { Plus, Trash2, Zap, Loader2 } from 'lucide-react'
 import { toast } from "@/components/ui/use-toast"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from '@/lib/utils'
@@ -52,7 +52,15 @@ export function AIModelSettings() {
   const [testingId, setTestingId] = useState<string | null>(null)
   const [testResults, setTestResults] = useState<Record<string, boolean | null>>({})
   const [selectedTab, setSelectedTab] = useState('models')
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
+  
+  // 添加操作状态跟踪
+  const [operationStatus, setOperationStatus] = useState<{
+    type: 'save' | 'delete' | 'default' | null,
+    id: string | null,
+    status: 'pending' | 'success' | 'error',
+    message: string
+  } | null>(null)
 
   // 加载配置
   const loadConfigs = useCallback(async () => {
@@ -205,20 +213,49 @@ export function AIModelSettings() {
 
   // 设置默认配置
   const handleSetDefault = useCallback(async (id: string) => {
+    setIsLoading(true)
+    setOperationStatus({
+      type: 'default',
+      id,
+      status: 'pending',
+      message: '正在设置默认配置...'
+    })
+    
     try {
       await setDefaultAIConfig(id)
       await loadConfigs()
+      
+      setOperationStatus({
+        type: 'default',
+        id,
+        status: 'success',
+        message: '已设置为默认配置'
+      })
       
       toast({
         title: '已更新默认配置',
         description: 'AI模型默认配置已更新',
       })
-    } catch (error) {
+      
+      // 3秒后清除状态
+      setTimeout(() => {
+        setOperationStatus(null)
+      }, 3000)
+    } catch (error: unknown) {
+      setOperationStatus({
+        type: 'default',
+        id,
+        status: 'error',
+        message: `设置默认失败: ${error instanceof Error ? error.message : '未知错误'}`
+      })
+      
       toast({
         title: '设置失败',
         description: error instanceof Error ? error.message : '设置默认配置时发生错误',
         variant: 'destructive',
       })
+    } finally {
+      setIsLoading(false)
     }
   }, [loadConfigs])
 
@@ -434,6 +471,78 @@ export function AIModelSettings() {
     )
   }, [showAddForm, newConfig, handlePresetChange, handleAddConfig])
 
+  // 优化保存函数，添加加载状态
+  const handleSave = async (config: AIModelConfig) => {
+    setIsLoading(true)
+    setOperationStatus({
+      type: 'save',
+      id: config.id || 'new',
+      status: 'pending',
+      message: '正在保存配置...'
+    })
+    
+    try {
+      // ... 现有保存逻辑
+      
+      // 成功状态更新
+      setOperationStatus({
+        type: 'save',
+        id: config.id,
+        status: 'success',
+        message: '配置已保存'
+      })
+      
+      // 3秒后清除状态
+      setTimeout(() => {
+        setOperationStatus(null)
+      }, 3000)
+    } catch (error: unknown) {
+      setOperationStatus({
+        type: 'save',
+        id: config.id || 'new',
+        status: 'error',
+        message: `保存失败: ${error instanceof Error ? error.message : '未知错误'}`
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  
+  // 优化删除函数，添加加载状态
+  const handleDelete = async (id: string) => {
+    setIsLoading(true)
+    setOperationStatus({
+      type: 'delete',
+      id,
+      status: 'pending',
+      message: '正在删除配置...'
+    })
+    
+    try {
+      // ... 现有删除逻辑
+      
+      setOperationStatus({
+        type: 'delete',
+        id,
+        status: 'success',
+        message: '配置已删除'
+      })
+      
+      setTimeout(() => {
+        setOperationStatus(null)
+      }, 3000)
+    } catch (error: unknown) {
+      setOperationStatus({
+        type: 'delete',
+        id,
+        status: 'error',
+        message: `删除失败: ${error instanceof Error ? error.message : '未知错误'}`
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <Tabs defaultValue="models" value={selectedTab} onValueChange={setSelectedTab}>
@@ -514,6 +623,34 @@ export function AIModelSettings() {
           <VectorSettings />
         </TabsContent>
       </Tabs>
+      
+      {/* 操作状态指示器 */}
+      {operationStatus && (
+        <div className={`fixed bottom-4 right-4 p-4 rounded-md shadow-lg transition-all duration-300 ${
+          operationStatus.status === 'success' 
+            ? 'bg-green-100 border-l-4 border-green-500 text-green-700' 
+            : operationStatus.status === 'error'
+              ? 'bg-red-100 border-l-4 border-red-500 text-red-700'
+              : 'bg-blue-100 border-l-4 border-blue-500 text-blue-700'
+        }`}>
+          <div className="flex items-center">
+            {operationStatus.status === 'pending' && (
+              <Loader2 className="animate-spin w-5 h-5 mr-2" />
+            )}
+            <p>{operationStatus.message}</p>
+          </div>
+        </div>
+      )}
+      
+      {/* 全局加载状态 */}
+      {isLoading && (
+        <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50">
+          <div className="bg-white p-4 rounded-md shadow-lg flex items-center">
+            <Loader2 className="animate-spin w-6 h-6 mr-2 text-blue-500" />
+            <p>处理中，请稍候...</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

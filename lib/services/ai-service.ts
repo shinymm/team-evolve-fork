@@ -14,6 +14,8 @@ export interface AIModelConfig {
   model: string
   temperature?: number
   isDefault?: boolean
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface ModelConfig {

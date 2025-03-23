@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { aiModelConfigService } from '@/lib/services/ai-model-config-service'
+import { setDefaultConfigInRedis } from '@/lib/utils/ai-config-redis'
 
 export async function PATCH(
   request: Request,
@@ -10,30 +9,30 @@ export async function PATCH(
   try {
     const id = params.id
     
-    // 检查配置是否存在
-    const existingConfig = await prisma.aIModelConfig.findUnique({
-      where: { id }
-    })
+    // 记录操作
+    console.log(`设置默认配置 ID: ${id}`)
     
-    if (!existingConfig) {
-      return NextResponse.json({ error: '未找到配置' }, { status: 404 })
+    // 使用服务设置默认配置
+    const updatedConfig = await aiModelConfigService.setDefaultConfig(id)
+    
+    // 尝试同步到Redis
+    try {
+      await setDefaultConfigInRedis(id)
+    } catch (redisError) {
+      console.error('更新Redis默认配置失败:', redisError)
+      // 继续处理，不影响主流程
     }
     
-    // 先将所有配置的isDefault设为false
-    await prisma.aIModelConfig.updateMany({
-      where: { isDefault: true },
-      data: { isDefault: false },
+    // 返回正确格式的JSON
+    return NextResponse.json({ 
+      success: true, 
+      config: updatedConfig 
     })
-    
-    // 将当前配置设为默认
-    const result = await prisma.aIModelConfig.update({
-      where: { id },
-      data: { isDefault: true },
-    })
-    
-    return NextResponse.json(result)
   } catch (error) {
     console.error('设置默认配置失败:', error)
-    return NextResponse.json({ error: '设置默认配置失败' }, { status: 500 })
+    return NextResponse.json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : '设置默认配置失败' 
+    }, { status: 500 })
   }
 } 
