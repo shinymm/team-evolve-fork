@@ -39,6 +39,67 @@ type UploadedFile = {
   provider: string; // 新增：文件提供者
 };
 
+// 添加统一的类型定义
+type TabType = 'md' | 'test' | 'boundary' | 'terminology' | 'architecture';
+
+interface TabConfig {
+  id: TabType;
+  title: string;
+  buttonText: string;
+  service: any;
+  minFiles: number;
+  maxFiles?: number;
+  downloadFileName: string;
+}
+
+const TAB_CONFIGS: TabConfig[] = [
+  {
+    id: 'md',
+    title: '需求书内容',
+    buttonText: '需求书转MD',
+    service: RequirementToMdService,
+    minFiles: 1,
+    maxFiles: 1,
+    downloadFileName: '需求书'
+  },
+  {
+    id: 'test',
+    title: '测试用例',
+    buttonText: '需求书转测试用例',
+    service: RequirementToTestService,
+    minFiles: 1,
+    maxFiles: 1,
+    downloadFileName: '测试用例'
+  },
+  {
+    id: 'boundary',
+    title: '需求边界知识',
+    buttonText: '抽取边界知识',
+    service: RequirementBoundaryComparisonService,
+    minFiles: 2,
+    maxFiles: 2,
+    downloadFileName: '需求边界知识'
+  },
+  {
+    id: 'terminology',
+    title: '术语知识',
+    buttonText: '抽取术语知识',
+    service: RequirementTerminologyService,
+    minFiles: 1,
+    maxFiles: 1,
+    downloadFileName: '业务术语知识'
+  },
+  {
+    id: 'architecture',
+    title: '信息架构树',
+    buttonText: '抽取信息架构树',
+    service: RequirementArchitectureService,
+    minFiles: 1,
+    maxFiles: 1,
+    downloadFileName: '信息架构树'
+  }
+];
+
 // 添加内容显示组件，使用ReactMarkdown展示Markdown内容
 const ContentDisplay = memo(({ content }: { content: string }) => {
   // 使用state存储当前渲染时间和状态
@@ -213,17 +274,15 @@ export default function RequirementUpload() {
   const [uploading, setUploading] = useState<boolean>(false)
   const [fileId, setFileId] = useState<string>('')
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
-  const [mdContent, setMdContent] = useState<string>('')
-  const [testContent, setTestContent] = useState<string>('')
-  const [boundaryContent, setBoundaryContent] = useState<string>('')
-  const [terminologyContent, setTerminologyContent] = useState<string>('')
-  const [architectureContent, setArchitectureContent] = useState<string>('')
-  const [isConverting, setIsConverting] = useState(false)
-  const [isGeneratingTest, setIsGeneratingTest] = useState(false)
-  const [isComparing, setIsComparing] = useState(false)
-  const [isExtractingTerminology, setIsExtractingTerminology] = useState(false)
-  const [isExtractingArchitecture, setIsExtractingArchitecture] = useState(false)
-  const [fileSelectionAlert, setFileSelectionAlert] = useState<string>('')
+  const [activeTab, setActiveTab] = useState<TabType>('md')
+  const [processing, setProcessing] = useState<boolean>(false)
+  const [contents, setContents] = useState<Record<TabType, string>>({
+    md: '',
+    test: '',
+    boundary: '',
+    terminology: '',
+    architecture: ''
+  })
   const [showChapterDialog, setShowChapterDialog] = useState(false)
   const [requirementChapter, setRequirementChapter] = useState('')
   const { toast } = useToast()
@@ -242,9 +301,6 @@ export default function RequirementUpload() {
   // 添加一个强制重新渲染的机制
   const [, forceUpdate] = useState({});
   
-  // 添加标签页状态
-  const [activeTab, setActiveTab] = useState<'md' | 'test' | 'boundary' | 'terminology' | 'architecture'>('md');
-  
   // 创建一个状态来跟踪最后一次内容更新
   const [lastUpdateTime, setLastUpdateTime] = useState<number>(0);
   const pendingContentRef = useRef<string>('');
@@ -254,36 +310,36 @@ export default function RequirementUpload() {
     if (mdContentRef.current) {
       mdContentRef.current.scrollTop = mdContentRef.current.scrollHeight;
     }
-    console.log('mdContent变化了，新长度:', mdContent.length);
-  }, [mdContent]);
+    console.log('mdContent变化了，新长度:', contents.md.length);
+  }, [contents.md]);
 
   useEffect(() => {
     if (testContentRef.current) {
       testContentRef.current.scrollTop = testContentRef.current.scrollHeight;
     }
-    console.log('testContent变化了，新长度:', testContent.length);
-  }, [testContent]);
+    console.log('testContent变化了，新长度:', contents.test.length);
+  }, [contents.test]);
 
   useEffect(() => {
     if (boundaryContentRef.current) {
       boundaryContentRef.current.scrollTop = boundaryContentRef.current.scrollHeight;
     }
-    console.log('boundaryContent变化了，新长度:', boundaryContent.length);
-  }, [boundaryContent]);
+    console.log('boundaryContent变化了，新长度:', contents.boundary.length);
+  }, [contents.boundary]);
 
   useEffect(() => {
     if (terminologyContentRef.current) {
       terminologyContentRef.current.scrollTop = terminologyContentRef.current.scrollHeight;
     }
-    console.log('terminologyContent变化了，新长度:', terminologyContent.length);
-  }, [terminologyContent]);
+    console.log('terminologyContent变化了，新长度:', contents.terminology.length);
+  }, [contents.terminology]);
 
   useEffect(() => {
     if (architectureContentRef.current) {
       architectureContentRef.current.scrollTop = architectureContentRef.current.scrollHeight;
     }
-    console.log('architectureContent变化了，新长度:', architectureContent.length);
-  }, [architectureContent]);
+    console.log('architectureContent变化了，新长度:', contents.architecture.length);
+  }, [contents.architecture]);
 
   // 当内容变化时，强制重新渲染
   useEffect(() => {
@@ -291,13 +347,9 @@ export default function RequirementUpload() {
     if (typeof window === 'undefined') return;
     
     const timer = setInterval(() => {
-      if (isConverting || isGeneratingTest || isComparing || isExtractingTerminology || isExtractingArchitecture) {
+      if (processing) {
         console.log('⏱️ 定时检查状态:', {
-          isConverting,
-          isGeneratingTest,
-          isComparing,
-          isExtractingTerminology,
-          isExtractingArchitecture,
+          processing,
           时间: new Date().toISOString()
         });
         
@@ -307,7 +359,7 @@ export default function RequirementUpload() {
     }, 1000); // 降低到每秒更新一次，减少性能负担
     
     return () => clearInterval(timer);
-  }, [isConverting, isGeneratingTest, isComparing, isExtractingTerminology, isExtractingArchitecture]);
+  }, [processing]);
 
   // 获取已上传文件列表
   useEffect(() => {
@@ -520,83 +572,136 @@ export default function RequirementUpload() {
     localStorage.setItem('uploaded-requirement-files', JSON.stringify(updatedFiles))
   }
 
-  // 处理需求书转MD
-  const handleConvertToMd = async () => {
-    if (uploadedFiles.length === 0) {
-      toast({
-        title: "转换失败",
-        description: "请先上传至少一个文件",
-        variant: "destructive",
-      });
-      return;
-    }
+  // 统一的文档处理函数
+  const handleProcessDocument = async (tabId: TabType, extraParams?: { requirementChapter?: string }) => {
+    const config = TAB_CONFIGS.find(c => c.id === tabId);
+    if (!config) return;
 
     const selectedFiles = uploadedFiles.filter(file => file.selected);
-    if (selectedFiles.length !== 1) {
-      setFileSelectionAlert("需求书转MD功能一次只能处理一个文件，请只选择一个文件");
+    
+    // 验证文件数量
+    if (selectedFiles.length < config.minFiles) {
+      setError(`请至少选择${config.minFiles}个文件`);
+      return;
+    }
+    if (config.maxFiles && selectedFiles.length > config.maxFiles) {
+      setError(`${config.title}功能最多只能选择${config.maxFiles}个文件`);
       return;
     }
 
-    setFileSelectionAlert("");
-
-    // 清空之前的内容
-    setMdContent('');
-    setIsConverting(true);
-    // 激活MD标签页
-    setActiveTab('md');
+    setError('');
+    setContents(prev => ({
+      ...prev,
+      [tabId]: tabId === 'terminology' ? '等待大模型处理文件中...' : ''
+    }));
+    setProcessing(true);
+    setActiveTab(tabId);
 
     try {
-      const service = new RequirementToMdService();
-
-      await service.convertToMd(
-        [selectedFiles[0].id],
-        (content: string) => {
-          console.log('收到新内容，长度:', content.length);
-          // 使用函数式更新，确保基于最新状态
-          setMdContent(prev => prev + content);
-        }
-      );
+      const service = new config.service();
+      const fileIds = selectedFiles.map(file => file.id);
+      
+      // 根据不同的服务调用不同的方法
+      if (tabId === 'test') {
+        await service.convertToTest(
+          fileIds,
+          (content: string) => {
+            setContents(prev => ({
+              ...prev,
+              [tabId]: prev[tabId] + content
+            }));
+          },
+          extraParams?.requirementChapter
+        );
+      } else {
+        const methodMap = {
+          md: 'convertToMd',
+          boundary: 'compareRequirements',
+          terminology: 'extractTerminology',
+          architecture: 'extractArchitecture'
+        };
+        
+        await service[methodMap[tabId]](
+          fileIds,
+          (content: string) => {
+            setContents(prev => ({
+              ...prev,
+              [tabId]: prev[tabId] + content
+            }));
+          }
+        );
+      }
     } catch (error) {
-      console.error('转换失败:', error);
+      console.error(`${config.title}处理失败:`, error);
       toast({
-        title: "转换失败",
+        title: `${config.title}失败`,
         description: error instanceof Error ? error.message : "未知错误",
         variant: "destructive",
       });
     } finally {
-      console.log('转换完成');
-      setIsConverting(false);
+      setProcessing(false);
     }
   };
 
-  // 处理下载MD文件
-  const handleDownloadMd = () => {
+  // 统一的下载函数
+  const handleDownload = (tabId: TabType) => {
+    const config = TAB_CONFIGS.find(c => c.id === tabId);
+    if (!config) return;
+
+    const content = contents[tabId];
+    if (!content) {
+      toast({
+        title: "下载失败",
+        description: `没有可下载的${config.title}内容`,
+        variant: "destructive",
+        duration: 3000
+      });
+      return;
+    }
+
     try {
-      const blob = new Blob([mdContent], { type: 'text/markdown' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-      a.href = url
-      a.download = `需求书-${timestamp}.md`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      const blob = new Blob([content], { 
+        type: tabId === 'architecture' ? 'text/typescript' : 'text/markdown' 
+      });
+      const url = URL.createObjectURL(blob);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${config.downloadFileName}-${timestamp}.${tabId === 'architecture' ? 'ts' : 'md'}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
       
       toast({
         title: "下载成功",
-        description: "需求书内容已保存为 Markdown 文件",
+        description: `${config.title}已保存为文件`,
         duration: 3000
-      })
+      });
     } catch (error) {
       toast({
         title: "下载失败",
         description: "请手动复制内容并保存",
         variant: "destructive",
         duration: 3000
-      })
+      });
     }
-  }
+  };
+
+  // 修改原有的处理函数，使用统一的处理函数
+  const handleConvertToMd = () => handleProcessDocument('md');
+  const handleConvertToTest = () => handleProcessDocument('test', { requirementChapter });
+  const handleCompareRequirements = () => handleProcessDocument('boundary');
+  const handleExtractTerminology = () => handleProcessDocument('terminology');
+  const handleExtractArchitecture = () => handleProcessDocument('architecture');
+
+  // 修改原有的下载函数，使用统一的下载函数
+  const handleDownloadMd = () => handleDownload('md');
+  const handleDownloadTest = () => handleDownload('test');
+  const handleDownloadBoundary = () => handleDownload('boundary');
+  const handleDownloadTerminology = () => handleDownload('terminology');
+  const handleDownloadArchitecture = () => handleDownload('architecture');
 
   // 处理打开需求章节输入弹窗
   const handleOpenTestDialog = () => {
@@ -613,517 +718,25 @@ export default function RequirementUpload() {
     // 检查是否有选中的文件
     const selectedFiles = uploadedFiles.filter(file => file.selected)
     if (selectedFiles.length === 0) {
-      setFileSelectionAlert("请至少选择一个需求文件进行转换")
+      setError("请至少选择一个需求文件进行转换")
       return
     }
     
-    setFileSelectionAlert("")
+    setError("")
 
     // 打开弹窗
     setRequirementChapter('')
     setShowChapterDialog(true)
   }
 
-  const handleConvertToTest = async () => {
-    // 关闭弹窗
-    setShowChapterDialog(false);
-    
-    // 清空之前的内容
-    setTestContent('');
-    setIsGeneratingTest(true);
-    // 激活测试用例标签页
-    setActiveTab('test');
-    
-    // 添加一个更明显的调试标记，确认函数被调用
-    console.log('开始生成测试用例 - ' + new Date().toISOString());
-
-    try {
-      const service = new RequirementToTestService()
-      const selectedFiles = uploadedFiles.filter(file => file.selected)
-      const fileIds = selectedFiles.map(file => file.id)
-
-      await service.convertToTest(
-        fileIds,
-        (content: string) => {
-          console.log('收到新内容，长度:', content.length);
-          // 使用函数式更新，确保基于最新状态
-          setTestContent(prev => prev + content);
-        },
-        requirementChapter || undefined
-      )
-
-      console.log('生成测试用例完成 - ' + new Date().toISOString());
-    } catch (error) {
-      console.error('转换失败:', error)
-      toast({
-        title: "转换失败",
-        description: error instanceof Error ? error.message : "未知错误",
-        variant: "destructive",
-      })
-    } finally {
-      setIsGeneratingTest(false);
-      console.log('测试用例生成完成');
-    }
-  }
-
-  // 处理下载测试用例
-  const handleDownloadTest = () => {
-    try {
-      if (!testContent) {
-        toast({
-          title: "下载失败",
-          description: "没有可下载的测试用例内容",
-          variant: "destructive",
-          duration: 3000
-        })
-        return
-      }
-
-      const blob = new Blob([testContent], { type: 'text/markdown' })
-      const url = URL.createObjectURL(blob)
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-      
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `测试用例-${timestamp}.md`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-      
-      toast({
-        title: "下载成功",
-        description: "测试用例内容已保存为 Markdown 文件",
-        duration: 3000
-      })
-    } catch (error) {
-      toast({
-        title: "下载失败",
-        description: "请手动复制内容并保存",
-        variant: "destructive",
-        duration: 3000
-      })
-    }
-  }
-
-  // 处理需求对比抽取边界知识
-  const handleCompareRequirements = async () => {
-    if (uploadedFiles.length < 2) {
-      toast({
-        title: "对比失败",
-        description: "请先上传至少两个文件",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const selectedFiles = uploadedFiles.filter(file => file.selected);
-    if (selectedFiles.length !== 2) {
-      setFileSelectionAlert("需求对比功能需要选择两个文件（初稿和终稿），请确保选择且仅选择两个文件");
-      return;
-    }
-
-    setFileSelectionAlert("");
-
-    // 清空之前的内容
-    setBoundaryContent('');
-    setIsComparing(true);
-    // 激活边界知识标签页
-    setActiveTab('boundary');
-
-    try {
-      const service = new RequirementBoundaryComparisonService();
-
-      await service.compareRequirements(
-        [selectedFiles[0].id, selectedFiles[1].id],
-        (content: string) => {
-          console.log('收到新内容，长度:', content.length);
-          // 使用函数式更新，确保基于最新状态
-          setBoundaryContent(prev => prev + content);
-        }
-      );
-    } catch (error) {
-      console.error('对比失败:', error);
-      toast({
-        title: "对比失败",
-        description: error instanceof Error ? error.message : "未知错误",
-        variant: "destructive",
-      });
-    } finally {
-      console.log('对比完成');
-      setIsComparing(false);
-    }
-  };
-
-  // 处理下载边界知识
-  const handleDownloadBoundary = () => {
-    try {
-      if (!boundaryContent) {
-        toast({
-          title: "下载失败",
-          description: "没有可下载的边界知识内容",
-          variant: "destructive",
-          duration: 3000
-        });
-        return;
-      }
-
-      const blob = new Blob([boundaryContent], { type: 'text/markdown' });
-      const url = URL.createObjectURL(blob);
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `需求边界知识-${timestamp}.md`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
-      toast({
-        title: "下载成功",
-        description: "边界知识内容已保存为 Markdown 文件",
-        duration: 3000
-      });
-    } catch (error) {
-      toast({
-        title: "下载失败",
-        description: "请手动复制内容并保存",
-        variant: "destructive",
-        duration: 3000
-      });
-    }
-  };
-
-  // 使用DOM操作直接更新内容的回调函数
-  const directUpdateCallback = useCallback((content: string) => {
-    console.log(`[${new Date().toISOString()}] 旧回调被调用，但已不使用`);
-    // 这个函数已不再使用，我们使用simpleCallback替代
-  }, []);
-  
-  // 使用一个定时器来定期更新DOM，作为备份机制
-  useEffect(() => {
-    // 这个useEffect已不再需要，已被simpleCallback替代
-    return () => {};
-  }, [isExtractingTerminology]);
-
-  const handleExtractTerminology = async () => {
-    console.log('🚀 开始抽取术语知识');
-    
-    // 检查是否有文件上传和选择
-    if (uploadedFiles.length === 0) {
-      toast({
-        title: "抽取失败",
-        description: "请先上传至少一个文件",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    const selectedFiles = uploadedFiles.filter(file => file.selected);
-    if (selectedFiles.length === 0) {
-      toast({
-        title: "请选择文件",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // 清空已有内容，并设置状态
-    setTerminologyContent("等待大模型处理文件中...");
-    setIsExtractingTerminology(true);
-    
-    // 激活术语知识标签页
-    setActiveTab('terminology');
-    
-    toast({
-      title: "开始抽取术语知识",
-      description: "正在处理，可能需要一段时间等待首次响应...",
-    });
-    
-    // 设置超时保护
-    const maxTimeoutMs = 60000; // 1分钟
-    const timeoutId = setTimeout(() => {
-      console.error('🔶 术语抽取超时，已运行', maxTimeoutMs/1000, '秒');
-      if (isExtractingTerminology) {
-        // 如果还在进行中，则强制结束
-        setIsExtractingTerminology(false);
-        setTerminologyContent(prev => 
-          prev + '\n\n[系统提示] 请求处理时间过长（1分钟），已自动停止。您可以查看已获取的内容或重试。'
-        );
-        toast({
-          title: "抽取超时",
-          description: "处理时间超过3分钟，已自动停止",
-          variant: "destructive",
-        });
-      }
-    }, maxTimeoutMs);
-    
-    try {
-      // 准备服务和回调
-      const service = new RequirementTerminologyService();
-      
-      // 记录起始时间
-      const startTime = Date.now();
-      
-      // 显示进度更新
-      let waitSeconds = 0;
-      const waitInterval = setInterval(() => {
-        waitSeconds += 5;
-        if (waitSeconds <= 90 && isExtractingTerminology) {
-          setTerminologyContent(prev => {
-            // 只在还没有收到实际内容时更新等待消息
-            if (prev.includes("已等待") || prev.includes("等待大模型处理") || prev.includes("正在连接API")) {
-              if (prev.includes("已等待")) {
-                return prev.replace(/已等待 \d+ 秒/, `已等待 ${waitSeconds} 秒`);
-              } else {
-                return prev + `\n已等待 ${waitSeconds} 秒，模型处理较大文件需要一定时间...`;
-              }
-            } 
-            return prev; // 已经有实际内容，不再更新等待消息
-          });
-        } else {
-          clearInterval(waitInterval);
-        }
-      }, 5000);
-      
-      // 标记是否已收到第一个实际内容
-      let receivedFirstContent = false;
-      
-      // 使用回调函数直接更新状态
-      await service.extractTerminology(
-        selectedFiles.map(file => file.id),
-        (content: string) => {
-          console.log(`🔶 收到内容，长度: ${content.length}字符, 首次内容?: ${!receivedFirstContent}`);
-          
-          // 检查是否是错误消息
-          if (content.includes('[错误]')) {
-            console.error('🔶 收到错误:', content);
-            toast({
-              title: "抽取出错",
-              description: "请查看错误信息",
-              variant: "destructive",
-            });
-          }
-          
-          try {
-            // 处理第一个实际内容（非等待消息）
-            if (!receivedFirstContent && content.length > 0) {
-              receivedFirstContent = true;
-              clearInterval(waitInterval);
-              
-              // 检查内容是否是服务端的等待提示
-              if (content.includes("正在连接模型API") || content.includes("请耐心等待")) {
-                // 如果是服务端的等待提示，保留原来的等待信息，不重置内容
-                console.log('🔶 收到服务端等待提示，保留当前内容');
-                // 不替换当前内容，但也要确保这条消息显示出来
-                setTerminologyContent(prev => prev + "\n" + content);
-              } else {
-                // 如果是实际内容，完全替换掉等待提示
-                console.log('🔶 收到第一个实际内容，替换等待提示');
-                setTerminologyContent(content);
-              }
-            } else if (receivedFirstContent) {
-              // 后续内容直接追加
-              setTerminologyContent(prev => prev + content);
-            } else if (content.includes("正在连接模型API") || content.includes("请耐心等待")) {
-              // 服务端发来的等待提示，替换前端的等待提示
-              console.log('🔶 收到服务端等待提示，设置为当前内容');
-              setTerminologyContent(content);
-            } else {
-              // 其他情况追加内容
-              console.log('🔶.其他内容，追加显示');
-              setTerminologyContent(prev => prev + content);
-            }
-          } catch (err) {
-            // 如果内容处理出错，确保不会阻断后续内容显示
-            console.error('🔶 内容处理错误:', err);
-            // 安全地追加内容
-            setTerminologyContent(prev => prev + "\n[内容处理错误，继续接收...]" + content);
-          }
-          
-          // 滚动到底部
-          const terminologyArea = document.getElementById('terminology-knowledge-area');
-          if (terminologyArea) {
-            terminologyArea.scrollTop = terminologyArea.scrollHeight;
-          }
-          
-          // 强制刷新UI - 确保React渲染内容
-          forceUpdate({});
-        }
-      );
-      
-      clearInterval(waitInterval);
-      
-      const timeElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      console.log(`🔶 术语抽取完成，耗时: ${timeElapsed}秒`);
-      
-      toast({
-        title: "术语抽取完成",
-        description: `耗时: ${timeElapsed}秒`,
-      });
-    } catch (error) {
-      console.error('🔶 术语抽取错误:', error);
-      toast({
-        title: "术语抽取失败",
-        description: error instanceof Error ? error.message : "未知错误",
-        variant: "destructive",
-      });
-    } finally {
-      clearTimeout(timeoutId);
-      setIsExtractingTerminology(false);
-    }
-  };
-
-  // 处理下载术语知识
-  const handleDownloadTerminology = () => {
-    try {
-      if (!terminologyContent) {
-        toast({
-          title: "下载失败",
-          description: "没有可下载的术语知识内容",
-          variant: "destructive",
-          duration: 3000
-        });
-        return;
-      }
-
-      // 显示下载进度
-      toast({
-        title: "准备下载",
-        description: `正在准备 ${(terminologyContent.length / 1024).toFixed(2)} KB 内容...`,
-        duration: 2000
-      });
-
-      // 创建Blob并下载
-      const blob = new Blob([terminologyContent], { type: 'text/markdown' });
-      const url = URL.createObjectURL(blob);
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `业务术语知识-${timestamp}.md`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
-      toast({
-        title: "下载成功",
-        description: `术语知识内容 (${(terminologyContent.length / 1024).toFixed(2)} KB) 已保存为 Markdown 文件`,
-        duration: 3000
-      });
-    } catch (error) {
-      console.error(`下载术语内容失败:`, error);
-      toast({
-        title: "下载失败",
-        description: "请手动复制内容并保存",
-        variant: "destructive",
-        duration: 3000
-      });
-    }
-  };
-
-  // 处理信息架构树抽取
-  const handleExtractArchitecture = async () => {
-    if (uploadedFiles.length === 0) {
-      toast({
-        title: "抽取失败",
-        description: "请先上传至少一个文件",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const selectedFiles = uploadedFiles.filter(file => file.selected);
-    if (selectedFiles.length === 0) {
-      setFileSelectionAlert("请至少选择一个文件进行信息架构抽取");
-      return;
-    }
-
-    setFileSelectionAlert("");
-
-    // 清空之前的内容
-    setArchitectureContent('');
-    setIsExtractingArchitecture(true);
-    // 激活信息架构标签页
-    setActiveTab('architecture');
-
-    try {
-      const service = new RequirementArchitectureService();
-
-      await service.extractArchitecture(
-        selectedFiles.map(file => file.id),
-        (content: string) => {
-          console.log('收到新内容，长度:', content.length);
-          // 使用函数式更新，确保基于最新状态
-          setArchitectureContent(prev => prev + content);
-        }
-      );
-    } catch (error) {
-      console.error('信息架构抽取失败:', error);
-      toast({
-        title: "抽取失败",
-        description: error instanceof Error ? error.message : "未知错误",
-        variant: "destructive",
-      });
-    } finally {
-      console.log('信息架构抽取完成');
-      setIsExtractingArchitecture(false);
-    }
-  };
-
-  // 处理下载信息架构
-  const handleDownloadArchitecture = () => {
-    try {
-      if (!architectureContent) {
-        toast({
-          title: "下载失败",
-          description: "没有可下载的信息架构内容",
-          variant: "destructive",
-          duration: 3000
-        });
-        return;
-      }
-
-      const blob = new Blob([architectureContent], { type: 'text/typescript' });
-      const url = URL.createObjectURL(blob);
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `信息架构树-${timestamp}.ts`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
-      toast({
-        title: "下载成功",
-        description: "信息架构内容已保存为 TypeScript 文件",
-        duration: 3000
-      });
-    } catch (error) {
-      toast({
-        title: "下载失败",
-        description: "请手动复制内容并保存",
-        variant: "destructive",
-        duration: 3000
-      });
-    }
-  };
-
   // 加载指示器管理
   useEffect(() => {
-    // 加载指示器的管理
-    if (isExtractingTerminology) {
-      // 加载开始时，添加一个固定位置的加载指示器
+    // 加载开始时，添加加载指示器
+    if (processing) {
       const indicator = document.createElement('div');
       indicator.id = 'fixed-loading-indicator';
-      indicator.className = 'fixed bottom-4 right-4 bg-orange-500 text-white px-4 py-2 rounded-full shadow-lg z-50';
-      indicator.innerHTML = `<div class="flex items-center gap-2">
-        <div class="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent"></div>
-        <span>接收内容中...</span>
+      indicator.innerHTML = `<div class="fixed top-0 left-0 w-full h-1 bg-orange-500 animate-pulse z-50">
+        <div class="h-full bg-orange-600 animate-loading-bar"></div>
       </div>`;
       document.body.appendChild(indicator);
     } else {
@@ -1132,16 +745,8 @@ export default function RequirementUpload() {
       if (indicator && indicator.parentNode) {
         indicator.parentNode.removeChild(indicator);
       }
-      
-      // 更新内容长度显示
-      if (terminologyContentRef.current) {
-        const lengthDisplay = terminologyContentRef.current.querySelector('.terminology-length');
-        if (lengthDisplay) {
-          lengthDisplay.innerHTML = `<span class="text-green-500 font-medium">完成</span> | 总内容长度: ${terminologyTextRef.current.length} 字符`;
-        }
-      }
     }
-  }, [isExtractingTerminology]);
+  }, [processing]);
 
   return (
     <>
@@ -1223,102 +828,102 @@ export default function RequirementUpload() {
                 {/* 需求书转MD按钮 */}
                 <Button
                   onClick={handleConvertToMd}
-                  disabled={uploadedFiles.length === 0 || isConverting}
+                  disabled={uploadedFiles.length === 0 || processing}
                   className={`flex items-center gap-1 px-3 py-1.5 h-auto text-xs ${
-                    uploadedFiles.length > 0 && !isConverting
+                    uploadedFiles.length > 0 && !processing
                       ? 'bg-orange-500 hover:bg-orange-600 text-white' 
                       : 'bg-gray-400 text-gray-100 cursor-not-allowed'
                   }`}
                 >
-                  {isConverting ? (
+                  {processing ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
                     <Book className="h-3 w-3" />
                   )}
-                  {isConverting ? '转换中...' : '需求书转MD'}
+                  {processing ? '转换中...' : '需求书转MD'}
                 </Button>
                 
                 {/* 需求书转测试用例按钮 */}
                 <Button
                   onClick={handleOpenTestDialog}
-                  disabled={uploadedFiles.length === 0 || isGeneratingTest}
+                  disabled={uploadedFiles.length === 0 || processing}
                   className={`flex items-center gap-1 px-3 py-1.5 h-auto text-xs ${
-                    uploadedFiles.length > 0 && !isGeneratingTest
+                    uploadedFiles.length > 0 && !processing
                       ? 'bg-orange-500 hover:bg-orange-600 text-white' 
                       : 'bg-gray-400 text-gray-100 cursor-not-allowed'
                   }`}
                 >
-                  {isGeneratingTest ? (
+                  {processing ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
                     <FileText className="h-3 w-3" />
                   )}
-                  {isGeneratingTest ? '生成中...' : '需求书转测试用例'}
+                  {processing ? '生成中...' : '需求书转测试用例'}
                 </Button>
                 
                 {/* 需求对比抽取边界知识按钮 */}
                 <Button
                   onClick={handleCompareRequirements}
-                  disabled={uploadedFiles.length < 2 || isComparing}
+                  disabled={uploadedFiles.length < 2 || processing}
                   className={`flex items-center gap-1 px-3 py-1.5 h-auto text-xs ${
-                    uploadedFiles.length >= 2 && !isComparing
+                    uploadedFiles.length >= 2 && !processing
                       ? 'bg-orange-500 hover:bg-orange-600 text-white' 
                       : 'bg-gray-400 text-gray-100 cursor-not-allowed'
                   }`}
                 >
-                  {isComparing ? (
+                  {processing ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
                     <HelpCircle className="h-3 w-3" />
                   )}
-                  {isComparing ? '对比中...' : '抽取边界知识'}
+                  {processing ? '对比中...' : '抽取边界知识'}
                 </Button>
                 
                 {/* 术语知识抽取按钮 */}
                 <Button
                   onClick={handleExtractTerminology}
-                  disabled={uploadedFiles.length === 0 || isExtractingTerminology}
+                  disabled={uploadedFiles.length === 0 || processing}
                   className={`flex items-center gap-1 px-3 py-1.5 h-auto text-xs ${
-                    uploadedFiles.length > 0 && !isExtractingTerminology
+                    uploadedFiles.length > 0 && !processing
                       ? 'bg-orange-500 hover:bg-orange-600 text-white' 
                       : 'bg-gray-400 text-gray-100 cursor-not-allowed'
                   }`}
                 >
-                  {isExtractingTerminology ? (
+                  {processing ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
                     <Book className="h-3 w-3" />
                   )}
-                  {isExtractingTerminology ? '抽取中...' : '抽取术语知识'}
+                  {processing ? '抽取中...' : '抽取术语知识'}
                 </Button>
                 
                 {/* 信息架构树抽取按钮 */}
                 <Button
                   onClick={handleExtractArchitecture}
-                  disabled={uploadedFiles.length === 0 || isExtractingArchitecture}
+                  disabled={uploadedFiles.length === 0 || processing}
                   className={`flex items-center gap-1 px-3 py-1.5 h-auto text-xs ${
-                    uploadedFiles.length > 0 && !isExtractingArchitecture
+                    uploadedFiles.length > 0 && !processing
                       ? 'bg-orange-500 hover:bg-orange-600 text-white' 
                       : 'bg-gray-400 text-gray-100 cursor-not-allowed'
                   }`}
                 >
-                  {isExtractingArchitecture ? (
+                  {processing ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
                     <FileText className="h-3 w-3" />
                   )}
-                  {isExtractingArchitecture ? '抽取中...' : '抽取信息架构树'}
+                  {processing ? '抽取中...' : '抽取信息架构树'}
                 </Button>
 
               </div>
               
               {/* 文件选择警告提示 */}
-              {fileSelectionAlert && (
+              {error && (
                 <Alert variant="destructive" className="mt-2 py-2">
                   <AlertCircle className="h-3 w-3" />
                   <AlertTitle className="text-xs">警告</AlertTitle>
                   <AlertDescription className="text-xs">
-                    {fileSelectionAlert}
+                    {error}
                   </AlertDescription>
                 </Alert>
               )}
@@ -1455,7 +1060,7 @@ export default function RequirementUpload() {
                     <h2 className="text-base font-semibold">需求书内容</h2>
                     <Button 
                       onClick={handleDownloadMd}
-                      disabled={!mdContent}
+                      disabled={!contents.md}
                       className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1 px-3 py-1 h-8 text-xs"
                     >
                       <Download className="h-3 w-3" />
@@ -1465,12 +1070,12 @@ export default function RequirementUpload() {
                   <div className="border rounded p-3 bg-gray-50 min-h-[800px] max-h-[1400px] overflow-auto w-full" ref={mdContentRef}>
                     {/* 添加调试信息，使用自执行函数避免返回void */}
                     {(() => {
-                      console.log('渲染Markdown内容区域, isConverting:', isConverting, 'mdContent长度:', mdContent.length);
+                      console.log('渲染Markdown内容区域, processing:', processing, 'mdContent长度:', contents.md.length);
                       return null;
                     })()}
                     
                     {/* 显示内容，无论是否为空 */}
-                    <ContentDisplay content={mdContent} />
+                    <ContentDisplay content={contents.md} />
                   </div>
                 </div>
               )}
@@ -1482,7 +1087,7 @@ export default function RequirementUpload() {
                     <h2 className="text-base font-semibold">测试用例</h2>
                     <Button 
                       onClick={handleDownloadTest}
-                      disabled={!testContent}
+                      disabled={!contents.test}
                       className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1 px-3 py-1 h-8 text-xs"
                     >
                       <Download className="h-3 w-3" />
@@ -1492,12 +1097,12 @@ export default function RequirementUpload() {
                   <div className="border rounded p-3 bg-gray-50 min-h-[800px] max-h-[1400px] overflow-auto w-full" ref={testContentRef}>
                     {/* 添加调试信息，使用自执行函数避免返回void */}
                     {(() => {
-                      console.log('渲染测试用例区域, isGeneratingTest:', isGeneratingTest, 'testContent长度:', testContent.length);
+                      console.log('渲染测试用例区域, processing:', processing, 'testContent长度:', contents.test.length);
                       return null;
                     })()}
                     
                     {/* 显示内容，无论是否为空 */}
-                    <ContentDisplay content={testContent} />
+                    <ContentDisplay content={contents.test} />
                   </div>
                 </div>
               )}
@@ -1509,7 +1114,7 @@ export default function RequirementUpload() {
                     <h2 className="text-base font-semibold">需求边界知识</h2>
                     <Button 
                       onClick={handleDownloadBoundary}
-                      disabled={!boundaryContent}
+                      disabled={!contents.boundary}
                       className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1 px-3 py-1 h-8 text-xs"
                     >
                       <Download className="h-3 w-3" />
@@ -1519,12 +1124,12 @@ export default function RequirementUpload() {
                   <div className="border rounded p-3 bg-gray-50 min-h-[800px] max-h-[1400px] overflow-auto w-full" ref={boundaryContentRef}>
                     {/* 添加调试信息，使用自执行函数避免返回void */}
                     {(() => {
-                      console.log('渲染边界知识区域, isComparing:', isComparing, 'boundaryContent长度:', boundaryContent.length);
+                      console.log('渲染边界知识区域, processing:', processing, 'boundaryContent长度:', contents.boundary.length);
                       return null;
                     })()}
                     
                     {/* 显示内容，无论是否为空 */}
-                    <ContentDisplay content={boundaryContent} />
+                    <ContentDisplay content={contents.boundary} />
                   </div>
                 </div>
               )}
@@ -1536,7 +1141,7 @@ export default function RequirementUpload() {
                     <h2 className="text-base font-semibold">业务术语知识</h2>
                     <Button 
                       onClick={handleDownloadTerminology}
-                      disabled={isExtractingTerminology || !terminologyContent}
+                      disabled={processing || !contents.terminology}
                       className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1 px-3 py-1 h-8 text-xs"
                     >
                       <Download className="h-3 w-3" />
@@ -1550,16 +1155,16 @@ export default function RequirementUpload() {
                   >
                     {/* 添加调试信息，使用自执行函数避免返回void */}
                     {(() => {
-                      console.log('渲染术语知识区域, isExtractingTerminology:', isExtractingTerminology, 'terminologyContent长度:', terminologyContent.length);
+                      console.log('渲染术语知识区域, processing:', processing, 'terminologyContent长度:', contents.terminology.length);
                       return null;
                     })()}
                     
                     {/* 显示内容，无论是否为空 */}
-                    <ContentDisplay content={terminologyContent} />
+                    <ContentDisplay content={contents.terminology} />
                   </div>
                   
                   {/* 添加显式的状态指示器 */}
-                  {isExtractingTerminology && (
+                  {processing && (
                     <div className="mt-2 text-sm text-orange-600 flex items-center gap-2">
                       <div className="animate-spin h-3 w-3 border-2 border-orange-500 rounded-full border-t-transparent"></div>
                       正在接收内容...
@@ -1575,7 +1180,7 @@ export default function RequirementUpload() {
                     <h2 className="text-base font-semibold">信息架构树</h2>
                     <Button 
                       onClick={handleDownloadArchitecture}
-                      disabled={!architectureContent}
+                      disabled={!contents.architecture}
                       className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1 px-3 py-1 h-8 text-xs"
                     >
                       <Download className="h-3 w-3" />
@@ -1585,12 +1190,12 @@ export default function RequirementUpload() {
                   <div className="border rounded p-3 bg-gray-50 min-h-[800px] max-h-[1400px] overflow-auto w-full" ref={architectureContentRef}>
                     {/* 添加调试信息，使用自执行函数避免返回void */}
                     {(() => {
-                      console.log('渲染信息架构区域, isExtractingArchitecture:', isExtractingArchitecture, 'architectureContent长度:', architectureContent.length);
+                      console.log('渲染信息架构区域, processing:', processing, 'architectureContent长度:', contents.architecture.length);
                       return null;
                     })()}
                     
                     {/* 显示内容，无论是否为空 */}
-                    <ContentDisplay content={architectureContent} />
+                    <ContentDisplay content={contents.architecture} />
                   </div>
                 </div>
               )}
