@@ -38,7 +38,8 @@ export const requirementBoundaryComparisonPrompt = `<Role_Goal>
     - 示例-遗漏的边界Case：上一步分析出的"定稿补充的Case条件"
     - 示例-更新需求描述：上一步分析出的"定稿中对于Case的预期结果"
 
-#6. 按<Rules>检查纠正，以<Output>中示例的markdown代码格式，来输出识别的边界Case知识表格，确保表格的格式正确，不要输出表格之外的内容
+#6. 按<Rules>检查纠正，以<Output>中示例的markdown代码格式，来输出识别的边界Case知识表格
+#7. 确保表格的格式正确，不要输出表格之外的任何其他内容
 </Instructions>
 
 <Output>

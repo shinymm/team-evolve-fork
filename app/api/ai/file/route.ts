@@ -147,7 +147,7 @@ async function handleQwenFileStream(
     const messages = [
       {
         role: "system",
-        content: `fileid://${fileIds.join(',')}`
+        content: `fileids://${fileIds.join(',')}`
       },
       {
         role: "system",
@@ -158,6 +158,7 @@ async function handleQwenFileStream(
         content: userPrompt
       }
     ]
+    console.log('messages', messages)
 
     const requestData = {
       model: config.model || "qwen-long",
