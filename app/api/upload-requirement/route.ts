@@ -86,6 +86,13 @@ export async function POST(request: NextRequest) {
         purpose: 'file-extract' as unknown as OpenAI.FilePurpose
       })
       
+      console.log('文件上传成功，获得ID:', response.id)
+      
+      // 验证文件ID格式
+      if (!response.id || typeof response.id !== 'string') {
+        throw new Error('获取到的文件ID无效')
+      }
+
       // 返回文件信息
       return NextResponse.json({
         success: true,

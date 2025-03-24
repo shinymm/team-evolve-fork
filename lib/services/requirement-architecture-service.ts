@@ -1,5 +1,5 @@
-import { streamingFileAICall } from '@/lib/services/ai-service'
 import { requirementArchitecturePrompt } from '@/lib/prompts/requirement-architecture'
+import { handleStreamingResponse } from '@/lib/utils/stream-utils'
 
 /**
  * 处理从需求文档抽取信息架构树的服务
@@ -19,17 +19,19 @@ export class RequirementArchitectureService {
         throw new Error('请至少选择一个文件进行信息架构抽取')
       }
 
-      // 使用预定义的提示词
-      const systemPrompt = requirementArchitecturePrompt
-      const userPrompt = '请按照上述规则和说明，从文档中抽取信息架构树。'
+      console.log('开始信息架构抽取，文件数:', fileIds.length)
 
-      // 使用streamingFileAICall方法
-      await streamingFileAICall({
+      await handleStreamingResponse(
         fileIds,
-        systemPrompt,
-        userPrompt,
-        onContent
-      })
+        '请按照规则和说明，从文档中抽取信息架构树。',
+        requirementArchitecturePrompt,
+        (content: string) => {
+          console.log('收到内容:', content.length, '字符')
+          onContent(content)
+        }
+      )
+
+      console.log('信息架构抽取完成')
     } catch (error) {
       console.error(`信息架构抽取失败:`, error)
       throw error

@@ -516,102 +516,165 @@ export default function RequirementUpload() {
   }
 
   // 统一的文档处理函数
-  const handleProcessDocument = async (tabId: TabType, extraParams?: { requirementChapter?: string }) => {
-    const config = TAB_CONFIGS.find(c => c.id === tabId);
-    if (!config) return;
+  const handleProcessDocument = async (tabId: TabType, options?: { requirementChapter?: string }) => {
+    // 检查是否有文件上传
+    if (uploadedFiles.length === 0) {
+      toast({
+        title: "处理失败",
+        description: "请先上传至少一个文件",
+        variant: "destructive",
+      })
+      return
+    }
+    
+    // 检查是否有选中的文件
+    const selectedFiles = uploadedFiles.filter(file => file.selected)
+    if (selectedFiles.length === 0) {
+      setError("请至少选择一个需求文件进行处理")
+      return
+    }
+
+    // 对边界知识处理添加特殊验证
+    if (tabId === 'boundary' && selectedFiles.length !== 2) {
+      setError("抽取边界知识需要选择恰好两个文件（初稿和定稿）")
+      return
+    }
 
     // 切换到对应的tab
-    setActiveTab(tabId);
-
-    const selectedFiles = uploadedFiles.filter(file => file.selected);
+    setActiveTab(tabId)
     
-    // 验证文件数量
-    if (selectedFiles.length < config.minFiles) {
-      setError(`请至少选择${config.minFiles}个文件`);
-      return;
-    }
-    if (config.maxFiles && selectedFiles.length > config.maxFiles) {
-      setError(`${config.title}功能最多只能选择${config.maxFiles}个文件`);
-      return;
-    }
-
-    setError('');
-    // 统一设置初始等待提示
-    setContents(prev => ({
-      ...prev,
-      [tabId]: '等待大模型处理文件中...'
-    }));
-    
-    // 更新特定按钮的处理状态
+    // 更新处理状态
     setProcessingStates(prev => ({
       ...prev,
       [tabId]: true
-    }));
+    }))
+
+    // 设置初始等待提示
+    setContents(prev => ({
+      ...prev,
+      [tabId]: '等待大模型处理文件中...'
+    }))
     
     // 添加加载指示器
-    const indicator = document.createElement('div');
-    indicator.id = 'fixed-loading-indicator';
+    const indicator = document.createElement('div')
+    indicator.id = 'fixed-loading-indicator'
     indicator.innerHTML = `<div class="fixed top-0 left-0 w-full h-1 bg-orange-500 animate-pulse z-50">
       <div class="h-full bg-orange-600 animate-loading-bar"></div>
-    </div>`;
-    document.body.appendChild(indicator);
+    </div>`
+    document.body.appendChild(indicator)
 
     try {
-      const service = new config.service();
-      const fileIds = selectedFiles.map(file => file.id);
+      const config = TAB_CONFIGS.find(c => c.id === tabId)
+      if (!config) return
+
+      const fileIds = selectedFiles.map(file => file.id)
       
-      let isFirstContent = true;
+      // 用于累积内容的变量
+      let accumulatedContent = ''
       
-      // 统一的内容处理回调
-      const contentCallback = (content: string) => {
+      // 实例化服务并调用对应的方法
+      switch (tabId) {
+        case 'md': {
+          const service = new RequirementToMdService()
+          await service.convertToMd(fileIds, (content: string) => {
+            console.log(`收到${tabId}内容:`, content.length, '字符')
+            accumulatedContent = content
+            setContents(prev => ({
+              ...prev,
+              [tabId]: content
+            }))
+          })
+          break
+        }
+        case 'test': {
+          const service = new RequirementToTestService()
+          await service.convertToTest(fileIds, (content: string) => {
+            console.log(`收到${tabId}内容:`, content.length, '字符')
+            accumulatedContent = content
+            setContents(prev => ({
+              ...prev,
+              [tabId]: content
+            }))
+          }, options?.requirementChapter)
+          break
+        }
+        case 'boundary': {
+          const service = new RequirementBoundaryComparisonService()
+          await service.extractBoundary(fileIds, (content: string) => {
+            console.log(`收到${tabId}内容:`, content.length, '字符')
+            accumulatedContent = content
+            setContents(prev => ({
+              ...prev,
+              [tabId]: content
+            }))
+          })
+          break
+        }
+        case 'terminology': {
+          const service = new RequirementTerminologyService()
+          await service.extractTerminology(fileIds, (content: string) => {
+            console.log(`收到${tabId}内容:`, content.length, '字符')
+            accumulatedContent = content
+            setContents(prev => ({
+              ...prev,
+              [tabId]: content
+            }))
+          })
+          break
+        }
+        case 'architecture': {
+          const service = new RequirementArchitectureService()
+          await service.extractArchitecture(fileIds, (content: string) => {
+            console.log(`收到${tabId}内容:`, content.length, '字符')
+            accumulatedContent = content
+            setContents(prev => ({
+              ...prev,
+              [tabId]: content
+            }))
+          })
+          break
+        }
+        default:
+          throw new Error(`未找到${tabId}对应的服务`)
+      }
+
+      console.log(`${tabId}处理完成，总内容长度:`, accumulatedContent.length)
+
+      // 如果处理完成后内容为空，显示错误提示
+      if (!accumulatedContent) {
         setContents(prev => ({
           ...prev,
-          [tabId]: isFirstContent ? content : prev[tabId] + content
-        }));
-        isFirstContent = false;
-      };
-      
-      // 根据不同的服务调用不同的方法
-      if (tabId === 'test') {
-        await service.convertToTest(
-          fileIds,
-          contentCallback,
-          extraParams?.requirementChapter
-        );
-      } else {
-        const methodMap = {
-          md: 'convertToMd',
-          boundary: 'compareRequirements',
-          terminology: 'extractTerminology',
-          architecture: 'extractArchitecture'
-        };
-        
-        await service[methodMap[tabId]](
-          fileIds,
-          contentCallback
-        );
+          [tabId]: '处理完成，但未获得有效内容。请重试或联系管理员。'
+        }))
       }
+
     } catch (error) {
-      console.error(`${config.title}处理失败:`, error);
+      console.error(`${tabId}处理失败:`, error)
       toast({
-        title: `${config.title}失败`,
+        title: "处理失败",
         description: error instanceof Error ? error.message : "未知错误",
         variant: "destructive",
-      });
+        duration: 3000
+      })
+      // 设置错误内容
+      setContents(prev => ({
+        ...prev,
+        [tabId]: `处理失败: ${error instanceof Error ? error.message : "未知错误"}`
+      }))
     } finally {
       // 重置特定按钮的处理状态
       setProcessingStates(prev => ({
         ...prev,
         [tabId]: false
-      }));
+      }))
       
       // 移除加载指示器
-      const indicator = document.getElementById('fixed-loading-indicator');
+      const indicator = document.getElementById('fixed-loading-indicator')
       if (indicator && indicator.parentNode) {
-        indicator.parentNode.removeChild(indicator);
+        indicator.parentNode.removeChild(indicator)
       }
     }
-  };
+  }
 
   // 统一的下载函数
   const handleDownload = (tabId: TabType) => {

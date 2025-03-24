@@ -1,5 +1,5 @@
-import { streamingFileAICall } from './ai-service'
 import { requirementTerminologyPrompt } from '@/lib/prompts/requirement-terminology'
+import { handleStreamingResponse } from '@/lib/utils/stream-utils'
 
 /**
  * 需求术语抽取服务
@@ -20,16 +20,21 @@ export class RequirementTerminologyService {
       }
 
       // 使用预定义的提示词
-      const systemPrompt = '请按照下述述规则和说明，从文档中抽取业务术语。'
-      const userPrompt = requirementTerminologyPrompt
-
-      // 使用streamingFileAICall方法
-      await streamingFileAICall({
+      const systemPrompt = '请按照下述规则和说明，从文档中抽取业务术语。'
+      
+      console.log('开始术语抽取，文件数:', fileIds.length)
+      
+      await handleStreamingResponse(
         fileIds,
         systemPrompt,
-        userPrompt,
-        onContent
-      })
+        requirementTerminologyPrompt,
+        (content: string) => {
+          console.log('收到内容:', content.length, '字符')
+          onContent(content)
+        }
+      )
+      
+      console.log('术语抽取完成')
     } catch (error) {
       console.error(`术语抽取失败:`, error)
       throw error
