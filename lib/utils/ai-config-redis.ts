@@ -202,8 +202,11 @@ export async function setDefaultConfigInRedis(id: string): Promise<void> {
 export async function saveAllConfigsToRedis(configs: AIModelConfig[]): Promise<void> {
   try {
     if (!configs || configs.length === 0) {
+      console.log('没有配置需要保存到Redis');
       return;
     }
+    
+    console.log(`尝试保存${configs.length}个配置到Redis...`, configs.map(c => c.id));
     
     // 检查密钥是否可能未加密
     configs.forEach(config => {
@@ -214,6 +217,15 @@ export async function saveAllConfigsToRedis(configs: AIModelConfig[]): Promise<v
     
     const redis = getRedis();
     
+    // 测试Redis连接
+    try {
+      const testResult = await redis.ping();
+      console.log('Redis连接测试结果:', testResult);
+    } catch (pingError) {
+      console.error('Redis连接测试失败:', pingError);
+      throw new Error(`无法连接到Redis: ${pingError instanceof Error ? pingError.message : String(pingError)}`);
+    }
+    
     // 创建pipeline
     const pipeline = redis.pipeline();
     
@@ -223,24 +235,49 @@ export async function saveAllConfigsToRedis(configs: AIModelConfig[]): Promise<v
     // 保存每个配置
     for (const config of configs) {
       const configKey = `${AI_CONFIG_PREFIX}${config.id}`;
+      console.log(`准备保存配置: ${configKey}`);
       pipeline.set(configKey, JSON.stringify(config));
       
       // 记录默认配置ID
       if (config.isDefault) {
         defaultId = config.id;
+        console.log(`找到默认配置ID: ${defaultId}`);
       }
     }
     
     // 如果有默认配置，更新默认配置键
     if (defaultId) {
+      console.log(`设置默认配置键 ${DEFAULT_CONFIG_KEY} 为 ${defaultId}`);
       pipeline.set(DEFAULT_CONFIG_KEY, defaultId);
     }
     
-    // 执行批量操作
-    await pipeline.exec();
+    // 执行批量操作并检查结果
+    const results = await pipeline.exec();
+    
+    if (!results || results.length === 0) {
+      throw new Error('Redis操作未返回结果');
+    }
+    
+    // 检查每个操作的结果
+    const errors = results
+      .map((result, index) => {
+        const [err, reply] = result;
+        if (err) {
+          return `操作 ${index}: ${err.message}`;
+        }
+        return null;
+      })
+      .filter(Boolean);
+    
+    if (errors.length > 0) {
+      throw new Error(`部分Redis操作失败: ${errors.join('; ')}`);
+    }
+    
+    console.log(`成功保存${configs.length}个配置到Redis`);
   } catch (error) {
     console.error('保存所有配置到Redis失败:', error);
-    // 不抛出异常，允许应用继续运行
+    // 抛出异常，让调用方知道操作失败
+    throw new Error(`Redis保存失败: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
