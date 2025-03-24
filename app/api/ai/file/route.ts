@@ -21,13 +21,36 @@ export async function POST(request: NextRequest) {
     const fileIds = formData.getAll("fileIds") as string[];
     const systemPrompt = formData.get("systemPrompt") as string;
     const userPrompt = formData.get("userPrompt") as string;
-    const configJson = formData.get("config") as string;
+    const configJson = formData.get("config") as string | null;
 
-    if (!fileIds.length || !systemPrompt || !userPrompt || !configJson) {
+    if (!fileIds.length || !systemPrompt || !userPrompt) {
       return NextResponse.json({ error: "缺少必要参数" }, { status: 400 });
     }
 
-    const config = JSON.parse(configJson) as AIModelConfig;
+    let config: AIModelConfig;
+    
+    // 如果请求中没有提供配置，从Redis获取默认配置
+    if (!configJson) {
+      console.log("请求中未提供配置，尝试从Redis获取默认配置");
+      const { getDefaultConfigFromRedis } = await import("@/lib/utils/ai-config-redis");
+      const defaultConfig = await getDefaultConfigFromRedis();
+      
+      if (!defaultConfig) {
+        return NextResponse.json(
+          { error: "未找到默认配置，请先在设置中配置模型" },
+          { status: 404 }
+        );
+      }
+      
+      config = defaultConfig;
+      console.log("成功获取Redis默认配置:", {
+        model: config.model,
+        baseURL: config.baseURL ? "已设置" : "未设置",
+        apiKey: config.apiKey ? "已设置" : "未设置"
+      });
+    } else {
+      config = JSON.parse(configJson) as AIModelConfig;
+    }
 
     // 检查是否是Google Gemini模型
     const isGemini = isGeminiModel(config.model);

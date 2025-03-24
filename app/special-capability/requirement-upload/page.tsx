@@ -442,23 +442,14 @@ export default function RequirementUpload() {
       return
     }
 
-    const config = await getDefaultAIConfig()
-    if (!config) {
-      setError('未找到AI配置信息')
-      return
-    }
-
     setUploading(true)
     setError('')
 
     try {
       const formData = new FormData()
       formData.append('file', fileToUpload)
-      formData.append('apiKey', config.apiKey)
-      formData.append('baseURL', config.baseURL)
-      formData.append('model', config.model)
 
-      console.log(`正在上传文件到 ${config.baseURL}...`)
+      console.log(`正在上传文件...`)
 
       const response = await fetch('/api/upload-requirement', {
         method: 'POST',

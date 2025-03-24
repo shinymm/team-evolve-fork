@@ -29,7 +29,6 @@ export default function AIModelsPage() {
           <AIModelSettings />
           
           <div className="mt-8">
-            <h2 className="text-xl font-semibold mb-4">模型缓存状态</h2>
             <RedisConfigStatus />
           </div>
         </div>

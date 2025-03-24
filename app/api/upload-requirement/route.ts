@@ -49,17 +49,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 从请求中获取AI配置
-    const apiKey = await decrypt(formData.get('apiKey') as string)
-    const baseURL = formData.get('baseURL') as string
-    
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: 'API密钥不能为空，请检查配置' },
-        { status: 400 }
-      )
-    }
-
     // 检查文件大小，防止空文件
     if (file.size === 0) {
       return NextResponse.json(
@@ -69,18 +58,32 @@ export async function POST(request: NextRequest) {
     }
     
     console.log(`上传文件: ${filename}, 大小: ${file.size} 字节, 类型: ${file.type}`)
+
+    // 从 Redis 获取默认配置
+    const { getDefaultConfigFromRedis } = await import('@/lib/utils/ai-config-redis')
+    const config = await getDefaultConfigFromRedis()
+    
+    if (!config || !config.apiKey) {
+      return NextResponse.json(
+        { error: '未找到有效的AI模型配置，请先在设置中配置模型' },
+        { status: 404 }
+      )
+    }
     
     try {
+      // 只在这里解密 API Key
+      const decryptedApiKey = await decrypt(config.apiKey)
+      
       // 初始化 OpenAI 客户端
       const openai = new OpenAI({
-        apiKey,
-        baseURL: baseURL
+        apiKey: decryptedApiKey,
+        baseURL: config.baseURL
       })
       
       // 使用 OpenAI 兼容的 API 上传文件
       const response = await openai.files.create({
         file,
-        purpose: 'file-extract' as unknown as OpenAI.FilePurpose // 类型转换以适配 OpenAI 的类型定义
+        purpose: 'file-extract' as unknown as OpenAI.FilePurpose
       })
       
       // 返回文件信息

@@ -220,31 +220,20 @@ export async function streamingFileAICall(params: {
   onContent: (content: string) => void
   apiConfig?: AIModelConfig
 }) {
-  const { fileIds, systemPrompt, userPrompt, onContent } = params;
-  let { apiConfig } = params;
+  const { fileIds, systemPrompt, userPrompt, onContent, apiConfig } = params;
   
   try {
     console.log(`🔄 开始执行文件AI调用，文件数: ${fileIds.length}`);
-    
-    // 如果未提供配置，尝试从store获取默认配置
-    let finalConfig = apiConfig;
-    
-    if (!finalConfig) {
-      const store = await import('../stores/ai-config-store');
-      const defaultConfig = store.useAIConfigStore.getState().getConfig();
-      
-      if (!defaultConfig) {
-        throw new Error('未找到AI配置信息，请先在设置中配置模型');
-      }
-
-      finalConfig = defaultConfig
-    } 
     
     // 创建FormData对象
     const formData = new FormData()
     formData.append('systemPrompt', systemPrompt)
     formData.append('userPrompt', userPrompt)
-    formData.append('config', JSON.stringify(finalConfig))
+    
+    // 如果提供了配置，则添加到请求中
+    if (apiConfig) {
+      formData.append('config', JSON.stringify(apiConfig))
+    }
     
     // 添加文件ID
     fileIds.forEach(fileId => {
