@@ -4,7 +4,7 @@ import { aiModelConfigService } from '@/lib/services/ai-model-config-service';
 
 /**
  * 将所有配置同步到Redis的API端点
- * 优化以快速响应，后台处理Redis操作
+ * 修改为同步操作，等待Redis同步完成后再返回响应
  */
 export async function POST() {
   try {
@@ -20,24 +20,20 @@ export async function POST() {
     // 获取所有配置（保留加密的API密钥）
     const configs = await aiModelConfigService.getAllConfigs();
     
-    // 快速响应，不等待Redis操作完成
-    const response = NextResponse.json({ 
+    // 直接等待Redis操作完成，确保在serverless环境中不会被中断
+    try {
+      console.log('开始Redis同步，配置数量:', configs.length);
+      await saveAllConfigsToRedis(configs);
+      console.log('Redis同步完成');
+    } catch (syncError) {
+      console.error('Redis同步失败:', syncError);
+      throw syncError; // 将错误抛出到外层catch处理
+    }
+    
+    return NextResponse.json({ 
       success: true, 
-      message: 'Redis同步已触发，后台处理中' 
+      message: '已成功将配置同步到Redis' 
     });
-    
-    // 后台进行Redis同步，不阻塞响应
-    Promise.resolve().then(async () => {
-      try {
-        console.log('开始Redis同步，配置数量:', configs.length);
-        await saveAllConfigsToRedis(configs);
-        console.log('Redis同步完成');
-      } catch (syncError) {
-        console.error('Redis同步失败:', syncError);
-      }
-    });
-    
-    return response;
   } catch (error) {
     console.error('同步Redis失败:', error);
     return NextResponse.json({ 
