@@ -117,12 +117,13 @@ export async function deleteConfigFromRedis(id: string): Promise<void> {
 }
 
 /**
- * 获取默认AI模型配置ID
+ * 从Redis获取默认配置ID
  */
 export async function getDefaultConfigIdFromRedis(): Promise<string | null> {
   try {
     const redis = getRedis();
-    return redis.get(DEFAULT_CONFIG_KEY);
+    const defaultId = await redis.get(DEFAULT_CONFIG_KEY);
+    return defaultId;
   } catch (error) {
     console.error('获取默认配置ID失败:', error);
     return null;
@@ -130,18 +131,35 @@ export async function getDefaultConfigIdFromRedis(): Promise<string | null> {
 }
 
 /**
- * 获取默认AI模型配置
- * 注意：返回的配置包含加密后的API密钥，不进行解密
+ * 从Redis获取默认配置
  */
 export async function getDefaultConfigFromRedis(): Promise<AIModelConfig | null> {
   try {
+    const redis = getRedis();
+    
+    // 获取默认配置ID
     const defaultId = await getDefaultConfigIdFromRedis();
     if (!defaultId) {
+      console.log('Redis中未找到默认配置ID');
       return null;
     }
     
-    // 获取配置，包含加密的API密钥
-    return getConfigFromRedis(defaultId);
+    // 获取默认配置
+    const configKey = `${AI_CONFIG_PREFIX}${defaultId}`;
+    const configJson = await redis.get(configKey);
+    
+    if (!configJson) {
+      console.log(`Redis中未找到配置: ${configKey}`);
+      return null;
+    }
+    
+    try {
+      const config = JSON.parse(configJson);
+      return config;
+    } catch (parseError) {
+      console.error('解析配置JSON失败:', parseError);
+      return null;
+    }
   } catch (error) {
     console.error('获取默认配置失败:', error);
     return null;
