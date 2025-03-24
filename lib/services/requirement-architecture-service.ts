@@ -1,5 +1,4 @@
-import { AIModelConfig, streamingFileAICall } from '@/lib/services/ai-service'
-import { getDefaultAIConfig } from '@/lib/services/ai-config-service'
+import { streamingFileAICall } from '@/lib/services/ai-service'
 import { requirementArchitecturePrompt } from '@/lib/prompts/requirement-architecture'
 
 /**
@@ -16,13 +15,6 @@ export class RequirementArchitectureService {
     onContent: (content: string) => void
   ): Promise<void> {
     try {
-      const config = await getDefaultAIConfig()
-      if (!config) {
-        throw new Error('未找到AI配置信息')
-      }
-
-      console.log(`[${new Date().toISOString()}] 开始调用extractArchitecture，模型: ${config.model}，文件ID: ${fileIds.join(', ')}`)
-
       if (fileIds.length === 0) {
         throw new Error('请至少选择一个文件进行信息架构抽取')
       }
@@ -36,13 +28,10 @@ export class RequirementArchitectureService {
         fileIds,
         systemPrompt,
         userPrompt,
-        onContent,
-        apiConfig: config
+        onContent
       })
-
-      console.log(`[${new Date().toISOString()}] 抽取完成`)
     } catch (error) {
-      console.error(`[${new Date().toISOString()}] 信息架构抽取失败:`, error)
+      console.error(`信息架构抽取失败:`, error)
       throw error
     }
   }

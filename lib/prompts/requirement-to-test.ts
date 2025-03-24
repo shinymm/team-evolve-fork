@@ -1,5 +1,5 @@
 export const requirementToTestPrompt = (requirementChapter?: string) => {
-  let prompt = `<Role>软件测试专家，根据给定的需求，认真分析，输出完整详细的测试用例</Role>
+  let prompt = `
 <Skills>
 - 精通测试用例设计方法如**路径测试**、**决策表法**、**边界值分析法**、**场景法**、**错误推测法**和**等价类分析法**，并能准确应用，善于一步步仔细分析，能全面、系统地识别所有可能的测试用例，确保测试覆盖全面
 - 擅长分析覆盖以下 4 种类型的测试用例：

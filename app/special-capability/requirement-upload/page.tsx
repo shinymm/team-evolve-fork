@@ -2,8 +2,6 @@
 
 import { useState, useRef, useEffect, useCallback, memo } from 'react'
 import { useToast } from "@/components/ui/use-toast"
-import { getDefaultAIConfig } from '@/lib/services/ai-config-service'
-import type { AIModelConfig } from '@/lib/services/ai-service'
 import { RequirementToMdService } from '@/lib/services/requirement-to-md-service'
 import { RequirementToTestService } from '@/lib/services/requirement-to-test-service'
 import { RequirementBoundaryComparisonService } from '@/lib/services/requirement-boundary-comparison-service'
@@ -214,7 +212,6 @@ export default function RequirementUpload() {
   const [error, setError] = useState<string>('')
   const [uploading, setUploading] = useState<boolean>(false)
   const [fileId, setFileId] = useState<string>('')
-  const [aiConfig, setAiConfig] = useState<AIModelConfig | null>(null)
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [mdContent, setMdContent] = useState<string>('')
   const [testContent, setTestContent] = useState<string>('')
@@ -312,25 +309,8 @@ export default function RequirementUpload() {
     return () => clearInterval(timer);
   }, [isConverting, isGeneratingTest, isComparing, isExtractingTerminology, isExtractingArchitecture]);
 
-  // 获取AI配置
+  // 获取已上传文件列表
   useEffect(() => {
-    // 异步获取配置
-    const loadConfig = async () => {
-      const config = await getDefaultAIConfig()
-      setAiConfig(config)
-      
-      if (!config) {
-        setError('未设置AI模型配置，请先在设置中配置模型')
-      } else {
-        console.log('获取到AI模型配置:', {
-          model: config.model,
-          baseURL: config.baseURL
-        })
-      }
-    }
-
-    loadConfig()
-
     // 从localStorage恢复已上传文件列表
     const storedFiles = localStorage.getItem('uploaded-requirement-files')
     if (storedFiles) {
@@ -559,15 +539,6 @@ export default function RequirementUpload() {
 
     setFileSelectionAlert("");
 
-    if (!aiConfig) {
-      toast({
-        title: "转换失败",
-        description: "请先配置AI模型",
-        variant: "destructive",
-      });
-      return;
-    }
-
     // 清空之前的内容
     setMdContent('');
     setIsConverting(true);
@@ -647,15 +618,6 @@ export default function RequirementUpload() {
     }
     
     setFileSelectionAlert("")
-
-    if (!aiConfig) {
-      toast({
-        title: "转换失败",
-        description: "请先配置AI模型",
-        variant: "destructive",
-      })
-      return
-    }
 
     // 打开弹窗
     setRequirementChapter('')
@@ -763,15 +725,6 @@ export default function RequirementUpload() {
 
     setFileSelectionAlert("");
 
-    if (!aiConfig) {
-      toast({
-        title: "对比失败",
-        description: "请先配置AI模型",
-        variant: "destructive",
-      });
-      return;
-    }
-
     // 清空之前的内容
     setBoundaryContent('');
     setIsComparing(true);
@@ -877,7 +830,7 @@ export default function RequirementUpload() {
     }
     
     // 清空已有内容，并设置状态
-    setTerminologyContent("等待大模型处理文件中...\n正在连接API，请耐心等待首次响应（通常需要5-20秒）...");
+    setTerminologyContent("等待大模型处理文件中...");
     setIsExtractingTerminology(true);
     
     // 激活术语知识标签页
@@ -889,14 +842,14 @@ export default function RequirementUpload() {
     });
     
     // 设置超时保护
-    const maxTimeoutMs = 180000; // 3分钟
+    const maxTimeoutMs = 60000; // 1分钟
     const timeoutId = setTimeout(() => {
       console.error('🔶 术语抽取超时，已运行', maxTimeoutMs/1000, '秒');
       if (isExtractingTerminology) {
         // 如果还在进行中，则强制结束
         setIsExtractingTerminology(false);
         setTerminologyContent(prev => 
-          prev + '\n\n[系统提示] 请求处理时间过长（3分钟），已自动停止。您可以查看已获取的内容或重试。'
+          prev + '\n\n[系统提示] 请求处理时间过长（1分钟），已自动停止。您可以查看已获取的内容或重试。'
         );
         toast({
           title: "抽取超时",
@@ -1090,15 +1043,6 @@ export default function RequirementUpload() {
 
     setFileSelectionAlert("");
 
-    if (!aiConfig) {
-      toast({
-        title: "抽取失败",
-        description: "请先配置AI模型",
-        variant: "destructive",
-      });
-      return;
-    }
-
     // 清空之前的内容
     setArchitectureContent('');
     setIsExtractingArchitecture(true);
@@ -1226,11 +1170,6 @@ export default function RequirementUpload() {
               <p className="text-muted-foreground text-xs mt-1">
                 请上传需求书文档（建议Qwen-long使用docx格式， Gemini使用PDF格式），我们将帮助您进行智能拆解。
               </p>
-              {!aiConfig && (
-                <p className="text-red-500 text-xs mt-1">
-                  未检测到AI模型配置，请先在设置中配置模型
-                </p>
-              )}
             </div>
           </div>
 
@@ -1271,9 +1210,9 @@ export default function RequirementUpload() {
               <div className="mt-3 flex justify-center gap-2">
                 <button
                   onClick={handleUpload}
-                  disabled={!file || uploading || !aiConfig}
+                  disabled={!file || uploading}
                   className={`px-3 py-1.5 rounded-md text-white text-xs
-                    ${file && !uploading && aiConfig
+                    ${file && !uploading
                       ? 'bg-orange-500 hover:bg-orange-600' 
                       : 'bg-gray-400 cursor-not-allowed'
                     }`}
