@@ -171,46 +171,16 @@ interface Message {
  * @param messages 消息数组
  * @param config 可选的模型配置，如果不提供则使用默认配置
  * @returns 聊天响应文本或null（如果出错）
+ * @deprecated config参数已弃用，将使用Redis中的默认配置
  */
 export const callChatCompletion = async (
   messages: Message[],
   config?: ModelConfig
 ): Promise<string | null> => {
   try {
-    // 如果未提供配置，尝试从store获取默认配置
-    let fullConfig = config as AIModelConfig;
-    
-    if (!config || !config.model) {
-      const store = await import('../stores/ai-config-store');
-      const defaultConfig = store.useAIConfigStore.getState().getConfig();
-      
-      if (!defaultConfig) {
-        throw new Error('未找到AI模型配置，请先在设置中配置模型');
-      }
-      
-      // 解密apiKey
-      fullConfig = {
-        ...defaultConfig,
-        ...config,
-        apiKey: await decrypt(defaultConfig.apiKey)
-      };
-    } else if (fullConfig.apiKey) {
-      // 如果提供了配置，也需要解密apiKey
-      fullConfig = {
-        ...fullConfig,
-        apiKey: await decrypt(fullConfig.apiKey)
-      };
-    }
-    
-    // 检查是否是Google Gemini模型
-    const isGemini = isGeminiModel(fullConfig.model)
-    
-    console.log('聊天调用配置:', {
-      model: fullConfig.model,
-      isGemini,
-      baseURL: fullConfig.baseURL ? '已设置' : '未设置',
-      apiKey: fullConfig.apiKey ? '已设置' : '未设置',
-      temperature: fullConfig.temperature
+    console.log('聊天调用请求:', {
+      messagesCount: messages.length,
+      configProvided: !!config
     })
     
     const response = await fetch('/api/ai/chat', {
@@ -219,11 +189,7 @@ export const callChatCompletion = async (
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        messages,
-        model: fullConfig.model,
-        temperature: fullConfig.temperature,
-        apiKey: await decrypt(fullConfig.apiKey),
-        baseURL: fullConfig.baseURL
+        messages
       }),
     })
 
