@@ -39,8 +39,8 @@ export const requirementArchitecturePrompt = `<Role_Goal>
    - 对跨章节的关联功能建立映射关系
 
 5. **输出格式**：
-   - 生成可直接解析的JSON数组
    - 满足TypeScript中ArchitectureItem[]的定义要求
+   - 基于TypeScript可直接解析的JSON数组，不要添加任何其他TypeScript以外的内容或解释说明
 </Instructions>
 
 <Output>

@@ -102,96 +102,7 @@ const TAB_CONFIGS: TabConfig[] = [
 
 // 添加内容显示组件，使用ReactMarkdown展示Markdown内容
 const ContentDisplay = memo(({ content }: { content: string }) => {
-  // 使用state存储当前渲染时间和状态
-  const [renderTime, setRenderTime] = useState<string>(new Date().toISOString());
-  const [isScrolling, setIsScrolling] = useState<boolean>(false);
-  const [renderError, setRenderError] = useState<string | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  // 用于计算内容变化的参考
-  const prevContentLength = useRef<number>(0);
-  
-  // 用于管理滚动和防抖
-  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  // 内容变化时的处理
-  useEffect(() => {
-    try {
-      // 设置渲染时间
-      const now = new Date();
-      setRenderTime(now.toISOString());
-      
-      // 计算内容长度变化
-      const currentLength = content?.length || 0;
-      const lengthDiff = currentLength - prevContentLength.current;
-      
-      // 只有内容有增加时才记录日志
-      if (lengthDiff > 0) {
-        console.log(`📄 [ContentDisplay] 内容更新: +${lengthDiff}字符，总计: ${currentLength}字符，时间: ${now.toISOString()}`);
-      }
-      
-      // 更新前一次内容长度
-      prevContentLength.current = currentLength;
-      
-      // 当内容变化且有实际内容时，立即滚动到底部
-      if (contentRef.current && lengthDiff > 0) {
-        // 清除之前的定时器
-        if (scrollTimeoutRef.current) {
-          clearTimeout(scrollTimeoutRef.current);
-        }
-        
-        // 标记正在滚动
-        setIsScrolling(true);
-        
-        // 使用RAF+setTimeout确保在DOM更新后再执行滚动
-        scrollTimeoutRef.current = setTimeout(() => {
-          if (contentRef.current) {
-            try {
-              // 使用 requestAnimationFrame 延迟到浏览器下一帧，确保DOM已更新
-              requestAnimationFrame(() => {
-                if (contentRef.current) {
-                  // 使用scrollTo方法，更可靠
-                  contentRef.current.scrollTo({
-                    top: contentRef.current.scrollHeight,
-                    behavior: 'auto' // 使用 'auto' 而非 'smooth'，避免流式内容时的连续滚动效果
-                  });
-                  
-                  // 兜底方案：直接设置scrollTop
-                  contentRef.current.scrollTop = contentRef.current.scrollHeight;
-                  
-                  // 确保滚动完成后更新状态
-                  setTimeout(() => setIsScrolling(false), 50);
-                }
-              });
-            } catch (e) {
-              console.warn('滚动尝试失败，使用简单方法', e);
-              // 兜底方案
-              contentRef.current.scrollTop = contentRef.current.scrollHeight;
-              setIsScrolling(false);
-            }
-          }
-        }, 10);
-      } else if (lengthDiff === 0) {
-        // 内容没变化，不需要滚动
-        setIsScrolling(false);
-      }
-      
-      // 清除错误状态
-      setRenderError(null);
-    } catch (error) {
-      console.error('内容处理错误', error);
-      setRenderError(error instanceof Error ? error.message : '未知错误');
-    }
-    
-    return () => {
-      // 组件卸载时清除定时器
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-    };
-  }, [content]); // 只在content变化时触发
-  
-  // 直接显示内容长度，便于调试
-  const contentLength = content?.length || 0;
 
   // 如果内容为空，显示提示
   if (!content) {
@@ -211,59 +122,82 @@ const ContentDisplay = memo(({ content }: { content: string }) => {
     );
   }
 
-  // 如果有渲染错误
-  if (renderError) {
-    return (
-      <div className="text-red-500 text-sm border border-red-300 p-2 rounded">
-        <p>内容渲染错误: {renderError}</p>
-        <p className="mt-1">原始内容长度: {contentLength} 字符</p>
-        <pre className="mt-2 text-xs bg-gray-100 p-2 overflow-auto max-h-[200px]">{content}</pre>
-      </div>
-    );
-  }
-
-  // 尝试渲染Markdown
-  const formattedTime = (() => {
-    try {
-      if (renderTime && renderTime.includes('T')) {
-        return renderTime.split('T')[1].split('.')[0];
-      }
-      return new Date().toTimeString().split(' ')[0];
-    } catch (e) {
-      return new Date().toTimeString().split(' ')[0];
-    }
-  })();
-
   // 渲染内容
   return (
-    <div ref={contentRef} className="prose prose-sm max-w-none break-words whitespace-pre-wrap relative">
+    <div ref={contentRef} className="prose prose-xs max-w-none break-words whitespace-pre-wrap relative">
+      <style jsx global>{`
+        .prose {
+          font-size: 0.875rem;
+          line-height: 1.5;
+        }
+        .prose table {
+          border-collapse: collapse;
+          width: 100%;
+          margin: 1rem 0;
+          font-size: 0.875rem;
+        }
+        .prose table th {
+          background-color: #f3f4f6;
+          border: 1px solid #e5e7eb;
+          padding: 0.5rem;
+          text-align: left;
+          font-weight: 600;
+        }
+        .prose table td {
+          border: 1px solid #e5e7eb;
+          padding: 0.5rem;
+          vertical-align: top;
+        }
+        .prose table tr:nth-child(even) {
+          background-color: #f9fafb;
+        }
+        .prose table tr:hover {
+          background-color: #f3f4f6;
+        }
+        .prose h1 {
+          font-size: 1.5rem;
+          margin-top: 1.5rem;
+          margin-bottom: 1rem;
+        }
+        .prose h2 {
+          font-size: 1.25rem;
+          margin-top: 1.25rem;
+          margin-bottom: 0.75rem;
+        }
+        .prose h3 {
+          font-size: 1.125rem;
+          margin-top: 1rem;
+          margin-bottom: 0.5rem;
+        }
+        .prose p {
+          margin-top: 0.75rem;
+          margin-bottom: 0.75rem;
+        }
+        .prose ul, .prose ol {
+          margin-top: 0.5rem;
+          margin-bottom: 0.5rem;
+        }
+        .prose li {
+          margin-top: 0.25rem;
+          margin-bottom: 0.25rem;
+        }
+        .prose code {
+          font-size: 0.875rem;
+          padding: 0.2rem 0.4rem;
+          background-color: #f3f4f6;
+          border-radius: 0.25rem;
+        }
+        .prose pre {
+          font-size: 0.875rem;
+          padding: 0.75rem;
+          background-color: #f3f4f6;
+          border-radius: 0.375rem;
+          overflow-x: auto;
+        }
+      `}</style>
       <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
-      <div className="text-xs text-gray-400 mt-2 flex justify-between">
-        <span>当前内容长度: {contentLength} 字符</span>
-        {isScrolling && <span className="text-orange-500">内容更新中...</span>}
-        <span className="text-gray-400">更新时间: {formattedTime}</span>
-      </div>
     </div>
   );
-}, (prevProps, nextProps) => {
-  // 优化：仅在内容实际变化时重渲染
-  if (prevProps.content === nextProps.content) {
-    return true; // 内容相同，不重渲染
-  }
-  
-  // 当内容为空时，优先重渲染
-  if (!prevProps.content || !nextProps.content) {
-    return false;
-  }
-  
-  // 内容长度变化超过阈值时，强制重渲染
-  const lengthDiff = nextProps.content.length - prevProps.content.length;
-  if (lengthDiff > 0) { // 任何内容增加都重渲染，确保实时更新流式内容
-    return false;
-  }
-  
-  // 默认重渲染
-  return false;
 });
 
 ContentDisplay.displayName = 'ContentDisplay';
@@ -304,6 +238,15 @@ export default function RequirementUpload() {
   // 创建一个状态来跟踪最后一次内容更新
   const [lastUpdateTime, setLastUpdateTime] = useState<number>(0);
   const pendingContentRef = useRef<string>('');
+  
+  // 为每个操作添加独立的处理状态
+  const [processingStates, setProcessingStates] = useState<Record<TabType, boolean>>({
+    md: false,
+    test: false,
+    boundary: false,
+    terminology: false,
+    architecture: false
+  });
   
   // 监听内容变化，自动滚动到底部
   useEffect(() => {
@@ -577,6 +520,9 @@ export default function RequirementUpload() {
     const config = TAB_CONFIGS.find(c => c.id === tabId);
     if (!config) return;
 
+    // 切换到对应的tab
+    setActiveTab(tabId);
+
     const selectedFiles = uploadedFiles.filter(file => file.selected);
     
     // 验证文件数量
@@ -590,27 +536,46 @@ export default function RequirementUpload() {
     }
 
     setError('');
+    // 统一设置初始等待提示
     setContents(prev => ({
       ...prev,
-      [tabId]: tabId === 'terminology' ? '等待大模型处理文件中...' : ''
+      [tabId]: '等待大模型处理文件中...'
     }));
-    setProcessing(true);
-    setActiveTab(tabId);
+    
+    // 更新特定按钮的处理状态
+    setProcessingStates(prev => ({
+      ...prev,
+      [tabId]: true
+    }));
+    
+    // 添加加载指示器
+    const indicator = document.createElement('div');
+    indicator.id = 'fixed-loading-indicator';
+    indicator.innerHTML = `<div class="fixed top-0 left-0 w-full h-1 bg-orange-500 animate-pulse z-50">
+      <div class="h-full bg-orange-600 animate-loading-bar"></div>
+    </div>`;
+    document.body.appendChild(indicator);
 
     try {
       const service = new config.service();
       const fileIds = selectedFiles.map(file => file.id);
       
+      let isFirstContent = true;
+      
+      // 统一的内容处理回调
+      const contentCallback = (content: string) => {
+        setContents(prev => ({
+          ...prev,
+          [tabId]: isFirstContent ? content : prev[tabId] + content
+        }));
+        isFirstContent = false;
+      };
+      
       // 根据不同的服务调用不同的方法
       if (tabId === 'test') {
         await service.convertToTest(
           fileIds,
-          (content: string) => {
-            setContents(prev => ({
-              ...prev,
-              [tabId]: prev[tabId] + content
-            }));
-          },
+          contentCallback,
           extraParams?.requirementChapter
         );
       } else {
@@ -623,12 +588,7 @@ export default function RequirementUpload() {
         
         await service[methodMap[tabId]](
           fileIds,
-          (content: string) => {
-            setContents(prev => ({
-              ...prev,
-              [tabId]: prev[tabId] + content
-            }));
-          }
+          contentCallback
         );
       }
     } catch (error) {
@@ -639,7 +599,17 @@ export default function RequirementUpload() {
         variant: "destructive",
       });
     } finally {
-      setProcessing(false);
+      // 重置特定按钮的处理状态
+      setProcessingStates(prev => ({
+        ...prev,
+        [tabId]: false
+      }));
+      
+      // 移除加载指示器
+      const indicator = document.getElementById('fixed-loading-indicator');
+      if (indicator && indicator.parentNode) {
+        indicator.parentNode.removeChild(indicator);
+      }
     }
   };
 
@@ -691,7 +661,6 @@ export default function RequirementUpload() {
 
   // 修改原有的处理函数，使用统一的处理函数
   const handleConvertToMd = () => handleProcessDocument('md');
-  const handleConvertToTest = () => handleProcessDocument('test', { requirementChapter });
   const handleCompareRequirements = () => handleProcessDocument('boundary');
   const handleExtractTerminology = () => handleProcessDocument('terminology');
   const handleExtractArchitecture = () => handleProcessDocument('architecture');
@@ -729,24 +698,37 @@ export default function RequirementUpload() {
     setShowChapterDialog(true)
   }
 
-  // 加载指示器管理
-  useEffect(() => {
-    // 加载开始时，添加加载指示器
-    if (processing) {
-      const indicator = document.createElement('div');
-      indicator.id = 'fixed-loading-indicator';
-      indicator.innerHTML = `<div class="fixed top-0 left-0 w-full h-1 bg-orange-500 animate-pulse z-50">
-        <div class="h-full bg-orange-600 animate-loading-bar"></div>
-      </div>`;
-      document.body.appendChild(indicator);
-    } else {
-      // 加载结束时，移除加载指示器
-      const indicator = document.getElementById('fixed-loading-indicator');
-      if (indicator && indicator.parentNode) {
-        indicator.parentNode.removeChild(indicator);
-      }
-    }
-  }, [processing]);
+  // 修改handleConvertToTest函数
+  const handleConvertToTest = () => {
+    // 关闭弹窗
+    setShowChapterDialog(false)
+    
+    // 切换到测试用例tab
+    setActiveTab('test')
+    
+    // 设置初始等待提示
+    setContents(prev => ({
+      ...prev,
+      test: '等待大模型处理文件中...'
+    }))
+    
+    // 更新处理状态
+    setProcessingStates(prev => ({
+      ...prev,
+      test: true
+    }))
+    
+    // 添加加载指示器
+    const indicator = document.createElement('div')
+    indicator.id = 'fixed-loading-indicator'
+    indicator.innerHTML = `<div class="fixed top-0 left-0 w-full h-1 bg-orange-500 animate-pulse z-50">
+      <div class="h-full bg-orange-600 animate-loading-bar"></div>
+    </div>`
+    document.body.appendChild(indicator)
+
+    // 调用统一处理函数
+    handleProcessDocument('test', { requirementChapter })
+  }
 
   return (
     <>
@@ -828,91 +810,91 @@ export default function RequirementUpload() {
                 {/* 需求书转MD按钮 */}
                 <Button
                   onClick={handleConvertToMd}
-                  disabled={uploadedFiles.length === 0 || processing}
+                  disabled={uploadedFiles.length === 0 || processingStates.md}
                   className={`flex items-center gap-1 px-3 py-1.5 h-auto text-xs ${
-                    uploadedFiles.length > 0 && !processing
+                    uploadedFiles.length > 0 && !processingStates.md
                       ? 'bg-orange-500 hover:bg-orange-600 text-white' 
                       : 'bg-gray-400 text-gray-100 cursor-not-allowed'
                   }`}
                 >
-                  {processing ? (
+                  {processingStates.md ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
                     <Book className="h-3 w-3" />
                   )}
-                  {processing ? '转换中...' : '需求书转MD'}
+                  {processingStates.md ? '转换中...' : '需求书转MD'}
                 </Button>
                 
                 {/* 需求书转测试用例按钮 */}
                 <Button
                   onClick={handleOpenTestDialog}
-                  disabled={uploadedFiles.length === 0 || processing}
+                  disabled={uploadedFiles.length === 0 || processingStates.test}
                   className={`flex items-center gap-1 px-3 py-1.5 h-auto text-xs ${
-                    uploadedFiles.length > 0 && !processing
+                    uploadedFiles.length > 0 && !processingStates.test
                       ? 'bg-orange-500 hover:bg-orange-600 text-white' 
                       : 'bg-gray-400 text-gray-100 cursor-not-allowed'
                   }`}
                 >
-                  {processing ? (
+                  {processingStates.test ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
                     <FileText className="h-3 w-3" />
                   )}
-                  {processing ? '生成中...' : '需求书转测试用例'}
+                  {processingStates.test ? '生成中...' : '需求书转测试用例'}
                 </Button>
                 
                 {/* 需求对比抽取边界知识按钮 */}
                 <Button
                   onClick={handleCompareRequirements}
-                  disabled={uploadedFiles.length < 2 || processing}
+                  disabled={uploadedFiles.length < 2 || processingStates.boundary}
                   className={`flex items-center gap-1 px-3 py-1.5 h-auto text-xs ${
-                    uploadedFiles.length >= 2 && !processing
+                    uploadedFiles.length >= 2 && !processingStates.boundary
                       ? 'bg-orange-500 hover:bg-orange-600 text-white' 
                       : 'bg-gray-400 text-gray-100 cursor-not-allowed'
                   }`}
                 >
-                  {processing ? (
+                  {processingStates.boundary ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
                     <HelpCircle className="h-3 w-3" />
                   )}
-                  {processing ? '对比中...' : '抽取边界知识'}
+                  {processingStates.boundary ? '对比中...' : '抽取边界知识'}
                 </Button>
                 
                 {/* 术语知识抽取按钮 */}
                 <Button
                   onClick={handleExtractTerminology}
-                  disabled={uploadedFiles.length === 0 || processing}
+                  disabled={uploadedFiles.length === 0 || processingStates.terminology}
                   className={`flex items-center gap-1 px-3 py-1.5 h-auto text-xs ${
-                    uploadedFiles.length > 0 && !processing
+                    uploadedFiles.length > 0 && !processingStates.terminology
                       ? 'bg-orange-500 hover:bg-orange-600 text-white' 
                       : 'bg-gray-400 text-gray-100 cursor-not-allowed'
                   }`}
                 >
-                  {processing ? (
+                  {processingStates.terminology ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
                     <Book className="h-3 w-3" />
                   )}
-                  {processing ? '抽取中...' : '抽取术语知识'}
+                  {processingStates.terminology ? '抽取中...' : '抽取术语知识'}
                 </Button>
                 
                 {/* 信息架构树抽取按钮 */}
                 <Button
                   onClick={handleExtractArchitecture}
-                  disabled={uploadedFiles.length === 0 || processing}
+                  disabled={uploadedFiles.length === 0 || processingStates.architecture}
                   className={`flex items-center gap-1 px-3 py-1.5 h-auto text-xs ${
-                    uploadedFiles.length > 0 && !processing
+                    uploadedFiles.length > 0 && !processingStates.architecture
                       ? 'bg-orange-500 hover:bg-orange-600 text-white' 
                       : 'bg-gray-400 text-gray-100 cursor-not-allowed'
                   }`}
                 >
-                  {processing ? (
+                  {processingStates.architecture ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
                     <FileText className="h-3 w-3" />
                   )}
-                  {processing ? '抽取中...' : '抽取信息架构树'}
+                  {processingStates.architecture ? '抽取中...' : '抽取信息架构树'}
                 </Button>
 
               </div>
@@ -1233,8 +1215,18 @@ export default function RequirementUpload() {
             <Button variant="outline" onClick={() => setShowChapterDialog(false)}>
               取消
             </Button>
-            <Button onClick={handleConvertToTest}>
-              开始生成
+            <Button 
+              onClick={handleConvertToTest}
+              disabled={processingStates.test}
+            >
+              {processingStates.test ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  处理中...
+                </>
+              ) : (
+                '开始生成'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
