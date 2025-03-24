@@ -84,7 +84,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "npm install --production=false && prisma generate && next build",
+    "build": "npm install --production=false && prisma generate && prisma migrate deploy && next build",
     "start": "next start -p ${PORT:-3000}",
     "lint": "next lint",
     "test:redis": "node scripts/test-redis.js",

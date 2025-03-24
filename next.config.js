@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  output: 'standalone',
+  poweredByHeader: false,
   webpack: (config, { isServer }) => {
     if (!isServer) {
       // 不在客户端导入服务器端模块
@@ -27,6 +29,15 @@ const nextConfig = {
   },
   experimental: {
     serverComponentsExternalPackages: ['ioredis'],
+  },
+  async redirects() {
+    return [
+      {
+        source: '/page/:path*',
+        destination: '/:path*',
+        permanent: true,
+      }
+    ]
   },
 }
 
