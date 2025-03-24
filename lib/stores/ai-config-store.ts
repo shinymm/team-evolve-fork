@@ -31,7 +31,7 @@ export const useAIConfigStore = create<AIConfigState>()(
           model: config.model,
           apiKey: config.apiKey,
           baseURL: config.baseURL,
-          temperature: config.temperature || 0.2,
+          temperature: config.temperature ?? 0.7,
           id: config.id || Date.now().toString(),
           name: config.name || `${config.model} (${new Date().toLocaleString()})`,
           isDefault: !!config.isDefault,

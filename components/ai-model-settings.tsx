@@ -452,7 +452,7 @@ export function AIModelSettings() {
               min="0"
               max="1"
               step="0.1"
-              value={newConfig.temperature || 0.2}
+              value={newConfig.temperature || 0.7}
               onChange={(e) => setNewConfig(prev => ({ ...prev, temperature: parseFloat(e.target.value) }))}
               placeholder="输入温度值（0-1之间）"
             />

@@ -127,7 +127,7 @@ export const aiModelConfigService = {
           baseURL: config.baseURL,
           apiKey: encryptedApiKey,
           model: config.model,
-          temperature: config.temperature || 0.7,
+          temperature: config.temperature ?? 0.7,
           isDefault: isDefault,
         }
       });
@@ -153,9 +153,12 @@ export const aiModelConfigService = {
   async updateConfig(id: string, config: Partial<AIModelConfig>): Promise<AIModelConfig> {
     try {
       // 准备更新数据
-      const updateData: any = {
-        ...config,
-      };
+      const updateData: any = { ...config };
+      
+      // 确保temperature值为0时也能正确处理
+      if (config.temperature !== undefined) {
+        updateData.temperature = config.temperature;
+      }
 
       // 如果提供了API密钥，进行加密
       if (config.apiKey) {
