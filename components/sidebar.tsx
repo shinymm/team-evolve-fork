@@ -21,47 +21,47 @@ const mainMenuItems: MenuItem[] = [
     title: "异界进化",
     icon: <Hexagon className="h-4 w-4" />,
     submenu: [
-      { title: "战术板", href: "/page/collaboration/tactical-board" }
+      { title: "战术板", href: "/collaboration/tactical-board" }
     ]
   },
   {
     title: "AI能力胶囊",
     icon: <Microscope className="h-4 w-4" />,
     submenu: [
-      { title: "原始需求分析", href: "/page/ai-capability/book-evolution" },
-      { title: "需求初稿衍化", href: "/page/ai-capability/book" },
-      { title: "场景边界分析", href: "/page/ai-capability/scene-analysis" },
-      { title: "需求书确认", href: "/page/ai-capability/book-confirm" },
-      { title: "用户故事拆解", href: "/page/ai-capability/user-story" },
-      { title: "测试用例生成", href: "/page/ai-capability/test-cases" },
-      { title: "测试描述格式化", href: "/page/ai-capability/test-format" },
-      { title: "测试用例细节辅助", href: "/page/ai-capability/test-detail" },
-      { title: "日志分析", href: "/page/ai-capability/log-analysis" },
+      { title: "原始需求分析", href: "/ai-capability/book-evolution" },
+      { title: "需求初稿衍化", href: "/ai-capability/book" },
+      { title: "场景边界分析", href: "/ai-capability/scene-analysis" },
+      { title: "需求书确认", href: "/ai-capability/book-confirm" },
+      { title: "用户故事拆解", href: "/ai-capability/user-story" },
+      { title: "测试用例生成", href: "/ai-capability/test-cases" },
+      { title: "测试描述格式化", href: "/ai-capability/test-format" },
+      { title: "测试用例细节辅助", href: "/ai-capability/test-detail" },
+      { title: "日志分析", href: "/ai-capability/log-analysis" },
     ]
   },
   {
     title: "特殊能力胶囊",
     icon: <Flame className="h-4 w-4" />,
     submenu: [
-      { title: "需求书综合处理", href: "/page/special-capability/requirement-upload" }
+      { title: "需求书综合处理", href: "/special-capability/requirement-upload" }
     ]
   },
   {
     title: "知识熔炉",
     icon: <Database className="h-4 w-4" />,
     submenu: [
-      { title: "术语管理", href: "/page/knowledge/glossary" },
-      { title: "产品信息架构", href: "/page/knowledge/information-architecture" },
-      { title: "系统架构", href: "/page/knowledge/system-architecture" },
-      { title: "API 开放接口", href: "/page/knowledge/api-interfaces" },
-      { title: "边界识别知识", href: "/page/knowledge/boundary" },
+      { title: "术语管理", href: "/knowledge/glossary" },
+      { title: "产品信息架构", href: "/knowledge/information-architecture" },
+      { title: "系统架构", href: "/knowledge/system-architecture" },
+      { title: "API 开放接口", href: "/knowledge/api-interfaces" },
+      { title: "边界识别知识", href: "/knowledge/boundary" },
     ]
   },
   {
     title: "灵犀阁",
     icon: <Sparkles className="h-4 w-4" />,
     submenu: [
-      { title: "需求分析技能", href: "/page/inspire/req-analysis-skill" }
+      { title: "需求分析技能", href: "/inspire/req-analysis-skill" }
     ]
   }
 ]
@@ -70,7 +70,7 @@ const settingsMenu: MenuItem = {
   title: "设置",
   icon: <Settings className="h-4 w-4" />,
   submenu: [
-    { title: "大模型设置", href: "/page/settings/ai-models" },
+    { title: "大模型设置", href: "/settings/ai-models" },
   ]
 }
 

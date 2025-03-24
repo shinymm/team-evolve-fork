@@ -565,7 +565,7 @@ export default function SceneAnalysisPage() {
       })
 
       // 跳转到需求书确认页面
-      window.location.href = "/page/ai-capability/book-confirm-page"
+      window.location.href = "/ai-capability/book-confirm-page"
     } catch (error) {
       console.error('确认失败:', error)
       toast({
