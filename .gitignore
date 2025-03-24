@@ -23,8 +23,12 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
-.env*.local
 .env
+.env.development
+.env.development.local
+.env.local
+.env.*
+
 
 # vercel
 .vercel
@@ -36,3 +40,6 @@ next-env.d.ts
 # temporary files
 /tmp/
 /tmp/* 
+
+# vscode
+.vscode
