@@ -21,7 +21,7 @@ export class RequirementToMdService {
 
       await handleStreamingResponse(
         fileIds,
-        'You are a helpful assistant that converts requirement documents to Markdown format.',
+        '你是一个文档处理的专家，非常了解markdown的语法，善于理解各种文本的内容并整理为标准的markdown格式.',
         requirementToMdPrompt,
         onContent
       )

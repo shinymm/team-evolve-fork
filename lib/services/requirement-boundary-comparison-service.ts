@@ -27,10 +27,9 @@ export class RequirementBoundaryComparisonService {
 
       await handleStreamingResponse(
         fileIds,
-        '请按照规则和说明，从文档中抽取边界知识。',
+        '请按照规则和说明，对比上述需求文档从中抽取边界知识。',
         requirementBoundaryComparisonPrompt,
         (content: string) => {
-          console.log('收到边界知识内容:', content.length, '字符')
           onContent(content)
         }
       )
