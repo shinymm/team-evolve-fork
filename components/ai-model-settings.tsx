@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { AIModelConfig } from '@/lib/services/ai-service'
 import { streamingAICall } from '@/lib/services/ai-service'
 import { addAIConfig, updateAIConfig, deleteAIConfig, setDefaultAIConfig, getAllAIConfigs, syncLocalStorage } from '@/lib/services/ai-config-service'
+import RedisConfigStatus from '@/components/ai-config/RedisConfigStatus'
 
 // 可用的AI模型预设
 const modelPresets = [
@@ -552,71 +553,76 @@ export function AIModelSettings() {
         </TabsList>
         
         <TabsContent value="models" className="space-y-6 pt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>AI模型配置</CardTitle>
-              <CardDescription>
-                配置用于AI助手和问答的大语言模型
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {!showAddForm && (
-                  <div className="flex justify-end items-center mb-4 gap-2">
-                    <Button 
-                      variant="outline" 
-                      onClick={async () => {
-                        try {
-                          await syncLocalStorage();
-                          await loadConfigs();
-                          toast({
-                            title: '同步成功',
-                            description: '配置已从服务器同步',
-                          });
-                        } catch (error) {
-                          toast({
-                            title: '同步失败',
-                            description: error instanceof Error ? error.message : '同步配置时发生错误',
-                            variant: 'destructive',
-                          });
-                        }
-                      }}
-                    >
-                      同步配置
-                    </Button>
-                    <Button onClick={() => setShowAddForm(true)}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      添加配置
-                    </Button>
-                  </div>
-                )}
-                
-                {addForm}
-                
-                {configs.length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>名称</TableHead>
-                        <TableHead>模型</TableHead>
-                        <TableHead>API地址</TableHead>
-                        <TableHead>温度</TableHead>
-                        <TableHead>默认</TableHead>
-                        <TableHead>操作</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {configRows}
-                    </TableBody>
-                  </Table>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    暂无AI模型配置，请点击"添加配置"按钮添加
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>AI模型配置</CardTitle>
+                <CardDescription>
+                  配置用于AI助手和问答的大语言模型
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {!showAddForm && (
+                    <div className="flex justify-end items-center mb-4 gap-2">
+                      <Button 
+                        variant="outline" 
+                        onClick={async () => {
+                          try {
+                            await syncLocalStorage();
+                            await loadConfigs();
+                            toast({
+                              title: '同步成功',
+                              description: '配置已从服务器同步',
+                            });
+                          } catch (error) {
+                            toast({
+                              title: '同步失败',
+                              description: error instanceof Error ? error.message : '同步配置时发生错误',
+                              variant: 'destructive',
+                            });
+                          }
+                        }}
+                      >
+                        同步配置
+                      </Button>
+                      <Button onClick={() => setShowAddForm(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        添加配置
+                      </Button>
+                    </div>
+                  )}
+                  
+                  {addForm}
+                  
+                  {configs.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>名称</TableHead>
+                          <TableHead>模型</TableHead>
+                          <TableHead>API地址</TableHead>
+                          <TableHead>温度</TableHead>
+                          <TableHead>默认</TableHead>
+                          <TableHead>操作</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {configRows}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      暂无AI模型配置，请点击"添加配置"按钮添加
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Redis配置状态组件 - 只在AI模型设置tab中显示 */}
+            <RedisConfigStatus />
+          </div>
         </TabsContent>
         
         <TabsContent value="vector" className="pt-4">

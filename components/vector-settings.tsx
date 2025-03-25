@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,7 +13,7 @@ import { useVectorConfigStore } from '@/lib/stores/vector-config-store'
 import { cn } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { VectorModelConfig } from '@/lib/services/vector-config-service'
+import { VectorModelConfig, addVectorConfig, deleteVectorConfig, getAllVectorConfigs, setVectorConfig } from '@/lib/services/vector-config-service'
 
 // 可用的向量模型预设
 const vectorModelPresets = [
@@ -49,14 +49,33 @@ const vectorModelPresets = [
 
 export default function VectorSettings() {
   // 使用 Zustand store 获取配置
-  const { configs, addConfig, updateConfig, deleteConfig, setDefaultConfig } = useVectorConfigStore()
+  const { defaultConfig, setDefaultConfig, clearDefaultConfig } = useVectorConfigStore()
   
-  // UI状态
+  // 本地状态
+  const [configs, setConfigs] = useState<VectorModelConfig[]>([])
   const [showAddForm, setShowAddForm] = useState(false)
   const [newConfig, setNewConfig] = useState<Partial<VectorModelConfig>>({})
   const [testingId, setTestingId] = useState<string | null>(null)
   const [testResults, setTestResults] = useState<Record<string, boolean>>({})
   const [isDefault, setIsDefault] = useState(false)
+
+  // 加载所有配置
+  useEffect(() => {
+    const loadConfigs = async () => {
+      try {
+        const allConfigs = await getAllVectorConfigs()
+        setConfigs(allConfigs)
+      } catch (error) {
+        console.error('加载配置失败:', error)
+        toast({
+          title: '加载失败',
+          description: '无法加载向量模型配置',
+          variant: 'destructive',
+        })
+      }
+    }
+    loadConfigs()
+  }, [])
 
   // 处理预设选择
   const handlePresetChange = useCallback((preset: string) => {
@@ -83,7 +102,7 @@ export default function VectorSettings() {
   }, [newConfig])
 
   // 添加新配置
-  const handleAddConfig = useCallback(() => {
+  const handleAddConfig = useCallback(async () => {
     if (!newConfig.name || !newConfig.baseURL || !newConfig.apiKey || !newConfig.model) {
       toast({
         title: '验证失败',
@@ -114,61 +133,116 @@ export default function VectorSettings() {
       baseURL: newConfig.baseURL.trim(),
       apiKey: newConfig.apiKey.trim(),
       model: newConfig.model.trim(),
-      isDefault: isDefault, // 使用用户选择的默认设置
-      dimension, // 添加维度属性
-      provider // 添加提供商属性
+      isDefault: isDefault,
+      dimension,
+      provider
     }
     
-    console.log('准备添加配置:', configToAdd)
-    
-    // 添加到 store
-    addConfig(configToAdd)
-    
-    // 重置表单
-    setNewConfig({})
-    setIsDefault(false)
-    setShowAddForm(false)
-    
-    toast({
-      title: '添加成功',
-      description: '新的向量模型配置已添加',
-    })
-  }, [newConfig, addConfig, isDefault])
+    try {
+      // 添加到数据库
+      await addVectorConfig(configToAdd)
+      
+      // 如果是默认配置，更新store
+      if (isDefault) {
+        await setVectorConfig(configToAdd)
+        setDefaultConfig(configToAdd)
+      }
+      
+      // 重新加载配置列表
+      const allConfigs = await getAllVectorConfigs()
+      setConfigs(allConfigs)
+      
+      // 重置表单
+      setNewConfig({})
+      setIsDefault(false)
+      setShowAddForm(false)
+      
+      toast({
+        title: '添加成功',
+        description: '新的向量模型配置已添加',
+      })
+    } catch (error) {
+      console.error('添加配置失败:', error)
+      toast({
+        title: '添加失败',
+        description: '无法添加向量模型配置',
+        variant: 'destructive',
+      })
+    }
+  }, [newConfig, isDefault, setDefaultConfig])
 
   // 删除配置
-  const handleDeleteConfig = useCallback((id: string) => {
+  const handleDeleteConfig = useCallback(async (id: string) => {
     if (!confirm('确定要删除这个配置吗？')) return
     
-    console.log('准备删除配置:', id) // 添加日志
-    
-    // 从 store 删除配置
-    deleteConfig(id)
-    
-    // 清除该配置的测试结果
-    setTestResults((prev: Record<string, boolean>) => {
-      const newResults = { ...prev }
-      delete newResults[id]
-      return newResults
-    })
-    
-    toast({
-      title: '删除成功',
-      description: '向量模型配置已删除',
-    })
-  }, [deleteConfig])
+    try {
+      const configToDelete = configs.find(c => c.id === id)
+      await deleteVectorConfig(id)
+      
+      // 如果删除的是默认配置
+      if (configToDelete?.isDefault) {
+        // 获取剩余配置中最新的一个
+        const remainingConfigs = configs.filter(c => c.id !== id)
+        if (remainingConfigs.length > 0) {
+          const newDefault = remainingConfigs[remainingConfigs.length - 1]
+          await setVectorConfig(newDefault)
+          setDefaultConfig(newDefault)
+        } else {
+          clearDefaultConfig()
+        }
+      }
+      
+      // 重新加载配置列表
+      const allConfigs = await getAllVectorConfigs()
+      setConfigs(allConfigs)
+      
+      // 清除该配置的测试结果
+      setTestResults((prev) => {
+        const newResults = { ...prev }
+        delete newResults[id]
+        return newResults
+      })
+      
+      toast({
+        title: '删除成功',
+        description: '向量模型配置已删除',
+      })
+    } catch (error) {
+      console.error('删除配置失败:', error)
+      toast({
+        title: '删除失败',
+        description: '无法删除向量模型配置',
+        variant: 'destructive',
+      })
+    }
+  }, [configs, setDefaultConfig, clearDefaultConfig])
 
   // 设置默认配置
-  const handleSetDefault = useCallback((id: string) => {
-    console.log('准备设置默认配置:', id) // 添加日志
-    
-    // 更新 store 中的默认配置
-    setDefaultConfig(id)
-    
-    toast({
-      title: '已更新默认配置',
-      description: '向量模型默认配置已更新',
-    })
-  }, [setDefaultConfig])
+  const handleSetDefault = useCallback(async (id: string) => {
+    try {
+      const configToSetDefault = configs.find(c => c.id === id)
+      if (!configToSetDefault) return
+      
+      await setVectorConfig(configToSetDefault)
+      setDefaultConfig(configToSetDefault)
+      
+      // 重新加载配置列表
+      const allConfigs = await getAllVectorConfigs()
+      setConfigs(allConfigs)
+      
+      toast({
+        title: '已更新默认配置',
+        description: '向量模型默认配置已更新',
+      })
+    } catch (error) {
+      console.error('设置默认配置失败:', error)
+      toast({
+        title: '设置失败',
+        description: '无法设置默认向量模型配置',
+        variant: 'destructive',
+      })
+    }
+  }, [configs, setDefaultConfig])
 
   // 测试连接
   const handleTestConfig = useCallback(async (config: VectorModelConfig) => {
@@ -220,7 +294,7 @@ export default function VectorSettings() {
 
   // 使用 useMemo 缓存配置列表渲染
   const configRows = useMemo(() => {
-    return configs.map((config: VectorModelConfig) => {
+    return configs.map((config) => {
       // 确保配置有id
       if (!config.id) return null;
       

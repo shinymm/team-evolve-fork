@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { Skeleton } from "@/components/ui/skeleton"
 import { AIModelSettings } from '@/components/ai-model-settings'
-import RedisConfigStatus from '@/components/ai-config/RedisConfigStatus'
 
 export default function AIModelsPage() {
   const [isLoading, setIsLoading] = useState(true)
@@ -27,10 +26,6 @@ export default function AIModelsPage() {
       ) : (
         <div className="space-y-8">
           <AIModelSettings />
-          
-          <div className="mt-8">
-            <RedisConfigStatus />
-          </div>
         </div>
       )}
     </div>
