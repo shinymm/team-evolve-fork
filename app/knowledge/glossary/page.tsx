@@ -74,7 +74,6 @@ export default function GlossaryPage() {
   })
   
   // 从 store 获取配置
-  const configs = useVectorConfigStore(state => state.configs)
   const getDefaultConfig = useVectorConfigStore(state => state.getDefaultConfig)
   
   // 加载术语列表
@@ -259,7 +258,6 @@ export default function GlossaryPage() {
       return
     }
     
-    console.log('当前所有配置:', configs)
     const vectorConfig = getDefaultConfig()
     console.log('获取到的默认配置:', vectorConfig)
     
@@ -390,7 +388,6 @@ export default function GlossaryPage() {
     
     setIsLoading(true)
     setIsSearchMode(true)
-    
     try {
       // 获取默认向量配置
       const vectorConfig = getDefaultConfig()
@@ -444,6 +441,13 @@ export default function GlossaryPage() {
     }
   }
   
+  // 添加清除搜索的函数
+  const clearSearch = () => {
+    setSearchTerm('')
+    setIsSearchMode(false)
+    loadGlossaryItems(1)
+  }
+  
   // 格式化日期
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString()
@@ -460,7 +464,11 @@ export default function GlossaryPage() {
             placeholder="搜索术语..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleSearch()
+              }
+            }}
             className="w-64"
           />
           

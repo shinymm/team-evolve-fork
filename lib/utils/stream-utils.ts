@@ -94,7 +94,7 @@ export async function handleStreamingResponse(
               onContent(data.content)
             }
           } catch (e) {
-            console.warn('解析消息失败:', e.message, '原始消息:', trimmedLine)
+            console.warn('解析消息失败:', e instanceof Error ? e.message : '未知错误', '原始消息:', trimmedLine)
             continue
           }
         } else {
