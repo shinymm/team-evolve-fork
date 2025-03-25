@@ -33,12 +33,20 @@ interface AIModel {
   isDefault: boolean
 }
 
+interface PromptTest {
+  id: string
+  prompt: string
+  parameters: Parameter[]
+  createdAt: string
+}
+
 export default function PromptDebugPage() {
   const [prompt, setPrompt] = useState<string>('')
   const [parameters, setParameters] = useState<Parameter[]>([])
   const [availableModels, setAvailableModels] = useState<AIModel[]>([])
   const [selectedModels, setSelectedModels] = useState<string[]>([])
   const [outputs, setOutputs] = useState<ModelOutput[]>([])
+  const [savedTests, setSavedTests] = useState<PromptTest[]>([])
   const { toast } = useToast()
 
   // 获取可用的模型列表
@@ -81,6 +89,29 @@ export default function PromptDebugPage() {
     
     setParameters(updatedParams)
   }, [prompt])
+
+  // 获取保存的测试数据集
+  useEffect(() => {
+    const fetchSavedTests = async () => {
+      try {
+        const response = await fetch('/api/prompt-test')
+        const data = await response.json()
+        if (data.error) {
+          throw new Error(data.error)
+        }
+        setSavedTests(data.tests)
+      } catch (error) {
+        toast({
+          title: "获取测试数据集失败",
+          description: error instanceof Error ? error.message : "请稍后重试",
+          variant: "destructive",
+          duration: 3000
+        })
+      }
+    }
+
+    fetchSavedTests()
+  }, [])
 
   // 处理模型选择
   const handleModelSelect = (modelId: string) => {
@@ -208,13 +239,101 @@ export default function PromptDebugPage() {
     })
   }
 
+  // 保存测试数据集
+  const saveTest = async () => {
+    try {
+      const response = await fetch('/api/prompt-test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          prompt,
+          parameters
+        })
+      })
+
+      const data = await response.json()
+      if (data.error) {
+        throw new Error(data.error)
+      }
+
+      // 刷新测试数据集列表
+      const testsResponse = await fetch('/api/prompt-test')
+      const testsData = await testsResponse.json()
+      setSavedTests(testsData.tests)
+
+      toast({
+        title: "保存成功",
+        description: "测试数据集已保存",
+        duration: 3000
+      })
+    } catch (error) {
+      toast({
+        title: "保存失败",
+        description: error instanceof Error ? error.message : "请稍后重试",
+        variant: "destructive",
+        duration: 3000
+      })
+    }
+  }
+
+  // 加载测试数据集
+  const loadTest = (test: PromptTest) => {
+    setPrompt(test.prompt)
+    setParameters(test.parameters)
+    toast({
+      title: "加载成功",
+      description: "测试数据集已加载",
+      duration: 3000
+    })
+  }
+
   return (
     <div className="mx-auto py-6 w-[90%]">
       <h1 className="text-2xl font-bold">提示词调试</h1>
       
+      {/* 测试数据集选择区 */}
+      {savedTests.length > 0 && (
+        <Card className="p-4 mb-4">
+          <h2 className="text-lg font-semibold mb-4">已保存的测试数据集</h2>
+          <div className="grid gap-4">
+            {savedTests.map((test) => (
+              <div key={test.id} className="flex items-center justify-between p-2 border rounded">
+                <div className="flex-1">
+                  <div className="text-sm font-medium">
+                    {new Date(test.createdAt).toLocaleString()}
+                  </div>
+                  <div className="text-sm text-gray-500 truncate">
+                    {test.prompt.slice(0, 100)}{test.prompt.length > 100 ? '...' : ''}
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => loadTest(test)}
+                >
+                  加载
+                </Button>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+      
       {/* 提示词编辑区 */}
       <Card className="p-4">
-        <Label htmlFor="prompt">提示词模板</Label>
+        <div className="flex justify-between items-center mb-2">
+          <Label htmlFor="prompt">提示词模板</Label>
+          <Button
+            onClick={saveTest}
+            disabled={!prompt.trim()}
+            variant="outline"
+            size="sm"
+          >
+            保存测试数据集
+          </Button>
+        </div>
         <Textarea
           id="prompt"
           value={prompt}
