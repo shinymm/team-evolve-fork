@@ -7,6 +7,7 @@ import { RequirementToTestService } from '@/lib/services/requirement-to-test-ser
 import { RequirementBoundaryComparisonService } from '@/lib/services/requirement-boundary-comparison-service'
 import { RequirementTerminologyService } from '@/lib/services/requirement-terminology-service'
 import { RequirementArchitectureService } from '@/lib/services/requirement-architecture-service'
+import { RequirementToSummaryService } from '@/lib/services/requirement-to-summary-service'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -39,8 +40,8 @@ type UploadedFile = {
   provider: string; // 新增：文件提供者
 };
 
-// 添加统一的类型定义
-type TabType = 'md' | 'test' | 'boundary' | 'terminology' | 'architecture';
+// 修改TabType定义
+type TabType = 'md' | 'test' | 'boundary' | 'terminology' | 'architecture' | 'summary';
 
 interface TabConfig {
   id: TabType;
@@ -52,6 +53,7 @@ interface TabConfig {
   downloadFileName: string;
 }
 
+// 修改TAB_CONFIGS数组
 const TAB_CONFIGS: TabConfig[] = [
   {
     id: 'md',
@@ -61,6 +63,15 @@ const TAB_CONFIGS: TabConfig[] = [
     minFiles: 1,
     maxFiles: 1,
     downloadFileName: '需求书'
+  },
+  {
+    id: 'summary',
+    title: '需求摘要',
+    buttonText: '需求摘要',
+    service: RequirementToSummaryService,
+    minFiles: 1,
+    maxFiles: 1,
+    downloadFileName: '需求摘要'
   },
   {
     id: 'test',
@@ -212,6 +223,7 @@ export default function RequirementUpload() {
   const [processing, setProcessing] = useState<boolean>(false)
   const [contents, setContents] = useState<Record<TabType, string>>({
     md: '',
+    summary: '',
     test: '',
     boundary: '',
     terminology: '',
@@ -239,9 +251,10 @@ export default function RequirementUpload() {
   const [lastUpdateTime, setLastUpdateTime] = useState<number>(0);
   const pendingContentRef = useRef<string>('');
   
-  // 为每个操作添加独立的处理状态
+  // 修改processingStates的类型定义
   const [processingStates, setProcessingStates] = useState<Record<TabType, boolean>>({
     md: false,
+    summary: false,
     test: false,
     boundary: false,
     terminology: false,
@@ -634,6 +647,18 @@ export default function RequirementUpload() {
           })
           break
         }
+        case 'summary': {
+          const service = new RequirementToSummaryService()
+          await service.convertToSummary(fileIds, (content: string) => {
+            console.log(`收到${tabId}内容:`, content.length, '字符')
+            accumulatedContent = content
+            setContents(prev => ({
+              ...prev,
+              [tabId]: content
+            }))
+          })
+          break
+        }
         default:
           throw new Error(`未找到${tabId}对应的服务`)
       }
@@ -727,6 +752,7 @@ export default function RequirementUpload() {
   const handleCompareRequirements = () => handleProcessDocument('boundary');
   const handleExtractTerminology = () => handleProcessDocument('terminology');
   const handleExtractArchitecture = () => handleProcessDocument('architecture');
+  const handleConvertToSummary = () => handleProcessDocument('summary');
 
   // 修改原有的下载函数，使用统一的下载函数
   const handleDownloadMd = () => handleDownload('md');
@@ -734,6 +760,7 @@ export default function RequirementUpload() {
   const handleDownloadBoundary = () => handleDownload('boundary');
   const handleDownloadTerminology = () => handleDownload('terminology');
   const handleDownloadArchitecture = () => handleDownload('architecture');
+  const handleDownloadSummary = () => handleDownload('summary');
 
   // 处理打开需求章节输入弹窗
   const handleOpenTestDialog = () => {
@@ -886,6 +913,24 @@ export default function RequirementUpload() {
                     <Book className="h-3 w-3" />
                   )}
                   {processingStates.md ? '转换中...' : '需求书转MD'}
+                </Button>
+                
+                {/* 需求摘要按钮 */}
+                <Button
+                  onClick={handleConvertToSummary}
+                  disabled={uploadedFiles.length === 0 || processingStates.summary}
+                  className={`flex items-center gap-1 px-3 py-1.5 h-auto text-xs ${
+                    uploadedFiles.length > 0 && !processingStates.summary
+                      ? 'bg-orange-500 hover:bg-orange-600 text-white' 
+                      : 'bg-gray-400 text-gray-100 cursor-not-allowed'
+                  }`}
+                >
+                  {processingStates.summary ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <FileText className="h-3 w-3" />
+                  )}
+                  {processingStates.summary ? '生成中...' : '需求摘要'}
                 </Button>
                 
                 {/* 需求书转测试用例按钮 */}
@@ -1057,6 +1102,16 @@ export default function RequirementUpload() {
                   需求书内容
                 </button>
                 <button
+                  onClick={() => setActiveTab('summary')}
+                  className={`px-3 py-1.5 font-medium text-xs rounded-t-lg mr-2 transition-colors ${
+                    activeTab === 'summary' 
+                      ? 'bg-orange-500 text-white' 
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  需求摘要
+                </button>
+                <button
                   onClick={() => setActiveTab('test')}
                   className={`px-3 py-1.5 font-medium text-xs rounded-t-lg mr-2 transition-colors ${
                     activeTab === 'test' 
@@ -1121,6 +1176,26 @@ export default function RequirementUpload() {
                     
                     {/* 显示内容，无论是否为空 */}
                     <ContentDisplay content={contents.md} />
+                  </div>
+                </div>
+              )}
+              
+              {/* 需求摘要 */}
+              {activeTab === 'summary' && (
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <h2 className="text-base font-semibold">需求摘要</h2>
+                    <Button 
+                      onClick={handleDownloadSummary}
+                      disabled={!contents.summary}
+                      className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1 px-3 py-1 h-8 text-xs"
+                    >
+                      <Download className="h-3 w-3" />
+                      下载摘要
+                    </Button>
+                  </div>
+                  <div className="border rounded p-3 bg-gray-50 min-h-[800px] max-h-[1400px] overflow-auto w-full">
+                    <ContentDisplay content={contents.summary} />
                   </div>
                 </div>
               )}
