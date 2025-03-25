@@ -71,7 +71,7 @@ export async function POST(request: Request) {
     // 定义请求格式验证
     const schema = z.object({
       term: z.string().min(1, "术语名称不能为空"),
-      english: z.string().optional(),
+      aliases: z.string().optional(),
       explanation: z.string().min(1, "术语解释不能为空"),
       domain: z.string().optional(),
       status: z.enum(["pending", "approved"]).default("pending"),
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
     })
     
     // 验证请求体
-    const { term, english, explanation, domain, status, createdBy } = schema.parse(body)
+    const { term, aliases, explanation, domain, status, createdBy } = schema.parse(body)
     
     // 检查是否已存在相同术语
     const existing = await prisma.glossary.findFirst({
@@ -97,7 +97,7 @@ export async function POST(request: Request) {
     const glossary = await prisma.glossary.create({
       data: {
         term,
-        english: english || "",
+        aliases: aliases || "",
         explanation,
         domain: domain || "qare",
         status,
@@ -114,6 +114,53 @@ export async function POST(request: Request) {
     console.error('术语添加失败:', error)
     return NextResponse.json(
       { error: '术语添加失败' },
+      { status: 500 }
+    )
+  }
+}
+
+// 批量导入术语
+export async function PUT(request: Request) {
+  try {
+    const body = await request.json()
+    
+    // 验证请求体
+    const schema = z.object({
+      terms: z.array(z.object({
+        term: z.string().min(1, "术语名称不能为空"),
+        aliases: z.string().optional(),
+        explanation: z.string().min(1, "术语解释不能为空"),
+        domain: z.string().optional(),
+        createdBy: z.string().optional(),
+      }))
+    })
+    
+    const { terms } = schema.parse(body)
+    
+    // 批量创建术语
+    const results = await prisma.$transaction(
+      terms.map(term => 
+        prisma.glossary.create({
+          data: {
+            term: term.term,
+            aliases: term.aliases || "",
+            explanation: term.explanation,
+            domain: term.domain || "qare",
+            status: "pending",
+            createdBy: term.createdBy || "43170448",
+          }
+        })
+      )
+    )
+    
+    return NextResponse.json({
+      message: `成功导入 ${results.length} 个术语`,
+      terms: results
+    })
+  } catch (error) {
+    console.error('批量导入术语失败:', error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : '批量导入失败' },
       { status: 500 }
     )
   }

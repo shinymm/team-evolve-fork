@@ -29,7 +29,6 @@ export class RequirementTerminologyService {
         systemPrompt,
         requirementTerminologyPrompt,
         (content: string) => {
-          console.log('收到内容:', content.length, '字符')
           onContent(content)
         }
       )

@@ -59,7 +59,7 @@ export async function PUT(
     // 验证请求体
     const schema = z.object({
       term: z.string().min(1, "术语名称不能为空"),
-      english: z.string().optional(),
+      aliases: z.string().optional(),
       explanation: z.string().min(1, "术语解释不能为空"),
       domain: z.string().optional(),
       status: z.enum(["pending", "approved"]).optional(),
@@ -87,7 +87,7 @@ export async function PUT(
       }
     )
     
-    const { term, english, explanation, domain, status, approvedBy, vectorConfig, clearEmbedding } = schema.parse(body)
+    const { term, aliases, explanation, domain, status, approvedBy, vectorConfig, clearEmbedding } = schema.parse(body)
     
     // 检查是否存在相同名称的其他术语
     const existingWithSameName = await prisma.glossary.findFirst({
@@ -159,7 +159,7 @@ export async function PUT(
             UPDATE "Glossary"
             SET 
               term = ${term},
-              english = ${english || ''},
+              aliases = ${aliases || ''},
               explanation = ${explanation},
               domain = ${domain || 'qare'},
               status = ${status},
@@ -240,7 +240,7 @@ export async function PUT(
           UPDATE "Glossary"
           SET 
             term = ${term},
-            english = ${english || ''},
+            aliases = ${aliases || ''},
             explanation = ${explanation},
             domain = ${domain || 'qare'},
             status = 'pending',
@@ -282,7 +282,7 @@ export async function PUT(
         where: { id },
         data: {
           term,
-          english: english || "",
+          aliases: aliases || "",
           explanation,
           domain: domain || "qare",
           ...(status && { status }),

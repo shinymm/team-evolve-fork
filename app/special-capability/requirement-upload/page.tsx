@@ -14,7 +14,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
-import { Upload, File as FileIcon, X, Trash2, Download, Book, Loader2, AlertCircle, FileText, HelpCircle } from 'lucide-react'
+import { Upload, File as FileIcon, X, Trash2, Download, Book, Loader2, AlertCircle, FileText, HelpCircle, Plus } from 'lucide-react'
 import { Toaster } from "@/components/ui/toaster"
 import {
   Dialog,
@@ -22,11 +22,20 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { flushSync } from 'react-dom'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 
 // 添加全局样式
 import './requirement-styles.css'
@@ -159,6 +168,11 @@ const ContentDisplay = memo(({ content }: { content: string }) => {
           padding: 0.5rem;
           vertical-align: top;
         }
+        .prose table th:nth-child(4),
+        .prose table td:nth-child(4) {
+          min-width: 200px;
+          width: 20%;
+        }
         .prose table tr:nth-child(even) {
           background-color: #f9fafb;
         }
@@ -205,8 +219,53 @@ const ContentDisplay = memo(({ content }: { content: string }) => {
           border-radius: 0.375rem;
           overflow-x: auto;
         }
+        .domain-tag {
+          display: inline-block;
+          background-color: #f3f4f6;
+          border-radius: 4px;
+          padding: 2px 6px;
+          margin: 2px;
+          font-size: 0.75rem;
+          color: #374151;
+          white-space: nowrap;
+          border: 1px solid #e5e7eb;
+        }
       `}</style>
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          td: ({ node, children, ...props }) => {
+            // 检查是否是领域列（第4列）
+            const isColumn4 = node?.position?.start?.column === 4;
+            if (isColumn4 && typeof children === 'string') {
+              // 分割领域标签（支持中英文逗号）
+              const domains = children.toString().split(/[,，]/).filter(Boolean);
+              return (
+                <td {...props} style={{ minWidth: '200px', width: '20%' }}>
+                  <div className="flex flex-wrap gap-1">
+                    {domains.map((domain, index) => (
+                      <span key={index} className="domain-tag">
+                        {domain.trim()}
+                      </span>
+                    ))}
+                  </div>
+                </td>
+              );
+            }
+            return <td {...props}>{children}</td>;
+          },
+          th: ({ node, children, ...props }) => {
+            // 检查是否是领域列（第4列）
+            const isColumn4 = node?.position?.start?.column === 4;
+            if (isColumn4) {
+              return <th {...props} style={{ minWidth: '200px', width: '20%' }}>{children}</th>;
+            }
+            return <th {...props}>{children}</th>;
+          }
+        }}
+      >
+        {content}
+      </ReactMarkdown>
     </div>
   );
 });
@@ -261,41 +320,46 @@ export default function RequirementUpload() {
     architecture: false
   });
   
-  // 监听内容变化，自动滚动到底部
-  useEffect(() => {
-    if (mdContentRef.current) {
-      mdContentRef.current.scrollTop = mdContentRef.current.scrollHeight;
-    }
-    console.log('mdContent变化了，新长度:', contents.md.length);
-  }, [contents.md]);
+  // 在 RequirementUpload 组件内添加新的状态
+  const [showDomainDialog, setShowDomainDialog] = useState(false)
+  const [domainPrefix, setDomainPrefix] = useState('')
+  const [importingTerms, setImportingTerms] = useState(false)
+  
+  // // 监听内容变化，自动滚动到底部
+  // useEffect(() => {
+  //   if (mdContentRef.current) {
+  //     mdContentRef.current.scrollTop = mdContentRef.current.scrollHeight;
+  //   }
+  //   console.log('mdContent变化了，新长度:', contents.md.length);
+  // }, [contents.md]);
 
-  useEffect(() => {
-    if (testContentRef.current) {
-      testContentRef.current.scrollTop = testContentRef.current.scrollHeight;
-    }
-    console.log('testContent变化了，新长度:', contents.test.length);
-  }, [contents.test]);
+  // useEffect(() => {
+  //   if (testContentRef.current) {
+  //     testContentRef.current.scrollTop = testContentRef.current.scrollHeight;
+  //   }
+  //   console.log('testContent变化了，新长度:', contents.test.length);
+  // }, [contents.test]);
 
-  useEffect(() => {
-    if (boundaryContentRef.current) {
-      boundaryContentRef.current.scrollTop = boundaryContentRef.current.scrollHeight;
-    }
-    console.log('boundaryContent变化了，新长度:', contents.boundary.length);
-  }, [contents.boundary]);
+  // useEffect(() => {
+  //   if (boundaryContentRef.current) {
+  //     boundaryContentRef.current.scrollTop = boundaryContentRef.current.scrollHeight;
+  //   }
+  //   console.log('boundaryContent变化了，新长度:', contents.boundary.length);
+  // }, [contents.boundary]);
 
-  useEffect(() => {
-    if (terminologyContentRef.current) {
-      terminologyContentRef.current.scrollTop = terminologyContentRef.current.scrollHeight;
-    }
-    console.log('terminologyContent变化了，新长度:', contents.terminology.length);
-  }, [contents.terminology]);
+  // useEffect(() => {
+  //   if (terminologyContentRef.current) {
+  //     terminologyContentRef.current.scrollTop = terminologyContentRef.current.scrollHeight;
+  //   }
+  //   console.log('terminologyContent变化了，新长度:', contents.terminology.length);
+  // }, [contents.terminology]);
 
-  useEffect(() => {
-    if (architectureContentRef.current) {
-      architectureContentRef.current.scrollTop = architectureContentRef.current.scrollHeight;
-    }
-    console.log('architectureContent变化了，新长度:', contents.architecture.length);
-  }, [contents.architecture]);
+  // useEffect(() => {
+  //   if (architectureContentRef.current) {
+  //     architectureContentRef.current.scrollTop = architectureContentRef.current.scrollHeight;
+  //   }
+  //   console.log('architectureContent变化了，新长度:', contents.architecture.length);
+  // }, [contents.architecture]);
 
   // 当内容变化时，强制重新渲染
   useEffect(() => {
@@ -820,6 +884,127 @@ export default function RequirementUpload() {
     handleProcessDocument('test', { requirementChapter })
   }
 
+  // 添加处理导入术语的函数
+  const handleImportTerminology = async () => {
+    if (!contents.terminology) {
+      toast({
+        title: "导入失败",
+        description: "没有可导入的术语知识",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setImportingTerms(true)
+      
+      // 解析 Markdown 表格
+      const lines = contents.terminology.split('\n')
+      const terms: any[] = []
+      
+      console.log('开始解析术语表格，总行数:', lines.length)
+      
+      let isHeader = true
+      let headerFound = false
+      
+      for (const line of lines) {
+        const trimmedLine = line.trim()
+        console.log('处理行:', trimmedLine)
+        
+        if (trimmedLine === '') continue
+        
+        // 检查是否是表格行
+        if (trimmedLine.startsWith('|')) {
+          // 检查是否是表头
+          if (trimmedLine.includes('名称') && trimmedLine.includes('定义') && trimmedLine.includes('别名') && trimmedLine.includes('类型')) {
+            console.log('找到表头')
+            headerFound = true
+            isHeader = true
+            continue
+          }
+          
+          // 跳过分隔行
+          if (trimmedLine.includes('---')) {
+            console.log('跳过分隔行')
+            isHeader = false
+            continue
+          }
+          
+          // 如果已经找到表头且不是表头行，则处理数据行
+          if (headerFound && !isHeader) {
+            // 分割单元格并过滤掉空字符串
+            const cells = trimmedLine.split('|')
+              .map(cell => cell.trim())
+              .filter(cell => cell !== '')
+            
+            console.log('解析的单元格:', cells)
+            
+            if (cells.length >= 4) {
+              const [name, definition, aliases, type] = cells
+              
+              // 组合 domain（用户输入的领域标识 + 原始类型）
+              const domain = domainPrefix ? `${domainPrefix}，${type}` : type
+              
+              // 处理别名中的换行符
+              const processedAliases = aliases.replace(/<BR>/g, '\n')
+              
+              terms.push({
+                term: name,
+                explanation: definition,
+                aliases: processedAliases || '',
+                domain: domain,
+                createdBy: '43170448'
+              })
+              
+              console.log('添加术语:', { name, definition, aliases: processedAliases, domain })
+            }
+          }
+        }
+      }
+      
+      console.log('解析完成，找到术语数量:', terms.length)
+      
+      if (terms.length === 0) {
+        throw new Error('未找到有效的术语数据，请确保表格格式正确')
+      }
+      
+      // 调用批量导入 API
+      const response = await fetch('/api/glossary', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ terms })
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '导入失败')
+      }
+      
+      const result = await response.json()
+      
+      toast({
+        title: "导入成功",
+        description: result.message,
+      })
+      
+      // 关闭弹窗
+      setShowDomainDialog(false)
+      setDomainPrefix('')
+      
+    } catch (error) {
+      console.error('导入术语失败:', error)
+      toast({
+        title: "导入失败",
+        description: error instanceof Error ? error.message : "未知错误",
+        variant: "destructive",
+      })
+    } finally {
+      setImportingTerms(false)
+    }
+  }
+
   return (
     <>
       <div className="w-full max-w-full overflow-x-hidden">
@@ -1170,7 +1355,7 @@ export default function RequirementUpload() {
                   <div className="border rounded p-3 bg-gray-50 min-h-[800px] max-h-[1400px] overflow-auto w-full" ref={mdContentRef}>
                     {/* 添加调试信息，使用自执行函数避免返回void */}
                     {(() => {
-                      console.log('渲染Markdown内容区域, processing:', processing, 'mdContent长度:', contents.md.length);
+                      // console.log('渲染Markdown内容区域, processing:', processing, 'mdContent长度:', contents.md.length);
                       return null;
                     })()}
                     
@@ -1217,7 +1402,7 @@ export default function RequirementUpload() {
                   <div className="border rounded p-3 bg-gray-50 min-h-[800px] max-h-[1400px] overflow-auto w-full" ref={testContentRef}>
                     {/* 添加调试信息，使用自执行函数避免返回void */}
                     {(() => {
-                      console.log('渲染测试用例区域, processing:', processing, 'testContent长度:', contents.test.length);
+                      // console.log('渲染测试用例区域, processing:', processing, 'testContent长度:', contents.test.length);
                       return null;
                     })()}
                     
@@ -1244,7 +1429,7 @@ export default function RequirementUpload() {
                   <div className="border rounded p-3 bg-gray-50 min-h-[800px] max-h-[1400px] overflow-auto w-full" ref={boundaryContentRef}>
                     {/* 添加调试信息，使用自执行函数避免返回void */}
                     {(() => {
-                      console.log('渲染边界知识区域, processing:', processing, 'boundaryContent长度:', contents.boundary.length);
+                      // console.log('渲染边界知识区域, processing:', processing, 'boundaryContent长度:', contents.boundary.length);
                       return null;
                     })()}
                     
@@ -1259,14 +1444,34 @@ export default function RequirementUpload() {
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <h2 className="text-base font-semibold">业务术语知识</h2>
-                    <Button 
-                      onClick={handleDownloadTerminology}
-                      disabled={processing || !contents.terminology}
-                      className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1 px-3 py-1 h-8 text-xs"
-                    >
-                      <Download className="h-3 w-3" />
-                      下载术语知识
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        onClick={handleDownloadTerminology}
+                        disabled={!contents.terminology}
+                        className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1 px-3 py-1 h-8 text-xs"
+                      >
+                        <Download className="h-3 w-3" />
+                        下载术语知识
+                      </Button>
+                      
+                      <Button
+                        onClick={() => setShowDomainDialog(true)}
+                        disabled={!contents.terminology || importingTerms}
+                        className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1 px-3 py-1 h-8 text-xs"
+                      >
+                        {importingTerms ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            导入中...
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="h-3 w-3" />
+                            导入术语知识
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                   <div 
                     id="terminology-content"
@@ -1275,7 +1480,7 @@ export default function RequirementUpload() {
                   >
                     {/* 添加调试信息，使用自执行函数避免返回void */}
                     {(() => {
-                      console.log('渲染术语知识区域, processing:', processing, 'terminologyContent长度:', contents.terminology.length);
+                      // console.log('渲染术语知识区域, processing:', processing, 'terminologyContent长度:', contents.terminology.length);
                       return null;
                     })()}
                     
@@ -1310,7 +1515,7 @@ export default function RequirementUpload() {
                   <div className="border rounded p-3 bg-gray-50 min-h-[800px] max-h-[1400px] overflow-auto w-full" ref={architectureContentRef}>
                     {/* 添加调试信息，使用自执行函数避免返回void */}
                     {(() => {
-                      console.log('渲染信息架构区域, processing:', processing, 'architectureContent长度:', contents.architecture.length);
+                      // console.log('渲染信息架构区域, processing:', processing, 'architectureContent长度:', contents.architecture.length);
                       return null;
                     })()}
                     
@@ -1364,6 +1569,52 @@ export default function RequirementUpload() {
                 </>
               ) : (
                 '开始生成'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* 添加领域标识输入弹窗 */}
+      <Dialog open={showDomainDialog} onOpenChange={setShowDomainDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>添加领域标识</DialogTitle>
+            <DialogDescription>
+              请输入领域标识（可选，10字以内），将与术语类型组合。
+              例如：输入"RBS"，类型为"业务模块"，最终结果为"RBS，业务模块"。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="domainPrefix" className="text-right">
+                领域标识
+              </Label>
+              <Input
+                id="domainPrefix"
+                value={domainPrefix}
+                onChange={(e) => setDomainPrefix(e.target.value)}
+                maxLength={10}
+                placeholder="例如：RBS"
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDomainDialog(false)}>
+              取消
+            </Button>
+            <Button 
+              onClick={handleImportTerminology}
+              disabled={importingTerms}
+            >
+              {importingTerms ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  导入中...
+                </>
+              ) : (
+                '确认导入'
               )}
             </Button>
           </DialogFooter>

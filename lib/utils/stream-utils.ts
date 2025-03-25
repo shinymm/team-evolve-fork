@@ -53,7 +53,7 @@ export async function handleStreamingResponse(
 
       // 解码并处理数据
       const chunk = decoder.decode(value, { stream: true })
-      console.log('收到原始数据块:', chunk)
+      // console.log('收到原始数据块:', chunk)
       buffer += chunk
       
       // 处理完整的消息
@@ -63,7 +63,6 @@ export async function handleStreamingResponse(
       for (const line of lines) {
         const trimmedLine = line.trim()
         if (!trimmedLine) {
-          console.log('跳过空行')
           continue
         }
         if (trimmedLine === 'data: [DONE]') {
@@ -74,7 +73,7 @@ export async function handleStreamingResponse(
         if (trimmedLine.startsWith('data: ')) {
           try {
             const jsonStr = trimmedLine.slice(6)
-            console.log('解析JSON:', jsonStr)
+            // console.log('解析JSON:', jsonStr)
             const data = JSON.parse(jsonStr)
             
             if (data.error) {
@@ -85,11 +84,11 @@ export async function handleStreamingResponse(
             // 检查 Qwen API 的响应格式
             if (data.choices?.[0]?.delta?.content) {
               const content = data.choices[0].delta.content
-              console.log('收到内容片段，长度:', content.length)
+              // console.log('收到内容片段，长度:', content.length)
               accumulatedContent += content
               onContent(accumulatedContent)
             } else if (data.content) {
-              console.log('收到内容片段，长度:', data.content.length)
+              // console.log('收到内容片段，长度:', data.content.length)
               accumulatedContent = data.content
               onContent(data.content)
             }

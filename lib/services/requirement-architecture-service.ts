@@ -26,7 +26,6 @@ export class RequirementArchitectureService {
         '请按照规则和说明，从文档中抽取信息架构树。',
         requirementArchitecturePrompt,
         (content: string) => {
-          console.log('收到内容:', content.length, '字符')
           onContent(content)
         }
       )

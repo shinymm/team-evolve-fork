@@ -43,7 +43,7 @@ model User {
 model Glossary {
   id          Int       @id @default(autoincrement())
   term        String    @db.VarChar(255)
-  english     String?   @db.VarChar(255)
+  aliases     String?   @db.VarChar(255)
   explanation String    @db.Text
   domain      String    @db.VarChar(255)
   status      String    @default("pending") @db.VarChar(20)

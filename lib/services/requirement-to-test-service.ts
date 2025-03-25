@@ -28,7 +28,6 @@ export class RequirementToTestService {
         '<Role>软件测试专家，根据给定的需求，认真分析，输出完整详细的测试用例</Role>',
         requirementToTestPrompt(requirementChapter),
         (content: string) => {
-          console.log('收到内容:', content.length, '字符')
           onContent(content)
         }
       )

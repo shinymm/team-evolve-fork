@@ -8,7 +8,7 @@ import { Prisma } from '@prisma/client'
 type GlossaryItem = {
   id: number;
   term: string;
-  english: string | null;
+  aliases: string | null;
   explanation: string;
   domain: string;
   status: string;
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
           ...baseWhere,
           OR: [
             { term: { contains: query, mode: 'insensitive' } },
-            { english: { contains: query, mode: 'insensitive' } },
+            { aliases: { contains: query, mode: 'insensitive' } },
             { explanation: { contains: query, mode: 'insensitive' } }
           ]
         }
@@ -102,7 +102,8 @@ export async function POST(request: Request) {
       const exactResultsWithSimilarity = exactResults.map((item) => ({
         ...item,
         matchType: 'exact',
-        similarity: 1.0 // 精确匹配给满分
+        similarity: 1.0, // 精确匹配给满分
+        aliases: item.aliases || null // 确保类型一致
       }))
       
       allResults = [...exactResultsWithSimilarity]
@@ -145,7 +146,7 @@ export async function POST(request: Request) {
           SELECT 
             g.id,
             g.term,
-            g.english,
+            g.aliases,
             g.explanation,
             g.domain,
             g.status,
@@ -172,7 +173,8 @@ export async function POST(request: Request) {
             return {
               ...item,
               matchType: 'vector',
-              similarity
+              similarity,
+              aliases: item.aliases || null // 确保类型一致
             }
           })
           .filter((item) => item.similarity >= minSimilarity)

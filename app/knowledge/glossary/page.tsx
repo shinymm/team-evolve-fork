@@ -41,7 +41,7 @@ const HARDCODED_USER_ID = '43170448'
 type GlossaryItem = {
   id: number
   term: string
-  english: string | null
+  aliases: string | null
   explanation: string
   domain: string
   status: 'pending' | 'approved'
@@ -79,7 +79,7 @@ export default function GlossaryPage() {
   const [isAdding, setIsAdding] = useState(false)
   const [formData, setFormData] = useState({
     term: '',
-    english: '',
+    aliases: '',
     explanation: '',
     domain: 'qare',
   })
@@ -155,7 +155,7 @@ export default function GlossaryPage() {
     setEditingId(item.id)
     setFormData({
       term: item.term,
-      english: item.english || '',
+      aliases: item.aliases || '',
       explanation: item.explanation,
       domain: item.domain,
     })
@@ -166,7 +166,7 @@ export default function GlossaryPage() {
     setEditingId(null)
     setIsAdding(false)
     setPendingEditItem(null)
-    setFormData({ term: '', english: '', explanation: '', domain: 'qare' })
+    setFormData({ term: '', aliases: '', explanation: '', domain: 'qare' })
   }
   
   // 处理表单提交
@@ -231,7 +231,7 @@ export default function GlossaryPage() {
   // 开始添加
   const startAdd = () => {
     setIsAdding(true)
-    setFormData({ term: '', english: '', explanation: '', domain: 'qare' })
+    setFormData({ term: '', aliases: '', explanation: '', domain: 'qare' })
   }
   
   // 处理删除
@@ -597,7 +597,7 @@ export default function GlossaryPage() {
                   <div>
                     <div className="flex items-center gap-1">
                       <h3 className="text-sm font-medium">{item.term}</h3>
-                      {item.english && <span className="text-muted-foreground text-xs">({item.english})</span>}
+                      {item.aliases && <span className="text-muted-foreground text-xs">({item.aliases})</span>}
                       <Badge variant={item.status === 'approved' ? 'outline' : 'outline'} className={`text-[10px] px-1 ${item.status === 'approved' 
                         ? "bg-orange-500 hover:bg-orange-600 text-white border-orange-400"
                         : "bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100"
@@ -632,9 +632,9 @@ export default function GlossaryPage() {
                   />
                 </TableHead>
                 <TableHead className="w-[120px] py-2">术语名称</TableHead>
-                <TableHead className="w-[120px] py-2">英文名称</TableHead>
+                <TableHead className="w-[120px] py-2">别名</TableHead>
                 <TableHead className="py-2">解释说明</TableHead>
-                <TableHead className="w-[80px] py-2">领域</TableHead>
+                <TableHead className="w-[200px] py-2">领域</TableHead>
                 <TableHead className="w-[100px] py-2">状态</TableHead>
                 <TableHead className="w-[120px] py-2">创建时间</TableHead>
                 <TableHead className="w-[100px] py-2">操作</TableHead>
@@ -665,15 +665,15 @@ export default function GlossaryPage() {
                           value={formData.term}
                           onChange={(e) => setFormData({ ...formData, term: e.target.value })}
                           placeholder="输入术语名称"
-                          className="text-[10px] h-6"
+                          className="text-xs h-6"
                         />
                       </TableCell>
                       <TableCell className="py-1">
                         <Input
-                          value={formData.english}
-                          onChange={(e) => setFormData({ ...formData, english: e.target.value })}
-                          placeholder="输入英文名称"
-                          className="text-[10px] h-6"
+                          value={formData.aliases}
+                          onChange={(e) => setFormData({ ...formData, aliases: e.target.value })}
+                          placeholder="输入别名（多个请用逗号分隔）"
+                          className="text-xs h-6"
                         />
                       </TableCell>
                       <TableCell className="py-1">
@@ -681,7 +681,7 @@ export default function GlossaryPage() {
                           value={formData.explanation}
                           onChange={(e) => setFormData({ ...formData, explanation: e.target.value })}
                           placeholder="输入解释说明"
-                          className="min-h-[40px] text-[10px]"
+                          className="min-h-[40px] text-xs"
                         />
                       </TableCell>
                       <TableCell className="py-1">
@@ -689,7 +689,7 @@ export default function GlossaryPage() {
                           value={formData.domain}
                           onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
                           placeholder="输入领域"
-                          className="text-[10px] h-6"
+                          className="text-xs h-6"
                         />
                       </TableCell>
                       <TableCell className="py-1">
@@ -741,21 +741,21 @@ export default function GlossaryPage() {
                           <Input
                             value={formData.term}
                             onChange={(e) => setFormData({ ...formData, term: e.target.value })}
-                            className="text-[10px] h-6"
+                            className="text-xs h-6"
                           />
                         ) : (
-                          <span className="font-medium">{item.term}</span>
+                          <span className="font-medium text-xs">{item.term}</span>
                         )}
                       </TableCell>
                       <TableCell className="py-1">
                         {editingId === item.id ? (
                           <Input
-                            value={formData.english}
-                            onChange={(e) => setFormData({ ...formData, english: e.target.value })}
-                            className="text-[10px] h-6"
+                            value={formData.aliases}
+                            onChange={(e) => setFormData({ ...formData, aliases: e.target.value })}
+                            className="text-xs h-6"
                           />
                         ) : (
-                          item.english || '-'
+                          <span className="text-[10px]">{item.aliases || '-'}</span>
                         )}
                       </TableCell>
                       <TableCell className="py-1">
@@ -763,10 +763,10 @@ export default function GlossaryPage() {
                           <Textarea
                             value={formData.explanation}
                             onChange={(e) => setFormData({ ...formData, explanation: e.target.value })}
-                            className="min-h-[40px] text-[10px]"
+                            className="min-h-[40px] text-xs"
                           />
                         ) : (
-                          <span className="max-w-[300px] truncate">{item.explanation}</span>
+                          <span className="max-w-[300px] truncate text-xs">{item.explanation}</span>
                         )}
                       </TableCell>
                       <TableCell className="py-1">
@@ -774,10 +774,19 @@ export default function GlossaryPage() {
                           <Input
                             value={formData.domain}
                             onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
-                            className="text-[10px] h-6"
+                            className="text-xs h-6"
                           />
                         ) : (
-                          item.domain
+                          <div className="flex flex-wrap gap-1">
+                            {item.domain.split(/[,，]/).map((domain, index) => (
+                              <span
+                                key={index}
+                                className="inline-flex items-center rounded-full bg-gray-50 px-2 py-1 text-[10px] font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10"
+                              >
+                                {domain.trim()}
+                              </span>
+                            ))}
+                          </div>
                         )}
                       </TableCell>
                       <TableCell className="py-1">
