@@ -527,7 +527,11 @@ export default function GlossaryPage() {
           </div>
           
           {mounted && (
-            <Select value={statusFilter || 'all'} onValueChange={(value) => setStatusFilter(value === 'all' ? null : value)}>
+            <Select 
+              name="status-filter"
+              defaultValue={statusFilter || 'all'} 
+              onValueChange={(value) => setStatusFilter(value === 'all' ? null : value)}
+            >
               <SelectTrigger className="w-[180px] text-xs h-8">
                 <SelectValue placeholder="状态筛选" />
               </SelectTrigger>
