@@ -1,6 +1,7 @@
 import OpenAI from 'openai'
 import fetch from 'node-fetch'
 import { useVectorConfigStore } from '../stores/vector-config-store'
+import { getAllVectorConfigs } from './vector-config-service'
 
 // 向量模型配置类型
 export type VectorModelConfig = {
@@ -21,11 +22,11 @@ export function setServerSideConfig(config: VectorModelConfig) {
 
 /**
  * 从 store 获取向量模型配置
- * @returns 向量模型配置数组
+ * @returns 向量模型配置数组的 Promise
  */
-export function getVectorConfigs(): VectorModelConfig[] {
+export async function getVectorConfigs(): Promise<VectorModelConfig[]> {
   try {
-    return useVectorConfigStore.getState().configs
+    return await getAllVectorConfigs()
   } catch (error) {
     console.error('从 store 加载向量配置失败:', error)
     return []
