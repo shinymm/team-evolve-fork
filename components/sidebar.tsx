@@ -44,7 +44,8 @@ const mainMenuItems: MenuItem[] = [
     icon: <Flame className="h-4 w-4" />,
     submenu: [
       { title: "需求书综合处理", href: "/special-capability/requirement-upload" },
-      { title: "需求边界分析建议", href: "/special-capability/boundary-analysis" }
+      { title: "需求边界分析建议", href: "/special-capability/boundary-analysis" },
+      { title: "提示词调试", href: "/special-capability/prompt-debug" }
     ]
   },
   {

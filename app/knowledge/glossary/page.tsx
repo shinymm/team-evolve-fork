@@ -631,12 +631,12 @@ export default function GlossaryPage() {
                     onCheckedChange={toggleSelectAll}
                   />
                 </TableHead>
-                <TableHead className="w-[120px] py-2">术语名称</TableHead>
+                <TableHead className="w-[150px] py-2">术语名称</TableHead>
                 <TableHead className="w-[120px] py-2">别名</TableHead>
                 <TableHead className="py-2">解释说明</TableHead>
-                <TableHead className="w-[200px] py-2">领域</TableHead>
-                <TableHead className="w-[100px] py-2">状态</TableHead>
-                <TableHead className="w-[120px] py-2">创建时间</TableHead>
+                <TableHead className="w-[180px] py-2">领域</TableHead>
+                <TableHead className="w-[80px] py-2">状态</TableHead>
+                <TableHead className="w-[150px] py-2">创建时间</TableHead>
                 <TableHead className="w-[100px] py-2">操作</TableHead>
               </TableRow>
             </TableHeader>
