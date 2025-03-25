@@ -71,7 +71,8 @@ export async function PUT(
         id: z.string().optional(),
         name: z.string().optional(),
         isDefault: z.boolean().optional()
-      }).optional()
+      }).optional(),
+      clearEmbedding: z.boolean().optional()
     }).refine(
       (data) => {
         // 如果状态是 approved，则必须提供向量配置
@@ -86,7 +87,7 @@ export async function PUT(
       }
     )
     
-    const { term, english, explanation, domain, status, approvedBy, vectorConfig } = schema.parse(body)
+    const { term, english, explanation, domain, status, approvedBy, vectorConfig, clearEmbedding } = schema.parse(body)
     
     // 检查是否存在相同名称的其他术语
     const existingWithSameName = await prisma.glossary.findFirst({
@@ -132,12 +133,28 @@ export async function PUT(
           )
         }
 
-        console.log('向量嵌入生成成功')
+        console.log('向量嵌入生成成功，长度:', embedding.length)
 
         // 使用原始 SQL 更新术语（包含向量嵌入）
         let result: number
         try {
           console.log('开始更新数据库')
+          // 首先尝试获取现有记录，检查是否需要更新 embedding
+          const existingRecord = await prisma.glossary.findUnique({
+            where: { id }
+          })
+
+          if (!existingRecord) {
+            return NextResponse.json(
+              { error: '未找到对应的术语' },
+              { status: 404 }
+            )
+          }
+
+          // 构建 SQL 更新语句
+          const embeddingArray = embedding.map(String)  // 将数字数组转换为字符串数组
+          const embeddingString = embeddingArray.join(',')
+
           result = await prisma.$executeRaw`
             UPDATE "Glossary"
             SET 
@@ -147,8 +164,8 @@ export async function PUT(
               domain = ${domain || 'qare'},
               status = ${status},
               "approvedAt" = ${new Date()},
-              "approvedBy" = ${approvedBy || null},
-              embedding = array[${Prisma.join(embedding)}]::vector(1536),
+              "approvedBy" = ${approvedBy || ''},
+              embedding = string_to_array(${embeddingString}, ',')::float[]::vector(1536),
               "updatedAt" = ${new Date()}
             WHERE id = ${id}
           `
@@ -214,23 +231,71 @@ export async function PUT(
     }
     
     // 如果不是审核通过，则不需要生成向量嵌入
-    const updatedGlossary = await prisma.glossary.update({
-      where: { id },
-      data: {
-        term,
-        english: english || "",
-        explanation,
-        domain: domain || "qare",
-        ...(status && { status }),
-        updatedAt: new Date()
-      },
-    })
-    
-    return NextResponse.json({
-      id: updatedGlossary.id,
-      term: updatedGlossary.term,
-      message: `术语 "${term}" 已成功更新`
-    })
+    if (clearEmbedding) {
+      // 使用原始 SQL 更新术语（包含清空向量嵌入）
+      let result: number
+      try {
+        console.log('开始更新数据库，清空向量嵌入')
+        result = await prisma.$executeRaw`
+          UPDATE "Glossary"
+          SET 
+            term = ${term},
+            english = ${english || ''},
+            explanation = ${explanation},
+            domain = ${domain || 'qare'},
+            status = 'pending',
+            "approvedAt" = null,
+            "approvedBy" = '',
+            embedding = null,
+            "updatedAt" = ${new Date()}
+          WHERE id = ${id}
+        `
+        console.log('SQL更新完成，影响行数:', result)
+
+        if (result === 0) {
+          return NextResponse.json(
+            { error: '未找到对应的术语' },
+            { status: 404 }
+          )
+        }
+
+        const updatedGlossary = await prisma.glossary.findUnique({
+          where: { id },
+          select: { id: true, term: true }
+        })
+
+        return NextResponse.json({
+          id: updatedGlossary?.id,
+          term: updatedGlossary?.term,
+          message: `术语 "${term}" 已成功更新`
+        })
+      } catch (sqlError) {
+        console.error('SQL更新失败:', sqlError)
+        return NextResponse.json(
+          { error: sqlError instanceof Error ? sqlError.message : '数据库更新失败' },
+          { status: 500 }
+        )
+      }
+    } else {
+      // 如果不需要清空向量嵌入，使用普通的 Prisma 更新
+      const updatedGlossary = await prisma.glossary.update({
+        where: { id },
+        data: {
+          term,
+          english: english || "",
+          explanation,
+          domain: domain || "qare",
+          ...(status && { status }),
+          updatedAt: new Date()
+        },
+      })
+      
+      return NextResponse.json({
+        id: updatedGlossary.id,
+        term: updatedGlossary.term,
+        message: `术语 "${term}" 已成功更新`
+      })
+    }
   } catch (error) {
     console.error('更新术语失败:', error)
     return NextResponse.json(

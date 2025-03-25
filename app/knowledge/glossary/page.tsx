@@ -23,6 +23,16 @@ import { Separator } from '@/components/ui/separator'
 import { Slider } from '@/components/ui/slider'
 import { useVectorConfigStore } from '@/lib/stores/vector-config-store'
 import { getVectorConfig } from '@/lib/vector-config-service'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 // 硬编码的用户ID
 const HARDCODED_USER_ID = '43170448'
@@ -62,6 +72,7 @@ export default function GlossaryPage() {
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
   const [isSearchMode, setIsSearchMode] = useState(false)
   const [minSimilarity, setMinSimilarity] = useState(0.7) // 添加相似度阈值状态
+  const [mounted, setMounted] = useState(false)
   
   // 编辑状态管理
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -75,6 +86,10 @@ export default function GlossaryPage() {
   
   // 从 store 获取配置
   const getDefaultConfig = useVectorConfigStore(state => state.getDefaultConfig)
+  
+  // 添加警告弹窗
+  const [showEditApprovedDialog, setShowEditApprovedDialog] = useState(false)
+  const [pendingEditItem, setPendingEditItem] = useState<GlossaryItem | null>(null)
   
   // 加载术语列表
   const loadGlossaryItems = async (page = 1) => {
@@ -125,6 +140,35 @@ export default function GlossaryPage() {
     }
   }
   
+  // 开始编辑前的检查
+  const startEdit = (item: GlossaryItem) => {
+    if (item.status === 'approved') {
+      setPendingEditItem(item)
+      setShowEditApprovedDialog(true)
+    } else {
+      proceedWithEdit(item)
+    }
+  }
+
+  // 实际执行编辑操作
+  const proceedWithEdit = (item: GlossaryItem) => {
+    setEditingId(item.id)
+    setFormData({
+      term: item.term,
+      english: item.english || '',
+      explanation: item.explanation,
+      domain: item.domain,
+    })
+  }
+  
+  // 取消编辑
+  const cancelEdit = () => {
+    setEditingId(null)
+    setIsAdding(false)
+    setPendingEditItem(null)
+    setFormData({ term: '', english: '', explanation: '', domain: 'qare' })
+  }
+  
   // 处理表单提交
   const handleSubmit = async (isEdit = false) => {
     try {
@@ -140,6 +184,9 @@ export default function GlossaryPage() {
       const url = isEdit ? `/api/glossary/${editingId}` : '/api/glossary'
       const method = isEdit ? 'PUT' : 'POST'
       
+      // 如果是编辑已审核的术语，需要将状态改为待审核
+      const isEditingApproved = isEdit && items.find(item => item.id === editingId)?.status === 'approved'
+      
       const response = await fetch(url, {
         method,
         headers: {
@@ -147,7 +194,14 @@ export default function GlossaryPage() {
         },
         body: JSON.stringify({
           ...formData,
-          createdBy: HARDCODED_USER_ID
+          createdBy: HARDCODED_USER_ID,
+          // 如果是编辑已审核术语，强制设置状态为待审核，并清空embedding
+          ...(isEditingApproved ? {
+            status: 'pending',
+            clearEmbedding: true,  // 后端会根据这个标志清空embedding
+            approvedAt: null,
+            approvedBy: ''  // 改为空字符串而不是 null
+          } : {})
         }),
       })
       
@@ -162,9 +216,7 @@ export default function GlossaryPage() {
       })
       
       // 重置编辑状态
-      setEditingId(null)
-      setIsAdding(false)
-      setFormData({ term: '', english: '', explanation: '', domain: 'qare' })
+      cancelEdit()  // 使用统一的取消编辑函数
       loadGlossaryItems()
     } catch (error) {
       toast({
@@ -174,24 +226,6 @@ export default function GlossaryPage() {
       })
       console.error(error)
     }
-  }
-  
-  // 开始编辑
-  const startEdit = (item: GlossaryItem) => {
-    setEditingId(item.id)
-    setFormData({
-      term: item.term,
-      english: item.english || '',
-      explanation: item.explanation,
-      domain: item.domain,
-    })
-  }
-  
-  // 取消编辑
-  const cancelEdit = () => {
-    setEditingId(null)
-    setIsAdding(false)
-    setFormData({ term: '', english: '', explanation: '', domain: 'qare' })
   }
   
   // 开始添加
@@ -413,7 +447,7 @@ export default function GlossaryPage() {
           page: 1,
           limit: pagination.limit,
           vectorConfig,
-          minSimilarity // 添加相似度阈值
+          minSimilarity
         }),
       })
       
@@ -436,6 +470,9 @@ export default function GlossaryPage() {
         variant: 'destructive',
       })
       console.error('搜索失败', error)
+      // 搜索失败时，重新加载原始数据
+      loadGlossaryItems(1)
+      setIsSearchMode(false)
     } finally {
       setIsLoading(false)
     }
@@ -445,48 +482,67 @@ export default function GlossaryPage() {
   const clearSearch = () => {
     setSearchTerm('')
     setIsSearchMode(false)
-    loadGlossaryItems(1)
+    loadGlossaryItems(1)  // 这里已经有加载数据的调用了
   }
   
   // 格式化日期
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString()
   }
-  
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   return (
-    <div className="w-[90%] mx-auto">
-      <h1 className="text-2xl font-bold mb-6">术语知识管理</h1>
+    <div className="w-[90%] mx-auto text-xs">
+      <h1 className="text-2xl font-bold mb-4">术语知识管理</h1>
       
       {/* 工具栏 */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-2">
-          <Input
-            placeholder="搜索术语..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                handleSearch()
-              }
-            }}
-            className="w-64"
-          />
+          <div className="flex items-center gap-1">
+            <Input
+              placeholder="搜索术语..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleSearch()
+                }
+              }}
+              className="w-64 text-xs h-7"
+            />
+            {isSearchMode && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearSearch}
+                className="h-7 px-2 text-xs"
+              >
+                <X className="h-3 w-3 mr-1" />
+                清除
+              </Button>
+            )}
+          </div>
           
-          <Select value={statusFilter || 'all'} onValueChange={(value) => setStatusFilter(value === 'all' ? null : value)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="状态筛选" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部状态</SelectItem>
-              <SelectItem value="pending">待审核</SelectItem>
-              <SelectItem value="approved">已审核</SelectItem>
-            </SelectContent>
-          </Select>
+          {mounted && (
+            <Select value={statusFilter || 'all'} onValueChange={(value) => setStatusFilter(value === 'all' ? null : value)}>
+              <SelectTrigger className="w-[180px] text-xs h-8">
+                <SelectValue placeholder="状态筛选" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs">全部状态</SelectItem>
+                <SelectItem value="pending" className="text-xs">待审核</SelectItem>
+                <SelectItem value="approved" className="text-xs">已审核</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
 
-          <div className="flex flex-col gap-2 min-w-[200px]">
+          <div className="flex flex-col gap-1 min-w-[200px]">
             <div className="flex justify-between items-center">
-              <Label>相似度阈值</Label>
-              <span className="text-sm text-muted-foreground">
+              <Label className="text-xs">相似度阈值</Label>
+              <span className="text-xs text-muted-foreground">
                 {(minSimilarity * 100).toFixed(0)}%
               </span>
             </div>
@@ -505,8 +561,9 @@ export default function GlossaryPage() {
           <Button
             onClick={startAdd}
             disabled={isAdding}
+            className="text-xs h-8 px-3"
           >
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-3 w-3 mr-1" />
             添加术语
           </Button>
           
@@ -514,11 +571,11 @@ export default function GlossaryPage() {
             onClick={handleBatchApprove}
             disabled={selectedItems.length === 0 || isApproving}
             variant="outline"
-            className="relative"
+            className="relative text-xs h-8 px-3"
           >
             {isApproving && (
               <div className="absolute inset-0 flex items-center justify-center bg-background/80">
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-3 w-3 animate-spin" />
               </div>
             )}
             审核通过 ({selectedItems.length})
@@ -528,34 +585,33 @@ export default function GlossaryPage() {
       
       {/* 搜索结果/列表视图 */}
       {isSearchMode ? (
-        <div className="grid grid-cols-1 gap-4">
+        <div className="grid grid-cols-1 gap-2">
           {items.map((item) => (
-            <Card key={item.id}>
-              <CardContent className="pt-6">
-                <div className="flex justify-between items-start mb-2">
+            <Card key={item.id} className="overflow-hidden">
+              <CardContent className="pt-2 pb-2 px-3">
+                <div className="flex justify-between items-start">
                   <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-lg font-bold">{item.term}</h3>
-                      {item.english && <span className="text-muted-foreground">({item.english})</span>}
-                      <Badge variant={item.status === 'approved' ? 'outline' : 'outline'} className={item.status === 'approved' 
+                    <div className="flex items-center gap-1">
+                      <h3 className="text-sm font-medium">{item.term}</h3>
+                      {item.english && <span className="text-muted-foreground text-xs">({item.english})</span>}
+                      <Badge variant={item.status === 'approved' ? 'outline' : 'outline'} className={`text-[10px] px-1 ${item.status === 'approved' 
                         ? "bg-orange-500 hover:bg-orange-600 text-white border-orange-400"
                         : "bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100"
-                      }>
+                      }`}>
                         {item.status === 'approved' ? '已审核' : '待审核'}
                       </Badge>
                     </div>
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-[10px] text-muted-foreground">
                       领域: {item.domain} | 创建时间: {formatDate(item.createdAt)}
                     </div>
                   </div>
                   {item.similarity !== undefined && (
-                    <div className="text-sm">
+                    <div className="text-[10px]">
                       相似度: {(item.similarity * 100).toFixed(2)}%
                     </div>
                   )}
                 </div>
-                <Separator className="my-2" />
-                <p className="whitespace-pre-wrap">{item.explanation}</p>
+                <p className="whitespace-pre-wrap text-xs mt-1">{item.explanation}</p>
               </CardContent>
             </Card>
           ))}
@@ -564,32 +620,32 @@ export default function GlossaryPage() {
         <div className="rounded-md border">
           <Table>
             <TableHeader className="bg-gray-50/80">
-              <TableRow>
-                <TableHead className="w-[50px]">
+              <TableRow className="text-[10px]">
+                <TableHead className="w-[40px] py-2">
                   <Checkbox
                     checked={items.length > 0 && selectedItems.length === items.length}
                     onCheckedChange={toggleSelectAll}
                   />
                 </TableHead>
-                <TableHead className="w-[150px]">术语名称</TableHead>
-                <TableHead className="w-[150px]">英文名称</TableHead>
-                <TableHead>解释说明</TableHead>
-                <TableHead className="w-[100px]">领域</TableHead>
-                <TableHead className="w-[100px]">状态</TableHead>
-                <TableHead className="w-[150px]">创建时间</TableHead>
-                <TableHead className="w-[150px]">操作</TableHead>
+                <TableHead className="w-[120px] py-2">术语名称</TableHead>
+                <TableHead className="w-[120px] py-2">英文名称</TableHead>
+                <TableHead className="py-2">解释说明</TableHead>
+                <TableHead className="w-[80px] py-2">领域</TableHead>
+                <TableHead className="w-[100px] py-2">状态</TableHead>
+                <TableHead className="w-[120px] py-2">创建时间</TableHead>
+                <TableHead className="w-[100px] py-2">操作</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <TableBody className="text-[10px]">
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-6">
+                  <TableCell colSpan={8} className="text-center py-3 text-[10px]">
                     加载中...
                   </TableCell>
                 </TableRow>
               ) : items.length === 0 && !isAdding ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-6">
+                  <TableCell colSpan={8} className="text-center py-3 text-[10px]">
                     没有找到术语
                   </TableCell>
                 </TableRow>
@@ -597,152 +653,160 @@ export default function GlossaryPage() {
                 <>
                   {isAdding && (
                     <TableRow className="bg-muted/50">
-                      <TableCell>
+                      <TableCell className="py-1">
                         <Checkbox disabled />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-1">
                         <Input
                           value={formData.term}
                           onChange={(e) => setFormData({ ...formData, term: e.target.value })}
                           placeholder="输入术语名称"
+                          className="text-[10px] h-6"
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-1">
                         <Input
                           value={formData.english}
                           onChange={(e) => setFormData({ ...formData, english: e.target.value })}
                           placeholder="输入英文名称"
+                          className="text-[10px] h-6"
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-1">
                         <Textarea
                           value={formData.explanation}
                           onChange={(e) => setFormData({ ...formData, explanation: e.target.value })}
                           placeholder="输入解释说明"
-                          className="min-h-[80px]"
+                          className="min-h-[40px] text-[10px]"
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-1">
                         <Input
                           value={formData.domain}
                           onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
                           placeholder="输入领域"
+                          className="text-[10px] h-6"
                         />
                       </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                      <TableCell className="py-1">
+                        <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-700 border-orange-200 whitespace-nowrap">
                           待审核
                         </Badge>
                       </TableCell>
-                      <TableCell>-</TableCell>
-                      <TableCell>
+                      <TableCell className="py-1">-</TableCell>
+                      <TableCell className="py-1">
                         <div className="flex items-center gap-2">
                           <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => handleSubmit(false)}
-                            className="h-8 w-8 text-green-600 hover:text-green-700"
+                            className="h-6 w-6 text-green-600 hover:text-green-700"
                           >
-                            <Check className="h-4 w-4" />
+                            <Check className="h-3 w-3" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon"
                             onClick={cancelEdit}
-                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            className="h-6 w-6 text-destructive hover:text-destructive"
                           >
-                            <X className="h-4 w-4" />
+                            <X className="h-3 w-3" />
                           </Button>
                         </div>
                       </TableCell>
                     </TableRow>
                   )}
                   {items.map((item) => (
-                    <TableRow key={item.id} className={selectedItems.includes(item.id) && isApproving ? 'relative opacity-50' : ''}>
+                    <TableRow key={item.id} className={`${selectedItems.includes(item.id) && isApproving ? 'relative opacity-50' : ''}`}>
                       {selectedItems.includes(item.id) && isApproving && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-background/30 z-10">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        </div>
+                        <TableCell colSpan={8} className="absolute inset-0 p-0">
+                          <div className="flex items-center justify-center w-full h-full bg-background/30 z-10">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          </div>
+                        </TableCell>
                       )}
-                      <TableCell>
+                      <TableCell className="py-1">
                         <Checkbox
                           checked={selectedItems.includes(item.id)}
                           onCheckedChange={() => toggleSelectItem(item.id)}
                           disabled={item.status === 'approved' || (isApproving && selectedItems.includes(item.id))}
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-1">
                         {editingId === item.id ? (
                           <Input
                             value={formData.term}
                             onChange={(e) => setFormData({ ...formData, term: e.target.value })}
+                            className="text-[10px] h-6"
                           />
                         ) : (
                           <span className="font-medium">{item.term}</span>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-1">
                         {editingId === item.id ? (
                           <Input
                             value={formData.english}
                             onChange={(e) => setFormData({ ...formData, english: e.target.value })}
+                            className="text-[10px] h-6"
                           />
                         ) : (
                           item.english || '-'
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-1">
                         {editingId === item.id ? (
                           <Textarea
                             value={formData.explanation}
                             onChange={(e) => setFormData({ ...formData, explanation: e.target.value })}
-                            className="min-h-[80px]"
+                            className="min-h-[40px] text-[10px]"
                           />
                         ) : (
                           <span className="max-w-[300px] truncate">{item.explanation}</span>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-1">
                         {editingId === item.id ? (
                           <Input
                             value={formData.domain}
                             onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
+                            className="text-[10px] h-6"
                           />
                         ) : (
                           item.domain
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-1">
                         {item.status === 'approved' ? (
-                          <Badge variant="outline" className="bg-orange-500 hover:bg-orange-600 text-white border-orange-400">
+                          <Badge variant="outline" className="text-[10px] bg-orange-500 hover:bg-orange-600 text-white border-orange-400 whitespace-nowrap">
                             已审核
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100">
+                          <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100 whitespace-nowrap">
                             待审核
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell>{formatDate(item.createdAt)}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
+                      <TableCell className="py-1">{formatDate(item.createdAt)}</TableCell>
+                      <TableCell className="py-1">
+                        <span className="flex items-center gap-2">
                           {editingId === item.id ? (
                             <>
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => handleSubmit(true)}
-                                className="h-8 w-8 text-green-600 hover:text-green-700"
+                                className="h-6 w-6 text-green-600 hover:text-green-700"
                               >
-                                <Check className="h-4 w-4" />
+                                <Check className="h-3 w-3" />
                               </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 onClick={cancelEdit}
-                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                className="h-6 w-6 text-destructive hover:text-destructive"
                               >
-                                <X className="h-4 w-4" />
+                                <X className="h-3 w-3" />
                               </Button>
                             </>
                           ) : (
@@ -751,21 +815,21 @@ export default function GlossaryPage() {
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => startEdit(item)}
-                                className="h-8 w-8"
+                                className="h-6 w-6"
                               >
-                                <Pencil className="h-4 w-4" />
+                                <Pencil className="h-3 w-3" />
                               </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => handleDelete(item.id)}
-                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                className="h-6 w-6 text-destructive hover:text-destructive"
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-3 w-3" />
                               </Button>
                             </>
                           )}
-                        </div>
+                        </span>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -778,16 +842,17 @@ export default function GlossaryPage() {
       
       {/* 分页 */}
       {pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4">
+        <div className="flex items-center justify-between mt-2 text-[10px]">
           <div>
             显示 {pagination.total} 条中的 {(pagination.page - 1) * pagination.limit + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} 条
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <Button
               variant="outline"
               size="sm"
               onClick={() => handlePageChange(pagination.page - 1)}
               disabled={pagination.page === 1}
+              className="h-6 px-2 text-[12px]"
             >
               上一页
             </Button>
@@ -799,12 +864,39 @@ export default function GlossaryPage() {
               size="sm"
               onClick={() => handlePageChange(pagination.page + 1)}
               disabled={pagination.page === pagination.totalPages}
+              className="h-6 px-2 text-[12px]"
             >
               下一页
             </Button>
           </div>
         </div>
       )}
+      
+      {/* 添加警告弹窗 */}
+      <AlertDialog open={showEditApprovedDialog} onOpenChange={(open) => {
+        setShowEditApprovedDialog(open)
+        if (!open) {
+          setPendingEditItem(null)  // 关闭弹窗时清理待编辑项
+        }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认编辑已审核术语？</AlertDialogTitle>
+            <AlertDialogDescription>
+              编辑已审核的术语将导致其状态变更为待审核状态，需要重新进行审核。
+              同时，该术语的向量嵌入值将被清空，需要在重新审核时重新生成。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              if (pendingEditItem) {
+                proceedWithEdit(pendingEditItem)
+              }
+            }}>继续编辑</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 } 
