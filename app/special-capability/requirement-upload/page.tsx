@@ -147,14 +147,14 @@ const ContentDisplay = memo(({ content }: { content: string }) => {
     <div ref={contentRef} className="prose prose-xs max-w-none break-words whitespace-pre-wrap relative">
       <style jsx global>{`
         .prose {
-          font-size: 0.875rem;
+          font-size: 0.75rem;
           line-height: 1.5;
         }
         .prose table {
           border-collapse: collapse;
           width: 100%;
           margin: 1rem 0;
-          font-size: 0.875rem;
+          font-size: 0.75rem;
         }
         .prose table th {
           background-color: #f3f4f6;
@@ -162,11 +162,13 @@ const ContentDisplay = memo(({ content }: { content: string }) => {
           padding: 0.5rem;
           text-align: left;
           font-weight: 600;
+          font-size: 0.75rem;
         }
         .prose table td {
           border: 1px solid #e5e7eb;
           padding: 0.5rem;
           vertical-align: top;
+          font-size: 0.75rem;
         }
         .prose table th:nth-child(4),
         .prose table td:nth-child(4) {
@@ -180,40 +182,46 @@ const ContentDisplay = memo(({ content }: { content: string }) => {
           background-color: #f3f4f6;
         }
         .prose h1 {
-          font-size: 1.5rem;
+          font-size: 1.25rem;
           margin-top: 1.5rem;
           margin-bottom: 1rem;
+          font-weight: 600;
         }
         .prose h2 {
-          font-size: 1.25rem;
+          font-size: 1.125rem;
           margin-top: 1.25rem;
           margin-bottom: 0.75rem;
+          font-weight: 600;
         }
         .prose h3 {
-          font-size: 1.125rem;
+          font-size: 1rem;
           margin-top: 1rem;
           margin-bottom: 0.5rem;
+          font-weight: 600;
         }
         .prose p {
           margin-top: 0.75rem;
           margin-bottom: 0.75rem;
+          font-size: 0.75rem;
         }
         .prose ul, .prose ol {
           margin-top: 0.5rem;
           margin-bottom: 0.5rem;
+          font-size: 0.75rem;
         }
         .prose li {
           margin-top: 0.25rem;
           margin-bottom: 0.25rem;
+          font-size: 0.75rem;
         }
         .prose code {
-          font-size: 0.875rem;
+          font-size: 0.75rem;
           padding: 0.2rem 0.4rem;
           background-color: #f3f4f6;
           border-radius: 0.25rem;
         }
         .prose pre {
-          font-size: 0.875rem;
+          font-size: 0.75rem;
           padding: 0.75rem;
           background-color: #f3f4f6;
           border-radius: 0.375rem;
