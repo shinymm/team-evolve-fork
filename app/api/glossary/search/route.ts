@@ -148,7 +148,7 @@ export async function POST(request: Request) {
         
         const vectorResults = await prisma.$queryRaw`
           WITH vector_query AS (
-            SELECT array[${queryEmbedding.join(',')}]::vector(1536) as query_vector
+            SELECT ${Prisma.sql`array[${Prisma.join(queryEmbedding)}]::float[]::vector(1536)`} as query_vector
           )
           SELECT 
             g.id,
@@ -165,8 +165,8 @@ export async function POST(request: Request) {
             1 - (g.embedding <=> (SELECT query_vector FROM vector_query)) as _distance
           FROM "Glossary" g
           WHERE g.embedding IS NOT NULL
-          ${baseWhere.status ? `AND g.status = '${baseWhere.status}'` : ''}
-          ${baseWhere.domain ? `AND g.domain = '${baseWhere.domain}'` : ''}
+          ${baseWhere.status ? Prisma.sql`AND g.status = ${baseWhere.status}` : Prisma.sql``}
+          ${baseWhere.domain?.in ? Prisma.sql`AND g.domain IN (${Prisma.join(baseWhere.domain.in)})` : Prisma.sql``}
           ORDER BY g.embedding <=> (SELECT query_vector FROM vector_query)
           LIMIT ${limit * 2}
         ` as (GlossaryItem & { _distance: number })[]
