@@ -333,42 +333,11 @@ export default function RequirementUpload() {
   const [domainPrefix, setDomainPrefix] = useState('')
   const [importingTerms, setImportingTerms] = useState(false)
   
-  // // 监听内容变化，自动滚动到底部
-  // useEffect(() => {
-  //   if (mdContentRef.current) {
-  //     mdContentRef.current.scrollTop = mdContentRef.current.scrollHeight;
-  //   }
-  //   console.log('mdContent变化了，新长度:', contents.md.length);
-  // }, [contents.md]);
-
-  // useEffect(() => {
-  //   if (testContentRef.current) {
-  //     testContentRef.current.scrollTop = testContentRef.current.scrollHeight;
-  //   }
-  //   console.log('testContent变化了，新长度:', contents.test.length);
-  // }, [contents.test]);
-
-  // useEffect(() => {
-  //   if (boundaryContentRef.current) {
-  //     boundaryContentRef.current.scrollTop = boundaryContentRef.current.scrollHeight;
-  //   }
-  //   console.log('boundaryContent变化了，新长度:', contents.boundary.length);
-  // }, [contents.boundary]);
-
-  // useEffect(() => {
-  //   if (terminologyContentRef.current) {
-  //     terminologyContentRef.current.scrollTop = terminologyContentRef.current.scrollHeight;
-  //   }
-  //   console.log('terminologyContent变化了，新长度:', contents.terminology.length);
-  // }, [contents.terminology]);
-
-  // useEffect(() => {
-  //   if (architectureContentRef.current) {
-  //     architectureContentRef.current.scrollTop = architectureContentRef.current.scrollHeight;
-  //   }
-  //   console.log('architectureContent变化了，新长度:', contents.architecture.length);
-  // }, [contents.architecture]);
-
+  // 在组件内部添加新的状态
+  const [showSummaryDialog, setShowSummaryDialog] = useState(false)
+  const [summaryDomain, setSummaryDomain] = useState('')
+  const [importingSummary, setImportingSummary] = useState(false)
+  
   // 当内容变化时，强制重新渲染
   useEffect(() => {
     // 确保只在客户端运行
@@ -1013,6 +982,93 @@ export default function RequirementUpload() {
     }
   }
 
+  // 添加导入需求摘要的函数
+  const handleImportSummary = async () => {
+    if (!contents.summary) {
+      toast({
+        title: "导入失败",
+        description: "没有可导入的需求摘要",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setImportingSummary(true)
+
+      // 从内容中提取关联模块信息
+      const relatedModulesMatch = contents.summary.match(/关联模块[：:]\s*([^\n]+)/)
+      const relatedModules = relatedModulesMatch 
+        ? relatedModulesMatch[1].split(/[,，、]/).map(m => m.trim()).filter(Boolean)
+        : []
+
+      console.log('提取到的关联模块:', relatedModules)
+
+      // 获取选中的文件名作为需求名称
+      const selectedFile = uploadedFiles.find(f => f.selected)
+      if (!selectedFile) {
+        throw new Error('未找到选中的文件')
+      }
+
+      // 从文件名中提取需求名称（去掉扩展名）
+      const name = selectedFile.name.replace(/\.[^/.]+$/, '')
+
+      // 准备导入的数据
+      const summaryData = {
+        name,
+        summary: contents.summary,
+        domain: summaryDomain,
+        relatedModules,
+        createdBy: '43170448'
+      }
+
+      console.log('准备导入的数据:', summaryData)
+
+      // 调用API导入数据
+      const response = await fetch('/api/requirement-summaries', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(summaryData)
+      })
+
+      if (!response.ok) {
+        const result = await response.json()
+        // 处理验证错误
+        if (response.status === 400) {
+          const errorDetails = result.details
+            ? Array.isArray(result.details)
+              ? result.details.map((d: any) => `${d.path}: ${d.message}`).join('; ')
+              : result.details
+            : '数据验证失败'
+          throw new Error(errorDetails)
+        }
+        // 处理其他错误
+        throw new Error(result.error || '导入失败')
+      }
+
+      toast({
+        title: "导入成功",
+        description: "需求摘要已成功导入",
+      })
+
+      // 关闭弹窗并重置状态
+      setShowSummaryDialog(false)
+      setSummaryDomain('')
+
+    } catch (error) {
+      console.error('导入需求摘要失败:', error)
+      toast({
+        title: "导入失败",
+        description: error instanceof Error ? error.message : "未知错误",
+        variant: "destructive",
+      })
+    } finally {
+      setImportingSummary(false)
+    }
+  }
+
   return (
     <>
       <div className="w-full max-w-full overflow-x-hidden">
@@ -1378,14 +1434,34 @@ export default function RequirementUpload() {
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <h2 className="text-base font-semibold">需求摘要</h2>
-                    <Button 
-                      onClick={handleDownloadSummary}
-                      disabled={!contents.summary}
-                      className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1 px-3 py-1 h-8 text-xs"
-                    >
-                      <Download className="h-3 w-3" />
-                      下载摘要
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        onClick={handleDownloadSummary}
+                        disabled={!contents.summary}
+                        className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1 px-3 py-1 h-8 text-xs"
+                      >
+                        <Download className="h-3 w-3" />
+                        下载摘要
+                      </Button>
+                      
+                      <Button
+                        onClick={() => setShowSummaryDialog(true)}
+                        disabled={!contents.summary || importingSummary}
+                        className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1 px-3 py-1 h-8 text-xs"
+                      >
+                        {importingSummary ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            导入中...
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="h-3 w-3" />
+                            导入需求摘要
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                   <div className="border rounded p-3 bg-gray-50 min-h-[800px] max-h-[1400px] overflow-auto w-full">
                     <ContentDisplay content={contents.summary} />
@@ -1617,6 +1693,50 @@ export default function RequirementUpload() {
               disabled={importingTerms}
             >
               {importingTerms ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  导入中...
+                </>
+              ) : (
+                '确认导入'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* 添加需求摘要导入弹窗 */}
+      <Dialog open={showSummaryDialog} onOpenChange={setShowSummaryDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>输入领域信息</DialogTitle>
+            <DialogDescription>
+              请输入需求摘要的领域信息，这将帮助更好地组织和管理需求。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="summaryDomain" className="text-right">
+                领域信息
+              </Label>
+              <Input
+                id="summaryDomain"
+                value={summaryDomain}
+                onChange={(e) => setSummaryDomain(e.target.value)}
+                placeholder="例如：UGC"
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSummaryDialog(false)}>
+              取消
+            </Button>
+            <Button 
+              onClick={handleImportSummary}
+              disabled={importingSummary}
+            >
+              {importingSummary ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   导入中...

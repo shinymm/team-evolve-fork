@@ -89,3 +89,19 @@ model AIModelConfig {
   provider    String?
   createdAt   DateTime @default(now())
 }
+
+model RequirementSummary {
+  id             Int      @id @default(autoincrement())
+  name           String   @db.VarChar(255)
+  summary        String   @db.Text
+  domain         String   @db.VarChar(100)
+  relatedModules String[] @default([])
+  embedding      Float[]  @default([]) // 向量化后的embedding
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  createdBy      String?  @map("created_by") @db.VarChar(100)
+
+  @@map("requirement_summaries")
+  @@index([domain])
+  @@index([name])
+}

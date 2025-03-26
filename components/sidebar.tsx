@@ -52,6 +52,7 @@ const mainMenuItems: MenuItem[] = [
     icon: <Database className="h-4 w-4" />,
     submenu: [
       { title: "术语管理", href: "/knowledge/glossary" },
+      { title: "需求摘要管理", href: "/knowledge/requirement-summaries" },
       { title: "产品信息架构", href: "/knowledge/information-architecture" },
       { title: "系统架构", href: "/knowledge/system-architecture" },
       { title: "API 开放接口", href: "/knowledge/api-interfaces" },
