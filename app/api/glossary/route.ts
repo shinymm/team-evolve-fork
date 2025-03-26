@@ -5,25 +5,18 @@ import { z } from 'zod'
 
 // 获取术语列表
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const domain = searchParams.get('domain')
-  const status = searchParams.get('status')
-  const term = searchParams.get('term')
-  const page = parseInt(searchParams.get('page') || '1')
-  const limit = parseInt(searchParams.get('limit') || '20')
-  const skip = (page - 1) * limit
-
   try {
+    const { searchParams } = new URL(request.url)
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '10')
+    const term = searchParams.get('term')
+    const status = searchParams.get('status')
+    const domain = searchParams.get('domain') // 获取领域过滤参数
+
+    const skip = (page - 1) * limit
+
     // 构建查询条件
     const where: any = {}
-    
-    if (domain) {
-      where.domain = domain
-    }
-    
-    if (status) {
-      where.status = status
-    }
     
     if (term) {
       where.term = {
@@ -32,19 +25,31 @@ export async function GET(request: Request) {
       }
     }
     
-    // 获取总记录数
-    const total = await prisma.glossary.count({ where })
-    
-    // 获取分页数据
-    const items = await prisma.glossary.findMany({
-      where,
-      orderBy: {
-        createdAt: 'desc'
-      },
-      skip,
-      take: limit
-    })
-    
+    if (status) {
+      where.status = status
+    }
+
+    // 添加领域过滤条件
+    if (domain) {
+      where.domain = {
+        contains: domain,
+        mode: 'insensitive'
+      }
+    }
+
+    // 查询数据
+    const [items, total] = await prisma.$transaction([
+      prisma.glossary.findMany({
+        where,
+        orderBy: {
+          updatedAt: 'desc'
+        },
+        skip,
+        take: limit
+      }),
+      prisma.glossary.count({ where })
+    ])
+
     return NextResponse.json({
       items,
       pagination: {
@@ -55,9 +60,9 @@ export async function GET(request: Request) {
       }
     })
   } catch (error) {
-    console.error('获取术语失败:', error)
+    console.error('获取术语列表失败:', error)
     return NextResponse.json(
-      { error: '获取术语失败' },
+      { error: '获取术语列表失败' },
       { status: 500 }
     )
   }

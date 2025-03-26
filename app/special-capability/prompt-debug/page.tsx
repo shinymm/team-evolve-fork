@@ -619,10 +619,10 @@ export default function PromptDebugPage() {
                   <div key={index} className="space-y-1">
                     <Label
                       htmlFor={`param-${param.name}`}
-                      className="flex items-center gap-2 text-sm"
+                      className="flex items-center gap-2 text-xs"
                     >
                       <span>{param.name}</span>
-                      <span className="px-2 py-0.5 bg-slate-100 rounded-full text-xs">
+                      <span className="px-2 py-0.5 bg-slate-100 rounded-full text-[10px]">
                         参数
                       </span>
                     </Label>
@@ -634,7 +634,7 @@ export default function PromptDebugPage() {
                         newParams[index].value = e.target.value
                         setParameters(newParams)
                       }}
-                      className="h-20 bg-white text-xs"
+                      className="h-20 bg-white text-xs font-mono"
                     />
                   </div>
                 ))}

@@ -64,12 +64,13 @@ type Pagination = {
 export default function GlossaryPage() {
   // 状态管理
   const [items, setItems] = useState<GlossaryItem[]>([])
-  const [pagination, setPagination] = useState<Pagination>({ total: 0, page: 1, limit: 10, totalPages: 0 })
+  const [pagination, setPagination] = useState<Pagination>({ total: 0, page: 1, limit: 15, totalPages: 0 })
   const [isLoading, setIsLoading] = useState(true)
   const [isApproving, setIsApproving] = useState(false)  // 新增审核中状态
   const [selectedItems, setSelectedItems] = useState<number[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
+  const [domainFilter, setDomainFilter] = useState('') // 添加领域过滤状态
   const [isSearchMode, setIsSearchMode] = useState(false)
   const [minSimilarity, setMinSimilarity] = useState(0.7) // 添加相似度阈值状态
   const [mounted, setMounted] = useState(false)
@@ -104,6 +105,10 @@ export default function GlossaryPage() {
       if (statusFilter) {
         url += `&status=${statusFilter}`
       }
+
+      if (domainFilter) {
+        url += `&domain=${encodeURIComponent(domainFilter)}`
+      }
       
       const response = await fetch(url)
       if (!response.ok) throw new Error('加载术语失败')
@@ -131,7 +136,7 @@ export default function GlossaryPage() {
   // 当过滤条件改变时重新加载
   useEffect(() => {
     loadGlossaryItems(1)
-  }, [searchTerm, statusFilter])
+  }, [searchTerm, statusFilter, domainFilter])
   
   // 处理页码变化
   const handlePageChange = (newPage: number) => {
@@ -542,6 +547,13 @@ export default function GlossaryPage() {
               </SelectContent>
             </Select>
           )}
+
+          <Input
+            placeholder="过滤领域..."
+            value={domainFilter}
+            onChange={(e) => setDomainFilter(e.target.value)}
+            className="w-32 text-xs h-8"
+          />
 
           <div className="flex flex-col gap-1 min-w-[200px]">
             <div className="flex justify-between items-center">
