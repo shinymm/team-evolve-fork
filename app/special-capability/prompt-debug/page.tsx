@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Search } from 'lucide-react'
+import { Search, Download } from 'lucide-react'
 
 interface Parameter {
   name: string
@@ -36,7 +36,7 @@ interface AIModel {
   model: string
   baseURL: string
   apiKey: string
-  temperature?: number
+  temperature: number
   isDefault: boolean
 }
 
@@ -57,6 +57,7 @@ export default function PromptDebugPage() {
   const [isLoadDialogOpen, setIsLoadDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const { toast } = useToast()
+  const [modelTemps, setModelTemps] = useState<Record<string, number>>({})
 
   // 获取可用的模型列表
   useEffect(() => {
@@ -146,6 +147,17 @@ export default function PromptDebugPage() {
     return result
   }
 
+  // 处理温度调整
+  const handleTempChange = (modelId: string, value: string) => {
+    const temp = parseFloat(value)
+    if (!isNaN(temp) && temp >= 0 && temp <= 1) {
+      setModelTemps(prev => ({
+        ...prev,
+        [modelId]: temp
+      }))
+    }
+  }
+
   // 运行提示词
   const runPrompt = async () => {
     if (!prompt.trim()) {
@@ -180,16 +192,22 @@ export default function PromptDebugPage() {
     // 为每个选中的模型创建独立的流式连接
     selectedModels.forEach(async (modelId) => {
       try {
-        // 获取模型配置
+        // 获取模型配置并应用自定义温度
         const modelConfig = availableModels.find(m => m.id === modelId)
         if (!modelConfig) {
           throw new Error(`未找到模型配置: ${modelId}`)
         }
 
-        // 使用streamingAICall进行流式调用
+        // 使用自定义温度覆盖原始配置
+        const finalConfig = {
+          ...modelConfig,
+          temperature: modelId in modelTemps ? modelTemps[modelId] : (modelConfig.temperature || 0.7)
+        }
+
+        // 使用 finalConfig 调用 streamingAICall
         await streamingAICall(
           finalPrompt,
-          modelConfig,
+          finalConfig,
           (content) => {
             // 更新对应模型的输出内容
             setOutputs(prev => 
@@ -331,11 +349,93 @@ export default function PromptDebugPage() {
     }
   }
 
+  // 删除单条测试数据集
+  const deleteTest = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation() // 阻止触发加载事件
+    
+    try {
+      const response = await fetch('/api/prompt-test/delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ id })
+      })
+
+      const data = await response.json()
+      if (data.error) {
+        throw new Error(data.error)
+      }
+
+      // 从本地状态中移除
+      setSavedTests(prev => prev.filter(test => test.id !== id))
+
+      toast({
+        title: "删除成功",
+        description: "测试数据集已删除",
+        duration: 3000
+      })
+    } catch (error) {
+      toast({
+        title: "删除失败",
+        description: error instanceof Error ? error.message : "请稍后重试",
+        variant: "destructive",
+        duration: 3000
+      })
+    }
+  }
+
+  // 清除所有输入输出
+  const handleClear = () => {
+    setPrompt('')
+    setParameters([])
+    setSelectedModels([])
+    setOutputs([])
+    setModelTemps({})
+    toast({
+      title: "已清除",
+      description: "所有输入输出已清除",
+      duration: 3000
+    })
+  }
+
+  // 下载输出结果
+  const handleDownload = (modelId: string, content: string) => {
+    const model = availableModels.find(m => m.id === modelId)
+    const modelName = model?.name || 'unknown'
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+    const fileName = `${modelName}-output-${timestamp}.txt`
+    
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = fileName
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+
+    toast({
+      title: "下载成功",
+      description: `已下载 ${fileName}`,
+      duration: 3000
+    })
+  }
+
   return (
     <div className="mx-auto py-6 w-[90%]">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">提示词调试</h1>
         <div className="flex items-center gap-4">
+          <Button
+            onClick={handleClear}
+            variant="outline"
+            size="sm"
+            className="text-orange-500 hover:text-orange-700 hover:border-orange-200"
+          >
+            Clear
+          </Button>
           <Button
             onClick={clearTestCache}
             variant="outline"
@@ -402,17 +502,27 @@ export default function PromptDebugPage() {
                       <div className="text-sm text-gray-500">
                         {new Date(test.createdAt).toLocaleString()}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-2"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          loadTest(test)
-                        }}
-                      >
-                        加载
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-orange-500 hover:text-orange-700 hover:bg-orange-50"
+                          onClick={(e) => deleteTest(test.id, e)}
+                        >
+                          删除
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            loadTest(test)
+                          }}
+                        >
+                          加载
+                        </Button>
+                      </div>
                     </div>
                     <div className="text-sm line-clamp-3">
                       {test.prompt}
@@ -499,14 +609,31 @@ export default function PromptDebugPage() {
                       : 'hover:border-slate-300 bg-white'
                   } transition-colors`}
                 >
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id={model.id}
-                      checked={selectedModels.includes(model.id)}
-                      onCheckedChange={() => handleModelSelect(model.id)}
-                      disabled={!selectedModels.includes(model.id) && selectedModels.length >= 3}
-                    />
-                    <Label htmlFor={model.id}>{model.name}</Label>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id={model.id}
+                        checked={selectedModels.includes(model.id)}
+                        onCheckedChange={() => handleModelSelect(model.id)}
+                        disabled={!selectedModels.includes(model.id) && selectedModels.length >= 3}
+                      />
+                      <Label htmlFor={model.id}>{model.name}</Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-500">
+                        温度: {model.temperature || 0.7}
+                      </span>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="1"
+                        step="0.1"
+                        value={model.id in modelTemps ? modelTemps[model.id] : (model.temperature || 0.7)}
+                        onChange={(e) => handleTempChange(model.id, e.target.value)}
+                        className="w-20 h-7 text-sm"
+                        placeholder="0-1"
+                      />
+                    </div>
                   </div>
                 </div>
               ))}
@@ -523,9 +650,21 @@ export default function PromptDebugPage() {
                   <Card key={output.modelId} className="p-6">
                     <h3 className="text-lg font-semibold mb-3 flex items-center justify-between">
                       <span>{availableModels.find(m => m.id === output.modelId)?.name}</span>
-                      {output.loading && (
-                        <span className="text-sm text-gray-500">处理中...</span>
-                      )}
+                      <div className="flex items-center gap-4">
+                        {!output.loading && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 hover:bg-slate-100"
+                            onClick={() => handleDownload(output.modelId, output.content)}
+                          >
+                            <Download className="h-4 w-4 text-slate-600" />
+                          </Button>
+                        )}
+                        {output.loading && (
+                          <span className="text-sm text-gray-500">处理中...</span>
+                        )}
+                      </div>
                     </h3>
                     <ScrollArea className="h-[calc((100vh-20rem)/3)] w-full rounded-md border p-4">
                       {output.loading ? (
