@@ -51,6 +51,7 @@ type GlossaryItem = {
   approvedAt: string | null
   approvedBy: string | null
   similarity?: number // 向量搜索结果中的相似度
+  matchType: 'exact' | 'semantic'
 }
 
 // 分页信息类型
@@ -621,11 +622,14 @@ export default function GlossaryPage() {
                       领域: {item.domain} | 创建时间: {formatDate(item.createdAt)}
                     </div>
                   </div>
-                  {item.similarity !== undefined && (
-                    <div className="text-[10px]">
-                      相似度: {(item.similarity * 100).toFixed(2)}%
+                  <div className="flex flex-col items-end gap-1">
+                    <div className="text-[10px] text-muted-foreground">
+                      {item.matchType === 'exact' ? '精确匹配' : '语义匹配'}
                     </div>
-                  )}
+                    <div className="text-[10px] text-orange-600 font-medium">
+                      相似度: {((item.similarity || 0) * 100).toFixed(1)}%
+                    </div>
+                  </div>
                 </div>
                 <p className="whitespace-pre-wrap text-xs mt-1">{item.explanation}</p>
               </CardContent>
