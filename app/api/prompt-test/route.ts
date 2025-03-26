@@ -12,6 +12,7 @@ export async function POST(request: Request) {
       id: timestamp,
       prompt: data.prompt,
       parameters: data.parameters,
+      description: data.description,
       createdAt: new Date().toISOString()
     }
     
@@ -38,7 +39,14 @@ export async function GET() {
     
     const tests = await redis.mget(...keys)
     const parsedTests = tests
-      .map(test => test ? JSON.parse(test) : null)
+      .map(test => {
+        if (!test) return null
+        const parsed = JSON.parse(test)
+        if (!parsed.description) {
+          parsed.description = '未命名测试'
+        }
+        return parsed
+      })
       .filter(Boolean)
       .sort((a, b) => b.id.localeCompare(a.id)) // 按时间戳倒序
     

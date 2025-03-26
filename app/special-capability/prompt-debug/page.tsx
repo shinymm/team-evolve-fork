@@ -45,6 +45,7 @@ interface PromptTest {
   prompt: string
   parameters: Parameter[]
   createdAt: string
+  description: string
 }
 
 export default function PromptDebugPage() {
@@ -58,6 +59,8 @@ export default function PromptDebugPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const { toast } = useToast()
   const [modelTemps, setModelTemps] = useState<Record<string, number>>({})
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false)
+  const [description, setDescription] = useState('')
 
   // 获取可用的模型列表
   useEffect(() => {
@@ -278,7 +281,8 @@ export default function PromptDebugPage() {
         },
         body: JSON.stringify({
           prompt,
-          parameters
+          parameters,
+          description
         })
       })
 
@@ -287,6 +291,9 @@ export default function PromptDebugPage() {
         throw new Error(data.error)
       }
 
+      setIsSaveDialogOpen(false)
+      setDescription('')
+      
       toast({
         title: "保存成功",
         description: "测试数据集已保存",
@@ -424,10 +431,10 @@ export default function PromptDebugPage() {
   }
 
   return (
-    <div className="mx-auto py-6 w-[90%]">
-      <div className="flex items-center justify-between mb-6">
+    <div className="mx-auto py-4 w-[90%]">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">提示词调试</h1>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
           <Button
             onClick={handleClear}
             variant="outline"
@@ -445,7 +452,7 @@ export default function PromptDebugPage() {
             清空缓存测试数据集
           </Button>
           <Button
-            onClick={saveTest}
+            onClick={() => setIsSaveDialogOpen(true)}
             disabled={!prompt.trim()}
             variant="outline"
             size="sm"
@@ -470,43 +477,82 @@ export default function PromptDebugPage() {
         </div>
       </div>
 
+      {/* 保存测试数据集对话框 */}
+      <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
+        <DialogContent className="w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="text-base">保存测试数据集</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="description" className="text-sm">描述信息（20字内）</Label>
+              <Input
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value.slice(0, 20))}
+                placeholder="请输入描述信息..."
+                className="w-full text-sm"
+              />
+            </div>
+            <div className="pt-4 flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setIsSaveDialogOpen(false)}
+                className="text-sm"
+              >
+                取消
+              </Button>
+              <Button
+                onClick={saveTest}
+                disabled={!description.trim()}
+                className="text-sm"
+              >
+                保存
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* 加载测试数据集对话框 */}
       <Dialog open={isLoadDialogOpen} onOpenChange={setIsLoadDialogOpen}>
         <DialogContent className="w-[60vw] max-h-[80vh]">
           <DialogHeader>
-            <DialogTitle>加载测试数据集</DialogTitle>
+            <DialogTitle className="text-base">加载测试数据集</DialogTitle>
           </DialogHeader>
           <div className="relative mb-4">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-500" />
             <Input
               placeholder="搜索测试数据集..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
+              className="pl-9 text-sm"
             />
           </div>
           <ScrollArea className="h-[60vh]">
             <div className="space-y-2 pr-4">
               {filteredTests.length === 0 ? (
-                <div className="text-center text-gray-500 py-4">
+                <div className="text-center text-gray-500 py-4 text-sm">
                   {searchQuery ? '未找到匹配的测试数据集' : '暂无测试数据集'}
                 </div>
               ) : (
                 filteredTests.map((test) => (
                   <div
                     key={test.id}
-                    className="p-4 rounded-lg border hover:border-primary/50 hover:bg-accent/50 transition-colors cursor-pointer"
+                    className="p-3 rounded-lg border hover:border-primary/50 hover:bg-accent/50 transition-colors cursor-pointer"
                     onClick={() => loadTest(test)}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <div className="text-sm text-gray-500">
-                        {new Date(test.createdAt).toLocaleString()}
+                      <div className="flex items-center gap-3 text-xs text-gray-500">
+                        <span>{test.description}</span>
+                        <span>|</span>
+                        <span>{new Date(test.createdAt).toLocaleString()}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-6 px-2 text-orange-500 hover:text-orange-700 hover:bg-orange-50"
+                          className="h-6 px-2 text-orange-500 hover:text-orange-700 hover:bg-orange-50 text-xs"
                           onClick={(e) => deleteTest(test.id, e)}
                         >
                           删除
@@ -514,7 +560,7 @@ export default function PromptDebugPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-6 px-2"
+                          className="h-6 px-2 text-xs"
                           onClick={(e) => {
                             e.stopPropagation()
                             loadTest(test)
@@ -524,8 +570,8 @@ export default function PromptDebugPage() {
                         </Button>
                       </div>
                     </div>
-                    <div className="text-sm line-clamp-3">
-                      {test.prompt}
+                    <div className="text-xs line-clamp-3">
+                      {test.prompt.length > 100 ? `${test.prompt.slice(0, 100)}...` : test.prompt}
                     </div>
                     {test.parameters.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1">
@@ -547,12 +593,12 @@ export default function PromptDebugPage() {
         </DialogContent>
       </Dialog>
 
-      <div className="grid grid-cols-12 gap-6">
+      <div className="grid grid-cols-12 gap-4">
         {/* 左侧输入区域 */}
-        <div className="col-span-4 space-y-6">
+        <div className="col-span-4 space-y-4">
           {/* 提示词编辑区 */}
-          <Card className="p-6 bg-slate-50">
-            <Label htmlFor="prompt" className="text-lg font-semibold mb-3 block">
+          <Card className="p-3 bg-slate-50">
+            <Label htmlFor="prompt" className="text-sm font-semibold mb-2 block">
               提示词模板
             </Label>
             <Textarea
@@ -560,20 +606,20 @@ export default function PromptDebugPage() {
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="输入提示词，使用 {{参数名}} 标记参数..."
-              className="min-h-[200px] font-mono resize-y bg-white"
+              className="min-h-[200px] font-mono text-xs resize-y bg-white"
             />
           </Card>
 
           {/* 参数输入区 */}
           {parameters.length > 0 && (
-            <Card className="p-6 bg-slate-50">
-              <h2 className="text-lg font-semibold mb-4">参数设置</h2>
-              <div className="space-y-4">
+            <Card className="p-3 bg-slate-50">
+              <h2 className="text-sm font-semibold mb-2">参数设置</h2>
+              <div className="space-y-3">
                 {parameters.map((param, index) => (
-                  <div key={index} className="space-y-2">
+                  <div key={index} className="space-y-1">
                     <Label
                       htmlFor={`param-${param.name}`}
-                      className="flex items-center gap-2"
+                      className="flex items-center gap-2 text-sm"
                     >
                       <span>{param.name}</span>
                       <span className="px-2 py-0.5 bg-slate-100 rounded-full text-xs">
@@ -588,7 +634,7 @@ export default function PromptDebugPage() {
                         newParams[index].value = e.target.value
                         setParameters(newParams)
                       }}
-                      className="h-24 bg-white"
+                      className="h-20 bg-white text-xs"
                     />
                   </div>
                 ))}
@@ -597,13 +643,13 @@ export default function PromptDebugPage() {
           )}
 
           {/* 模型选择区 */}
-          <Card className="p-6 bg-slate-50">
-            <h2 className="text-lg font-semibold mb-4">选择模型（最多3个）</h2>
+          <Card className="p-3 bg-slate-50">
+            <h2 className="text-sm font-semibold mb-2">选择模型（最多3个）</h2>
             <div className="space-y-2">
               {availableModels.map((model) => (
                 <div
                   key={model.id}
-                  className={`p-3 rounded-lg border ${
+                  className={`p-2 rounded-lg border ${
                     selectedModels.includes(model.id)
                       ? 'border-slate-300 bg-white'
                       : 'hover:border-slate-300 bg-white'
@@ -616,11 +662,12 @@ export default function PromptDebugPage() {
                         checked={selectedModels.includes(model.id)}
                         onCheckedChange={() => handleModelSelect(model.id)}
                         disabled={!selectedModels.includes(model.id) && selectedModels.length >= 3}
+                        className="h-3 w-3"
                       />
-                      <Label htmlFor={model.id}>{model.name}</Label>
+                      <Label htmlFor={model.id} className="text-xs">{model.name}</Label>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-500">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] text-gray-500 whitespace-nowrap">
                         温度: {model.temperature || 0.7}
                       </span>
                       <Input
@@ -630,7 +677,7 @@ export default function PromptDebugPage() {
                         step="0.1"
                         value={model.id in modelTemps ? modelTemps[model.id] : (model.temperature || 0.7)}
                         onChange={(e) => handleTempChange(model.id, e.target.value)}
-                        className="w-20 h-7 text-sm"
+                        className="w-16 h-5 text-[11px] px-1"
                         placeholder="0-1"
                       />
                     </div>
@@ -645,34 +692,34 @@ export default function PromptDebugPage() {
         <div className="col-span-8">
           <div className="sticky top-6">
             {outputs.length > 0 ? (
-              <div className="grid grid-cols-1 gap-6">
+              <div className="grid grid-cols-1 gap-4">
                 {outputs.map((output) => (
-                  <Card key={output.modelId} className="p-6">
-                    <h3 className="text-lg font-semibold mb-3 flex items-center justify-between">
+                  <Card key={output.modelId} className="p-3">
+                    <h3 className="text-sm font-semibold mb-2 flex items-center justify-between">
                       <span>{availableModels.find(m => m.id === output.modelId)?.name}</span>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
                         {!output.loading && (
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8 w-8 p-0 hover:bg-slate-100"
+                            className="h-6 w-6 p-0 hover:bg-slate-100"
                             onClick={() => handleDownload(output.modelId, output.content)}
                           >
                             <Download className="h-4 w-4 text-slate-600" />
                           </Button>
                         )}
                         {output.loading && (
-                          <span className="text-sm text-gray-500">处理中...</span>
+                          <span className="text-xs text-gray-500">处理中...</span>
                         )}
                       </div>
                     </h3>
-                    <ScrollArea className="h-[calc((100vh-20rem)/3)] w-full rounded-md border p-4">
+                    <ScrollArea className="h-[calc((100vh-20rem)/3)] w-full rounded-md border p-3">
                       {output.loading ? (
                         <div className="flex items-center justify-center h-full">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
                         </div>
                       ) : (
-                        <pre className="whitespace-pre-wrap font-mono text-sm">{output.content}</pre>
+                        <pre className="whitespace-pre-wrap font-mono text-xs">{output.content}</pre>
                       )}
                     </ScrollArea>
                   </Card>
@@ -681,8 +728,8 @@ export default function PromptDebugPage() {
             ) : (
               <div className="h-[calc(100vh-8rem)] flex items-center justify-center border-2 border-dashed rounded-lg">
                 <div className="text-center text-gray-500">
-                  <p className="text-lg font-semibold">暂无输出结果</p>
-                  <p className="text-sm">请输入提示词并选择模型后运行</p>
+                  <p className="text-sm font-semibold">暂无输出结果</p>
+                  <p className="text-xs">请输入提示词并选择模型后运行</p>
                 </div>
               </div>
             )}
