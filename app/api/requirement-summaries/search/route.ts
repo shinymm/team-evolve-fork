@@ -1,26 +1,35 @@
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/db'
+import { getEmbedding } from '@/lib/services/embedding-service'
 import { z } from 'zod'
-import { getEmbedding } from '@/lib/embedding'
+import { Prisma } from '@prisma/client'
 
-const prisma = new PrismaClient()
-
-// 定义类型
-type RequirementSummary = {
-  id: number
-  name: string
-  summary: string
-  domain: string
-  relatedModules: string[]
-  createdAt: string
-  updatedAt: string
-  createdBy: string | null
-  embedding: number[] | null
+// 定义需求摘要类型
+type RequirementSummaryDB = {
+  id: number;
+  name: string;
+  summary: string;
+  domain: string;
+  relatedModules: string[];
+  embedding: number[] | null;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: string | null;
 }
 
-type SearchResult = RequirementSummary & {
-  similarity?: number
-  matchType: 'exact' | 'semantic'
+// 定义带有相似度的需求摘要类型
+type RequirementSummaryWithSimilarity = {
+  id: number;
+  name: string;
+  summary: string;
+  domain: string;
+  relatedModules: string[];
+  embedding: number[] | null;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string | null;
+  matchType: 'exact' | 'vector';
+  similarity: number;
 }
 
 // 搜索参数验证
@@ -42,7 +51,7 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { query, page, limit, vectorConfig, minSimilarity } = SearchSchema.parse(body)
     
-    let allResults: SearchResult[] = []
+    let allResults: RequirementSummaryWithSimilarity[] = []
     
     // 1. 先进行精确/模糊匹配
     console.log('执行精确/模糊匹配搜索...')
@@ -57,10 +66,12 @@ export async function POST(request: Request) {
     })
     
     console.log(`找到 ${exactResults.length} 条精确/模糊匹配结果`)
-    allResults.push(...exactResults.map((item: RequirementSummary) => ({
+    allResults.push(...exactResults.map((item: RequirementSummaryDB) => ({
       ...item,
       matchType: 'exact' as const,
       similarity: 1.0,
+      createdAt: item.createdAt.toISOString(),
+      updatedAt: item.updatedAt.toISOString()
     })))
     
     // 2. 如果有向量配置，进行向量检索
@@ -97,7 +108,7 @@ export async function POST(request: Request) {
         
         // 将向量检索结果添加到总结果中，注意去重并保留最高相似度
         const existingIds = new Set()
-        const finalResults: SearchResult[] = []
+        const finalResults: RequirementSummaryWithSimilarity[] = []
         
         // 先处理精确匹配结果
         for (const result of allResults) {
@@ -115,7 +126,7 @@ export async function POST(request: Request) {
               finalResults[existingIndex] = {
                 ...item,
                 similarity,
-                matchType: 'semantic' as const,
+                matchType: 'vector' as const,
               }
             }
           } else {
@@ -123,7 +134,7 @@ export async function POST(request: Request) {
             finalResults.push({
               ...item,
               similarity,
-              matchType: 'semantic' as const,
+              matchType: 'vector' as const,
             })
           }
         }

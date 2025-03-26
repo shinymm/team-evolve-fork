@@ -27,6 +27,13 @@ type GlossaryItemWithSimilarity = GlossaryItem & {
   embedding?: number[];
 }
 
+// 定义导出格式类型
+type ExportFormat = {
+  术语名称: string;
+  别名: string;
+  解释说明: string;
+}
+
 // 语义搜索API
 // 注意：这需要集成OpenAI等向量嵌入服务来实现完整功能
 export async function POST(request: Request) {
@@ -99,7 +106,7 @@ export async function POST(request: Request) {
       console.log(`[${new Date().toISOString()}] 精确匹配搜索完成，找到 ${exactResults.length} 条结果`)
       
       // 添加相似度信息
-      const exactResultsWithSimilarity = exactResults.map((item) => ({
+      const exactResultsWithSimilarity = exactResults.map((item: GlossaryItem) => ({
         ...item,
         matchType: 'exact',
         similarity: 1.0, // 精确匹配给满分
@@ -139,9 +146,9 @@ export async function POST(request: Request) {
         // 执行向量搜索
         console.log(`[${new Date().toISOString()}] 执行向量相似度搜索`)
         
-        const vectorResults = await prisma.$queryRaw<(GlossaryItem & { _distance: number })[]>`
+        const vectorResults = await prisma.$queryRaw`
           WITH vector_query AS (
-            SELECT array[${Prisma.join(queryEmbedding)}]::vector(1536) as query_vector
+            SELECT array[${queryEmbedding.join(',')}]::vector(1536) as query_vector
           )
           SELECT 
             g.id,
@@ -158,17 +165,17 @@ export async function POST(request: Request) {
             1 - (g.embedding <=> (SELECT query_vector FROM vector_query)) as _distance
           FROM "Glossary" g
           WHERE g.embedding IS NOT NULL
-          ${baseWhere.status ? Prisma.sql`AND g.status = ${baseWhere.status}` : Prisma.empty}
-          ${baseWhere.domain ? Prisma.sql`AND g.domain = ${baseWhere.domain}` : Prisma.empty}
+          ${baseWhere.status ? `AND g.status = '${baseWhere.status}'` : ''}
+          ${baseWhere.domain ? `AND g.domain = '${baseWhere.domain}'` : ''}
           ORDER BY g.embedding <=> (SELECT query_vector FROM vector_query)
           LIMIT ${limit * 2}
-        `
+        ` as (GlossaryItem & { _distance: number })[]
         
         console.log(`[${new Date().toISOString()}] 向量搜索结果: ${vectorResults.length} 条`)
         
         // 计算余弦相似度并筛选符合相似度阈值的结果
         const vectorResultsWithSimilarity = vectorResults
-          .map((item) => {
+          .map((item: GlossaryItem & { _distance: number }) => {
             const similarity = item._distance
             return {
               ...item,
@@ -177,14 +184,14 @@ export async function POST(request: Request) {
               aliases: item.aliases || null // 确保类型一致
             }
           })
-          .filter((item) => item.similarity >= minSimilarity)
+          .filter((item: GlossaryItemWithSimilarity) => item.similarity >= minSimilarity)
         
         console.log(`[${new Date().toISOString()}] 符合阈值(${(minSimilarity * 100).toFixed(0)}%)的结果数: ${vectorResultsWithSimilarity.length}`)
         if (vectorResultsWithSimilarity.length > 0) {
           console.log(`[${new Date().toISOString()}] 相似度范围:`, {
-            最高相似度: Math.max(...vectorResultsWithSimilarity.map(item => item.similarity)),
-            最低相似度: Math.min(...vectorResultsWithSimilarity.map(item => item.similarity)),
-            平均相似度: vectorResultsWithSimilarity.reduce((acc, item) => acc + item.similarity, 0) / vectorResultsWithSimilarity.length
+            最高相似度: Math.max(...vectorResultsWithSimilarity.map((item: GlossaryItemWithSimilarity) => item.similarity)),
+            最低相似度: Math.min(...vectorResultsWithSimilarity.map((item: GlossaryItemWithSimilarity) => item.similarity)),
+            平均相似度: vectorResultsWithSimilarity.reduce((acc: number, item: GlossaryItemWithSimilarity) => acc + item.similarity, 0) / vectorResultsWithSimilarity.length
           })
         }
         
@@ -200,7 +207,7 @@ export async function POST(request: Request) {
     const resultMap = new Map<number, GlossaryItemWithSimilarity>()
     
     // 处理所有结果
-    allResults.forEach(item => {
+    allResults.forEach((item: GlossaryItemWithSimilarity) => {
       const existing = resultMap.get(item.id)
       if (!existing) {
         resultMap.set(item.id, item)
@@ -252,7 +259,7 @@ export async function POST(request: Request) {
   }
 }
 
-// 获取指定领域的已审核术语列表（最多200条）
+// 导出术语列表
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -260,33 +267,28 @@ export async function GET(request: Request) {
 
     // 构建查询条件
     const where: any = {
-      status: 'approved' // 固定只查询已审核的术语
-    }
-    
-    // 如果指定了领域，添加模糊搜索条件
-    if (domain) {
-      where.domain = {
-        contains: domain,
-        mode: 'insensitive'
-      }
+      status: 'approved'
     }
 
-    // 查询数据（限制200条）
+    if (domain) {
+      where.domain = domain
+    }
+
+    // 查询数据
     const items = await prisma.glossary.findMany({
       where,
-      orderBy: {
-        updatedAt: 'desc'
-      },
-      take: 200,
       select: {
         term: true,
         aliases: true,
         explanation: true
+      },
+      orderBy: {
+        term: 'asc'
       }
     })
 
     // 转换为指定的返回格式
-    const formattedItems = items.map((item: GlossaryItem) => ({
+    const formattedItems = items.map((item: { term: string; aliases: string | null; explanation: string }): ExportFormat => ({
       "术语名称": item.term,
       "别名": item.aliases || "",
       "解释说明": item.explanation
@@ -294,9 +296,9 @@ export async function GET(request: Request) {
 
     return NextResponse.json(formattedItems)
   } catch (error) {
-    console.error('获取术语列表失败:', error)
+    console.error('导出术语列表失败:', error)
     return NextResponse.json(
-      { error: '获取术语列表失败' },
+      { error: '导出失败' },
       { status: 500 }
     )
   }

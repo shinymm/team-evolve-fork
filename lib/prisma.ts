@@ -7,7 +7,7 @@ const globalForPrisma = globalThis as unknown as {
 export const prisma = globalForPrisma.prisma ?? new PrismaClient({
   log: [
     {
-      emit: 'event',
+      emit: 'stdout',
       level: 'query',
     },
     {
@@ -23,16 +23,6 @@ export const prisma = globalForPrisma.prisma ?? new PrismaClient({
       level: 'warn',
     },
   ],
-})
-
-// 添加错误处理
-prisma.$on('error', (e: Error) => {
-  console.error('Prisma错误:', e)
-})
-
-// 添加查询日志
-prisma.$on('query', (e: { query: string; params: string; duration: number; target: string }) => {
-  console.log('Prisma查询:', e)
 })
 
 if (process.env.NODE_ENV !== 'production') {

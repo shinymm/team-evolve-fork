@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { generateGlossaryEmbedding } from '@/lib/services/embedding-service'
 import { z } from 'zod'
-import { Prisma } from '@prisma/client'
+import { Prisma, PrismaClient } from '@prisma/client'
 
 // 获取术语列表
 export async function GET(request: Request) {
@@ -14,8 +14,7 @@ export async function GET(request: Request) {
     const status = searchParams.get('status')
     const domain = searchParams.get('domain') // 获取领域过滤参数
     const isApprovedOnly = searchParams.get('approvedOnly') === 'true'
-
-    const skip = (page - 1) * limit
+    const format = searchParams.get('format') // 新增：用于控制返回格式
 
     // 构建查询条件
     const where: any = {}
@@ -44,6 +43,33 @@ export async function GET(request: Request) {
       where.status = 'approved'
     }
 
+    // 如果是导出格式，不需要分页
+    if (format === 'export') {
+      const items = await prisma.glossary.findMany({
+        where,
+        orderBy: {
+          updatedAt: 'desc'
+        },
+        select: {
+          term: true,
+          aliases: true,
+          explanation: true
+        }
+      })
+
+      // 转换为导出格式
+      const formattedItems = items.map((item: { term: string; aliases: string | null; explanation: string }) => ({
+        "术语名称": item.term,
+        "别名": item.aliases || "",
+        "解释说明": item.explanation
+      }))
+
+      return NextResponse.json(formattedItems)
+    }
+
+    // 正常分页查询
+    const skip = (page - 1) * limit
+
     // 查询数据
     const [items, total] = await prisma.$transaction([
       prisma.glossary.findMany({
@@ -66,59 +92,6 @@ export async function GET(request: Request) {
         totalPages: Math.ceil(total / limit)
       }
     })
-  } catch (error) {
-    console.error('获取术语列表失败:', error)
-    return NextResponse.json(
-      { error: '获取术语列表失败' },
-      { status: 500 }
-    )
-  }
-}
-
-// 获取指定领域的已审核术语列表
-export async function GETApprovedOnly(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const domain = searchParams.get('domain')
-    const isApprovedOnly = searchParams.get('approvedOnly') === 'true'
-
-    // 构建查询条件
-    const where: any = {}
-    
-    // 如果指定了领域，添加模糊搜索条件
-    if (domain) {
-      where.domain = {
-        contains: domain,
-        mode: 'insensitive'
-      }
-    }
-
-    // 如果请求仅获取已审核的术语
-    if (isApprovedOnly) {
-      where.status = 'approved'
-    }
-
-    // 查询数据
-    const items = await prisma.glossary.findMany({
-      where,
-      orderBy: {
-        updatedAt: 'desc'
-      },
-      select: {
-        term: true,
-        aliases: true,
-        explanation: true
-      }
-    })
-
-    // 转换为指定的返回格式
-    const formattedItems = items.map((item: { term: string; aliases: string | null; explanation: string }) => ({
-      "术语名称": item.term,
-      "别名": item.aliases || "",
-      "解释说明": item.explanation
-    }))
-
-    return NextResponse.json(formattedItems)
   } catch (error) {
     console.error('获取术语列表失败:', error)
     return NextResponse.json(
@@ -197,7 +170,7 @@ export async function PUT(request: Request) {
     }
 
     // 使用事务处理批量导入
-    const results = await prisma.$transaction(async (tx) => {
+    const results = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const operations = terms.map(async term => {
         // 先查询现有记录
         const existing = await tx.glossary.findUnique({
@@ -255,12 +228,11 @@ export async function PUT(request: Request) {
         })
       })
 
-      const results = await Promise.all(operations)
-      return results
+      return await Promise.all(operations)
     })
 
     return NextResponse.json({
-      message: `成功导入 ${results.length} 个术语（包含更新）`,
+      message: `成功导入 ${results.length} 个术语`,
       results
     })
   } catch (error) {
