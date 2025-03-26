@@ -250,4 +250,54 @@ export async function POST(request: Request) {
       { status: 500 }
     )
   }
+}
+
+// 获取指定领域的已审核术语列表（最多200条）
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const domain = searchParams.get('domain')
+
+    // 构建查询条件
+    const where: any = {
+      status: 'approved' // 固定只查询已审核的术语
+    }
+    
+    // 如果指定了领域，添加模糊搜索条件
+    if (domain) {
+      where.domain = {
+        contains: domain,
+        mode: 'insensitive'
+      }
+    }
+
+    // 查询数据（限制200条）
+    const items = await prisma.glossary.findMany({
+      where,
+      orderBy: {
+        updatedAt: 'desc'
+      },
+      take: 200,
+      select: {
+        term: true,
+        aliases: true,
+        explanation: true
+      }
+    })
+
+    // 转换为指定的返回格式
+    const formattedItems = items.map((item: GlossaryItem) => ({
+      "术语名称": item.term,
+      "别名": item.aliases || "",
+      "解释说明": item.explanation
+    }))
+
+    return NextResponse.json(formattedItems)
+  } catch (error) {
+    console.error('获取术语列表失败:', error)
+    return NextResponse.json(
+      { error: '获取术语列表失败' },
+      { status: 500 }
+    )
+  }
 } 
