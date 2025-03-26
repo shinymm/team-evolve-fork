@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { generateGlossaryEmbedding } from '@/lib/services/embedding-service'
 import { z } from 'zod'
+import { Prisma } from '@prisma/client'
 
 // 获取术语列表
 export async function GET(request: Request) {
@@ -127,45 +128,86 @@ export async function POST(request: Request) {
 // 批量导入术语
 export async function PUT(request: Request) {
   try {
-    const body = await request.json()
-    
-    // 验证请求体
-    const schema = z.object({
-      terms: z.array(z.object({
-        term: z.string().min(1, "术语名称不能为空"),
-        aliases: z.string().optional(),
-        explanation: z.string().min(1, "术语解释不能为空"),
-        domain: z.string().optional(),
-        createdBy: z.string().optional(),
-      }))
-    })
-    
-    const { terms } = schema.parse(body)
-    
-    // 批量创建术语
-    const results = await prisma.$transaction(
-      terms.map(term => 
-        prisma.glossary.create({
-          data: {
-            term: term.term,
-            aliases: term.aliases || "",
-            explanation: term.explanation,
-            domain: term.domain || "qare",
-            status: "pending",
-            createdBy: term.createdBy || "43170448",
+    const { terms } = await request.json()
+
+    if (!Array.isArray(terms) || terms.length === 0) {
+      return NextResponse.json(
+        { error: '无效的术语数据' },
+        { status: 400 }
+      )
+    }
+
+    // 使用事务处理批量导入
+    const results = await prisma.$transaction(async (tx) => {
+      const operations = terms.map(async term => {
+        // 先查询现有记录
+        const existing = await tx.glossary.findUnique({
+          where: {
+            term_domain: {
+              term: term.term,
+              domain: term.domain
+            }
           }
         })
-      )
-    )
-    
+
+        // 如果存在记录，合并内容
+        const mergedExplanation = existing 
+          ? `${existing.explanation}\n\n新增内容：\n${term.explanation}`
+          : term.explanation
+
+        // 合并别名，处理可能为 null 的情况
+        let mergedAliases: string | null = null
+        if (existing?.aliases && term.aliases) {
+          mergedAliases = `${existing.aliases}\n${term.aliases}`
+        } else if (existing?.aliases) {
+          mergedAliases = existing.aliases
+        } else if (term.aliases) {
+          mergedAliases = term.aliases
+        }
+
+        // 构建更新数据
+        const updateData: any = {
+          explanation: mergedExplanation,
+          status: 'pending',
+          updatedAt: new Date(),
+          createdBy: term.createdBy,
+          aliases: mergedAliases
+        }
+
+        // 构建创建数据
+        const createData: any = {
+          term: term.term,
+          explanation: term.explanation,
+          domain: term.domain,
+          status: 'pending',
+          createdBy: term.createdBy,
+          aliases: term.aliases || null
+        }
+
+        return await tx.glossary.upsert({
+          where: {
+            term_domain: {
+              term: term.term,
+              domain: term.domain
+            }
+          },
+          update: updateData,
+          create: createData
+        })
+      })
+
+      const results = await Promise.all(operations)
+      return results
+    })
+
     return NextResponse.json({
-      message: `成功导入 ${results.length} 个术语`,
-      terms: results
+      message: `成功导入 ${results.length} 个术语（包含更新）`,
+      results
     })
   } catch (error) {
     console.error('批量导入术语失败:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : '批量导入失败' },
+      { error: '批量导入术语失败' },
       { status: 500 }
     )
   }
