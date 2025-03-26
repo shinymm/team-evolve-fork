@@ -13,6 +13,7 @@ export async function GET(request: Request) {
     const term = searchParams.get('term')
     const status = searchParams.get('status')
     const domain = searchParams.get('domain') // 获取领域过滤参数
+    const isApprovedOnly = searchParams.get('approvedOnly') === 'true'
 
     const skip = (page - 1) * limit
 
@@ -38,6 +39,11 @@ export async function GET(request: Request) {
       }
     }
 
+    // 如果请求仅获取已审核的术语
+    if (isApprovedOnly) {
+      where.status = 'approved'
+    }
+
     // 查询数据
     const [items, total] = await prisma.$transaction([
       prisma.glossary.findMany({
@@ -60,6 +66,59 @@ export async function GET(request: Request) {
         totalPages: Math.ceil(total / limit)
       }
     })
+  } catch (error) {
+    console.error('获取术语列表失败:', error)
+    return NextResponse.json(
+      { error: '获取术语列表失败' },
+      { status: 500 }
+    )
+  }
+}
+
+// 获取指定领域的已审核术语列表
+export async function GETApprovedOnly(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const domain = searchParams.get('domain')
+    const isApprovedOnly = searchParams.get('approvedOnly') === 'true'
+
+    // 构建查询条件
+    const where: any = {}
+    
+    // 如果指定了领域，添加模糊搜索条件
+    if (domain) {
+      where.domain = {
+        contains: domain,
+        mode: 'insensitive'
+      }
+    }
+
+    // 如果请求仅获取已审核的术语
+    if (isApprovedOnly) {
+      where.status = 'approved'
+    }
+
+    // 查询数据
+    const items = await prisma.glossary.findMany({
+      where,
+      orderBy: {
+        updatedAt: 'desc'
+      },
+      select: {
+        term: true,
+        aliases: true,
+        explanation: true
+      }
+    })
+
+    // 转换为指定的返回格式
+    const formattedItems = items.map((item: { term: string; aliases: string | null; explanation: string }) => ({
+      "术语名称": item.term,
+      "别名": item.aliases || "",
+      "解释说明": item.explanation
+    }))
+
+    return NextResponse.json(formattedItems)
   } catch (error) {
     console.error('获取术语列表失败:', error)
     return NextResponse.json(
