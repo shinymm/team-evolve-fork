@@ -26,7 +26,7 @@ const modelPresets = [
   },
   {
     name: '智谱AI',
-    baseURL: 'https://open.bigmodel.cn/api/paas/v3',
+    baseURL: 'https://open.bigmodel.cn/api/paas/v4',
     models: ['glm-4-long', 'glm-4-flash', 'glm-4-plus', 'GLM-Zero-Preview']
   },
   {
