@@ -34,11 +34,11 @@ export async function POST(request: Request) {
 
     if (!embeddingResponse.ok) {
       console.error('向量服务请求失败:', embeddingResponse.status, embeddingResponse.statusText)
-      const errorData = await embeddingResponse.json()
+      const errorData = await embeddingResponse.json() as { error?: { message: string } }
       throw new Error(errorData.error?.message || '生成向量失败')
     }
 
-    const embeddingData = await embeddingResponse.json()
+    const embeddingData = await embeddingResponse.json() as { data: { embedding: number[] }[] }
     if (!embeddingData.data?.[0]?.embedding) {
       throw new Error('向量服务返回的数据格式无效')
     }

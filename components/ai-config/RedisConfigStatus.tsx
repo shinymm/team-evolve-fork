@@ -40,7 +40,7 @@ export default function RedisConfigStatus() {
     '/api/ai-config/redis/default',
     fetcher,
     {
-      refreshInterval: 2000, // 每2秒自动刷新
+      refreshInterval: 600000, // 每10分钟自动刷新 (10 * 60 * 1000 ms)
       revalidateOnFocus: true, // 窗口获得焦点时重新验证
       dedupingInterval: 1000, // 1秒内的重复请求会被去重
     }
@@ -58,6 +58,22 @@ export default function RedisConfigStatus() {
         throw new Error('获取配置失败');
       }
       const configs = await response.json();
+      
+      // 如果数据库中没有配置，则清空Redis
+      if (!configs || configs.length === 0) {
+        const clearResponse = await fetch('/api/ai-config/redis', {
+          method: 'DELETE',
+        });
+        
+        if (!clearResponse.ok) {
+          throw new Error('清除Redis配置失败');
+        }
+        
+        // 强制重新获取数据
+        await mutate('/api/ai-config/redis/default');
+        toast.success('Redis配置已清空');
+        return;
+      }
       
       // 同步到Redis
       const syncResponse = await fetch('/api/ai-config/sync-redis', {

@@ -19,17 +19,11 @@ if (isServer) {
 
 const prisma = new PrismaClient()
 
-// 配置在本地存储中的键
-const AI_CONFIGS_KEY = 'ai-configs';
-
 /**
- * 从本地存储同步AI配置
+ * 从服务器同步AI配置到store
  * 优化：异步处理Redis同步，不阻塞UI
  */
 export const syncLocalStorage = async (): Promise<AIModelConfig[]> => {
-  // 先清除本地缓存
-  localStorage.removeItem(AI_CONFIGS_KEY);
-  
   try {
     // 从服务器获取最新配置
     const response = await fetch('/api/ai-config');
@@ -55,8 +49,15 @@ export const syncLocalStorage = async (): Promise<AIModelConfig[]> => {
     // 确保返回的是数组
     const configs = Array.isArray(data) ? data : [];
     
-    // 更新本地存储
-    localStorage.setItem(AI_CONFIGS_KEY, JSON.stringify(configs));
+    // 更新store
+    const store = useAIConfigStore.getState();
+    configs.forEach(config => {
+      if (store.configs.some(c => c.id === config.id)) {
+        store.updateConfig(config.id, config);
+      } else {
+        store.addConfig(config);
+      }
+    });
     
     // 触发Redis同步，但不等待完成
     syncRedisWithLocalStorage().catch((err: unknown) => 
@@ -65,20 +66,16 @@ export const syncLocalStorage = async (): Promise<AIModelConfig[]> => {
     
     return configs;
   } catch (error) {
-    console.error('同步本地存储失败:', error);
+    console.error('同步配置失败:', error);
     return [];
   }
 };
 
 /**
- * 从本地存储获取AI配置
+ * 从store获取AI配置
  */
 export const getAIConfigs = (): AIModelConfig[] => {
-  const configsJson = localStorage.getItem(AI_CONFIGS_KEY);
-  if (!configsJson) {
-    return [];
-  }
-  return JSON.parse(configsJson) as AIModelConfig[];
+  return useAIConfigStore.getState().configs;
 };
 
 /**
@@ -215,7 +212,7 @@ export const getConfigById = async (id: string): Promise<AIModelConfig | null> =
 
 /**
  * 添加新的AI配置
- * 优化：采用乐观更新策略，立即更新UI
+ * 优化：采用乐观更新策略，立即更新store
  */
 export const addAIConfig = async (config: Omit<AIModelConfig, 'id' | 'createdAt' | 'updatedAt'>): Promise<AIModelConfig> => {
   // 生成临时ID
@@ -229,17 +226,16 @@ export const addAIConfig = async (config: Omit<AIModelConfig, 'id' | 'createdAt'
     updatedAt: new Date().toISOString(),
   };
   
-  // 获取当前配置
-  const configs = getAIConfigs();
+  // 获取store
+  const store = useAIConfigStore.getState();
   
   // 如果是第一个配置，设置为默认
-  if (configs.length === 0) {
+  if (store.configs.length === 0) {
     newConfig.isDefault = true;
   }
   
-  // 乐观更新UI，立即在本地添加新配置
-  const updatedConfigs = [...configs, newConfig];
-  localStorage.setItem(AI_CONFIGS_KEY, JSON.stringify(updatedConfigs));
+  // 乐观更新store
+  store.addConfig(newConfig);
   
   try {
     // 发送请求到服务器
@@ -250,63 +246,29 @@ export const addAIConfig = async (config: Omit<AIModelConfig, 'id' | 'createdAt'
       },
       body: JSON.stringify(newConfig),
     });
-    
+
     if (!response.ok) {
-      // 尝试解析错误信息
-      let errorMessage = '添加配置失败';
-      try {
-        const errorData = await response.json();
-        if (errorData && errorData.error) {
-          errorMessage = errorData.error;
-        }
-      } catch (e) {
-        console.error('解析错误响应失败:', e);
-      }
-      throw new Error(errorMessage);
+      // 如果请求失败，回滚store更改
+      store.deleteConfig(tempId);
+      throw new Error('添加配置失败');
     }
+
+    const { config: savedConfig } = await response.json();
     
-    // 获取服务器返回的配置（包含正确的ID）
-    const data = await response.json();
-    console.log('服务器响应:', data);
-    
-    // 检查响应格式 - 应该包含success和config字段
-    if (!data || (typeof data.success !== 'boolean')) {
-      console.error('API响应格式错误:', data);
-      throw new Error('服务器返回的数据格式不正确');
-    }
-    
-    const savedConfig = data.config as AIModelConfig;
-    if (!savedConfig || !savedConfig.id) {
-      console.error('API响应中缺少配置数据:', data);
-      throw new Error('服务器返回的配置数据不完整');
-    }
-    
-    // 更新本地存储中的配置，替换临时ID
-    const finalConfigs = getAIConfigs().map(c => 
-      c.id === tempId ? savedConfig : c
-    );
-    localStorage.setItem(AI_CONFIGS_KEY, JSON.stringify(finalConfigs));
-    
-    // 触发Redis同步，但不等待完成
-    syncRedisWithLocalStorage().catch((err: unknown) => 
-      console.error('Redis同步失败:', err)
-    );
+    // 更新store中的配置
+    store.updateConfig(tempId, savedConfig);
     
     return savedConfig;
   } catch (error) {
-    console.error('添加配置失败:', error);
-    
-    // 回滚本地状态
-    const originalConfigs = getAIConfigs().filter(c => c.id !== tempId);
-    localStorage.setItem(AI_CONFIGS_KEY, JSON.stringify(originalConfigs));
-    
+    // 发生错误时回滚store更改
+    store.deleteConfig(tempId);
     throw error;
   }
 };
 
 /**
  * 更新AI配置
- * 优化：采用乐观更新策略，立即更新UI
+ * 优化：采用乐观更新策略，立即更新store
  */
 export const updateAIConfig = async (config: AIModelConfig): Promise<AIModelConfig> => {
   // 获取当前的配置列表
@@ -327,9 +289,9 @@ export const updateAIConfig = async (config: AIModelConfig): Promise<AIModelConf
     updatedAt: new Date().toISOString(),
   };
   
-  // 乐观更新UI，立即在本地更新配置
-  configs[configIndex] = updatedConfig;
-  localStorage.setItem(AI_CONFIGS_KEY, JSON.stringify(configs));
+  // 乐观更新store
+  const store = useAIConfigStore.getState();
+  store.updateConfig(config.id, updatedConfig);
   
   try {
     // 发送请求到服务器
@@ -342,17 +304,9 @@ export const updateAIConfig = async (config: AIModelConfig): Promise<AIModelConf
     });
     
     if (!response.ok) {
-      // 尝试解析错误信息
-      let errorMessage = '更新配置失败';
-      try {
-        const errorData = await response.json();
-        if (errorData && errorData.error) {
-          errorMessage = errorData.error;
-        }
-      } catch (e) {
-        console.error('解析错误响应失败:', e);
-      }
-      throw new Error(errorMessage);
+      // 如果请求失败，回滚store更改
+      store.updateConfig(config.id, originalConfig);
+      throw new Error('更新配置失败');
     }
     
     // 获取服务器返回的配置
@@ -388,19 +342,15 @@ export const updateAIConfig = async (config: AIModelConfig): Promise<AIModelConf
     
     return savedConfig;
   } catch (error) {
-    console.error('更新配置失败:', error);
-    
-    // 回滚本地状态
-    configs[configIndex] = originalConfig;
-    localStorage.setItem(AI_CONFIGS_KEY, JSON.stringify(configs));
-    
+    // 发生错误时回滚store更改
+    store.updateConfig(config.id, originalConfig);
     throw error;
   }
 };
 
 /**
  * 删除AI配置
- * 优化：采用乐观更新策略，立即更新UI
+ * 优化：采用乐观更新策略，立即更新store
  */
 export const deleteAIConfig = async (id: string): Promise<void> => {
   // 获取当前的配置列表
@@ -417,16 +367,9 @@ export const deleteAIConfig = async (id: string): Promise<void> => {
   const deletedConfig = configs[configIndex];
   const wasDefault = deletedConfig.isDefault;
   
-  // 乐观更新UI，立即从本地删除配置
-  const updatedConfigs = configs.filter(c => c.id !== id);
-  
-  // 如果删除的是默认配置，需要选择新的默认配置
-  if (wasDefault && updatedConfigs.length > 0) {
-    // 选择第一个配置作为新的默认配置
-    updatedConfigs[0].isDefault = true;
-  }
-  
-  localStorage.setItem(AI_CONFIGS_KEY, JSON.stringify(updatedConfigs));
+  // 乐观更新store
+  const store = useAIConfigStore.getState();
+  store.deleteConfig(id);
   
   try {
     // 发送请求到服务器
@@ -435,17 +378,9 @@ export const deleteAIConfig = async (id: string): Promise<void> => {
     });
     
     if (!response.ok) {
-      // 尝试解析错误信息
-      let errorMessage = '删除配置失败';
-      try {
-        const errorData = await response.json();
-        if (errorData && errorData.error) {
-          errorMessage = errorData.error;
-        }
-      } catch (e) {
-        console.error('解析错误响应失败:', e);
-      }
-      throw new Error(errorMessage);
+      // 如果请求失败，回滚store更改
+      store.addConfig(deletedConfig);
+      throw new Error('删除配置失败');
     }
     
     // 解析响应，确保成功
@@ -458,8 +393,9 @@ export const deleteAIConfig = async (id: string): Promise<void> => {
     }
     
     // 如果选择了新的默认配置，设置默认配置
-    if (wasDefault && updatedConfigs.length > 0) {
-      fetch(`/api/ai-config/${updatedConfigs[0].id}/default`, {
+    if (wasDefault && store.configs.length > 0) {
+      store.updateConfig(store.configs[0].id, store.configs[0]);
+      fetch(`/api/ai-config/${store.configs[0].id}/default`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -472,18 +408,15 @@ export const deleteAIConfig = async (id: string): Promise<void> => {
       console.error('Redis同步失败:', err)
     );
   } catch (error) {
-    console.error('删除配置失败:', error);
-    
-    // 回滚本地状态
-    localStorage.setItem(AI_CONFIGS_KEY, JSON.stringify(originalConfigs));
-    
+    // 发生错误时回滚store更改
+    store.addConfig(deletedConfig);
     throw error;
   }
 };
 
 /**
  * 设置默认的AI配置
- * 优化：采用乐观更新策略，立即更新UI
+ * 优化：采用乐观更新策略，立即更新store
  */
 export const setDefaultAIConfig = async (id: string): Promise<AIModelConfig> => {
   // 获取当前的配置列表
@@ -498,13 +431,17 @@ export const setDefaultAIConfig = async (id: string): Promise<AIModelConfig> => 
   // 备份配置列表用于回滚
   const originalConfigs = JSON.parse(JSON.stringify(configs)) as AIModelConfig[];
   
-  // 乐观更新UI，立即在本地更新默认配置
+  // 乐观更新store
+  const store = useAIConfigStore.getState();
   const updatedConfigs = configs.map(config => ({
     ...config,
     isDefault: config.id === id,
   }));
   
-  localStorage.setItem(AI_CONFIGS_KEY, JSON.stringify(updatedConfigs));
+  // 逐个更新配置
+  updatedConfigs.forEach(config => {
+    store.updateConfig(config.id, config);
+  });
   
   try {
     // 发送请求到服务器
@@ -516,17 +453,11 @@ export const setDefaultAIConfig = async (id: string): Promise<AIModelConfig> => 
     });
     
     if (!response.ok) {
-      // 尝试解析错误信息
-      let errorMessage = '设置默认配置失败';
-      try {
-        const errorData = await response.json();
-        if (errorData && errorData.error) {
-          errorMessage = errorData.error;
-        }
-      } catch (e) {
-        console.error('解析错误响应失败:', e);
-      }
-      throw new Error(errorMessage);
+      // 如果请求失败，回滚store更改
+      originalConfigs.forEach(config => {
+        store.updateConfig(config.id, config);
+      });
+      throw new Error('设置默认配置失败');
     }
     
     // 解析响应
@@ -552,11 +483,10 @@ export const setDefaultAIConfig = async (id: string): Promise<AIModelConfig> => 
     
     return savedConfig;
   } catch (error) {
-    console.error('设置默认配置失败:', error);
-    
-    // 回滚本地状态
-    localStorage.setItem(AI_CONFIGS_KEY, JSON.stringify(originalConfigs));
-    
+    // 发生错误时回滚store更改
+    originalConfigs.forEach(config => {
+      store.updateConfig(config.id, config);
+    });
     throw error;
   }
 };

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
-import { encrypt, decrypt } from '@/lib/utils/encryption-utils'
+import { encrypt } from '@/lib/utils/encryption-utils'
 
 const prisma = new PrismaClient()
 
@@ -9,15 +9,8 @@ export async function GET() {
   try {
     const configs = await prisma.vectorModelConfig.findMany()
     
-    // 解密API密钥
-    const decryptedConfigs = await Promise.all(
-      configs.map(async (config) => ({
-        ...config,
-        apiKey: await decrypt(config.apiKey)
-      }))
-    )
-    
-    return NextResponse.json(decryptedConfigs)
+    // 直接返回配置，保持API密钥加密状态
+    return NextResponse.json(configs)
   } catch (error) {
     console.error('获取向量配置失败:', error)
     return NextResponse.json(
@@ -32,8 +25,8 @@ export async function POST(request: Request) {
   try {
     const config = await request.json()
     
-    // 加密API密钥
-    const encryptedApiKey = await encrypt(config.apiKey)
+    // 检查API密钥是否已加密
+    const apiKey = config.apiKey.length > 100 ? config.apiKey : await encrypt(config.apiKey)
     
     // 如果是默认配置，先将其他配置设为非默认
     if (config.isDefault) {
@@ -50,18 +43,15 @@ export async function POST(request: Request) {
         name: config.name,
         model: config.model,
         baseURL: config.baseURL,
-        apiKey: encryptedApiKey,
+        apiKey: apiKey,
         dimension: config.dimension,
         isDefault: config.isDefault || false,
         provider: config.provider || null,
       }
     })
     
-    // 返回解密后的配置
-    return NextResponse.json({
-      ...savedConfig,
-      apiKey: config.apiKey // 返回原始未加密的apiKey
-    })
+    // 返回配置，保持API密钥加密状态
+    return NextResponse.json(savedConfig)
   } catch (error) {
     console.error('添加向量配置失败:', error)
     return NextResponse.json(
@@ -89,14 +79,21 @@ export async function DELETE(request: Request) {
       where: { id }
     })
     
-    // 删除配置
-    await prisma.vectorModelConfig.delete({
-      where: { id }
-    })
+    if (!configToDelete) {
+      return NextResponse.json(
+        { error: '配置不存在' },
+        { status: 404 }
+      )
+    }
     
-    // 如果删除的是默认配置，设置最新的配置为默认
-    if (configToDelete?.isDefault) {
+    const wasDefault = configToDelete.isDefault
+    
+    // 如果是默认配置，先找到新的默认配置
+    if (wasDefault) {
       const newDefault = await prisma.vectorModelConfig.findFirst({
+        where: { 
+          id: { not: id }
+        },
         orderBy: { createdAt: 'desc' }
       })
       
@@ -108,6 +105,12 @@ export async function DELETE(request: Request) {
       }
     }
     
+    // 删除配置
+    await prisma.vectorModelConfig.delete({
+      where: { id }
+    })
+    
+    console.log(`向量配置已删除 (ID: ${id}), 是否为默认配置: ${wasDefault}`)
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('删除向量配置失败:', error)

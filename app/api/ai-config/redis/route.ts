@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAllConfigsFromRedis } from '@/lib/utils/ai-config-redis';
-import { decrypt } from '@/lib/utils/encryption-utils';
+import { getAllConfigsFromRedis, clearRedisConfigs } from '@/lib/utils/ai-config-redis';
 
 /**
  * 从Redis获取所有AI模型配置的API
@@ -18,20 +17,29 @@ export async function GET() {
       );
     }
     
-    // 解密所有配置的API密钥
-    const configsWithDecryptedKeys = await Promise.all(
-      configs.map(async (config) => ({
-        ...config,
-        apiKey: await decrypt(config.apiKey)
-      }))
-    );
-    
-    return NextResponse.json(configsWithDecryptedKeys);
+    // 直接返回配置，保持API密钥的加密状态
+    return NextResponse.json(configs);
   } catch (error) {
     console.error('从Redis获取所有配置时出错:', error);
     
     return NextResponse.json(
       { error: '获取配置失败', details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * 清除Redis中的所有AI模型配置
+ */
+export async function DELETE() {
+  try {
+    await clearRedisConfigs();
+    return NextResponse.json({ message: 'Redis配置已清空' });
+  } catch (error) {
+    console.error('清除Redis配置时出错:', error);
+    return NextResponse.json(
+      { error: '清除配置失败', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

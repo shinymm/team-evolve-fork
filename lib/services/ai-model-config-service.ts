@@ -210,24 +210,37 @@ export const aiModelConfigService = {
         where: { id }
       });
 
-      // 删除配置
-      await prisma.aIModelConfig.delete({
-        where: { id }
-      });
+      if (!config) {
+        console.log('要删除的配置不存在:', id);
+        return;
+      }
 
-      // 如果删除的是默认配置，需要设置新的默认配置
-      if (config?.isDefault) {
+      const wasDefault = config.isDefault;
+
+      // 如果是默认配置，先找到新的默认配置
+      if (wasDefault) {
         const remainingConfig = await prisma.aIModelConfig.findFirst({
+          where: { 
+            id: { not: id }
+          },
           orderBy: { createdAt: 'asc' }
         });
 
         if (remainingConfig) {
+          // 先设置新的默认配置
           await prisma.aIModelConfig.update({
             where: { id: remainingConfig.id },
             data: { isDefault: true }
           });
         }
       }
+
+      // 删除配置
+      await prisma.aIModelConfig.delete({
+        where: { id }
+      });
+
+      console.log(`配置已删除 (ID: ${id}), 是否为默认配置: ${wasDefault}`);
     } catch (error) {
       console.error('删除配置失败:', error);
       throw error;

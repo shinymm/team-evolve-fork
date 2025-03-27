@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
-import { decrypt } from '@/lib/utils/encryption-utils'
 
 const prisma = new PrismaClient()
 
@@ -15,11 +14,8 @@ export async function GET() {
       return NextResponse.json(null)
     }
     
-    // 解密API密钥
-    return NextResponse.json({
-      ...config,
-      apiKey: await decrypt(config.apiKey)
-    })
+    // 直接返回配置，保持API密钥加密状态
+    return NextResponse.json(config)
   } catch (error) {
     console.error('获取默认向量配置失败:', error)
     return NextResponse.json(
@@ -54,11 +50,8 @@ export async function PUT(request: Request) {
       data: { isDefault: true }
     })
     
-    // 返回解密后的配置
-    return NextResponse.json({
-      ...updatedConfig,
-      apiKey: await decrypt(updatedConfig.apiKey)
-    })
+    // 直接返回配置，保持API密钥加密状态
+    return NextResponse.json(updatedConfig)
   } catch (error) {
     console.error('设置默认向量配置失败:', error)
     return NextResponse.json(

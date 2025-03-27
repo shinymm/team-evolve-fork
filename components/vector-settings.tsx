@@ -140,12 +140,12 @@ export default function VectorSettings() {
     
     try {
       // 添加到数据库
-      await addVectorConfig(configToAdd)
+      const savedConfig = await addVectorConfig(configToAdd)
       
-      // 如果是默认配置，更新store
+      // 如果是默认配置，更新store（使用返回的加密配置）
       if (isDefault) {
-        await setVectorConfig(configToAdd)
-        setDefaultConfig(configToAdd)
+        await setVectorConfig(savedConfig)
+        setDefaultConfig(savedConfig)
       }
       
       // 重新加载配置列表

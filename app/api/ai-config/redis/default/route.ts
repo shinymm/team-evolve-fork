@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { getDefaultConfigFromRedis } from '@/lib/utils/ai-config-redis';
-import { decrypt } from '@/lib/utils/encryption-utils';
 
 // 确保路由是动态的
 export const dynamic = 'force-dynamic';
@@ -31,24 +30,9 @@ export async function GET() {
       );
     }
     
-    // 解密API密钥
-    let decryptedConfig;
-    try {
-      decryptedConfig = {
-        ...config,
-        apiKey: await decrypt(config.apiKey)
-      };
-    } catch (decryptError) {
-      console.error('解密API密钥失败:', decryptError);
-      // 返回配置但不包含API密钥
-      decryptedConfig = {
-        ...config,
-        apiKey: '******' // 保护API密钥
-      };
-    }
-    
+    // 直接返回配置，保持API密钥的加密状态
     return new NextResponse(
-      JSON.stringify(decryptedConfig),
+      JSON.stringify(config),
       { 
         status: 200,
         headers: {

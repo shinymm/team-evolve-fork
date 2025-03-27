@@ -67,8 +67,6 @@ export function AIModelSettings() {
   const loadConfigs = useCallback(async () => {
     try {
       setIsLoading(true)
-      // 先同步本地存储
-      await syncLocalStorage()
       const loadedConfigs = await getAllAIConfigs()
       // 按照名称排序
       const sortedConfigs = [...loadedConfigs].sort((a, b) => 
@@ -88,31 +86,7 @@ export function AIModelSettings() {
 
   // 初始加载
   useEffect(() => {
-    // 每次加载都强制同步
-    const forceSync = async () => {
-      try {
-        // 清除localStorage
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('ai-model-configs');
-          console.log('已强制清除localStorage中的AI配置缓存');
-        }
-        
-        setIsLoading(true);
-        await syncLocalStorage();
-        await loadConfigs();
-      } catch (error) {
-        console.error('初始化同步失败:', error);
-        toast({
-          title: '初始化失败',
-          description: '无法同步AI模型配置，请检查网络连接',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    forceSync();
+    loadConfigs();
   }, [loadConfigs])
 
   // 处理预设选择

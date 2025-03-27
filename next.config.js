@@ -30,6 +30,15 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['ioredis'],
   },
+  // 添加字体加载配置
+  onDemandEntries: {
+    // 页面保持在内存中的时间
+    maxInactiveAge: 60 * 1000,
+    // 同时保持在内存中的页面数
+    pagesBufferLength: 5,
+  },
+  // 增加资源请求的超时时间
+  staticPageGenerationTimeout: 120,
   async redirects() {
     return [
       {

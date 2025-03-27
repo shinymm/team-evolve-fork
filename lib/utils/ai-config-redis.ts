@@ -342,4 +342,29 @@ export async function syncConfigsFromRedis(): Promise<AIModelConfig[]> {
     console.error('同步配置失败:', error);
     return [];
   }
+}
+
+/**
+ * 清除Redis中的所有AI模型配置
+ */
+export async function clearRedisConfigs(): Promise<void> {
+  try {
+    const redis = getRedis();
+    
+    // 获取所有AI配置相关的键
+    const keys = await redis.keys(`${AI_CONFIG_PREFIX}*`);
+    keys.push(DEFAULT_CONFIG_KEY); // 添加默认配置键
+    
+    if (keys.length > 0) {
+      // 使用pipeline批量删除所有键
+      const pipeline = redis.pipeline();
+      keys.forEach(key => pipeline.del(key));
+      await pipeline.exec();
+    }
+    
+    console.log('已清除Redis中的所有AI配置');
+  } catch (error) {
+    console.error('清除Redis配置失败:', error);
+    throw error; // 抛出异常以便调用方处理
+  }
 } 
