@@ -5,6 +5,8 @@ const longCang = Long_Cang({
   weight: '400',
   subsets: ['latin'],
   display: 'swap',
+  preload: false,  // 禁用预加载
+  adjustFontFallback: false  // 禁用字体回退调整
 })
 
 export function SiteHeader() {
@@ -21,7 +23,7 @@ export function SiteHeader() {
             </span>
           </Link>
         </div>
-        <div className={`${longCang.className} hidden md:flex flex-1 justify-center`}>
+        <div className="hidden md:flex flex-1 justify-center">
           <span className="text-base text-gray-300 hover:text-orange-400 transition-colors duration-200">
             知识驱动能力破界，AI召唤协作灵感
           </span>

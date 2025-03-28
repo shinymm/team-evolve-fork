@@ -27,6 +27,32 @@ export default function RequirementBook() {
   const [editedBook, setEditedBook] = useState('')
   const { toast } = useToast()
   const router = useRouter()
+  
+  // 添加 AI 配置缓存
+  const [cachedAIConfig, setCachedAIConfig] = useState<any>(null)
+  
+  // 添加内容格式化函数
+  const normalizeMarkdownContent = (content: string): string => {
+    if (!content) return '';
+    
+    // 移除多余的空行
+    content = content.replace(/\n{3,}/g, '\n\n');
+    
+    // 确保列表项后有换行
+    content = content.replace(/^[*-]\s.*$/gm, match => `${match}\n`);
+    
+    // 确保标题后有换行
+    content = content.replace(/^#{1,6}\s.*$/gm, match => `${match}\n`);
+    
+    // 处理代码块
+    if (content.includes('```')) {
+      // 如果是代码块，保持原样
+      return content;
+    }
+    
+    // 处理普通文本
+    return content.trim();
+  };
 
   // 页面加载时检查前置任务状态并获取数据
   useEffect(() => {
@@ -51,35 +77,45 @@ export default function RequirementBook() {
     checkPreviousTaskAndLoadData()
   }, [])
 
-  // 自动生成的处理函数，与handleSubmit类似但接受内容参数
-  const handleAutoGenerate = async (content: string) => {
+  // 修改 handleSubmit 函数
+  const handleSubmit = async () => {
+    // 立即设置 loading 状态
+    setIsGenerating(true)
+    
     try {
-      const aiConfig = await getDefaultAIConfig()
-      if (!aiConfig) {
-        toast({
-          title: "配置错误",
-          description: "请先配置AI模型参数",
-          variant: "destructive",
-          duration: 3000
-        })
-        return
+      if (!originalRequirement.trim()) {
+        throw new Error('需求内容不能为空')
       }
 
-      setIsGenerating(true)
-      setRequirementBook('')
+      // 获取AI配置
+      const aiConfig = await getDefaultAIConfig()
+      if (!aiConfig) {
+        throw new Error('未找到可用的AI模型配置，请先在设置中配置AI模型')
+      }
+      setCachedAIConfig(aiConfig)
 
-      const prompt = requirementBookPrompt(content)
+      setRequirementBook('')
+      console.log('开始生成需求书...')
+
+      const prompt = requirementBookPrompt(originalRequirement)
+      let accumulatedContent = ''
+      
       await streamingAICall(
         prompt,
         aiConfig,
         (content) => {
-          setRequirementBook(prev => prev + content)
+          console.log('收到流式内容片段:', content)
+          accumulatedContent += content
+          setRequirementBook(accumulatedContent)
         },
         (error: string) => {
           throw new Error(`需求书衍化失败: ${error}`)
         }
       )
+      
+      console.log('需求书生成完成，最终内容:', accumulatedContent)
     } catch (error) {
+      console.error('生成失败:', error)
       toast({
         title: "生成失败",
         description: error instanceof Error ? error.message : "请稍后重试",
@@ -91,44 +127,46 @@ export default function RequirementBook() {
     }
   }
 
-  const handleSubmit = async () => {
-    if (!originalRequirement.trim()) {
-      toast({
-        title: "请输入原始需求分析结果",
-        description: "需求内容不能为空",
-        variant: "destructive",
-        duration: 3000
-      })
-      return
-    }
-
+  // 修改 handleAutoGenerate 函数
+  const handleAutoGenerate = async (content: string) => {
+    // 立即设置 loading 状态
+    setIsGenerating(true)
+    
     try {
-      const aiConfig = await getDefaultAIConfig()
+      // 使用缓存的配置或重新获取
+      let aiConfig = cachedAIConfig
       if (!aiConfig) {
-        toast({
-          title: "配置错误",
-          description: "请先配置AI模型参数",
-          variant: "destructive",
-          duration: 3000
-        })
-        return
+        console.log('使用缓存的 AI 配置失败，正在重新获取...')
+        aiConfig = await getDefaultAIConfig()
+        if (!aiConfig) {
+          throw new Error('AI 模型参数配置失败')
+        }
+        setCachedAIConfig(aiConfig)
       }
 
-      setIsGenerating(true)
       setRequirementBook('')
+      console.log('开始生成需求书...')
 
-      const prompt = requirementBookPrompt(originalRequirement)
+      const prompt = requirementBookPrompt(content)
+      let accumulatedContent = ''
+      
       await streamingAICall(
         prompt,
         aiConfig,
         (content) => {
-          setRequirementBook(prev => prev + content)
+          console.log('收到流式内容片段:', content)
+          const normalizedContent = normalizeMarkdownContent(content)
+          accumulatedContent += normalizedContent
+          setRequirementBook(accumulatedContent)
         },
         (error: string) => {
           throw new Error(`需求书衍化失败: ${error}`)
         }
       )
+      
+      console.log('需求书生成完成，最终内容:', accumulatedContent)
     } catch (error) {
+      console.error('生成失败:', error)
       toast({
         title: "生成失败",
         description: error instanceof Error ? error.message : "请稍后重试",
@@ -313,20 +351,22 @@ export default function RequirementBook() {
               onChange={(e) => setOriginalRequirement(e.target.value)}
               disabled={isGenerating}
             />
-            <Button 
-              onClick={handleSubmit} 
-              className="w-full bg-orange-500 hover:bg-orange-600"
-              disabled={isGenerating}
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  正在生成...
-                </>
-              ) : (
-                '需求书衍化'
-              )}
-            </Button>
+            <div className="relative">
+              <Button 
+                onClick={handleSubmit} 
+                className="w-full bg-orange-500 hover:bg-orange-600"
+                disabled={isGenerating}
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    正在生成...
+                  </>
+                ) : (
+                  '需求书衍化'
+                )}
+              </Button>
+            </div>
 
             {requirementBook && (
               <div className="space-y-4">

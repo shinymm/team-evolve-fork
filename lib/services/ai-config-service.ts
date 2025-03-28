@@ -499,7 +499,23 @@ export async function getDefaultAIConfig(): Promise<AIModelConfig | null> {
   try {
     console.log('获取默认 AI 配置')
     
-    // 通过API获取
+    // 1. 先尝试从Redis获取
+    if (isServer && redisUtils) {
+      console.log('尝试从Redis获取默认配置...')
+      const defaultId = await redisUtils.getDefaultConfigIdFromRedis()
+      
+      if (defaultId) {
+        console.log('在Redis中找到默认配置ID:', defaultId)
+        const config = await redisUtils.getConfigFromRedis(defaultId)
+        if (config) {
+          console.log('成功从Redis获取默认配置')
+          return config
+        }
+      }
+      console.log('Redis中未找到默认配置,尝试从数据库获取')
+    }
+
+    // 2. Redis没有,从数据库获取
     const response = await fetch('/api/ai-config/default')
     
     if (!response.ok) {
@@ -508,11 +524,23 @@ export async function getDefaultAIConfig(): Promise<AIModelConfig | null> {
 
     const config = await response.json()
     if (!config) {
-      console.log('未找到默认配置')
+      console.log('数据库中未找到默认配置')
       return null
     }
     
-    console.log('成功获取默认配置')
+    // 3. 如果从数据库获取成功,同步到Redis
+    if (isServer && redisUtils && config) {
+      console.log('同步默认配置到Redis...')
+      try {
+        await redisUtils.saveConfigToRedis(config)
+        await redisUtils.setDefaultConfigInRedis(config.id)
+        console.log('成功同步默认配置到Redis')
+      } catch (redisError) {
+        console.error('同步到Redis失败:', redisError)
+        // 同步失败不影响返回结果
+      }
+    }
+    
     return config
   } catch (error) {
     console.error('获取默认配置时出错:', error)
