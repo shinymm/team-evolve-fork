@@ -12,8 +12,14 @@ interface RequirementAnalysisState {
   // 需求书内容
   requirementBook: string | null
   
-  // 是否已固定
+  // 固定的需求书内容
+  pinnedRequirementBook: string | null
+  
+  // 是否已固定分析结果
   isPinned: boolean
+  
+  // 是否已固定需求书
+  isRequirementBookPinned: boolean
   
   // 操作方法
   setRequirement: (requirement: string) => void
@@ -24,9 +30,15 @@ interface RequirementAnalysisState {
   // 需求书相关方法
   setRequirementBook: (book: string) => void
   clearRequirementBook: () => void
+  pinRequirementBook: (book: string) => void
+  unpinRequirementBook: () => void
+  clearPinnedRequirementBook: () => void
   
   // 获取当前活跃的分析结果
   getActiveAnalysis: () => string | null
+  
+  // 获取当前活跃的需求书
+  getActiveRequirementBook: () => string | null
 }
 
 // 创建Store
@@ -37,7 +49,9 @@ export const useRequirementAnalysisStore = create<RequirementAnalysisState>()(
       requirement: '',
       pinnedAnalysis: null,
       requirementBook: null,
+      pinnedRequirementBook: null,
       isPinned: false,
+      isRequirementBookPinned: false,
       
       // 设置需求
       setRequirement: (requirement) => {
@@ -52,7 +66,7 @@ export const useRequirementAnalysisStore = create<RequirementAnalysisState>()(
         })
       },
       
-      // 取消固定
+      // 取消固定分析结果
       unpinAnalysis: () => {
         set({ isPinned: false })
       },
@@ -75,10 +89,37 @@ export const useRequirementAnalysisStore = create<RequirementAnalysisState>()(
         set({ requirementBook: null })
       },
       
+      // 固定需求书内容
+      pinRequirementBook: (book) => {
+        set({
+          pinnedRequirementBook: book,
+          isRequirementBookPinned: true
+        })
+      },
+      
+      // 取消固定需求书
+      unpinRequirementBook: () => {
+        set({ isRequirementBookPinned: false })
+      },
+      
+      // 清除固定的需求书
+      clearPinnedRequirementBook: () => {
+        set({
+          pinnedRequirementBook: null,
+          isRequirementBookPinned: false
+        })
+      },
+      
       // 获取当前活跃的分析结果
       getActiveAnalysis: () => {
         const { pinnedAnalysis, isPinned } = get()
         return isPinned ? pinnedAnalysis : null
+      },
+      
+      // 获取当前活跃的需求书
+      getActiveRequirementBook: () => {
+        const { pinnedRequirementBook, isRequirementBookPinned } = get()
+        return isRequirementBookPinned ? pinnedRequirementBook : null
       }
     }),
     {
