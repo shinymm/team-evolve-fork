@@ -54,6 +54,7 @@ export default function PromptDebugPage() {
   const [availableModels, setAvailableModels] = useState<AIModel[]>([])
   const [selectedModels, setSelectedModels] = useState<string[]>([])
   const [outputs, setOutputs] = useState<ModelOutput[]>([])
+  const [outputHeights, setOutputHeights] = useState<Record<string, number>>({})
   const [savedTests, setSavedTests] = useState<PromptTest[]>([])
   const [isLoadDialogOpen, setIsLoadDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -713,7 +714,21 @@ export default function PromptDebugPage() {
                         )}
                       </div>
                     </h3>
-                    <ScrollArea className="h-[calc((100vh-20rem)/3)] w-full rounded-md border p-3">
+                    <ScrollArea 
+                      className={`w-full rounded-md border p-3 resize-y overflow-hidden`}
+                      style={{
+                        height: outputHeights[output.modelId] || 'calc((100vh - 20rem)/3)',
+                        minHeight: '150px',
+                        maxHeight: 'calc(100vh - 10rem)'
+                      }}
+                      onMouseUp={(e) => {
+                        const element = e.currentTarget as HTMLElement;
+                        setOutputHeights(prev => ({
+                          ...prev,
+                          [output.modelId]: element.clientHeight
+                        }));
+                      }}
+                    >
                       {output.loading ? (
                         <div className="flex items-center justify-center h-full">
                           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>

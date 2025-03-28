@@ -2,6 +2,7 @@ import OpenAI from 'openai'
 import fetch from 'node-fetch'
 import { useVectorConfigStore } from '../stores/vector-config-store'
 import { getAllVectorConfigs } from './vector-config-service'
+import { decrypt } from '@/lib/utils/encryption-utils'
 
 // 向量模型配置类型
 export type VectorModelConfig = {
@@ -113,8 +114,18 @@ export async function getEmbedding(text: string, config?: VectorModelConfig): Pr
       throw new Error('必须提供向量模型配置')
     }
 
-    const { baseURL, apiKey, model } = config
+    const { baseURL, apiKey: encryptedApiKey, model } = config
     console.log('使用配置:', { baseURL, model })
+    
+    // 尝试解密API Key
+    let apiKey = encryptedApiKey
+    if (encryptedApiKey.length > 100) {
+      console.log('检测到加密的API Key，尝试解密')
+      apiKey = await decrypt(encryptedApiKey)
+      if (!apiKey) {
+        throw new Error('无法解密API Key')
+      }
+    }
     
     // 提取域名以识别不同服务商
     const domain = new URL(baseURL).hostname

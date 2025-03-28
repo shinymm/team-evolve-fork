@@ -251,7 +251,7 @@ export default function VectorSettings() {
     setTestingId(config.id)
     
     try {
-      const response = await fetch('/api/glossary/test-embedding', {
+      const response = await fetch('/api/vector-config/test', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
