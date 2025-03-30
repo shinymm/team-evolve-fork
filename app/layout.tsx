@@ -10,12 +10,13 @@ import { ToastProvider } from "@/components/providers/toast-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { SiteHeader } from "@/components/site-header"
 import { AiTeamSidebar } from "@/components/ai-team-sidebar"
+import { Providers } from './providers'
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "AI異界",
-  description: "Knowledge Base Management System",
+  title: "QARE TeamAI",
+  description: "AI驱动的需求分析和测试用例生成平台",
 }
 
 export default function RootLayout({
@@ -24,22 +25,24 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="zh-CN">
+    <html lang="zh">
       <body className={inter.className}>
-        <TooltipProvider>
-          <div className="relative flex min-h-screen flex-col">
-            <SiteHeader />
-            <div className="flex-1 flex">
-              <Sidebar />
-              <main className="flex-1 p-6">
-                {children}
-              </main>
-              <AiTeamSidebar />
+        <Providers>
+          <TooltipProvider>
+            <div className="relative flex min-h-screen flex-col">
+              <SiteHeader />
+              <div className="flex-1 flex">
+                <Sidebar />
+                <main className="flex-1 p-6">
+                  {children}
+                </main>
+                <AiTeamSidebar />
+              </div>
             </div>
-          </div>
-          <Toaster />
-          <ToastProvider />
-        </TooltipProvider>
+            <Toaster />
+            <ToastProvider />
+          </TooltipProvider>
+        </Providers>
       </body>
     </html>
   )

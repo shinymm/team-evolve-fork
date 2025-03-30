@@ -30,13 +30,23 @@ model VectorModelConfig {
   createdAt   DateTime @default(now())
 }
 
+// 用户角色枚举
+enum UserRole {
+  USER
+  ADMIN
+}
+
 // 用户模型
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
-  name      String?
+  name      String
+  password  String   @db.VarChar(255)
+  role      UserRole @default(USER)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([email])
 }
 
 // 术语表模型

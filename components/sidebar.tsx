@@ -4,6 +4,11 @@ import { ChevronDown, Settings, Database, Microscope, ListChecks, BookOpenIcon, 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
+import { useSession } from 'next-auth/react'
+import { getPathPermission } from '@/config/permissions'
+import { toast } from '@/components/ui/use-toast'
+
+type UserRole = 'USER' | 'ADMIN'
 
 interface MenuItem {
   title: string
@@ -79,6 +84,7 @@ const settingsMenu: MenuItem = {
 export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const { data: session } = useSession()
   const [openMenus, setOpenMenus] = useState<string[]>(mainMenuItems.map(item => item.title))
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [navigating, setNavigating] = useState<string | null>(null)
@@ -102,7 +108,26 @@ export function Sidebar() {
     )
   }
 
+  const canAccessPath = (path: string) => {
+    const permission = getPathPermission(path)
+    if (!permission) return true
+    if (!permission.requiresAuth) return true
+    if (!session?.user) return false
+    if (!permission.allowedRoles) return true
+    const userRole = session.user.role as UserRole
+    return permission.allowedRoles.includes(userRole)
+  }
+
   const handleNavigate = (href: string) => {
+    if (!canAccessPath(href)) {
+      toast({
+        title: "访问受限",
+        description: "您需要登录或没有权限访问此功能",
+        variant: "destructive"
+      })
+      return
+    }
+
     if (href !== pathname) {
       setNavigating(href)
       router.push(href)
@@ -113,91 +138,66 @@ export function Sidebar() {
     setNavigating(null)
   }, [pathname])
 
+  const renderMenuItem = (item: MenuItem) => {
+    if (!item.submenu) return null
+
+    // 检查是否有任何可访问的子菜单
+    const hasAccessibleSubmenu = item.submenu.some(sub => canAccessPath(sub.href))
+    if (!hasAccessibleSubmenu) return null
+
+    return (
+      <div key={item.title} className="mb-0.5">
+        <div
+          className="w-full flex items-center justify-between px-2 py-1.5 text-xs text-gray-600 font-medium bg-gray-100/80 rounded-md cursor-default select-none"
+        >
+          <div className="flex items-center gap-1.5">
+            {item.icon}
+            <span>{item.title}</span>
+          </div>
+          <ChevronDown
+            className={`h-3 w-3 transition-transform text-gray-400 ${
+              openMenus.includes(item.title) ? "transform rotate-180" : ""
+            }`}
+            onClick={() => toggleMenu(item.title)}
+          />
+        </div>
+        {openMenus.includes(item.title) && (
+          <div className="mt-0.5 space-y-0">
+            {item.submenu.map((subitem) => {
+              const isAccessible = canAccessPath(subitem.href)
+              return (
+                <button
+                  key={subitem.href}
+                  onClick={() => handleNavigate(subitem.href)}
+                  className={`w-full text-left pl-7 pr-2 py-1 rounded-md text-xs 
+                    ${!isAccessible ? 'opacity-50 cursor-not-allowed' : 'hover:bg-orange-50 hover:text-orange-700'}
+                    ${pathname === subitem.href ? "bg-orange-50 text-orange-700 font-medium" : "text-gray-700"}
+                    ${navigating === subitem.href ? "opacity-70" : ""}`}
+                  disabled={navigating === subitem.href || !isAccessible}
+                >
+                  {subitem.title}
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="w-48 border-r bg-gray-50/50 h-[calc(100vh-3.5rem)] sticky top-14 flex flex-col">
       {/* 主菜单区域 */}
       <div className="flex-1 overflow-y-auto">
         <nav className="p-1 space-y-1.5">
-          {mainMenuItems.map((item) => (
-            <div key={item.title} className="mb-0.5">
-              <div
-                className="w-full flex items-center justify-between px-2 py-1.5 text-xs text-gray-600 font-medium bg-gray-100/80 rounded-md cursor-default select-none"
-              >
-                <div className="flex items-center gap-1.5">
-                  {item.icon}
-                  <span>{item.title}</span>
-                </div>
-                <ChevronDown
-                  className={`h-3 w-3 transition-transform text-gray-400 ${
-                    openMenus.includes(item.title) ? "transform rotate-180" : ""
-                  }`}
-                  onClick={() => toggleMenu(item.title)}
-                />
-              </div>
-              {openMenus.includes(item.title) && item.submenu && (
-                <div className="mt-0.5 space-y-0">
-                  {item.submenu.map((subitem) => (
-                    <button
-                      key={subitem.href}
-                      onClick={() => handleNavigate(subitem.href)}
-                      className={`w-full text-left pl-7 pr-2 py-1 rounded-md text-xs 
-                        hover:bg-orange-50 hover:text-orange-700 transition-colors
-                        ${pathname === subitem.href 
-                          ? "bg-orange-50 text-orange-700 font-medium" 
-                          : "text-gray-700"
-                        }
-                        ${navigating === subitem.href ? "opacity-70" : ""}`}
-                      disabled={navigating === subitem.href}
-                    >
-                      {subitem.title}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+          {mainMenuItems.map(renderMenuItem)}
         </nav>
       </div>
 
       {/* 设置菜单区域 - 固定在底部 */}
       <div className="border-t">
         <div className="p-0.5">
-          <div className="mb-0.5">
-            <div
-              className="w-full flex items-center justify-between px-2 py-1.5 text-xs text-gray-600 font-medium bg-gray-100/80 rounded-md cursor-default select-none"
-              onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-            >
-              <div className="flex items-center gap-1.5">
-                {settingsMenu.icon}
-                <span>{settingsMenu.title}</span>
-              </div>
-              <ChevronDown
-                className={`h-3 w-3 transition-transform text-gray-400 ${
-                  isSettingsOpen ? "transform rotate-180" : ""
-                }`}
-              />
-            </div>
-            {isSettingsOpen && settingsMenu.submenu && (
-                <div className="mt-0.5 space-y-0">
-                  {settingsMenu.submenu.map((subitem) => (
-                    <button
-                      key={subitem.href}
-                      onClick={() => handleNavigate(subitem.href)}
-                      className={`w-full text-left pl-7 pr-2 py-1 rounded-md text-xs 
-                        hover:bg-orange-50 hover:text-orange-700 transition-colors
-                        ${pathname === subitem.href 
-                          ? "bg-orange-50 text-orange-700 font-medium" 
-                          : "text-gray-700"
-                        }
-                        ${navigating === subitem.href ? "opacity-70" : ""}`}
-                      disabled={navigating === subitem.href}
-                    >
-                      {subitem.title}
-                    </button>
-                  ))}
-                </div>
-              )}
-          </div>
+          {renderMenuItem(settingsMenu)}
         </div>
       </div>
     </div>
