@@ -21,14 +21,22 @@ const nextConfig = {
       });
     }
     
+    config.externals.push({
+      'utf-8-validate': 'commonjs utf-8-validate',
+      'bufferutil': 'commonjs bufferutil',
+    })
+    
     return config;
   },
   env: {
     // 确保环境变量可用
     REDIS_URL: process.env.REDIS_URL,
+    NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
   },
   experimental: {
     serverComponentsExternalPackages: ['ioredis'],
+    serverActions: true,
   },
   // 添加字体加载配置
   onDemandEntries: {

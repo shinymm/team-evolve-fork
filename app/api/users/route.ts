@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { encrypt } from '@/lib/utils/encryption-utils'
 
 // 获取所有用户
 export async function GET() {
@@ -18,11 +19,11 @@ export async function GET() {
 // 创建新用户
 export async function POST(request: Request) {
   try {
-    const { email, name } = await request.json()
+    const { email, name, password } = await request.json()
     
-    if (!email) {
+    if (!email || !password) {
       return NextResponse.json(
-        { error: '邮箱是必填项' },
+        { error: '邮箱和密码是必填项' },
         { status: 400 }
       )
     }
@@ -37,11 +38,15 @@ export async function POST(request: Request) {
         { status: 409 }
       )
     }
+
+    const encryptedPassword = await encrypt(password);
     
     const newUser = await prisma.user.create({
       data: {
         email,
-        name
+        name,
+        password: encryptedPassword,
+        role: 'USER'
       }
     })
     
