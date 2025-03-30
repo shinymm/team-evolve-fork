@@ -30,7 +30,7 @@ export function SiteHeader() {
           </Link>
         </div>
         <div className="hidden md:flex flex-1 justify-center">
-          <span className="text-base text-gray-300 hover:text-orange-400 transition-colors duration-200">
+          <span className={`text-base text-gray-300 hover:text-orange-400 transition-colors duration-200 ${longCang.className}`}>
             知识驱动能力破界，AI召唤协作灵感
           </span>
         </div>

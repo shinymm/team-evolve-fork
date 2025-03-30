@@ -187,12 +187,12 @@ export default function AITeamPage() {
                 </div>
                 <p className="text-xs text-gray-600 line-clamp-4 mb-1">{member.introduction}</p>
                 {member.category && (
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-1.5">
                     {member.category.split(/[,，]/).map((tag, index) => (
                       tag.trim() && (
                         <span 
                           key={index}
-                          className="px-1.5 py-0.5 bg-orange-50 text-orange-600 rounded-full text-[10px] whitespace-nowrap"
+                          className="px-2.5 py-0.5 bg-gray-700 text-white rounded-full text-[10px] whitespace-nowrap font-medium"
                         >
                           {tag.trim()}
                         </span>

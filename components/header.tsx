@@ -19,7 +19,7 @@ export function Header() {
   return (
     <header className="bg-[#1e4694] text-white h-14 flex items-center px-6 sticky top-0 z-50">
       <Link href="/" className="text-xl font-bold">
-        QARE TeamAI
+        TeamEvolve
       </Link>
 
       <div className="ml-auto flex items-center space-x-4">
