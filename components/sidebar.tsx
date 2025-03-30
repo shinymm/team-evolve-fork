@@ -180,7 +180,7 @@ export function Sidebar() {
                   <span className="relative inline-block">
                     {subitem.title}
                     {subitem.isPro && (
-                      <span className="absolute -top-1.5 -right-5 text-[8px] font-semibold text-orange-600">
+                      <span className="absolute -top-0.5 -right-5 text-[8px] font-semibold text-orange-600">
                         PRO
                       </span>
                     )}
