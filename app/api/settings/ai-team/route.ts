@@ -12,7 +12,7 @@ export async function GET() {
       return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    const members = await prisma.aiTeamMember.findMany({
+    const members = await prisma.AiTeamMember.findMany({
       orderBy: { createdAt: 'desc' }
     })
 
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     const body = await req.json()
     const { name, introduction, role, responsibilities, greeting, category } = body
 
-    const member = await prisma.aiTeamMember.create({
+    const member = await prisma.AiTeamMember.create({
       data: {
         name,
         introduction,
@@ -68,7 +68,7 @@ export async function DELETE(req: Request) {
       return new NextResponse('Missing id', { status: 400 })
     }
 
-    await prisma.aiTeamMember.delete({
+    await prisma.AiTeamMember.delete({
       where: { id }
     })
 
@@ -97,15 +97,30 @@ export async function PATCH(req: Request) {
     const body = await req.json()
     const { name, introduction, role, responsibilities, greeting, category } = body
 
-    const member = await prisma.aiTeamMember.update({
+    if (!name || !introduction || !role || !responsibilities) {
+      console.error('Missing required fields:', { name, introduction, role, responsibilities })
+      return new NextResponse('Missing required fields', { status: 400 })
+    }
+
+    console.log('Updating member with data:', {
+      id,
+      name,
+      introduction,
+      role,
+      responsibilities,
+      greeting,
+      category
+    })
+
+    const member = await prisma.AiTeamMember.update({
       where: { id },
       data: {
-        name,
-        introduction,
-        role,
-        responsibilities,
-        greeting,
-        category
+        name: name.trim(),
+        introduction: introduction.trim(),
+        role: role.trim(),
+        responsibilities: responsibilities.trim(),
+        greeting: greeting?.trim() || null,
+        category: category?.trim() || null
       }
     })
 

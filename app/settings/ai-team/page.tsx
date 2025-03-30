@@ -61,17 +61,22 @@ export default function AITeamPage() {
   }
 
   // 提交表单（添加或编辑）
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const formData = new FormData(e.currentTarget)
-    const data = {
-      name: formData.get('name'),
-      introduction: formData.get('introduction'),
-      role: formData.get('role'),
-      responsibilities: formData.get('responsibilities'),
-      greeting: formData.get('greeting'),
-      category: formData.get('category'),
+  const handleSubmit = async (data: MemberFormData) => {
+    // 添加数据验证
+    if (!data.name?.trim() || !data.introduction?.trim() || !data.role?.trim() || !data.responsibilities?.trim()) {
+      toast({
+        title: '错误',
+        description: '请填写所有必填字段',
+        variant: 'destructive',
+      })
+      return
     }
+
+    // 打印表单数据
+    console.log('Submitting form data:', {
+      id: editingMember?.id,
+      ...data
+    })
     
     try {
       const url = editingMember?.id 
@@ -83,10 +88,17 @@ export default function AITeamPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          greeting: data.greeting?.trim() || null,
+          category: data.category?.trim() || null,
+        }),
       })
 
-      if (!response.ok) throw new Error(editingMember?.id ? '更新失败' : '添加失败')
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(errorText || (editingMember?.id ? '更新失败' : '添加失败'))
+      }
 
       toast({
         title: '成功',
@@ -95,9 +107,10 @@ export default function AITeamPage() {
       handleCloseDialog()
       loadMembers()
     } catch (error) {
+      console.error('Form submission error:', error)
       toast({
         title: '错误',
-        description: `${editingMember?.id ? '更新' : '添加'}AI团队成员失败`,
+        description: error instanceof Error ? error.message : `${editingMember?.id ? '更新' : '添加'}AI团队成员失败`,
         variant: 'destructive',
       })
     }
