@@ -4,6 +4,8 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { prisma } from '@/lib/prisma'
 import { Session } from 'next-auth'
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/settings/ai-team
 export async function GET() {
   try {
