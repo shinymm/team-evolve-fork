@@ -46,14 +46,6 @@ const mainMenuItems: MenuItem[] = [
     ]
   },
   {
-    title: "特殊能力胶囊",
-    icon: <Flame className="h-4 w-4" />,
-    submenu: [
-      { title: "需求书综合处理", href: "/special-capability/requirement-upload", isPro: true },
-      { title: "提示词调试", href: "/special-capability/prompt-debug", isPro: true }
-    ]
-  },
-  {
     title: "知识熔炉",
     icon: <Database className="h-4 w-4" />,
     submenu: [
@@ -62,14 +54,22 @@ const mainMenuItems: MenuItem[] = [
       { title: "产品信息架构", href: "/knowledge/information-architecture" },
       { title: "系统架构", href: "/knowledge/system-architecture" },
       { title: "API 开放接口", href: "/knowledge/api-interfaces" },
-      { title: "边界识别知识", href: "/knowledge/boundary" },
+      { title: "边界识别知识", href: "/knowledge/boundary", isPro: true },
     ]
   },
   {
     title: "灵犀阁",
     icon: <Sparkles className="h-4 w-4" />,
     submenu: [
-      { title: "需求分析技能", href: "/inspire/req-analysis-skill", isPro: true }
+      { title: "需求分析技能", href: "/inspire/req-analysis-skill", isPro: true },
+      { title: "需求书综合处理", href: "/special-capability/requirement-upload", isPro: true }
+    ]
+  },
+  {
+    title: "特殊能力胶囊",
+    icon: <Flame className="h-4 w-4" />,
+    submenu: [
+      { title: "提示词调试", href: "/special-capability/prompt-debug", isPro: true }
     ]
   }
 ]
@@ -79,6 +79,7 @@ const settingsMenu: MenuItem = {
   icon: <Settings className="h-4 w-4" />,
   submenu: [
     { title: "大模型设置", href: "/settings/ai-models" },
+    { title: "AI团队工厂", href: "/settings/ai-team" }
   ]
 }
 

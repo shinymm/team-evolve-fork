@@ -39,6 +39,7 @@ export const pagePermissions: Record<string, Permission> = {
 
   // 设置页面 - 仅管理员可访问
   "/settings/ai-models": { requiresAuth: true, allowedRoles: ["ADMIN"] },
+  "/settings/ai-team": { requiresAuth: true, allowedRoles: ["USER", "ADMIN"] },
 };
 
 // 检查路径是否需要认证

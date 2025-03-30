@@ -115,3 +115,18 @@ model RequirementSummary {
   @@index([domain])
   @@index([name])
 }
+
+model AiTeamMember {
+  id              String   @id @default(cuid())
+  name            String   @db.VarChar(50)
+  introduction    String   @db.Text
+  role            String   @db.Text
+  responsibilities String  @db.Text
+  greeting        String?  @db.Text
+  category        String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdBy       String
+
+  @@index([createdBy])
+}
