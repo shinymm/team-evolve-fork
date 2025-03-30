@@ -17,6 +17,7 @@ interface MenuItem {
   submenu?: {
     title: string
     href: string
+    isPro?: boolean
   }[]
 }
 
@@ -48,8 +49,8 @@ const mainMenuItems: MenuItem[] = [
     title: "特殊能力胶囊",
     icon: <Flame className="h-4 w-4" />,
     submenu: [
-      { title: "需求书综合处理", href: "/special-capability/requirement-upload" },
-      { title: "提示词调试", href: "/special-capability/prompt-debug" }
+      { title: "需求书综合处理", href: "/special-capability/requirement-upload", isPro: true },
+      { title: "提示词调试", href: "/special-capability/prompt-debug", isPro: true }
     ]
   },
   {
@@ -68,7 +69,7 @@ const mainMenuItems: MenuItem[] = [
     title: "灵犀阁",
     icon: <Sparkles className="h-4 w-4" />,
     submenu: [
-      { title: "需求分析技能", href: "/inspire/req-analysis-skill" }
+      { title: "需求分析技能", href: "/inspire/req-analysis-skill", isPro: true }
     ]
   }
 ]
@@ -118,7 +119,7 @@ export function Sidebar() {
     return permission.allowedRoles.includes(userRole)
   }
 
-  const handleNavigate = (href: string) => {
+  const handleNavigate = async (href: string) => {
     if (!canAccessPath(href)) {
       toast({
         title: "访问受限",
@@ -130,7 +131,8 @@ export function Sidebar() {
 
     if (href !== pathname) {
       setNavigating(href)
-      router.push(href)
+      await router.push(href)
+      setNavigating(null)
     }
   }
 
@@ -148,14 +150,14 @@ export function Sidebar() {
     return (
       <div key={item.title} className="mb-0.5">
         <div
-          className="w-full flex items-center justify-between px-2 py-1.5 text-xs text-gray-600 font-medium bg-gray-100/80 rounded-md cursor-default select-none"
+          className="w-full flex items-center justify-between px-1.5 py-1 text-[11px] text-gray-600 font-medium bg-gray-100/80 rounded-md cursor-default select-none"
         >
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             {item.icon}
             <span>{item.title}</span>
           </div>
           <ChevronDown
-            className={`h-3 w-3 transition-transform text-gray-400 ${
+            className={`h-2.5 w-2.5 transition-transform text-gray-400 ${
               openMenus.includes(item.title) ? "transform rotate-180" : ""
             }`}
             onClick={() => toggleMenu(item.title)}
@@ -169,13 +171,20 @@ export function Sidebar() {
                 <button
                   key={subitem.href}
                   onClick={() => handleNavigate(subitem.href)}
-                  className={`w-full text-left pl-7 pr-2 py-1 rounded-md text-xs 
+                  className={`w-full text-left pl-6 pr-1.5 py-0.5 rounded-md text-[10px] relative
                     ${!isAccessible ? 'opacity-50 cursor-not-allowed' : 'hover:bg-orange-50 hover:text-orange-700'}
                     ${pathname === subitem.href ? "bg-orange-50 text-orange-700 font-medium" : "text-gray-700"}
                     ${navigating === subitem.href ? "opacity-70" : ""}`}
                   disabled={navigating === subitem.href || !isAccessible}
                 >
-                  {subitem.title}
+                  <span className="relative inline-block">
+                    {subitem.title}
+                    {subitem.isPro && (
+                      <span className="absolute -top-1.5 -right-5 text-[8px] font-semibold text-orange-600">
+                        PRO
+                      </span>
+                    )}
+                  </span>
                 </button>
               )
             })}
@@ -186,10 +195,10 @@ export function Sidebar() {
   }
 
   return (
-    <div className="w-48 border-r bg-gray-50/50 h-[calc(100vh-3.5rem)] sticky top-14 flex flex-col">
+    <div className="w-40 border-r bg-gray-50/50 h-[calc(100vh-3.5rem)] sticky top-14 flex flex-col">
       {/* 主菜单区域 */}
       <div className="flex-1 overflow-y-auto">
-        <nav className="p-1 space-y-1.5">
+        <nav className="p-1 space-y-1">
           {mainMenuItems.map(renderMenuItem)}
         </nav>
       </div>

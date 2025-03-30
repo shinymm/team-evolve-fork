@@ -2,7 +2,7 @@ import { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: '认证错误 - QARE TeamAI',
+  title: '认证错误 - TeamEvolve',
   description: '登录过程中发生错误',
 }
 

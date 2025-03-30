@@ -15,8 +15,8 @@ import { Providers } from './providers'
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "QARE TeamAI",
-  description: "AI驱动的需求分析和测试用例生成平台",
+  title: "Team Evolve",
+  description: "AI驱动的研发辅助平台",
 }
 
 export default function RootLayout({
