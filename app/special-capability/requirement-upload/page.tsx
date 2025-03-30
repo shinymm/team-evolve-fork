@@ -288,6 +288,7 @@ export default function RequirementUpload() {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [activeTab, setActiveTab] = useState<TabType>('md')
   const [processing, setProcessing] = useState<boolean>(false)
+  const [showUploadDialog, setShowUploadDialog] = useState(false)
   const [contents, setContents] = useState<Record<TabType, string>>({
     md: '',
     summary: '',
@@ -509,6 +510,7 @@ export default function RequirementUpload() {
       setFile(null)
       setError('')
       setFileId(result.file.id)
+      setShowUploadDialog(false)
       toast({
         title: "上传成功",
         description: `文件 ${result.file.name} 已成功上传，文件ID: ${result.file.id}`,
@@ -1101,50 +1103,14 @@ export default function RequirementUpload() {
 
           <div className="space-y-3 overflow-x-auto">
             <div className="border rounded-lg p-3">
-              <div 
-                ref={dropAreaRef}
-                className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center transition-colors duration-200"
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-              >
-                <div className="flex flex-col items-center justify-center space-y-2">
-                  <Upload className="h-8 w-8 text-gray-400" />
-                  <div className="text-xs text-gray-600">
-                    {file ? (
-                      <p className="text-green-600">已选择文件: {file.name}</p>
-                    ) : (
-                      <>
-                        <p>拖拽文件到此处或</p>
-                        <label className="cursor-pointer text-orange-600 hover:text-orange-700">
-                          点击上传
-                          <input
-                            ref={fileInputRef}
-                            type="file"
-                            className="hidden"
-                            accept=".docx,.txt,.pdf,.xlsx,.md"
-                            onChange={handleFileChange}
-                          />
-                        </label>
-                      </>
-                    )}
-                  </div>
-                  {error && <p className="text-red-500 text-xs">{error}</p>}
-                </div>
-              </div>
-
-              <div className="mt-3 flex justify-center gap-2">
-                <button
-                  onClick={handleUpload}
-                  disabled={!file || uploading}
-                  className={`px-3 py-1.5 rounded-md text-white text-xs
-                    ${file && !uploading
-                      ? 'bg-orange-500 hover:bg-orange-600' 
-                      : 'bg-gray-400 cursor-not-allowed'
-                    }`}
+              <div className="flex justify-center gap-2">
+                <Button
+                  onClick={() => setShowUploadDialog(true)}
+                  className="flex items-center gap-1 px-3 py-1.5 h-auto text-xs bg-orange-500 hover:bg-orange-600 text-white"
                 >
-                  {uploading ? '上传中...' : '上传文件'}
-                </button>
+                  <Upload className="h-3 w-3" />
+                  上传文件
+                </Button>
                 
                 {/* 需求书转MD按钮 */}
                 <Button
@@ -1277,7 +1243,7 @@ export default function RequirementUpload() {
                     </div>
                   </div>
                   
-                  <div className="border rounded-md overflow-hidden max-h-[150px] overflow-y-auto">
+                  <div className="border rounded-md overflow-hidden max-h-[230px] overflow-y-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
@@ -1744,6 +1710,72 @@ export default function RequirementUpload() {
               ) : (
                 '确认导入'
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* 添加文件上传弹窗 */}
+      <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>上传需求文件</DialogTitle>
+            <DialogDescription>
+              请上传需求书文档（建议Qwen-long使用docx格式， Gemini使用PDF格式）
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div 
+              ref={dropAreaRef}
+              className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition-colors duration-200"
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <div className="flex flex-col items-center justify-center space-y-2">
+                <Upload className="h-8 w-8 text-gray-400" />
+                <div className="text-xs text-gray-600">
+                  {file ? (
+                    <p className="text-green-600">已选择文件: {file.name}</p>
+                  ) : (
+                    <>
+                      <p>拖拽文件到此处或</p>
+                      <label className="cursor-pointer text-orange-600 hover:text-orange-700">
+                        点击上传
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          className="hidden"
+                          accept=".docx,.txt,.pdf,.xlsx,.md"
+                          onChange={handleFileChange}
+                        />
+                      </label>
+                    </>
+                  )}
+                </div>
+                {error && <p className="text-red-500 text-xs">{error}</p>}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowUploadDialog(false)
+              setFile(null)
+              setError('')
+            }}>
+              取消
+            </Button>
+            <Button 
+              onClick={handleUpload}
+              disabled={!file || uploading}
+              className={file && !uploading ? 'bg-orange-500 hover:bg-orange-600' : undefined}
+            >
+              {uploading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  上传中...
+                </>
+              ) : '上传文件'}
             </Button>
           </DialogFooter>
         </DialogContent>
