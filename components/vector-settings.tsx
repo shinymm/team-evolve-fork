@@ -300,38 +300,39 @@ export default function VectorSettings() {
       
       return (
         <TableRow key={config.id}>
-          <TableCell className="font-medium">{config.name}</TableCell>
-          <TableCell>{config.model}</TableCell>
-          <TableCell>{config.baseURL}</TableCell>
-          <TableCell className="text-center">
+          <TableCell className="py-2 text-sm">{config.name}</TableCell>
+          <TableCell className="py-2 text-sm">{config.model}</TableCell>
+          <TableCell className="py-2 text-sm">{config.baseURL}</TableCell>
+          <TableCell className="py-2 text-center">
             <div
               className={cn(
-                "h-4 w-4 rounded-full border border-primary cursor-pointer",
+                "h-3 w-3 rounded-full border border-primary cursor-pointer",
                 config.isDefault && "bg-primary"
               )}
               onClick={() => handleSetDefault(config.id as string)}
             />
           </TableCell>
-          <TableCell>
-            <div className="flex gap-2">
+          <TableCell className="py-2">
+            <div className="flex gap-1">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => handleTestConfig(config)}
                 disabled={testingId === config.id}
                 className={cn(
+                  "h-7 text-xs",
                   testResults[config.id] === true && "bg-green-50 text-green-600 hover:bg-green-100",
                   testResults[config.id] === false && "bg-red-50 text-red-600 hover:bg-red-100"
                 )}
               >
                 {testingId === config.id ? (
                   <>
-                    <Zap className="mr-2 h-4 w-4 animate-spin" />
+                    <Zap className="mr-1 h-3 w-3 animate-spin" />
                     测试中...
                   </>
                 ) : (
                   <>
-                    <Zap className="mr-2 h-4 w-4" />
+                    <Zap className="mr-1 h-3 w-3" />
                     测试连接
                   </>
                 )}
@@ -341,9 +342,9 @@ export default function VectorSettings() {
                 size="icon"
                 onClick={() => handleDeleteConfig(config.id as string)}
                 disabled={testingId === config.id}
-                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                className="h-7 w-7 text-muted-foreground hover:text-destructive"
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-3 w-3" />
               </Button>
             </div>
           </TableCell>
@@ -357,20 +358,20 @@ export default function VectorSettings() {
     if (!showAddForm) return null
     
     return (
-      <div className="space-y-4 border p-4 rounded-md bg-slate-50">
-        <h2 className="text-lg font-semibold">添加新配置</h2>
-        <div className="space-y-3">
-          <div className="grid grid-cols-[120px,1fr] items-center gap-4">
-            <Label htmlFor="vector-preset">预设模型</Label>
+      <div className="space-y-3 border p-3 rounded-md bg-slate-50">
+        <h2 className="text-sm font-semibold">添加新配置</h2>
+        <div className="space-y-2">
+          <div className="grid grid-cols-[100px,1fr] items-center gap-3">
+            <Label htmlFor="vector-preset" className="text-xs">预设模型</Label>
             <Select onValueChange={handlePresetChange}>
-              <SelectTrigger id="vector-preset">
+              <SelectTrigger id="vector-preset" className="h-8 text-sm">
                 <SelectValue placeholder="选择预设" />
               </SelectTrigger>
               <SelectContent>
                 {vectorModelPresets.map(provider => (
                   <React.Fragment key={provider.name}>
                     {provider.models.map(model => (
-                      <SelectItem key={`${provider.name}-${model}`} value={`${provider.name}-${model}`}>
+                      <SelectItem key={`${provider.name}-${model}`} value={`${provider.name}-${model}`} className="text-sm">
                         {provider.name} - {model}
                       </SelectItem>
                     ))}
@@ -380,68 +381,72 @@ export default function VectorSettings() {
             </Select>
           </div>
 
-          <div className="grid grid-cols-[120px,1fr] items-center gap-4">
-            <Label htmlFor="vector-name">名称</Label>
+          <div className="grid grid-cols-[100px,1fr] items-center gap-3">
+            <Label htmlFor="vector-name" className="text-xs">名称</Label>
             <Input
               id="vector-name"
               value={newConfig.name || ''}
               onChange={(e) => setNewConfig(prev => ({ ...prev, name: e.target.value }))}
               placeholder="例如: OpenAI Embedding"
+              className="h-8 text-sm"
             />
           </div>
 
-          <div className="grid grid-cols-[120px,1fr] items-center gap-4">
-            <Label htmlFor="vector-model">模型名称</Label>
+          <div className="grid grid-cols-[100px,1fr] items-center gap-3">
+            <Label htmlFor="vector-model" className="text-xs">模型名称</Label>
             <Input
               id="vector-model"
               value={newConfig.model || ''}
               onChange={(e) => setNewConfig(prev => ({ ...prev, model: e.target.value }))}
               placeholder="例如: text-embedding-3-small"
+              className="h-8 text-sm"
             />
           </div>
 
-          <div className="grid grid-cols-[120px,1fr] items-center gap-4">
-            <Label htmlFor="vector-url">API 地址</Label>
+          <div className="grid grid-cols-[100px,1fr] items-center gap-3">
+            <Label htmlFor="vector-url" className="text-xs">API 地址</Label>
             <Input
               id="vector-url"
               value={newConfig.baseURL || ''}
               onChange={(e) => setNewConfig(prev => ({ ...prev, baseURL: e.target.value }))}
               placeholder="例如: https://api.openai.com/v1"
+              className="h-8 text-sm"
             />
           </div>
 
-          <div className="grid grid-cols-[120px,1fr] items-center gap-4">
-            <Label htmlFor="vector-api-key">API Key</Label>
+          <div className="grid grid-cols-[100px,1fr] items-center gap-3">
+            <Label htmlFor="vector-api-key" className="text-xs">API Key</Label>
             <Input
               id="vector-api-key"
               type="password"
               value={newConfig.apiKey || ''}
               onChange={(e) => setNewConfig(prev => ({ ...prev, apiKey: e.target.value }))}
               placeholder="输入您的API密钥"
+              className="h-8 text-sm"
             />
           </div>
 
-          <div className="grid grid-cols-[120px,1fr] items-center gap-4">
-            <Label htmlFor="vector-default">设为默认</Label>
+          <div className="grid grid-cols-[100px,1fr] items-center gap-3">
+            <Label htmlFor="vector-default" className="text-xs">设为默认</Label>
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="vector-default"
                 checked={isDefault}
                 onCheckedChange={(checked) => setIsDefault(checked as boolean)}
               />
-              <Label htmlFor="vector-default">将此配置设为默认向量模型</Label>
+              <Label htmlFor="vector-default" className="text-sm">将此配置设为默认向量模型</Label>
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={() => {
+          <div className="flex justify-end gap-2 mt-3">
+            <Button variant="outline" size="sm" onClick={() => {
               setShowAddForm(false)
               setIsDefault(false)
               setNewConfig({})
             }}>
               取消
             </Button>
-            <Button onClick={handleAddConfig}>
+            <Button size="sm" onClick={handleAddConfig}>
               添加
             </Button>
           </div>
@@ -452,34 +457,35 @@ export default function VectorSettings() {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>向量模型配置</CardTitle>
-        <CardDescription>
-          配置用于生成文本向量的嵌入模型
-        </CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <div>
+          <CardTitle className="text-base">向量模型配置</CardTitle>
+          <CardDescription className="text-sm">
+            配置用于生成文本向量的嵌入模型
+          </CardDescription>
+        </div>
+        {!showAddForm && (
+          <div className="flex items-center">
+            <Button size="sm" onClick={() => setShowAddForm(true)}>
+              <Plus className="mr-2 h-3 w-3" />
+              添加配置
+            </Button>
+          </div>
+        )}
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {!showAddForm && (
-            <div className="flex justify-end items-center mb-4">
-              <Button onClick={() => setShowAddForm(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                添加配置
-              </Button>
-            </div>
-          )}
-          
+        <div className="space-y-3">
           {addForm}
           
           {configs.length > 0 ? (
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>名称</TableHead>
-                  <TableHead>模型</TableHead>
-                  <TableHead>API地址</TableHead>
-                  <TableHead>默认</TableHead>
-                  <TableHead>操作</TableHead>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="h-8 text-xs">名称</TableHead>
+                  <TableHead className="h-8 text-xs">模型</TableHead>
+                  <TableHead className="h-8 text-xs">API地址</TableHead>
+                  <TableHead className="h-8 text-xs">默认</TableHead>
+                  <TableHead className="h-8 text-xs">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -487,7 +493,7 @@ export default function VectorSettings() {
               </TableBody>
             </Table>
           ) : (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-6 text-sm text-muted-foreground">
               暂无向量模型配置，请点击"添加配置"按钮添加
             </div>
           )}

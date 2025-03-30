@@ -114,39 +114,62 @@ export default function RedisConfigStatus() {
 
   return (
     <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Redis缓存状态</CardTitle>
-        <CardDescription>
-          查看当前Redis中缓存的默认AI模型配置
-          {redisConfig?.updatedAt && (
-            <div className="text-xs text-muted-foreground mt-1">
-              最后更新: {new Date(redisConfig.updatedAt).toLocaleString()}
-            </div>
-          )}
-        </CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <div>
+          <CardTitle className="text-base">Redis缓存状态</CardTitle>
+          <CardDescription className="text-sm">
+            查看当前Redis中缓存的默认AI模型配置
+            {redisConfig?.updatedAt && (
+              <div className="text-xs text-muted-foreground mt-1">
+                最后更新: {new Date(redisConfig.updatedAt).toLocaleString()}
+              </div>
+            )}
+          </CardDescription>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Button 
+            onClick={handleRefresh}
+            variant="outline"
+            size="sm"
+            disabled={isLoading}
+          >
+            {isLoading ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RefreshCw className="mr-1 h-3 w-3" />}
+            刷新
+          </Button>
+          
+          <Button 
+            onClick={syncToRedis}
+            variant="default"
+            size="sm"
+            disabled={isLoading || isSyncing}
+          >
+            {isSyncing ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+            同步到Redis
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div className="flex items-center justify-center py-4">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <div className="flex items-center justify-center py-3">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : error ? (
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="flex items-center space-x-2">
-              <XCircle className="h-5 w-5 text-red-500" />
-              <span>{error.message || 'Redis连接错误'}</span>
+              <XCircle className="h-4 w-4 text-red-500" />
+              <span className="text-sm">{error.message || 'Redis连接错误'}</span>
             </div>
           </div>
         ) : redisConfig ? (
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="flex items-center space-x-2">
-              <CheckCircle className="h-5 w-5 text-green-500" />
-              <span>Redis缓存已启用</span>
+              <CheckCircle className="h-4 w-4 text-green-500" />
+              <span className="text-sm">Redis缓存已启用</span>
             </div>
             
             <div className="grid gap-2">
-              <Label>默认配置</Label>
-              <div className="rounded-md bg-muted p-3">
+              <Label className="text-xs">默认配置</Label>
+              <div className="rounded-md bg-muted p-2">
                 <p className="text-sm font-medium">{redisConfig.name}</p>
                 <p className="text-xs text-muted-foreground">模型: {redisConfig.model}</p>
                 <p className="text-xs text-muted-foreground">baseURL: {redisConfig.baseURL}</p>
@@ -160,35 +183,13 @@ export default function RedisConfigStatus() {
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="flex items-center space-x-2">
-              <XCircle className="h-5 w-5 text-red-500" />
-              <span>Redis中无默认配置</span>
+              <XCircle className="h-4 w-4 text-red-500" />
+              <span className="text-sm">Redis中无默认配置</span>
             </div>
           </div>
         )}
-        
-        <div className="mt-4 flex space-x-2">
-          <Button 
-            onClick={handleRefresh}
-            variant="outline"
-            size="sm"
-            disabled={isLoading}
-          >
-            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-            刷新
-          </Button>
-          
-          <Button 
-            onClick={syncToRedis}
-            variant="default"
-            size="sm"
-            disabled={isLoading || isSyncing}
-          >
-            {isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            同步到Redis
-          </Button>
-        </div>
       </CardContent>
     </Card>
   );
