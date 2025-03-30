@@ -12,7 +12,7 @@ export async function GET() {
       return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    const members = await prisma.AiTeamMember.findMany({
+    const members = await prisma.aiTeamMember.findMany({
       orderBy: { createdAt: 'desc' }
     })
 
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     const body = await req.json()
     const { name, introduction, role, responsibilities, greeting, category } = body
 
-    const member = await prisma.AiTeamMember.create({
+    const member = await prisma.aiTeamMember.create({
       data: {
         name,
         introduction,
@@ -68,7 +68,7 @@ export async function DELETE(req: Request) {
       return new NextResponse('Missing id', { status: 400 })
     }
 
-    await prisma.AiTeamMember.delete({
+    await prisma.aiTeamMember.delete({
       where: { id }
     })
 
@@ -112,7 +112,7 @@ export async function PATCH(req: Request) {
       category
     })
 
-    const member = await prisma.AiTeamMember.update({
+    const member = await prisma.aiTeamMember.update({
       where: { id },
       data: {
         name: name.trim(),
