@@ -1,14 +1,15 @@
 /**
- * AI模型配置服务
- * 此服务用于与数据库交互，管理AI模型配置
+ * AI配置数据库服务
+ * 此服务用于后端与数据库交互，管理AI模型配置
  */
 
-import { PrismaClient } from '@prisma/client';
+import { type Prisma } from '@prisma/client';
+import { prisma } from '@/lib/db';
 import { encrypt, decrypt } from '@/lib/utils/encryption-utils';
 import type { AIModelConfig } from './ai-service';
 
 // 创建Prisma客户端
-const prisma = new PrismaClient();
+// const prisma = new PrismaClient();
 
 /**
  * 将数据库模型转换为AIModelConfig
@@ -48,7 +49,7 @@ export const aiModelConfigService = {
       });
 
       // 直接转换配置（保持API密钥加密状态）
-      return configs.map(config => convertToAIModelConfig(config));
+      return configs.map((config: any) => convertToAIModelConfig(config));
     } catch (error) {
       console.error('获取所有配置失败:', error);
       return [];

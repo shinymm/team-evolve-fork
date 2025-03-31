@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
 import { aiModelConfigService } from '@/lib/services/ai-model-config-service'
-
-const prisma = new PrismaClient()
+// 导入全局prisma实例（如需直接使用）
+import { prisma } from '@/lib/db'
 
 export async function GET(
   request: Request,
@@ -19,7 +18,7 @@ export async function GET(
       return NextResponse.json({ success: false, error: '未找到配置' }, { status: 404 })
     }
 
-    return NextResponse.json(config)
+    return NextResponse.json({ success: true, config })
   } catch (error) {
     console.error('获取AI配置失败:', error)
     return NextResponse.json({ 

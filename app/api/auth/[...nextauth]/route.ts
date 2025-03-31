@@ -1,7 +1,7 @@
 import NextAuth, { type NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
-import { PrismaClient } from '@prisma/client'
 import { decrypt } from '@/lib/utils/encryption-utils'
+import { prisma } from '@/lib/db'
 
 type UserRole = 'USER' | 'ADMIN'
 
@@ -32,7 +32,7 @@ declare module "next-auth/jwt" {
   }
 }
 
-const prisma = new PrismaClient()
+// const prisma = new PrismaClient()
 
 export const authOptions: NextAuthOptions = {
   providers: [

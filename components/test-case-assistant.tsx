@@ -229,13 +229,13 @@ export function TestCaseAssistant() {
 
       <div className="space-y-1">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">请输入需求描述：</h2>
+          <h2 className="text-m font-semibold">请输入需求描述：</h2>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 px-2 text-xs text-gray-500 hover:text-gray-700"
+                className="h-7 px-2 text-sm text-gray-500 hover:text-gray-700"
               >
                 从缓存中加载场景
               </Button>

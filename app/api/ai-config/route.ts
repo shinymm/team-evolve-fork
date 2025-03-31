@@ -1,15 +1,13 @@
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
 import { aiModelConfigService } from '@/lib/services/ai-model-config-service'
 
-const prisma = new PrismaClient()
 
 export async function GET() {
   try {
     // 获取配置，API密钥保持加密状态
     const configs = await aiModelConfigService.getAllConfigs()
     // 返回正确的JSON格式
-    return NextResponse.json(configs)
+    return NextResponse.json({ configs })
   } catch (error) {
     console.error('获取AI配置失败:', error)
     return NextResponse.json({ error: '获取AI配置失败' }, { status: 500 })

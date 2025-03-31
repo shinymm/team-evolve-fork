@@ -14,7 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { AIModelConfig } from '@/lib/services/ai-service'
 import { streamingAICall } from '@/lib/services/ai-service'
-import { addAIConfig, updateAIConfig, deleteAIConfig, setDefaultAIConfig, getAllAIConfigs, syncLocalStorage } from '@/lib/services/ai-config-service'
+import { addAIConfig, deleteAIConfig, setDefaultAIConfig, getAllAIConfigs } from '@/lib/services/ai-config-service'
 
 // 可用的AI模型预设
 const modelPresets = [
@@ -54,24 +54,12 @@ export function AIModelSettings() {
   const [selectedTab, setSelectedTab] = useState('models')
   const [isLoading, setIsLoading] = useState(false)
   
-  // 添加操作状态跟踪
-  const [operationStatus, setOperationStatus] = useState<{
-    type: 'save' | 'delete' | 'default' | null,
-    id: string | null,
-    status: 'pending' | 'success' | 'error',
-    message: string
-  } | null>(null)
-
   // 加载配置
   const loadConfigs = useCallback(async () => {
     try {
       setIsLoading(true)
       const loadedConfigs = await getAllAIConfigs()
-      // 按照名称排序
-      const sortedConfigs = [...loadedConfigs].sort((a, b) => 
-        (a.name || '').localeCompare(b.name || '')
-      )
-      setConfigs(sortedConfigs)
+      setConfigs(loadedConfigs)
     } catch (error) {
       toast({
         title: '加载失败',
@@ -85,61 +73,49 @@ export function AIModelSettings() {
 
   // 初始加载
   useEffect(() => {
-    loadConfigs();
+    loadConfigs()
   }, [loadConfigs])
 
   // 处理预设选择
   const handlePresetChange = useCallback((preset: string) => {
-    const [provider, ...modelParts] = preset.split('-');
-    const model = modelParts.join('-'); // 重新组合模型名称，保留所有部分
+    const [provider, ...modelParts] = preset.split('-')
+    const model = modelParts.join('-')
     
-    let baseURL = '';
-    
-    const providerData = modelPresets.find(p => p.name === provider);
+    let baseURL = ''
+    const providerData = modelPresets.find(p => p.name === provider)
     if (providerData) {
-      baseURL = providerData.baseURL;
+      baseURL = providerData.baseURL
     }
     
     setNewConfig({
       ...newConfig,
-      name: preset, // 使用完整的预设名称
-      model, // 使用完整的模型名称
+      name: preset,
+      model,
       baseURL
-    });
+    })
   }, [newConfig])
 
   // 添加新配置
   const handleAddConfig = useCallback(async () => {
-    if (!newConfig.name || !newConfig.baseURL || !newConfig.apiKey) {
+    if (!newConfig.name || !newConfig.baseURL || !newConfig.apiKey || !newConfig.model) {
       toast({
         title: '验证失败',
-        description: 'API地址、模型名称和API Key是必填项',
+        description: 'API地址、模型名称、模型类型和API Key是必填项',
         variant: 'destructive',
       })
       return
     }
 
     try {
-      // 为新配置生成唯一ID
-      const id = Date.now().toString()
-      
-      // 如果是第一个配置，自动设为默认
-      const isFirstConfig = configs.length === 0
-      
-      const configToAdd: AIModelConfig = {
-        id,
-        name: newConfig.name || '',
-        baseURL: newConfig.baseURL || '',
-        apiKey: newConfig.apiKey || '',
-        temperature: newConfig.temperature || 0.7,
-        model: newConfig.model || '',
-        isDefault: isFirstConfig
+      const configToAdd = {
+        name: newConfig.name,
+        baseURL: newConfig.baseURL,
+        apiKey: newConfig.apiKey,
+        model: newConfig.model,
+        temperature: newConfig.temperature || 0.7
       }
       
-      // 添加配置
       await addAIConfig(configToAdd)
-      
-      // 重新加载配置列表
       await loadConfigs()
       
       // 重置表单
@@ -157,7 +133,7 @@ export function AIModelSettings() {
         variant: 'destructive',
       })
     }
-  }, [configs.length, newConfig, loadConfigs])
+  }, [newConfig, loadConfigs])
 
   // 删除配置
   const handleDeleteConfig = useCallback(async (id: string) => {
@@ -188,41 +164,16 @@ export function AIModelSettings() {
   // 设置默认配置
   const handleSetDefault = useCallback(async (id: string) => {
     setIsLoading(true)
-    setOperationStatus({
-      type: 'default',
-      id,
-      status: 'pending',
-      message: '正在设置默认配置...'
-    })
     
     try {
       await setDefaultAIConfig(id)
       await loadConfigs()
       
-      setOperationStatus({
-        type: 'default',
-        id,
-        status: 'success',
-        message: '已设置为默认配置'
-      })
-      
       toast({
         title: '已更新默认配置',
         description: 'AI模型默认配置已更新',
       })
-      
-      // 3秒后清除状态
-      setTimeout(() => {
-        setOperationStatus(null)
-      }, 3000)
-    } catch (error: unknown) {
-      setOperationStatus({
-        type: 'default',
-        id,
-        status: 'error',
-        message: `设置默认失败: ${error instanceof Error ? error.message : '未知错误'}`
-      })
-      
+    } catch (error) {
       toast({
         title: '设置失败',
         description: error instanceof Error ? error.message : '设置默认配置时发生错误',
@@ -450,78 +401,6 @@ export function AIModelSettings() {
     )
   }, [showAddForm, newConfig, handlePresetChange, handleAddConfig])
 
-  // 优化保存函数，添加加载状态
-  const handleSave = async (config: AIModelConfig) => {
-    setIsLoading(true)
-    setOperationStatus({
-      type: 'save',
-      id: config.id || 'new',
-      status: 'pending',
-      message: '正在保存配置...'
-    })
-    
-    try {
-      // ... 现有保存逻辑
-      
-      // 成功状态更新
-      setOperationStatus({
-        type: 'save',
-        id: config.id,
-        status: 'success',
-        message: '配置已保存'
-      })
-      
-      // 3秒后清除状态
-      setTimeout(() => {
-        setOperationStatus(null)
-      }, 3000)
-    } catch (error: unknown) {
-      setOperationStatus({
-        type: 'save',
-        id: config.id || 'new',
-        status: 'error',
-        message: `保存失败: ${error instanceof Error ? error.message : '未知错误'}`
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
-  
-  // 优化删除函数，添加加载状态
-  const handleDelete = async (id: string) => {
-    setIsLoading(true)
-    setOperationStatus({
-      type: 'delete',
-      id,
-      status: 'pending',
-      message: '正在删除配置...'
-    })
-    
-    try {
-      // ... 现有删除逻辑
-      
-      setOperationStatus({
-        type: 'delete',
-        id,
-        status: 'success',
-        message: '配置已删除'
-      })
-      
-      setTimeout(() => {
-        setOperationStatus(null)
-      }, 3000)
-    } catch (error: unknown) {
-      setOperationStatus({
-        type: 'delete',
-        id,
-        status: 'error',
-        message: `删除失败: ${error instanceof Error ? error.message : '未知错误'}`
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   return (
     <div className="space-y-6">
       <Tabs defaultValue="models" value={selectedTab} onValueChange={setSelectedTab}>
@@ -545,24 +424,9 @@ export function AIModelSettings() {
                     <Button 
                       variant="outline"
                       size="sm"
-                      onClick={async () => {
-                        try {
-                          await syncLocalStorage();
-                          await loadConfigs();
-                          toast({
-                            title: '同步成功',
-                            description: '配置已从服务器同步',
-                          });
-                        } catch (error) {
-                          toast({
-                            title: '同步失败',
-                            description: error instanceof Error ? error.message : '同步配置时发生错误',
-                            variant: 'destructive',
-                          });
-                        }
-                      }}
+                      onClick={loadConfigs}
                     >
-                      同步配置
+                      刷新配置
                     </Button>
                     <Button size="sm" onClick={() => setShowAddForm(true)}>
                       <Plus className="mr-2 h-3 w-3" />
@@ -606,24 +470,6 @@ export function AIModelSettings() {
           <VectorSettings />
         </TabsContent>
       </Tabs>
-      
-      {/* 操作状态指示器 */}
-      {operationStatus && (
-        <div className={`fixed bottom-4 right-4 p-4 rounded-md shadow-lg transition-all duration-300 ${
-          operationStatus.status === 'success' 
-            ? 'bg-green-100 border-l-4 border-green-500 text-green-700' 
-            : operationStatus.status === 'error'
-              ? 'bg-red-100 border-l-4 border-red-500 text-red-700'
-              : 'bg-blue-100 border-l-4 border-blue-500 text-blue-700'
-        }`}>
-          <div className="flex items-center">
-            {operationStatus.status === 'pending' && (
-              <Loader2 className="animate-spin w-5 h-5 mr-2" />
-            )}
-            <p>{operationStatus.message}</p>
-          </div>
-        </div>
-      )}
       
       {/* 全局加载状态 */}
       {isLoading && (

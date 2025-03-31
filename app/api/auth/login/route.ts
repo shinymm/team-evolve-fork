@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/db';
 import { encrypt } from '@/lib/utils/encryption-utils';
-
-const prisma = new PrismaClient();
 
 export async function POST(request: Request) {
   try {
@@ -49,7 +47,5 @@ export async function POST(request: Request) {
       { error: '登录过程中发生错误' },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 } 

@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/db'
 import { encrypt } from '@/lib/utils/encryption-utils'
-
-const prisma = new PrismaClient()
 
 // 获取所有配置
 export async function GET() {

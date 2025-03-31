@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { generateGlossaryEmbedding } from '@/lib/services/embedding-service'
 import { z } from 'zod'
-import { Prisma, PrismaClient } from '@prisma/client'
+import { Prisma } from '@prisma/client'
 
 // 获取术语列表
 export async function GET(request: Request) {
