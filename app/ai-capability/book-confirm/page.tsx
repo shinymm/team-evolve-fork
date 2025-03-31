@@ -173,7 +173,7 @@ export default function BookConfirmPage() {
     return (
       <div className="mx-auto py-6 w-[90%] space-y-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">需求书确认</h1>
+          <h1 className="text-xl font-bold tracking-tight">需求书确认</h1>
           <p className="text-sm text-muted-foreground mt-1">
             确认生成的需求书内容，并导出最终版本
           </p>
@@ -191,8 +191,8 @@ export default function BookConfirmPage() {
     <div className="mx-auto py-6 w-[90%] space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">需求书确认</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h1 className="text-xl font-bold tracking-tight">需求书确认</h1>
+          <p className="text-xs text-muted-foreground mt-1">
             确认生成的需求书内容，并导出最终版本
           </p>
         </div>
@@ -213,47 +213,47 @@ export default function BookConfirmPage() {
       <Card>
         <CardContent className="space-y-6 pt-6">
           <div>
-            <h3 className="text-lg font-semibold mb-2">需求背景</h3>
-            <p className="whitespace-pre-wrap">{requirement.reqBackground}</p>
+            <h3 className="text-base font-semibold mb-2">需求背景</h3>
+            <p className="whitespace-pre-wrap text-xs">{requirement.reqBackground}</p>
           </div>
           
           <div>
-            <h3 className="text-lg font-semibold mb-2">需求概述</h3>
-            <p className="whitespace-pre-wrap">{requirement.reqBrief}</p>
+            <h3 className="text-base font-semibold mb-2">需求概述</h3>
+            <p className="whitespace-pre-wrap text-xs">{requirement.reqBrief}</p>
           </div>
           
           <div>
-            <h3 className="text-lg font-semibold mb-4">场景列表</h3>
+            <h3 className="text-base font-semibold mb-4">场景列表</h3>
             <div className="space-y-6">
               {requirement.sceneList.map((scene, index) => (
                 <Card key={index} className="border-gray-200">
                   <CardHeader>
-                    <CardTitle className="text-base">
+                    <CardTitle className="text-sm">
                       {index + 1}. {scene.sceneName}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div>
-                      <h4 className="font-medium mb-1">场景概述</h4>
-                      <p className="text-sm whitespace-pre-wrap">{scene.sceneOverview}</p>
+                      <h4 className="text-xs font-medium mb-1">场景概述</h4>
+                      <p className="text-xs whitespace-pre-wrap">{scene.sceneOverview}</p>
                     </div>
                     
                     <div>
-                      <h4 className="font-medium mb-1">前置条件</h4>
-                      <p className="text-sm whitespace-pre-wrap">{scene.preconditions}</p>
+                      <h4 className="text-xs font-medium mb-1">前置条件</h4>
+                      <p className="text-xs whitespace-pre-wrap">{scene.preconditions}</p>
                     </div>
                     
                     <div>
-                      <h4 className="font-medium mb-1">用户旅程</h4>
-                      <div className="text-sm whitespace-pre-wrap pl-4 space-y-4">
+                      <h4 className="text-xs font-medium mb-1">用户旅程</h4>
+                      <div className="text-xs whitespace-pre-wrap pl-4 space-y-4">
                         {scene.sceneUserJourney}
                       </div>
                     </div>
                     
                     {scene.globalConstraints && scene.globalConstraints !== 'N/A' && (
                       <div>
-                        <h4 className="font-medium mb-1">全局约束条件</h4>
-                        <p className="text-sm whitespace-pre-wrap">{scene.globalConstraints}</p>
+                        <h4 className="text-xs font-medium mb-1">全局约束条件</h4>
+                        <p className="text-xs whitespace-pre-wrap">{scene.globalConstraints}</p>
                       </div>
                     )}
                   </CardContent>

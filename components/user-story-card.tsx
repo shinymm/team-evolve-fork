@@ -71,11 +71,11 @@ export function UserStoryCard({
       <CardHeader className="pb-2 bg-gradient-to-r from-orange-50 to-white">
         <div className="flex flex-col space-y-1">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-medium text-orange-700">
+            <CardTitle className="text-sm font-medium text-orange-700">
               用户故事 #{index + 1}
             </CardTitle>
             <div className="flex items-center space-x-2">
-              <Badge variant="outline" className="bg-blue-50 text-blue-700 text-xs">
+              <Badge variant="outline" className="bg-blue-50 text-blue-700 text-[10px]">
                 {featureName}
               </Badge>
               <div className="flex space-x-1">
@@ -113,19 +113,19 @@ export function UserStoryCard({
               </div>
             </div>
           </div>
-          <p className="text-sm font-medium text-gray-700">{story.story}</p>
+          <p className="text-xs font-medium text-gray-700">{story.story}</p>
         </div>
       </CardHeader>
       <CardContent className="pt-3 pb-3 space-y-3">
         <div>
-          <h4 className="text-xs font-medium text-gray-500 mb-1">描述</h4>
+          <h4 className="text-[10px] font-medium text-gray-500 mb-1">描述</h4>
           <p className="text-sm text-gray-700">{story.description}</p>
         </div>
         
         {story.acceptance_criteria && story.acceptance_criteria.length > 0 && (
           <div>
-            <h4 className="text-xs font-medium text-gray-500 mb-1">验收标准</h4>
-            <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1">
+            <h4 className="text-[10px] font-medium text-gray-500 mb-1">验收标准</h4>
+            <ul className="list-disc pl-5 text-xs text-gray-700 space-y-1">
               {story.acceptance_criteria.map((criteria, idx) => (
                 <li key={idx}>{criteria}</li>
               ))}
@@ -135,8 +135,8 @@ export function UserStoryCard({
         
         {story.non_functional_requirements && story.non_functional_requirements.length > 0 && (
           <div>
-            <h4 className="text-xs font-medium text-gray-500 mb-1">非功能需求</h4>
-            <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1">
+            <h4 className="text-[10px] font-medium text-gray-500 mb-1">非功能需求</h4>
+            <ul className="list-disc pl-5 text-xs text-gray-700 space-y-1">
               {story.non_functional_requirements.map((req, idx) => (
                 <li key={idx}>{req}</li>
               ))}

@@ -301,7 +301,7 @@ export default function UserStoryPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold mb-2">用户故事拆解</h1>
         <div className="flex items-center justify-between mt-2">
-          <p className="text-gray-600 text-sm ">
+          <p className="text-gray-600 text-xs">
             通过AI分析需求内容，将场景拆解为更细粒度的用户故事，帮助团队更好地理解和实现需求。
           </p>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -309,7 +309,7 @@ export default function UserStoryPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 px-2 text-s text-gray-500 hover:text-gray-700"
+                className="h-6 px-2 text-xs text-gray-500 hover:text-gray-700"
               >
                 从缓存中加载场景
               </Button>
@@ -341,7 +341,7 @@ export default function UserStoryPage() {
             placeholder="请输入需求内容..."
             value={requirementText}
             onChange={(e) => setRequirementText(e.target.value)}
-            className="min-h-[200px]"
+            className="min-h-[200px] text-xs"
           />
 
           <Button 
@@ -355,7 +355,7 @@ export default function UserStoryPage() {
           {analysisResult && (
             <div className="mt-4">
               <div className="flex justify-between items-center mb-2">
-                <h2 className="text-lg font-semibold">拆解结果：</h2>
+                <h2 className="text-base font-semibold">拆解结果：</h2>
                 <div className="flex space-x-2">
                   <Button 
                     variant="outline" 
@@ -396,7 +396,7 @@ export default function UserStoryPage() {
                   {parsedFeatures.map((feature, featureIndex) => (
                     <div key={featureIndex} className="space-y-2">
                       <div className="flex justify-between items-center">
-                        <h3 className="text-base font-medium text-gray-800">
+                        <h3 className="text-sm font-medium text-gray-800">
                           功能：{feature.feature}
                         </h3>
                         <Button 
@@ -454,28 +454,28 @@ export default function UserStoryPage() {
           {editingStory && (
             <div className="space-y-6 py-4 px-2">
               <div className="space-y-3">
-                <Label htmlFor="story" className="text-base">用户故事</Label>
+                <Label htmlFor="story" className="text-sm">用户故事</Label>
                 <Input 
                   id="story" 
                   value={editingStory.story} 
                   onChange={(e) => setEditingStory({...editingStory, story: e.target.value})}
-                  className="text-base"
+                  className="text-xs"
                 />
               </div>
               
               <div className="space-y-3">
-                <Label htmlFor="description" className="text-base">描述</Label>
+                <Label htmlFor="description" className="text-sm">描述</Label>
                 <Textarea 
                   id="description" 
                   value={editingStory.description} 
                   onChange={(e) => setEditingStory({...editingStory, description: e.target.value})}
-                  className="min-h-[100px] text-base"
+                  className="min-h-[100px] text-xs"
                 />
               </div>
               
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <Label className="text-base">验收标准</Label>
+                  <Label className="text-sm">验收标准</Label>
                   <Button 
                     type="button" 
                     variant="outline" 
@@ -493,7 +493,7 @@ export default function UserStoryPage() {
                       <Input 
                         value={criteria} 
                         onChange={(e) => handleUpdateAcceptanceCriteria(index, e.target.value)}
-                        className="flex-1 text-base"
+                        className="flex-1 text-xs"
                       />
                       <Button 
                         type="button" 
@@ -511,7 +511,7 @@ export default function UserStoryPage() {
               
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <Label className="text-base">非功能需求</Label>
+                  <Label className="text-sm">非功能需求</Label>
                   <Button 
                     type="button" 
                     variant="outline" 
@@ -529,7 +529,7 @@ export default function UserStoryPage() {
                       <Input 
                         value={req} 
                         onChange={(e) => handleUpdateNonFunctionalRequirement(index, e.target.value)}
-                        className="flex-1 text-base"
+                        className="flex-1 text-xs"
                       />
                       <Button 
                         type="button" 
