@@ -130,3 +130,69 @@ model AiTeamMember {
 
   @@index([createdBy])
 }
+
+// 系统/产品模型
+model System {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?  @db.Text
+  status      String   @default("active") // active, archived
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String
+
+  // 关联
+  productInfo     ProductInfo?
+  architecture    Architecture?
+  apiInterfaces   APIInterface[]
+
+  @@index([status])
+}
+
+// 产品信息模型
+model ProductInfo {
+  id            String   @id @default(cuid())
+  systemId      String   @unique
+  overview      String   @db.Text  // 存储电梯演讲内容
+  userPersona   Json     // 存储用户画像列表 [{title, features, needs}]
+  architecture  Json     // 存储信息架构树
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // 关联
+  system        System   @relation(fields: [systemId], references: [id], onDelete: Cascade)
+}
+
+// 系统架构模型
+model Architecture {
+  id            String   @id @default(cuid())
+  systemId      String   @unique
+  highLevel     String   @db.Text  // 高阶架构
+  microservice  String   @db.Text  // 应用架构
+  deployment    String   @db.Text  // 部署架构
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // 关联
+  system        System   @relation(fields: [systemId], references: [id], onDelete: Cascade)
+}
+
+// API接口模型
+model APIInterface {
+  id              String   @id @default(cuid())
+  systemId        String
+  name            String
+  description     String   @db.Text
+  type            String   // REST, Kafka, RPC, GraphQL
+  endpoint        String
+  operation       String
+  swaggerEndpoint String?
+  swaggerDoc      Json?    // 存储完整的swagger文档
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // 关联
+  system          System   @relation(fields: [systemId], references: [id], onDelete: Cascade)
+
+  @@index([systemId])
+}

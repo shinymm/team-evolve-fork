@@ -85,7 +85,8 @@
     "start": "next start -p ${PORT:-3000}",
     "lint": "next lint",
     "test:redis": "node scripts/test-redis.js",
-    "check:env": "node scripts/check-env.js"
+    "check:env": "node scripts/check-env.js",
+    "prisma:seed": "ts-node -r tsconfig-paths/register prisma/seed.ts"
   },
   "devDependencies": {
     "@shadcn/ui": "^0.0.4",
@@ -94,6 +95,7 @@
     "@types/ws": "^8.18.0",
     "dotenv": "^16.4.7",
     "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "^5.8.2"
   }
 }

@@ -49,11 +49,11 @@ const mainMenuItems: MenuItem[] = [
     title: "知识熔炉",
     icon: <Database className="h-4 w-4" />,
     submenu: [
+      { title: "产品信息架构", href: "/knowledge/information-architecture" },
+      { title: "产品系统架构", href: "/knowledge/system-architecture" },
+      { title: "产品开放API", href: "/knowledge/api-interfaces" },
       { title: "术语管理", href: "/knowledge/glossary" },
       { title: "需求摘要管理", href: "/knowledge/requirement-summaries" },
-      { title: "产品信息架构", href: "/knowledge/information-architecture" },
-      { title: "系统架构", href: "/knowledge/system-architecture" },
-      { title: "API 开放接口", href: "/knowledge/api-interfaces" },
       { title: "边界识别知识", href: "/knowledge/boundary", isPro: true },
     ]
   },
@@ -112,6 +112,7 @@ export function Sidebar() {
 
   const canAccessPath = (path: string) => {
     const permission = getPathPermission(path)
+
     if (!permission) return true
     if (!permission.requiresAuth) return true
     if (!session?.user) return false

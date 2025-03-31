@@ -1,34 +1,23 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ChevronDown, ChevronRight, PlusCircle, Edit2, Check, X, Info, CheckCircle, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, Edit2, Check, Trash2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { useProductInfoStore } from '@/lib/stores/product-info-store'
 import { useToast } from "@/components/ui/use-toast"
-import { Toaster } from "@/components/ui/toaster"
-import { ArchitectureSuggestion } from '@/lib/services/architecture-suggestion-service'
-import { updateTask, getTasks, Task } from '@/lib/services/task-service'
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
+import { useSystemStore } from '@/lib/stores/system-store'
+import { useRouter } from 'next/navigation'
+import type { ArchitectureItem, UserPersona, ProductInfo, ArchitectureSuggestion } from '@/types/product-info'
 
 export default function InformationArchitecture() {
-  const {
-    flatArchitecture,
-    overview,
-    userNeeds,
-    addArchitectureItem,
-    updateArchitectureItem,
-    deleteArchitectureItem,
-    getArchitectureTree,
-    updateOverview,
-    updateUserNeed,
-    updateUserNeedsOverview
-  } = useProductInfoStore()
-
+  const router = useRouter()
+  const { selectedSystemId } = useSystemStore()
+  const [loading, setLoading] = useState(true)
+  const [productInfo, setProductInfo] = useState<ProductInfo | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ title: '', description: '' })
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
@@ -37,70 +26,242 @@ export default function InformationArchitecture() {
   const [editingOverviewText, setEditingOverviewText] = useState('')
   const [isUserNeedsExpanded, setIsUserNeedsExpanded] = useState(true)
   const [editingUserNeedId, setEditingUserNeedId] = useState<string | null>(null)
-  const [editingUserNeedForm, setEditingUserNeedForm] = useState<{
-    id: string
-    title: string
-    features: string
-    needs: string
-  } | null>(null)
+  const [editingUserNeedForm, setEditingUserNeedForm] = useState<UserPersona | null>(null)
   const [suggestions, setSuggestions] = useState<ArchitectureSuggestion[]>([])
   const { toast } = useToast()
+  const [isAddingPersona, setIsAddingPersona] = useState(false)
 
+  // 将扁平结构转换为树状结构
+  const buildTree = (items: ArchitectureItem[]): ArchitectureItem[] => {
+    const itemMap = new Map<string, ArchitectureItem>()
+    const rootItems: ArchitectureItem[] = []
+
+    // 首先创建所有节点的映射，确保保留原始的 parentId
+    items.forEach(item => {
+      itemMap.set(item.id, { ...item, children: [] })
+    })
+
+    // 构建树状结构
+    items.forEach(item => {
+      if (item.parentId && itemMap.has(item.parentId)) {
+        // 如果有父节点，添加到父节点的 children 中
+        const parent = itemMap.get(item.parentId)!
+        parent.children = parent.children || []
+        parent.children.push(itemMap.get(item.id)!)
+      } else {
+        // 如果没有父节点或父节点不存在，作为根节点
+        rootItems.push(itemMap.get(item.id)!)
+      }
+    })
+
+    console.log('Built tree structure:', rootItems)
+    return rootItems
+  }
+
+  // 加载产品信息
   useEffect(() => {
-    // 从localStorage加载架构建议
-    const storedSuggestions = localStorage.getItem('architecture-suggestions')
-    
-    if (storedSuggestions) {
+    if (!selectedSystemId) {
+      toast({
+        title: "请先选择系统",
+        description: "需要选择一个系统才能查看产品信息",
+        variant: "destructive"
+      })
+      return
+    }
+
+    const fetchProductInfo = async () => {
       try {
-        setSuggestions(JSON.parse(storedSuggestions))
+        setLoading(true)
+        const response = await fetch(`/api/systems/${selectedSystemId}/product-info`)
+        if (!response.ok) {
+          throw new Error('获取产品信息失败')
+        }
+        const data = await response.json()
+        
+        // 将扁平结构转换为树状结构
+        const treeData = {
+          ...data,
+          architecture: buildTree(data.architecture)
+        }
+        
+        console.log('Initial tree data:', treeData.architecture)
+        setProductInfo(treeData)
+        
+        // 默认展开第一级节点
+        const firstLevelIds = new Set<string>(
+          treeData.architecture.map((item: ArchitectureItem) => item.id)
+        )
+        setExpandedItems(firstLevelIds)
+        
+        setEditingOverviewText(data.overview || '')
       } catch (error) {
-        console.error('Failed to parse architecture suggestions:', error)
+        console.error('获取产品信息失败:', error)
+        toast({
+          title: "获取失败",
+          description: error instanceof Error ? error.message : "获取产品信息失败",
+          variant: "destructive"
+        })
+      } finally {
+        setLoading(false)
       }
     }
-  }, [])
 
-  // 处理架构建议
-  const handleApplySuggestions = async () => {
+    fetchProductInfo()
+  }, [selectedSystemId, toast])
+
+  // 更新产品信息
+  const updateProductInfo = async (data: Partial<ProductInfo>) => {
+    if (!selectedSystemId || !productInfo) return
+
     try {
-      // 应用所有建议
-      for (const suggestion of suggestions) {
-        switch (suggestion.type) {
-          case 'add':
-            if (suggestion.parentId && suggestion.title && suggestion.description) {
-              addArchitectureItem(suggestion.title, suggestion.description, suggestion.parentId)
-            }
-            break
-          case 'modify':
-            if (suggestion.nodeId && suggestion.title && suggestion.description) {
-              updateArchitectureItem(suggestion.nodeId, suggestion.title, suggestion.description)
-            }
-            break
-          case 'delete':
-            if (suggestion.nodeId) {
-              deleteArchitectureItem(suggestion.nodeId)
-            }
-            break
-        }
+      console.log('Updating product info:', data)
+      const response = await fetch(`/api/systems/${selectedSystemId}/product-info`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          ...productInfo,
+          ...data,
+          // 如果更新的是架构，需要将树状结构转换回扁平结构
+          architecture: data.architecture ? getFlatArchitecture(data.architecture) : getFlatArchitecture(productInfo.architecture)
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('更新产品信息失败')
       }
 
-      // 清除建议
-      localStorage.removeItem('architecture-suggestions')
-      setSuggestions([])
-
-      // 更新任务状态
-      const tasks = await getTasks()
-      const confirmTask = tasks.find(t => t.type === 'architecture-confirm')
-      if (confirmTask) {
-        await updateTask(confirmTask.id, { status: 'completed' })
+      const updatedData = await response.json()
+      console.log('Updated product info:', updatedData)
+      
+      // 确保数据是最新的
+      const latestData = await fetch(`/api/systems/${selectedSystemId}/product-info`).then(res => res.json())
+      console.log('Latest data from server:', latestData)
+      
+      // 将返回的扁平结构转换为树状结构
+      const treeData = {
+        ...latestData,
+        architecture: buildTree(latestData.architecture)
       }
-
+      console.log('Converted to tree structure:', treeData.architecture)
+      
+      // 强制更新状态
+      setProductInfo(null) // 先清空状态
+      setTimeout(() => {
+        setProductInfo(treeData) // 然后设置新状态
+      }, 0)
+      
       toast({
         title: "更新成功",
-        description: "已应用所有架构调整建议",
+        description: "产品信息已更新",
+        duration: 2000
+      })
+    } catch (error) {
+      console.error('更新产品信息失败:', error)
+      toast({
+        title: "更新失败",
+        description: error instanceof Error ? error.message : "更新产品信息失败",
+        variant: "destructive"
+      })
+      throw error
+    }
+  }
+
+  // 获取扁平化的架构列表
+  const getFlatArchitecture = (items: ArchitectureItem[]): ArchitectureItem[] => {
+    const result: ArchitectureItem[] = []
+    
+    const flatten = (item: ArchitectureItem) => {
+      // 创建一个不包含 children 的新对象，但保留 parentId
+      const flatItem = {
+        id: item.id,
+        title: item.title,
+        description: item.description,
+        parentId: item.parentId // 保持原有的 parentId
+      }
+      result.push(flatItem)
+      
+      // 递归处理子节点，确保设置正确的 parentId
+      if (item.children && item.children.length > 0) {
+        item.children.forEach(child => {
+          // 确保子节点有正确的 parentId
+          child.parentId = item.id
+          flatten(child)
+        })
+      }
+    }
+    
+    items.forEach(item => flatten(item))
+    console.log('Flattened architecture:', result)
+    return result
+  }
+
+  // 处理架构建议
+  const handleSuggestion = async (suggestion: ArchitectureSuggestion) => {
+    if (!productInfo) return
+
+    let updatedArchitecture = [...productInfo.architecture]
+    
+    switch (suggestion.action) {
+      case 'add':
+        const newItem = {
+          id: suggestion.targetId || suggestion.id,
+          title: suggestion.title,
+          description: suggestion.description,
+          children: []
+        }
+        
+        if (suggestion.parentId) {
+          // 添加到指定父节点
+          updatedArchitecture = addToParent(updatedArchitecture, suggestion.parentId, newItem)
+        } else {
+          // 添加到根级别
+          updatedArchitecture.push(newItem)
+        }
+        break
+        
+      case 'update':
+        if (suggestion.targetId) {
+          updatedArchitecture = updateNode(
+            updatedArchitecture,
+            suggestion.targetId,
+            suggestion.title,
+            suggestion.description
+          )
+        }
+        break
+        
+      case 'delete':
+        if (suggestion.targetId) {
+          updatedArchitecture = deleteNode(updatedArchitecture, suggestion.targetId)
+        }
+        break
+    }
+    
+    await updateProductInfo({ architecture: updatedArchitecture })
+    
+    // 从建议列表中移除
+    setSuggestions(prev => prev.filter(s => s.id !== suggestion.id))
+    
+    // 保存更新后的建议到localStorage
+    localStorage.setItem('architecture-suggestions', JSON.stringify(
+      suggestions.filter(s => s.id !== suggestion.id)
+    ))
+  }
+
+  // 处理应用建议
+  const handleApplySuggestion = async (suggestion: ArchitectureSuggestion, index: number) => {
+    try {
+      await handleSuggestion(suggestion)
+      
+      toast({
+        title: "更新成功",
+        description: "已应用架构调整建议",
         duration: 3000
       })
     } catch (error) {
-      console.error('Failed to apply suggestions:', error)
+      console.error('Failed to apply suggestion:', error)
       toast({
         title: "更新失败",
         description: error instanceof Error ? error.message : "请稍后重试",
@@ -110,587 +271,652 @@ export default function InformationArchitecture() {
     }
   }
 
-  // 折叠控制函数
-  const toggleExpand = (id: string) => {
-    setExpandedItems(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) {
-        next.delete(id)
-      } else {
-        next.add(id)
+  // 辅助函数：添加到父节点
+  const addToParent = (items: ArchitectureItem[], parentId: string, newItem: ArchitectureItem): ArchitectureItem[] => {
+    return items.map(item => {
+      if (item.id === parentId) {
+        return {
+          ...item,
+          children: [...(item.children || []), newItem]
+        }
       }
-      return next
+      if (item.children) {
+        return {
+          ...item,
+          children: addToParent(item.children, parentId, newItem)
+        }
+      }
+      return item
     })
   }
 
+  // 辅助函数：更新节点
+  const updateNode = (items: ArchitectureItem[], id: string, title: string, description: string): ArchitectureItem[] => {
+    return items.map(item => {
+      if (item.id === id) {
+        return {
+          ...item,
+          title,
+          description
+        }
+      }
+      if (item.children) {
+        return {
+          ...item,
+          children: updateNode(item.children, id, title, description)
+        }
+      }
+      return item
+    })
+  }
+
+  // 辅助函数：删除节点
+  const deleteNode = (items: ArchitectureItem[], id: string): ArchitectureItem[] => {
+    return items.filter(item => {
+      if (item.id === id) {
+        return false
+      }
+      if (item.children) {
+        item.children = deleteNode(item.children, id)
+      }
+      return true
+    })
+  }
+
+  // 展开全部
   const expandAll = () => {
-    const allIds = new Set(flatArchitecture.map(item => item.id))
+    if (!productInfo?.architecture) return
+    const allIds = new Set<string>()
+    
+    const collectIds = (items: ArchitectureItem[]) => {
+      items.forEach(item => {
+        allIds.add(item.id)
+        if (item.children?.length) {
+          collectIds(item.children)
+        }
+      })
+    }
+    
+    collectIds(productInfo.architecture)
+    console.log('Expanding all items:', allIds)
     setExpandedItems(allIds)
   }
 
+  // 折叠全部
   const collapseAll = () => {
+    console.log('Collapsing all items')
     setExpandedItems(new Set())
   }
 
+  // 处理展开/折叠
+  const toggleExpand = (item: ArchitectureItem) => {
+    console.log('Toggling item:', item.id, 'Current expanded:', expandedItems)
+    const newExpandedItems = new Set(expandedItems)
+    if (expandedItems.has(item.id)) {
+      newExpandedItems.delete(item.id)
+    } else {
+      newExpandedItems.add(item.id)
+    }
+    console.log('New expanded items:', newExpandedItems)
+    setExpandedItems(newExpandedItems)
+  }
+
+  // 处理编辑
   const handleEdit = (item: { id: string; title: string; description: string }) => {
     setEditingId(item.id)
     setEditForm({ title: item.title, description: item.description })
   }
 
-  const handleSaveEdit = (id: string) => {
-    updateArchitectureItem(id, editForm.title, editForm.description)
+  // 处理保存编辑
+  const handleSaveEdit = async (id: string) => {
+    if (!productInfo) return
+    
+    const updateTreeNode = (items: ArchitectureItem[]): ArchitectureItem[] => {
+      return items.map(item => {
+        if (item.id === id) {
+          // 保留原有的 parentId 和 children
+          return {
+            ...item,
+            ...editForm,
+            parentId: item.parentId, // 确保保留 parentId
+            children: item.children // 确保保留 children
+          }
+        }
+        if (item.children) {
+          return {
+            ...item,
+            children: updateTreeNode(item.children)
+          }
+        }
+        return item
+      })
+    }
+    
+    const updatedArchitecture = updateTreeNode(productInfo.architecture)
+    console.log('Updated architecture before save:', updatedArchitecture)
+    await updateProductInfo({ architecture: updatedArchitecture })
     setEditingId(null)
   }
 
+  // 处理概述编辑
   const handleOverviewEdit = () => {
     setIsEditingOverview(true)
-    setEditingOverviewText(overview.content)
+    setEditingOverviewText(productInfo?.overview || '')
   }
 
-  const handleOverviewSave = () => {
-    updateOverview({ ...overview, content: editingOverviewText })
+  // 处理概述保存
+  const handleOverviewSave = async () => {
+    await updateProductInfo({ overview: editingOverviewText })
     setIsEditingOverview(false)
   }
 
-  const handleUserNeedEdit = (item: { id: string; title: string; features: string; needs: string }) => {
+  // 处理用户需求编辑
+  const handleUserNeedEdit = (item: UserPersona) => {
+    console.log('Editing user persona:', item.id)
     setEditingUserNeedId(item.id)
-    setEditingUserNeedForm({ ...item })
+    setEditingUserNeedForm({
+      id: item.id,
+      title: item.title,
+      features: item.features,
+      needs: item.needs
+    })
   }
 
-  const handleUserNeedSave = () => {
-    if (!editingUserNeedForm) return
-    updateUserNeed(
-      editingUserNeedForm.id,
-      editingUserNeedForm.title,
-      editingUserNeedForm.features,
-      editingUserNeedForm.needs
-    )
-    setEditingUserNeedId(null)
-    setEditingUserNeedForm(null)
+  // 处理用户需求保存
+  const handleUserNeedSave = async () => {
+    if (!editingUserNeedForm || !productInfo) return
+
+    try {
+      const updatedUserNeeds = productInfo.userPersona.map(item =>
+        item.id === editingUserNeedId ? editingUserNeedForm : item
+      )
+
+      await updateProductInfo({
+        ...productInfo,
+        userPersona: updatedUserNeeds
+      })
+
+      setEditingUserNeedId(null)
+      setEditingUserNeedForm(null)
+    } catch (error) {
+      console.error('Failed to save user persona:', error)
+      toast({
+        title: "保存失败",
+        description: "保存用户画像失败，请重试",
+        variant: "destructive"
+      })
+    }
   }
 
+  // 处理用户需求取消
   const handleUserNeedCancel = () => {
     setEditingUserNeedId(null)
     setEditingUserNeedForm(null)
   }
 
-  const handleExport = () => {
-    const dataStr = JSON.stringify(flatArchitecture, null, 2)
-    const blob = new Blob([dataStr], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `qare-architecture-${new Date().toISOString().split('T')[0]}.json`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-  }
-
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      try {
-        const content = e.target?.result as string
-        const importedData = JSON.parse(content)
-        // 这里我们假设导入的数据会通过 localStorage 自动同步
-        localStorage.setItem('qare-architecture', content)
-        window.location.reload() // 重新加载页面以获取新数据
-      } catch (error) {
-        alert('导入失败：文件格式不正确')
-      }
-    }
-    reader.readAsText(file)
-    e.target.value = ''
-  }
-
-  const handleAcceptSuggestion = async (suggestion: ArchitectureSuggestion, index: number) => {
-    try {
-      // 根据建议类型更新架构
-      switch (suggestion.type) {
-        case 'add':
-          if (suggestion.parentId && suggestion.title && suggestion.description) {
-            addArchitectureItem(suggestion.title, suggestion.description, suggestion.parentId)
-          }
-          break
-        case 'modify':
-          if (suggestion.nodeId && suggestion.title && suggestion.description) {
-            updateArchitectureItem(suggestion.nodeId, suggestion.title, suggestion.description)
-            // 强制刷新架构树显示
-            const updatedTree = getArchitectureTree()
-            setExpandedItems(new Set(Array.from(expandedItems))) // 触发重新渲染
-          }
-          break
-        case 'delete':
-          if (suggestion.nodeId) {
-            deleteArchitectureItem(suggestion.nodeId)
-          }
-          break
-      }
-
-      // 从建议列表中移除该建议
-      const updatedSuggestions = suggestions.filter((_, i) => i !== index)
-      setSuggestions(updatedSuggestions)
-
-      // 更新 localStorage
-      localStorage.setItem('architecture-suggestions', JSON.stringify(updatedSuggestions))
-
-      // 如果没有建议了，清除原始响应并更新任务状态
-      if (updatedSuggestions.length === 0) {
-        // 更新任务状态
-        const tasks = await getTasks()
-        const confirmTask = tasks.find(t => t.type === 'architecture-confirm')
-        if (confirmTask) {
-          await updateTask(confirmTask.id, { status: 'completed' })
-        }
-      }
-
-      toast({
-        title: "已接受建议",
-        description: suggestion.type === 'modify' ? "节点描述已更新" : suggestion.type === 'add' ? "新节点已添加" : "节点已删除",
-        duration: 2000
-      })
-    } catch (error) {
-      console.error('Failed to accept suggestion:', error)
-      toast({
-        title: "更新失败",
-        description: error instanceof Error ? error.message : "请稍后重试",
-        variant: "destructive",
-        duration: 3000
-      })
-    }
-  }
-
-  const handleRejectSuggestion = async (index: number) => {
-    // 从当前建议列表中移除
-    const updatedSuggestions = suggestions.filter((_, i) => i !== index)
-    setSuggestions(updatedSuggestions)
-
-    // 更新 localStorage
-    localStorage.setItem('architecture-suggestions', JSON.stringify(updatedSuggestions))
-
-    // 如果没有建议了，更新任务状态
-    if (updatedSuggestions.length === 0) {
-      // 更新任务状态
-      const tasks = await getTasks()
-      const confirmTask = tasks.find(t => t.type === 'architecture-confirm')
-      if (confirmTask) {
-        await updateTask(confirmTask.id, { status: 'completed' })
-      }
-    }
-
-    toast({
-      title: "已拒绝建议",
-      description: "该建议已被移除",
-      duration: 2000
-    })
-  }
-
-  const renderArchitectureItem = (item: any, level: number = 0) => {
+  // 渲染架构项
+  const renderArchitectureItem = (item: ArchitectureItem, level: number = 0) => {
     const isEditing = editingId === item.id
     const isExpanded = expandedItems.has(item.id)
     const hasChildren = item.children && item.children.length > 0
-    const suggestion = suggestions.find(s => s.nodeId === item.id)
+    const suggestion = suggestions.find(s => s.targetId === item.id)
 
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter') {
-        handleSaveEdit(item.id)
-      } else if (e.key === 'Escape') {
-        setEditingId(null)
-      }
-    }
+    console.log('Rendering item:', {
+      id: item.id,
+      title: item.title,
+      hasChildren,
+      isExpanded,
+      childrenCount: item.children?.length
+    })
 
     return (
-      <div key={item.id} className={`ml-${level * 3}`}>
-        <div className={`group hover:bg-gray-50 rounded-md ${
-          suggestion?.type === 'modify' ? 'bg-orange-50' : 
-          suggestion?.type === 'delete' ? 'bg-red-50' : ''
+      <div key={item.id} style={{ marginLeft: `${level * 16}px` }}>
+        <div className={`flex items-center py-0.5 group hover:bg-gray-50 ${
+          suggestion?.action === 'update' ? 'bg-orange-50' : 
+          suggestion?.action === 'delete' ? 'bg-red-50' : ''
         }`}>
-          <div className="flex items-center gap-1 py-1.5 px-2">
+          <div className="flex items-center flex-1 min-w-0 text-sm">
+            {hasChildren ? (
+              <button
+                onClick={() => toggleExpand(item)}
+                className="p-0.5 hover:bg-gray-100 rounded"
+              >
+                {isExpanded ? (
+                  <ChevronDown className="h-3.5 w-3.5" />
+                ) : (
+                  <ChevronRight className="h-3.5 w-3.5" />
+                )}
+              </button>
+            ) : (
+              <span className="w-4" />
+            )}
+            
             {isEditing ? (
-              <div className="flex-1 flex items-baseline gap-2">
-                <div className="flex items-center gap-2 min-w-[120px]">
-                  <input
-                    autoFocus
-                    className="w-full px-1.5 py-0.5 text-sm border rounded"
-                    value={editForm.title}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))}
-                    onKeyDown={handleKeyDown}
-                  />
-                </div>
-                <span className="text-xs text-gray-400">—</span>
-                <div className="flex-1 flex items-center gap-2">
-                  <input
-                    className="flex-1 px-1.5 py-0.5 text-sm border rounded"
-                    value={editForm.description}
-                    maxLength={30}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
-                    onKeyDown={handleKeyDown}
-                  />
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleSaveEdit(item.id)}
-                      className="p-1 hover:text-green-600 hover:bg-green-50 rounded"
-                      title="保存 (Enter)"
-                    >
-                      <Check className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      onClick={() => setEditingId(null)}
-                      className="p-1 hover:text-red-600 hover:bg-red-50 rounded"
-                      title="取消 (Esc)"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
+              <div className="flex items-center min-w-0 gap-1 ml-0.5">
+                <Input
+                  value={editForm.title}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))}
+                  className="h-5 text-[10px] w-[100px]"
+                  placeholder="标题"
+                />
+                <Input
+                  value={editForm.description}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                  className="h-5 text-[10px] flex-1"
+                  style={{ minWidth: `${Math.max(editForm.description.length * 10 + 150, 200)}px` }}
+                  placeholder="描述"
+                />
+                <div className="flex gap-1 shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingId(null)}
+                    className="h-5 px-1.5 text-[10px]"
+                  >
+                    取消
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => handleSaveEdit(item.id)}
+                    className="h-5 px-1.5 text-[10px]"
+                  >
+                    保存
+                  </Button>
                 </div>
               </div>
             ) : (
-              <>
-                <div className="flex-1 flex items-baseline">
-                  <div className="flex items-baseline min-w-[120px]">
-                    {hasChildren && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          toggleExpand(item.id)
-                        }}
-                        className="p-0.5 hover:bg-gray-200 rounded mr-1"
-                      >
-                        {isExpanded ? (
-                          <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
-                        ) : (
-                          <ChevronRight className="h-3.5 w-3.5 text-gray-500" />
-                        )}
-                      </button>
-                    )}
-                    <div 
+              <div className="flex items-center min-w-0 gap-1 ml-0.5 flex-1">
+                <div className="flex items-center gap-1 min-w-0 group/item">
+                  <span className="font-medium text-xs whitespace-nowrap">{item.title}</span>
+                  {item.description && (
+                    <span className="text-xs text-gray-500 truncate">
+                      - {item.description}
+                    </span>
+                  )}
+                  <div className="flex gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => handleEdit(item)}
-                      className="flex-1 flex items-baseline gap-2 cursor-pointer hover:text-blue-600"
+                      className="h-5 px-1"
                     >
-                      <h3 className="text-sm font-medium text-gray-800">{item.title}</h3>
-                      <span className="text-xs text-gray-400 mx-1">—</span>
-                      <p className="text-xs text-gray-600 flex-1">{item.description}</p>
-                      {suggestion && (
-                        <span className="text-xs text-yellow-600 ml-2">
-                          {suggestion.type === 'modify' ? '建议修改' : suggestion.type === 'delete' ? '建议删除' : ''}
-                        </span>
-                      )}
-                    </div>
-                    <div className="hidden group-hover:flex items-center gap-1 ml-2 bg-white px-2 py-1 rounded-md shadow-sm">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          addArchitectureItem("新菜单项", "请添加描述", item.id)
-                        }}
-                        className="p-0.5 hover:text-blue-600 hover:bg-blue-50 rounded"
-                        title="添加子项"
-                      >
-                        <PlusCircle className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          deleteArchitectureItem(item.id)
-                        }}
-                        className="p-0.5 hover:text-red-600 hover:bg-red-50 rounded"
-                        title="删除"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+                      <Edit2 className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={async () => {
+                        if (!productInfo) return
+                        try {
+                          // 构建没有这个节点（及其子节点）的新架构树
+                          const deleteNodeAndChildren = (items: ArchitectureItem[]): ArchitectureItem[] => {
+                            return items.filter(i => {
+                              if (i.id === item.id) return false
+                              if (i.children) {
+                                i.children = deleteNodeAndChildren(i.children)
+                              }
+                              return true
+                            })
+                          }
+                          
+                          const updatedArchitecture = deleteNodeAndChildren([...productInfo.architecture])
+                          await updateProductInfo({ architecture: updatedArchitecture })
+                          
+                          toast({
+                            title: "删除成功",
+                            description: "节点已删除",
+                            duration: 2000
+                          })
+                        } catch (error) {
+                          console.error('删除节点失败:', error)
+                          toast({
+                            title: "删除失败",
+                            description: "删除节点失败，请重试",
+                            variant: "destructive"
+                          })
+                        }
+                      }}
+                      className="h-5 px-1 text-red-500 hover:text-red-600 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
                   </div>
                 </div>
-              </>
+                {suggestion && (
+                  <span className="text-xs text-yellow-600 ml-2">
+                    {suggestion.action === 'update' ? '建议修改' : suggestion.action === 'delete' ? '建议删除' : ''}
+                  </span>
+                )}
+              </div>
             )}
           </div>
         </div>
-        {item.children && isExpanded && (
-          <div className="ml-4 mt-0.5 space-y-0.5 border-l border-gray-200 pl-3">
-            {item.children.map((child: any) => renderArchitectureItem(child, level + 1))}
+        {hasChildren && isExpanded && (
+          <div>
+            {item.children!.map(child => renderArchitectureItem(child, level + 1))}
           </div>
         )}
       </div>
     )
   }
 
-  return (
-    <div className="mx-auto py-6 w-[90%] space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">产品信息架构</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            管理产品的功能架构、概述和用户需求
-          </p>
-        </div>
-        <div className="flex gap-2">
-          {suggestions.length > 0 && (
-            <Button onClick={handleApplySuggestions} className="bg-orange-500 hover:bg-orange-600">
-              应用信息架构调整建议 ({suggestions.length})
-            </Button>
-          )}
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={expandAll}>展开全部</Button>
-            <Button variant="outline" size="sm" onClick={collapseAll}>折叠全部</Button>
-            <Button variant="outline" size="sm" onClick={handleExport}>导出架构</Button>
-            <label className="cursor-pointer">
-              <Input
-                type="file"
-                accept=".json"
-                onChange={handleImport}
-                className="hidden"
-              />
-              <Button variant="outline" size="sm" asChild>
-                <span>导入架构</span>
-              </Button>
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-6">
-        {/* 功能架构 */}
-        <Card>
-          <CardHeader className="py-3">
-            <CardTitle className="text-base">功能架构</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="space-y-0.5">
-              {getArchitectureTree().map(item => renderArchitectureItem(item))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 架构建议 */}
-        {suggestions.length > 0 && (
-          <Card>
-            <CardHeader className="py-3">
-              <CardTitle className="text-base">架构调整建议</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <ScrollArea className="h-[600px] pr-4">
-                <div className="space-y-2">
-                  {suggestions.map((suggestion, index) => (
-                    <Card key={index} className={`border shadow-sm ${
-                      suggestion.type === 'add' 
-                        ? 'border-green-100 bg-green-50/50' 
-                        : 'border-orange-100 bg-orange-50/50'
-                    }`}>
-                      <CardHeader className="py-2 px-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className={`
-                              ${suggestion.type === 'add' 
-                                ? 'border-green-200 text-green-700 bg-green-50' 
-                                : 'border-orange-200 text-orange-700 bg-orange-50'
-                              }
-                            `}>
-                              {suggestion.type === 'add' ? '新增节点' : suggestion.type === 'modify' ? '修改节点' : '删除节点'}
-                            </Badge>
-                            <span className="text-sm text-gray-600">
-                              {suggestion.type === 'add' ? `父节点: ${suggestion.parentId}` : `节点: ${suggestion.nodeId}`}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="flex gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 px-2 text-gray-600 hover:text-red-600 hover:bg-red-50"
-                                onClick={() => handleRejectSuggestion(index)}
-                              >
-                                <X className="h-3.5 w-3.5 mr-1" />
-                                拒绝
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 px-2 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50"
-                                onClick={() => handleAcceptSuggestion(suggestion, index)}
-                              >
-                                <Check className="h-3.5 w-3.5 mr-1" />
-                                接受
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="py-2 px-4">
-                        <div className="space-y-1">
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-sm font-medium text-gray-600">标题：</span>
-                            <span className="text-sm text-gray-700">{suggestion.title}</span>
-                          </div>
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-sm font-medium text-gray-600">描述：</span>
-                            <span className="text-sm text-gray-700">{suggestion.description}</span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* 产品概述 */}
-        <Card>
-          <CardHeader
-            className="py-3 cursor-pointer"
-            onClick={() => setIsOverviewExpanded(!isOverviewExpanded)}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-base">产品概述</CardTitle>
-                {isOverviewExpanded ? (
-                  <ChevronDown className="h-4 w-4 text-gray-500" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 text-gray-500" />
-                )}
-              </div>
-              {isOverviewExpanded && !isEditingOverview && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleOverviewEdit()
-                  }}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <Edit2 className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          </CardHeader>
-          {isOverviewExpanded && (
-            <CardContent className="pt-0">
-              {isEditingOverview ? (
-                <div className="space-y-2">
-                  <Textarea
-                    value={editingOverviewText}
-                    onChange={(e) => setEditingOverviewText(e.target.value)}
-                    className="min-h-[100px]"
-                  />
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsEditingOverview(false)}
-                    >
-                      取消
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={handleOverviewSave}
-                    >
-                      保存
-                    </Button>
-                  </div>
-                </div>
+  // 渲染用户画像
+  const renderUserPersona = () => {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex justify-between items-center">
+            <CardTitle className="text-base">用户画像</CardTitle>
+            <Button
+              size="sm"
+              onClick={async () => {
+                if (!productInfo) return
+                try {
+                  setIsAddingPersona(true)
+                  const newPersona = {
+                    id: String(new Date().getTime()),
+                    title: '新用户画像',
+                    features: '',
+                    needs: ''
+                  }
+                  
+                  await updateProductInfo({
+                    userPersona: [...productInfo.userPersona, newPersona]
+                  })
+                  
+                  // 新增后立即进入编辑状态
+                  setEditingUserNeedId(newPersona.id)
+                  setEditingUserNeedForm(newPersona)
+                } catch (error) {
+                  console.error('Failed to add new persona:', error)
+                  toast({
+                    title: "添加失败",
+                    description: "添加用户画像失败，请重试",
+                    variant: "destructive"
+                  })
+                } finally {
+                  setIsAddingPersona(false)
+                }
+              }}
+              className="h-7"
+              disabled={isAddingPersona}
+            >
+              {isAddingPersona ? (
+                <>
+                  <span className="animate-spin mr-1">⏳</span>
+                  添加中...
+                </>
               ) : (
-                <p className="text-sm text-gray-600 whitespace-pre-wrap">
-                  {overview.content}
-                </p>
+                '新增画像'
               )}
-            </CardContent>
-          )}
-        </Card>
-
-        {/* 用户需求 */}
-        <Card>
-          <CardHeader
-            className="py-3 cursor-pointer"
-            onClick={() => setIsUserNeedsExpanded(!isUserNeedsExpanded)}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-base">用户画像</CardTitle>
-                {isUserNeedsExpanded ? (
-                  <ChevronDown className="h-4 w-4 text-gray-500" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 text-gray-500" />
-                )}
-              </div>
-            </div>
-          </CardHeader>
-          {isUserNeedsExpanded && (
-            <CardContent className="pt-0">
-              <div className="space-y-4">
-                {userNeeds.items.map(item => (
-                  <div key={item.id} className="space-y-2">
-                    {editingUserNeedId === item.id ? (
-                      <div className="space-y-3">
-                        <div>
-                          <label className="text-sm font-medium">用户群体</label>
-                          <Input
-                            value={editingUserNeedForm?.title}
-                            onChange={(e) => setEditingUserNeedForm(prev => prev ? { ...prev, title: e.target.value } : null)}
-                            className="mt-1"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium">特征描述</label>
-                          <Textarea
-                            value={editingUserNeedForm?.features}
-                            onChange={(e) => setEditingUserNeedForm(prev => prev ? { ...prev, features: e.target.value } : null)}
-                            className="mt-1"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium">核心需求</label>
-                          <Textarea
-                            value={editingUserNeedForm?.needs}
-                            onChange={(e) => setEditingUserNeedForm(prev => prev ? { ...prev, needs: e.target.value } : null)}
-                            className="mt-1"
-                          />
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleUserNeedCancel}
-                          >
-                            取消
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={handleUserNeedSave}
-                          >
-                            保存
-                          </Button>
-                        </div>
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4">
+            {productInfo?.userPersona.map((item) => {
+              const isEditing = editingUserNeedId === item.id
+              console.log(`Rendering persona ${item.id}, isEditing: ${isEditing}`)
+              
+              return (
+                <div key={item.id} className="border rounded-lg p-3">
+                  {isEditing ? (
+                    <div className="space-y-1.5">
+                      <Input
+                        value={editingUserNeedForm?.title || ''}
+                        onChange={(e) => setEditingUserNeedForm(prev => ({ ...prev!, title: e.target.value }))}
+                        placeholder="用户类型"
+                        className="text-[10px] h-5"
+                      />
+                      <Textarea
+                        value={editingUserNeedForm?.features || ''}
+                        onChange={(e) => setEditingUserNeedForm(prev => ({ ...prev!, features: e.target.value }))}
+                        placeholder="特征描述"
+                        className="text-[10px] min-h-[60px]"
+                      />
+                      <Textarea
+                        value={editingUserNeedForm?.needs || ''}
+                        onChange={(e) => setEditingUserNeedForm(prev => ({ ...prev!, needs: e.target.value }))}
+                        placeholder="需求描述"
+                        className="text-[10px] min-h-[60px]"
+                      />
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleUserNeedCancel}
+                          className="h-5 text-[10px]"
+                        >
+                          取消
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={handleUserNeedSave}
+                          className="h-5 text-[10px]"
+                        >
+                          保存
+                        </Button>
                       </div>
-                    ) : (
-                      <div className="group">
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-sm font-medium">{item.title}</h3>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-xs font-medium">{item.title}</h3>
+                        <div className="flex gap-1">
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => handleUserNeedEdit(item)}
-                            className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-gray-700"
+                            className="h-6 px-2"
                           >
-                            <Edit2 className="h-4 w-4" />
+                            <Edit2 className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                              if (!productInfo) return
+                              try {
+                                await updateProductInfo({
+                                  userPersona: productInfo.userPersona.filter(p => p.id !== item.id)
+                                })
+                              } catch (error) {
+                                console.error('Failed to delete persona:', error)
+                              }
+                            }}
+                            className="h-6 px-2 text-red-500 hover:text-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
-                        <p className="mt-1 text-sm text-gray-600">{item.features}</p>
-                        <p className="mt-1 text-sm text-gray-600">{item.needs}</p>
                       </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          )}
-        </Card>
+                      <div className="text-xs leading-4">
+                        <p className="text-gray-600 whitespace-pre-wrap">{item.features}</p>
+                      </div>
+                      <div className="text-xs leading-4">
+                        <p className="text-gray-600 whitespace-pre-wrap">{item.needs}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // 渲染建议列表
+  const renderSuggestions = () => {
+    if (!suggestions.length) return null
+
+    return (
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="text-lg">架构调整建议</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-[300px]">
+            <div className="space-y-4">
+              {suggestions.map((suggestion, index) => (
+                <Card key={index} className={`border shadow-sm ${
+                  suggestion.action === 'add' 
+                    ? 'border-green-100 bg-green-50/50' 
+                    : 'border-orange-100 bg-orange-50/50'
+                }`}>
+                  <CardContent className="p-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className={`
+                          ${suggestion.action === 'add' 
+                            ? 'border-green-200 text-green-700 bg-green-50' 
+                            : 'border-orange-200 text-orange-700 bg-orange-50'
+                          }
+                        `}>
+                          {suggestion.action === 'add' ? '新增节点' : suggestion.action === 'update' ? '修改节点' : '删除节点'}
+                        </Badge>
+                        <span className="text-sm text-gray-600">
+                          {suggestion.action === 'add' ? `父节点: ${suggestion.parentId}` : `节点: ${suggestion.targetId}`}
+                        </span>
+                      </div>
+                      <div>
+                        <h4 className="font-medium">{suggestion.title}</h4>
+                        <p className="text-sm text-gray-600">{suggestion.description}</p>
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50"
+                          onClick={() => handleApplySuggestion(suggestion, index)}
+                        >
+                          <Check className="h-3.5 w-3.5 mr-1" />
+                          应用
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!selectedSystemId) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+        <div className="text-center">
+          <h2 className="text-lg font-semibold text-gray-700">请先选择系统</h2>
+          <p className="mt-2 text-sm text-gray-500">需要选择一个系统才能查看产品信息</p>
+        </div>
       </div>
-      <Toaster />
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+        <div className="text-center">
+          <h2 className="text-lg font-semibold text-gray-700">加载中...</h2>
+          <p className="mt-2 text-sm text-gray-500">正在获取产品信息</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="w-[90%] mx-auto py-4">
+      <div className="space-y-6">
+        {/* Overview Section */}
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-base">产品概述</CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleOverviewEdit}
+                disabled={isEditingOverview}
+              >
+                <Edit2 className="h-3.5 w-3.5 mr-1" />
+                编辑
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {isEditingOverview ? (
+              <div className="space-y-4">
+                <textarea
+                  className="w-full h-32 p-2 border rounded-md text-sm"
+                  value={editingOverviewText}
+                  onChange={(e) => setEditingOverviewText(e.target.value)}
+                />
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditingOverview(false)}
+                  >
+                    取消
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleOverviewSave}
+                  >
+                    保存
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-600 whitespace-pre-wrap leading-4">
+                {productInfo?.overview}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Architecture Section */}
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-base">信息架构</CardTitle>
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={expandAll}
+                  className="text-xs h-7"
+                >
+                  展开全部
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={collapseAll}
+                  className="text-xs h-7"
+                >
+                  折叠全部
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-0">
+              {productInfo?.architecture.map(item => renderArchitectureItem(item))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* User Persona Section */}
+        {renderUserPersona()}
+
+        {/* Suggestions Section */}
+        {renderSuggestions()}
+      </div>
     </div>
   )
 } 

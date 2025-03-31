@@ -4,6 +4,7 @@ import { Long_Cang } from 'next/font/google'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { UserMenu } from './auth/user-menu'
+import { SystemSelector } from './system-selector'
 
 const longCang = Long_Cang({
   weight: '400',
@@ -29,10 +30,11 @@ export function SiteHeader() {
             </span>
           </Link>
         </div>
-        <div className="hidden md:flex flex-1 justify-center">
+        <div className="hidden md:flex flex-1 justify-center items-center space-x-8">
           <span className={`text-base text-gray-300 hover:text-orange-400 transition-colors duration-200 ${longCang.className}`}>
             知识驱动能力破界，AI召唤协作灵感
           </span>
+          {session?.user && <SystemSelector />}
         </div>
         <div className="w-1/4 flex justify-end items-center">
           {status === 'loading' ? (
