@@ -1,19 +1,22 @@
-import { auth } from '@/app/api/auth/[...nextauth]/route'
-import { UserRole } from '@prisma/client'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+
+// 定义UserRole类型
+type UserRole = 'USER' | 'ADMIN'
 
 export async function checkAuthenticated() {
-  const session = await auth()
+  const session = await getServerSession(authOptions)
   return !!session
 }
 
 export async function checkRole(allowedRoles: UserRole[]) {
-  const session = await auth()
+  const session = await getServerSession(authOptions)
   if (!session?.user?.role) return false
   return allowedRoles.includes(session.user.role)
 }
 
 export async function getCurrentUser() {
-  const session = await auth()
+  const session = await getServerSession(authOptions)
   return session?.user
 }
 

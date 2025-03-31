@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
 import { streamingAICall } from '@/lib/services/ai-service'
-import { getDefaultAIConfig } from '@/lib/services/ai-config-service'
 import { Card } from "@/components/ui/card"
 import { Loader2, Copy, Download, Edit2, Save, ArrowRight, Pin, PinOff } from "lucide-react"
 import { requirementBookPrompt } from '@/lib/prompts/requirement-book'

@@ -13,7 +13,6 @@ import remarkGfm from 'remark-gfm'
 import { createTask, updateTask } from '@/lib/services/task-service'
 import { cn } from '@/lib/utils'
 import { SceneRequirementService } from '@/lib/services/scene-requirement-service'
-import { getAIConfig } from '@/lib/services/ai-config-service'
 import { RequirementExportService } from '@/lib/services/requirement-export-service'
 import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store'
 

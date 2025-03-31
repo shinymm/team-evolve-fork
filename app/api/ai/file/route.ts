@@ -29,11 +29,11 @@ export async function POST(request: NextRequest) {
 
     let config: AIModelConfig;
     
-    // 如果请求中没有提供配置，从Redis获取默认配置
+    // 如果请求中没有提供配置，从数据库获取默认配置
     if (!configJson) {
-      console.log("请求中未提供配置，尝试从Redis获取默认配置");
-      const { getDefaultConfigFromRedis } = await import("@/lib/utils/ai-config-redis");
-      const defaultConfig = await getDefaultConfigFromRedis();
+      console.log("请求中未提供配置，尝试从数据库获取默认配置");
+      const { aiModelConfigService } = await import("@/lib/services/ai-model-config-service");
+      const defaultConfig = await aiModelConfigService.getDefaultConfig();
       
       if (!defaultConfig) {
         return NextResponse.json(

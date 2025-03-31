@@ -1,4 +1,26 @@
-import { ArchitectureItem, Overview, UserNeeds, ProductInfo } from '@/types/product-info'
+import { ArchitectureItem } from '@/types/product-info'
+
+// 定义缺失的类型
+export interface Overview {
+  title: string;
+  content: string;
+}
+
+export interface UserNeeds {
+  title: string;
+  items: {
+    id: string;
+    title: string;
+    features: string;
+    needs: string;
+  }[];
+}
+
+export interface ProductInfo {
+  architecture: ArchitectureItem[];
+  overview: Overview;
+  userNeeds: UserNeeds;
+}
 
 export const DEFAULT_ARCHITECTURE: ArchitectureItem[] = [
   { "id": "1", "title": "知识引擎", "description": "支持意图管理、知识管理、脚本维护及更新记录等功能模块" },

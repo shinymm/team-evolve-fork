@@ -1,13 +1,23 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import { ArchitectureItem, Overview, UserNeeds, UserNeedsItem } from '@/types/product-info'
+import { ArchitectureItem } from '@/types/product-info'
 import { 
   DEFAULT_ARCHITECTURE, 
   DEFAULT_OVERVIEW, 
   DEFAULT_USER_NEEDS,
   buildArchitectureTree as buildTree,
-  generateArchitectureId
+  generateArchitectureId,
+  Overview,
+  UserNeeds
 } from '@/lib/services/product-info-service'
+
+// 定义UserNeedsItem类型
+interface UserNeedsItem {
+  id: string;
+  title: string;
+  features: string;
+  needs: string;
+}
 
 // 定义Store的状态和方法
 interface ProductInfoState {

@@ -58,17 +58,17 @@ export async function POST(request: NextRequest) {
     }
     
     console.log(`上传文件: ${filename}, 大小: ${file.size} 字节, 类型: ${file.type}`)
-
-    // 从 Redis 获取默认配置
-    const { getDefaultConfigFromRedis } = await import('@/lib/utils/ai-config-redis')
-    const config = await getDefaultConfigFromRedis()
     
-    if (!config || !config.apiKey) {
+    console.log("请求中未提供配置，尝试从数据库获取默认配置");
+    const { aiModelConfigService } = await import("@/lib/services/ai-model-config-service");
+    const config = await aiModelConfigService.getDefaultConfig();
+    
+    if (!config) {
       return NextResponse.json(
-        { error: '未找到有效的AI模型配置，请先在设置中配置模型' },
+        { error: "未找到默认配置，请先在设置中配置模型" },
         { status: 404 }
-      )
-    }
+      );
+    }   
     
     try {
       // 只在这里解密 API Key

@@ -97,14 +97,6 @@ export async function POST(request: NextRequest) {
         } else {
           // 处理标准 OpenAI 兼容的 API
           const { endpoint, headers: requestHeaders } = getApiEndpointAndHeaders(configWithDecryptedKey)
-          
-          // console.log('调用标准OpenAI API:', {
-          //   endpoint,
-          //   model: configWithDecryptedKey.model,
-          //   baseURL: configWithDecryptedKey.baseURL,
-          //   hasApiKey: !!configWithDecryptedKey.apiKey,
-          //   temperature: configWithDecryptedKey.temperature
-          // })
 
           const response = await fetch(endpoint, {
             method: 'POST',
