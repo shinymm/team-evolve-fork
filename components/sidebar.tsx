@@ -150,7 +150,7 @@ export function Sidebar() {
     if (!hasAccessibleSubmenu) return null
 
     return (
-      <div key={item.title} className="mb-0.5">
+      <div key={item.title} className="mb-0">
         <div
           className="w-full flex items-center justify-between px-1.5 py-1 text-[11px] text-gray-600 font-medium bg-gray-100/80 rounded-md cursor-default select-none"
         >
@@ -166,14 +166,14 @@ export function Sidebar() {
           />
         </div>
         {openMenus.includes(item.title) && (
-          <div className="">
+          <div className="space-y-0">
             {item.submenu.map((subitem) => {
               const isAccessible = canAccessPath(subitem.href)
               return (
                 <button
                   key={subitem.href}
                   onClick={() => handleNavigate(subitem.href)}
-                  className={`w-full text-left pl-6 pr-1.5 py-[1px] rounded-md text-[10px] relative
+                  className={`w-full text-left pl-6 pr-1 py-1 text-[10px] relative block
                     ${!isAccessible ? 'opacity-50 cursor-not-allowed' : 'hover:bg-orange-100 hover:text-orange-700'}
                     ${pathname === subitem.href ? "bg-orange-50 text-orange-700 font-medium" : "text-gray-700"}
                     ${navigating === subitem.href ? "opacity-70" : ""}`}

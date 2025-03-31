@@ -211,8 +211,7 @@ export default function PromptDebugPage() {
         // 使用 finalConfig 调用 streamingAICall
         await streamingAICall(
           finalPrompt,
-          finalConfig,
-          (content) => {
+          (content: string) => {
             // 更新对应模型的输出内容
             setOutputs(prev => 
               prev.map(output => 

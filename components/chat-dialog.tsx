@@ -3,7 +3,6 @@ import { Assistant } from "./ai-team-sidebar"
 import { cn } from "../lib/utils"
 import { useToast } from "@/components/ui/use-toast"
 import { useState, useRef, useEffect } from "react"
-import { getDefaultAIConfig } from "@/lib/services/ai-config-service"
 import { streamingAICall } from "@/lib/services/ai-service"
 import { epicDiscussionPrompt } from "@/lib/prompts/epic-discussion"
 import { userPersonaPrompt } from "@/lib/prompts/user-persona"
@@ -51,17 +50,6 @@ export function ChatDialog({ assistant, onClose }: ChatDialogProps) {
     setIsLoading(true)
 
     try {
-      // 获取AI配置
-      const aiConfig = await getDefaultAIConfig()
-      if (!aiConfig) {
-        toast({
-          description: "未找到AI配置，请先在设置中配置AI模型",
-          variant: "destructive",
-        })
-        setIsLoading(false)
-        return
-      }
-
       // 生成提示词
       let prompt = ''
       if (assistant.id === 'epic-discussion') {
@@ -105,7 +93,6 @@ export function ChatDialog({ assistant, onClose }: ChatDialogProps) {
       let accumulatedContent = ''
       await streamingAICall(
         prompt,
-        aiConfig,
         (content) => {
           // 累积内容，而不是替换内容
           accumulatedContent += content

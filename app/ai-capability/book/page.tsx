@@ -98,13 +98,6 @@ export default function RequirementBook() {
         throw new Error('需求内容不能为空')
       }
 
-      // 获取AI配置
-      const aiConfig = await getDefaultAIConfig()
-      if (!aiConfig) {
-        throw new Error('未找到可用的AI模型配置，请先在设置中配置AI模型')
-      }
-      setCachedAIConfig(aiConfig)
-
       setRequirementBook('')
       console.log('开始生成需求书...')
 
@@ -113,9 +106,7 @@ export default function RequirementBook() {
       
       await streamingAICall(
         prompt,
-        aiConfig,
-        (content) => {
-          console.log('收到流式内容片段:', content)
+        (content: string) => {
           accumulatedContent += content
           setRequirementBook(accumulatedContent)
         },

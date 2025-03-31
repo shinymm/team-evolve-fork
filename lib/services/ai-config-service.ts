@@ -497,7 +497,7 @@ export const setDefaultAIConfig = async (id: string): Promise<AIModelConfig> => 
  */
 export async function getDefaultAIConfig(): Promise<AIModelConfig | null> {
   try {
-    console.log('获取默认 AI 配置')
+    console.log('开始获取默认 AI 配置')
     
     // 1. 先尝试从Redis获取
     if (isServer && redisUtils) {
@@ -508,7 +508,13 @@ export async function getDefaultAIConfig(): Promise<AIModelConfig | null> {
         console.log('在Redis中找到默认配置ID:', defaultId)
         const config = await redisUtils.getConfigFromRedis(defaultId)
         if (config) {
-          console.log('成功从Redis获取默认配置')
+          console.log('成功从Redis获取默认配置:', {
+            id: config.id,
+            model: config.model,
+            baseURL: config.baseURL,
+            hasApiKey: !!config.apiKey,
+            apiKeyLength: config.apiKey?.length || 0
+          })
           return config
         }
       }
@@ -527,6 +533,14 @@ export async function getDefaultAIConfig(): Promise<AIModelConfig | null> {
       console.log('数据库中未找到默认配置')
       return null
     }
+    
+    console.log('从数据库获取到默认配置:', {
+      id: config.id,
+      model: config.model,
+      baseURL: config.baseURL,
+      hasApiKey: !!config.apiKey,
+      apiKeyLength: config.apiKey?.length || 0
+    })
     
     // 3. 如果从数据库获取成功,同步到Redis
     if (isServer && redisUtils && config) {

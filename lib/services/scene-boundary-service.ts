@@ -1,5 +1,4 @@
 import { streamingAICall } from '@/lib/services/ai-service'
-import { getDefaultAIConfig } from '@/lib/services/ai-config-service'
 import { sceneBoundaryPromptTemplate } from '@/lib/prompts/scene-boundary'
 import { useBoundaryRulesStore } from '@/lib/stores/boundary-rules-store'
 
@@ -43,11 +42,6 @@ const getRulesTable = () => {
 
 export class SceneBoundaryService {
   async analyzeScene(params: BoundaryAnalysisParams, onContent: (content: string) => void) {
-    const aiConfig = await getDefaultAIConfig()
-    if (!aiConfig) {
-      throw new Error('未配置AI模型')
-    }
-
     // 构建用户旅程字符串
     const userJourneyStr = params.scene.userJourney
       .map((step, index) => `${index + 1}. ${step}`)
@@ -68,7 +62,6 @@ export class SceneBoundaryService {
     // 调用AI服务进行分析
     await streamingAICall(
       prompt,
-      aiConfig,
       onContent,
       (error: string) => {
         throw new Error(`场景边界分析失败: ${error}`)

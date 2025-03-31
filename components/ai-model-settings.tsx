@@ -15,7 +15,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { AIModelConfig } from '@/lib/services/ai-service'
 import { streamingAICall } from '@/lib/services/ai-service'
 import { addAIConfig, updateAIConfig, deleteAIConfig, setDefaultAIConfig, getAllAIConfigs, syncLocalStorage } from '@/lib/services/ai-config-service'
-import RedisConfigStatus from '@/components/ai-config/RedisConfigStatus'
 
 // 可用的AI模型预设
 const modelPresets = [
@@ -246,7 +245,6 @@ export function AIModelSettings() {
       let responseContent = '';
       await streamingAICall(
         "测试连接,请简洁回复", // 最简单的测试提示词
-        config, // 使用当前配置
         (content) => {
           responseContent += content;
           // 收到任何响应就表示连接成功
@@ -601,9 +599,6 @@ export function AIModelSettings() {
                 </div>
               </CardContent>
             </Card>
-            
-            {/* Redis配置状态组件 - 只在AI模型设置tab中显示 */}
-            <RedisConfigStatus />
           </div>
         </TabsContent>
         

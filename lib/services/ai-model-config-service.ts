@@ -66,8 +66,16 @@ export const aiModelConfigService = {
       });
 
       if (!config) {
+        console.log('未找到指定配置:', id);
         return null;
       }
+
+      console.log('获取到配置:', {
+        id: config.id,
+        model: config.model,
+        hasApiKey: !!config.apiKey,
+        apiKeyLength: config.apiKey?.length || 0
+      });
 
       // 直接转换配置（保持API密钥加密状态）
       return convertToAIModelConfig(config);
@@ -83,16 +91,35 @@ export const aiModelConfigService = {
    */
   async getDefaultConfig(): Promise<AIModelConfig | null> {
     try {
+      console.log('开始从数据库获取默认配置');
+      
       const config = await prisma.aIModelConfig.findFirst({
         where: { isDefault: true }
       });
 
       if (!config) {
+        console.log('数据库中未找到默认配置');
         return null;
       }
 
+      console.log('从数据库获取到原始配置:', {
+        id: config.id,
+        model: config.model,
+        hasApiKey: !!config.apiKey,
+        apiKeyLength: config.apiKey?.length || 0
+      });
+
       // 直接转换配置（保持API密钥加密状态）
-      return convertToAIModelConfig(config);
+      const convertedConfig = convertToAIModelConfig(config);
+      
+      console.log('转换后的配置:', {
+        id: convertedConfig.id,
+        model: convertedConfig.model,
+        hasApiKey: !!convertedConfig.apiKey,
+        apiKeyLength: convertedConfig.apiKey?.length || 0
+      });
+
+      return convertedConfig;
     } catch (error) {
       console.error('获取默认配置失败:', error);
       return null;

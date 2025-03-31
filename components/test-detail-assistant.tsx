@@ -8,14 +8,12 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2, Wand2, Check, X, Copy } from 'lucide-react'
 import { streamingAICall } from '@/lib/services/ai-service'
-import type { AIModelConfig } from '@/lib/services/ai-service'
 import { generateDetailPromptTemplate, generateSummaryPromptTemplate, optimizeSummaryPromptTemplate, generateFromStepsPromptTemplate } from '@/lib/prompts'
 import yaml from 'js-yaml'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { RotateCcw } from 'lucide-react'
 import { PathInputDialog } from "@/components/path-input-dialog"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { getDefaultAIConfig } from '@/lib/services/ai-config-service'
 import { getFormattedArchitecture } from '@/lib/services/architecture-service'
 
 interface TestCaseDetail {
@@ -59,17 +57,6 @@ export function TestDetailAssistant() {
   const [caseGeneration, setCaseGeneration] = useState<TestCaseGeneration | null>(null)
   const [isPathDialogOpen, setIsPathDialogOpen] = useState(false)
   const [stepsGeneration, setStepsGeneration] = useState<{ steps: string } | null>(null)
-  const [aiConfig, setAiConfig] = useState<AIModelConfig | null>(null)
-
-  useEffect(() => {
-    const loadConfig = async () => {
-      const config = await getDefaultAIConfig()
-      if (config) {
-        setAiConfig(config)
-      }
-    }
-    loadConfig()
-  }, [])
 
   const handleInputChange = (field: keyof TestCaseDetail) => (
     e: React.ChangeEvent<HTMLTextAreaElement>
@@ -81,7 +68,7 @@ export function TestDetailAssistant() {
   }
 
   const handleGenerateFromSummary = async () => {
-    if (!testCase.summary.trim() || !aiConfig || isGenerating.generate) return
+    if (!testCase.summary.trim() || isGenerating.generate) return
     setIsGenerating(prev => ({ ...prev, generate: true }))
     setCaseGeneration(null)
 
@@ -95,10 +82,6 @@ export function TestDetailAssistant() {
 
       await streamingAICall(
         prompt,
-        {
-          ...aiConfig,
-          temperature: 0.7
-        },
         (content: string) => {
           generatedResult += content
           try {
@@ -139,7 +122,7 @@ export function TestDetailAssistant() {
   }
 
   const handleOptimizeSummary = async () => {
-    if (!testCase.summary.trim() || !aiConfig || isGenerating.optimize) return
+    if (!testCase.summary.trim() || isGenerating.optimize) return
     setIsGenerating(prev => ({ ...prev, optimize: true }))
     setSummaryOptimization(null)
 
@@ -148,18 +131,12 @@ export function TestDetailAssistant() {
         '{current_summary}',
         testCase.summary
       )
-      console.log('Sending prompt:', prompt)
       let generatedResult = ''
 
       await streamingAICall(
         prompt,
-        {
-          ...aiConfig,
-          temperature: 0.7
-        },
         (content: string) => {
           generatedResult += content
-          console.log('Received content:', content)
           try {
             // 清理 markdown 代码块标记
             const cleanContent = generatedResult
@@ -167,15 +144,12 @@ export function TestDetailAssistant() {
               .replace(/```(\n)?$/g, '')  // 移除结束标记
               .trim()
 
-            console.log('Cleaned content:', cleanContent)
             const parsed = yaml.load(cleanContent) as SummaryOptimization
-            console.log('Parsed result:', parsed)
             if (parsed?.optimized_summary) {
               setSummaryOptimization(parsed)
-              console.log('Set optimization:', parsed)
             }
           } catch (e) {
-            console.log('Parse error:', e)
+            // 解析错误时继续累积内容
           }
         },
         (error: string) => {
@@ -183,7 +157,6 @@ export function TestDetailAssistant() {
         }
       )
 
-      console.log('Final result:', generatedResult)
       toast({
         title: "优化完成",
         description: "请查看优化建议",
@@ -306,23 +279,16 @@ export function TestDetailAssistant() {
   }
 
   const handleGenerateFromPath = async (path: string) => {
-    if (!testCase.summary.trim() || !aiConfig || isGenerating.steps) return
+    if (!path.trim() || isGenerating.steps) return
     setIsGenerating(prev => ({ ...prev, steps: true }))
     setStepsGeneration(null)
 
     try {
-      const prompt = generateFromStepsPromptTemplate
-        .replace('{summary}', testCase.summary.trim())
-        .replace('{path}', path.trim())
-
+      const prompt = generateFromStepsPromptTemplate.replace('{path}', path.trim())
       let generatedResult = ''
 
       await streamingAICall(
         prompt,
-        {
-          ...aiConfig,
-          temperature: 0.7
-        },
         (content: string) => {
           generatedResult += content
           try {
@@ -340,14 +306,13 @@ export function TestDetailAssistant() {
           }
         },
         (error: string) => {
-          throw new Error(`生成用例步骤失败: ${error}`)
+          throw new Error(`生成步骤失败: ${error}`)
         }
       )
 
-      setIsPathDialogOpen(false)
       toast({
         title: "生成完成",
-        description: "请查看生成的用例步骤",
+        description: "请查看生成的步骤",
         duration: 3000
       })
     } catch (error) {
@@ -430,15 +395,6 @@ export function TestDetailAssistant() {
           </div>
         </div>
 
-        {!aiConfig && (
-          <Alert className="mb-2">
-            <AlertTitle>提示</AlertTitle>
-            <AlertDescription>
-              请先在设置中配置并选择默认的 AI 模型
-            </AlertDescription>
-          </Alert>
-        )}
-
         <div className="space-y-3">
           <div className="flex items-start gap-2">
             <div className="flex-1">
@@ -449,7 +405,7 @@ export function TestDetailAssistant() {
                     variant="outline"
                     size="sm"
                     onClick={handleOptimizeSummary}
-                    disabled={!testCase.summary.trim() || isGenerating.optimize || !aiConfig}
+                    disabled={!testCase.summary.trim() || isGenerating.optimize}
                     className="h-8"
                   >
                     {isGenerating.optimize ? (
@@ -468,7 +424,7 @@ export function TestDetailAssistant() {
                     variant="outline"
                     size="sm"
                     onClick={handleGenerateFromSummary}
-                    disabled={!testCase.summary.trim() || isGenerating.generate || !aiConfig}
+                    disabled={!testCase.summary.trim() || isGenerating.generate}
                     className="h-8"
                   >
                     {isGenerating.generate ? (
@@ -606,7 +562,7 @@ export function TestDetailAssistant() {
                         variant="outline"
                         size="sm"
                         onClick={() => setIsPathDialogOpen(true)}
-                        disabled={!testCase.summary.trim() || isGenerating.steps || !aiConfig}
+                        disabled={!testCase.summary.trim() || isGenerating.steps}
                         className="h-8"
                       >
                         {isGenerating.steps ? (

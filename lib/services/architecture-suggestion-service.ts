@@ -2,7 +2,6 @@ import { StructuredRequirement } from './requirement-export-service'
 import { ArchitectureItem } from '@/types/product-info'
 import { ARCHITECTURE_SUGGESTION_PROMPT } from '../prompts/architecture-suggestion'
 import { streamingAICall } from '@/lib/services/ai-service'
-import { getDefaultAIConfig } from '@/lib/services/ai-config-service'
 import yaml from 'js-yaml'
 
 export interface ArchitectureSuggestion {
@@ -52,11 +51,6 @@ export async function generateArchitectureSuggestions(
   currentArchitecture: ArchitectureItem[]
 ): Promise<ArchitectureSuggestion[]> {
   try {
-    const aiConfig = await getDefaultAIConfig()
-    if (!aiConfig) {
-      throw new Error('AI配置未找到')
-    }
-
     // 只提取用户旅程信息
     const userJourneys = requirement.sceneList.map((scene, index) => `
 场景${index + 1}：${scene.sceneName}
@@ -77,7 +71,6 @@ ${scene.sceneUserJourney}
     let fullResponse = ''
     await streamingAICall(
       prompt,
-      aiConfig,
       (content) => {
         fullResponse += content
       },

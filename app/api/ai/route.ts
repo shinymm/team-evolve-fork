@@ -1,37 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { AIModelConfig, isGeminiModel } from '@/lib/services/ai-service'
+import { AIModelConfig, isGeminiModel, getApiEndpointAndHeaders } from '@/lib/services/ai-service'
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import { getApiEndpointAndHeaders } from '@/lib/services/ai-service'
+import { decrypt } from '@/lib/utils/encryption-utils'
+import { aiModelConfigService } from '@/lib/services/ai-model-config-service'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
-    const { prompt, config } = await request.json() as {
-      prompt: string
-      config: AIModelConfig
-    }
+    const { prompt } = await request.json() as { prompt: string }
 
-    if (!prompt || !config) {
+    if (!prompt) {
       return NextResponse.json(
-        { error: '缺少必要参数' },
-        { status: 400 }
-      )
-    }
-    
-    if (!config.apiKey) {
-      return NextResponse.json(
-        { error: '未提供有效的API配置：缺少 API Key' },
+        { error: '缺少提示词' },
         { status: 400 }
       )
     }
 
-    if (!config.model) {
+    // 获取默认配置
+    const config = await aiModelConfigService.getDefaultConfig()
+    if (!config) {
       return NextResponse.json(
-        { error: '未提供有效的API配置：缺少模型名称' },
-        { status: 400 }
+        { error: '未找到默认配置' },
+        { status: 404 }
       )
     }
+
+    // 解密 API Key
+    const decryptedApiKey = await decrypt(config.apiKey)
+
+    const configWithDecryptedKey = {
+      ...config,
+      apiKey: decryptedApiKey
+    }
+
+    console.log('使用默认配置:', {
+      model: config.model,
+      baseURL: config.baseURL,
+      hasApiKey: !!decryptedApiKey,
+      apiKeyLength: decryptedApiKey?.length || 0
+    })
 
     // 设置响应头
     const responseHeaders = new Headers()
@@ -48,16 +56,10 @@ export async function POST(request: NextRequest) {
     const processStream = async () => {
       try {
         // 检查是否是 Gemini 模型
-        if (isGeminiModel(config.model)) {
-          console.log('Gemini API请求配置:', {
-            model: config.model,
-            apiKey: config.apiKey ? '已设置' : '未设置',
-            temperature: config.temperature
-          })
-          
+        if (isGeminiModel(configWithDecryptedKey.model)) {
           // 使用Google的库初始化客户端
-          const genAI = new GoogleGenerativeAI(config.apiKey)
-          const model = genAI.getGenerativeModel({ model: config.model })
+          const genAI = new GoogleGenerativeAI(configWithDecryptedKey.apiKey)
+          const model = genAI.getGenerativeModel({ model: configWithDecryptedKey.model })
           
           // 创建请求
           const request = {
@@ -65,8 +67,8 @@ export async function POST(request: NextRequest) {
               role: 'user',
               parts: [{ text: prompt }]
             }],
-            generationConfig: config.temperature !== undefined ? {
-              temperature: config.temperature
+            generationConfig: configWithDecryptedKey.temperature !== undefined ? {
+              temperature: configWithDecryptedKey.temperature
             } : undefined
           }
           
@@ -79,36 +81,42 @@ export async function POST(request: NextRequest) {
           for await (const chunk of result.stream) {
             const text = chunk.text()
             if (text) {
-              await writer.write(encoder.encode(`data: ${JSON.stringify({ content: text })}\n\n`))
+              // 使用 OpenAI 格式包装内容
+              const response = {
+                choices: [
+                  {
+                    delta: {
+                      content: text
+                    }
+                  }
+                ]
+              }
+              await writer.write(encoder.encode(`data: ${JSON.stringify(response)}\n\n`))
             }
           }
         } else {
-          // 对于非 Gemini 模型，检查 baseURL
-          if (!config.baseURL) {
-            return new Response('缺少 API 地址配置', { status: 400 })
-          }
-
           // 处理标准 OpenAI 兼容的 API
-          const { endpoint, headers: requestHeaders } = getApiEndpointAndHeaders(config)
+          const { endpoint, headers: requestHeaders } = getApiEndpointAndHeaders(configWithDecryptedKey)
           
-          console.log('调用AI服务 @ ai.route.ts:', {
-            endpoint,
-            model: config.model,
-            baseURL: config.baseURL
-          })
+          // console.log('调用标准OpenAI API:', {
+          //   endpoint,
+          //   model: configWithDecryptedKey.model,
+          //   baseURL: configWithDecryptedKey.baseURL,
+          //   hasApiKey: !!configWithDecryptedKey.apiKey,
+          //   temperature: configWithDecryptedKey.temperature
+          // })
 
           const response = await fetch(endpoint, {
             method: 'POST',
             headers: requestHeaders,
             body: JSON.stringify({
-              model: config.model,
+              model: configWithDecryptedKey.model,
               messages: [{ role: 'user', content: prompt }],
-              temperature: config.temperature || 0.7,
+              temperature: configWithDecryptedKey.temperature || 0.7,
               stream: true
             })
           })
 
-          // 如果响应不成功，抛出错误
           if (!response.ok) {
             const error = await response.text()
             console.error('API请求失败:', {
@@ -116,7 +124,7 @@ export async function POST(request: NextRequest) {
               statusText: response.statusText,
               error,
               endpoint,
-              model: config.model
+              model: configWithDecryptedKey.model
             })
             throw new Error(`API 请求失败 (${response.status}): ${error}`)
           }
@@ -139,17 +147,43 @@ export async function POST(request: NextRequest) {
               if (line.trim() === '') continue
               if (!line.startsWith('data: ')) continue
 
-              const data = line.slice(6)
-              if (data === '[DONE]') continue
+              const data = line.slice(6).trim()
+              
+              if (data === '[DONE]') {
+                await writer.write(encoder.encode('data: [DONE]\n\n'))
+                continue
+              }
 
               try {
                 const parsed = JSON.parse(data)
                 const content = parsed.choices?.[0]?.delta?.content || ''
                 if (content) {
-                  await writer.write(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`))
+                  const response = {
+                    choices: [
+                      {
+                        delta: {
+                          content: content
+                        }
+                      }
+                    ]
+                  }
+                  const responseStr = `data: ${JSON.stringify(response)}\n\n`
+                  await writer.write(encoder.encode(responseStr))
                 }
               } catch (e) {
-                console.error('解析响应数据失败:', e)
+                console.error('解析响应数据失败:', { error: e, data })
+                if (data && typeof data === 'string') {
+                  const response = {
+                    choices: [
+                      {
+                        delta: {
+                          content: data
+                        }
+                      }
+                    ]
+                  }
+                  await writer.write(encoder.encode(`data: ${JSON.stringify(response)}\n\n`))
+                }
               }
             }
           }
@@ -273,6 +307,16 @@ async function handleStream(prompt: string, config: AIModelConfig, writer: Writa
 // 处理标准OpenAI兼容API的请求
 async function handleStandardStream(prompt: string, config: AIModelConfig, writer: WritableStreamDefaultWriter) {
   try {
+    console.log('准备发送请求到AI服务，配置信息:', {
+      model: config.model,
+      baseURL: config.baseURL,
+      hasApiKey: !!config.apiKey,
+      apiKeyLength: config.apiKey?.length || 0,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${config.apiKey.substring(0, 10)}...`
+      }
+    })
     // 移除末尾的斜杠
     const baseURL = config.baseURL.replace(/\/+$/, '')
     
@@ -337,7 +381,17 @@ async function handleStandardStream(prompt: string, config: AIModelConfig, write
               const parsed = JSON.parse(data)
               const content = parsed.choices?.[0]?.delta?.content || ''
               if (content) {
-                writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ content })}\n\n`))
+                // 使用 OpenAI 格式包装内容
+                const response = {
+                  choices: [
+                    {
+                      delta: {
+                        content: content
+                      }
+                    }
+                  ]
+                }
+                await writer.write(new TextEncoder().encode(`data: ${JSON.stringify(response)}\n\n`))
               }
             } catch (e) {
               console.error('解析响应数据失败:', e)

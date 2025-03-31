@@ -1,7 +1,5 @@
 import { userStoryBreakdownPrompt } from '../prompts';
 import { streamingAICall } from './ai-service';
-import type { AIModelConfig } from './ai-service';
-import { getDefaultAIConfig } from './ai-config-service';
 
 export class UserStoryBreakdownService {
   async breakdownUserStory(sceneDescription: string): Promise<(onContent: (content: string) => void) => void> {
@@ -17,26 +15,10 @@ export class UserStoryBreakdownService {
         .replace('{{reqBackground}}', reqBackground)
         .replace('{{sceneDescription}}', sceneDescription);
 
-      // 使用getDefaultAIConfig获取AI配置
-      const config = await getDefaultAIConfig();
-      
-      if (!config) {
-        throw new Error('未找到AI配置信息');
-      }
-
-      // 添加调试日志
-      console.log('用户故事拆解使用的模型配置:', {
-        model: config.model,
-        baseURL: config.baseURL,
-        temperature: config.temperature,
-        isGemini: config.model.toLowerCase().startsWith('gemini')
-      });
-
       // 返回一个函数，该函数接受回调函数作为参数
       return (onContent: (content: string) => void) => {
         streamingAICall(
           prompt, 
-          config, 
           onContent,
           (error: string) => {
             throw new Error(`用户故事拆解失败: ${error}`)

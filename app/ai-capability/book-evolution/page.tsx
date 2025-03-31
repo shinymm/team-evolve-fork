@@ -56,17 +56,6 @@ export default function RequirementAnalysis() {
       return
     }
 
-    const aiConfig = await getDefaultAIConfig()
-    if (!aiConfig) {
-      toast({
-        title: "配置错误",
-        description: "请先配置AI模型参数",
-        variant: "destructive",
-        duration: 3000
-      })
-      return
-    }
-
     setIsAnalyzing(true)
     setAnalysis('')
 
@@ -75,7 +64,6 @@ export default function RequirementAnalysis() {
       let currentAnalysis = '';
       await streamingAICall(
         prompt,
-        aiConfig,
         (content: string) => {
           currentAnalysis += content;
           setAnalysis(currentAnalysis);

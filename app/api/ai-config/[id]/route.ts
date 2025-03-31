@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
-import { deleteConfigFromRedis, setDefaultConfigInRedis } from '@/lib/utils/ai-config-redis'
 import { aiModelConfigService } from '@/lib/services/ai-model-config-service'
 
 const prisma = new PrismaClient()
@@ -63,12 +62,6 @@ export async function DELETE(
     const id = params.id
     
     await aiModelConfigService.deleteConfig(id)
-    
-    try {
-      await deleteConfigFromRedis(id)
-    } catch (redisError) {
-      console.error('从Redis删除配置失败:', redisError)
-    }
     
     return NextResponse.json({ success: true })
   } catch (error) {

@@ -1,6 +1,4 @@
 import { EXCEPTION_ANALYSIS_TEMPLATE } from '../prompts/exception-analysis'
-import type { AIModelConfig } from './ai-service'
-import { getDefaultAIConfig } from '@/lib/services/ai-config-service'
 import { streamingAICall } from '@/lib/services/ai-service'
 
 export class ExceptionAnalysisService {
@@ -19,20 +17,12 @@ export class ExceptionAnalysisService {
     }
   ): Promise<ReadableStream> {
     try {
-      // 获取默认配置
-      const config = await getDefaultAIConfig()
-      if (!config) {
-        throw new Error('未找到AI配置信息，请先在设置中配置AI模型')
-      }
-
       // 构建提示词
       const prompt = this.replaceTemplateVariables(EXCEPTION_ANALYSIS_TEMPLATE, {
         request: exception.request,
         error: exception.error,
         stackTrace: exception.stackTrace.join('\n')
       })
-
-      console.log(`[${new Date().toISOString()}] 开始异常分析，模型: ${config.model}`)
 
       // 创建一个新的 TransformStream 来处理数据
       const { readable, writable } = new TransformStream()
@@ -42,7 +32,6 @@ export class ExceptionAnalysisService {
       // 在后台处理流
       streamingAICall(
         prompt,
-        config,
         (content: string) => {
           // 直接传递内容，因为 streamingAICall 已经处理了格式化
           writer.write(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`))

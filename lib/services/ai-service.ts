@@ -31,8 +31,15 @@ export interface ModelConfig {
  * @returns 包含endpoint和headers的对象
  */
 export function getApiEndpointAndHeaders(config: AIModelConfig) {
+
+
   // 检查是否是 Gemini 模型
   if (isGeminiModel(config.model)) {
+    console.log('使用Gemini配置:', {
+      endpoint: `${config.baseURL}/models/${config.model}:streamGenerateContent`,
+      hasApiKey: !!config.apiKey,
+      apiKeyLength: config.apiKey?.length || 0
+    })
     return {
       endpoint: `${config.baseURL}/models/${config.model}:streamGenerateContent`,
       headers: {
@@ -69,46 +76,31 @@ export function isGeminiModel(modelName: string): boolean {
 }
 
 /**
- * 流式AI调用，自动处理配置
+ * 流式AI调用
  * @param prompt 用户提示
- * @param config 可选的AI模型配置
  * @param onData 处理回复内容的回调函数
  * @param onError 处理错误信息的回调函数
- * @returns 
  */
 export async function streamingAICall(
   prompt: string,
-  config: AIModelConfig,
   onData: (content: string) => void,
   onError: (error: string) => void
 ) {
   try {
-    // 解密 API Key
-    const decryptedApiKey = await decrypt(config.apiKey)
-    const configWithDecryptedKey = {
-      id: config.id,
-      name: config.name,
-      model: config.model,
-      baseURL: config.baseURL,
-      apiKey: decryptedApiKey,
-      temperature: config.temperature,
-      isDefault: config.isDefault
-    }
-
-    console.log('发起 AI 调用:', {
-      model: config.model,
-      hasApiKey: !!decryptedApiKey
-    })
+    console.log('🔄 [streamingAICall] 开始调用，prompt长度:', prompt.length)
 
     const response = await fetch('/api/ai', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        prompt,
-        config: configWithDecryptedKey
-      })
+      body: JSON.stringify({ prompt })
+    })
+
+    console.log('🔄 [streamingAICall] 收到响应:', {
+      status: response.status,
+      ok: response.ok,
+      statusText: response.statusText
     })
 
     if (!response.ok) {
@@ -116,47 +108,76 @@ export async function streamingAICall(
       throw new Error(`API 请求失败 (${response.status}): ${error}`)
     }
 
-    const reader = response.body?.getReader()
-    if (!reader) {
-      throw new Error('无法获取响应流')
+    if (!response.body) {
+      throw new Error('响应中没有数据流')
     }
 
+    const reader = response.body.getReader()
     const decoder = new TextDecoder()
+    
+    console.log('🔄 [streamingAICall] 准备读取数据流')
+    let buffer = ''
+    let counter = 0
     
     while (true) {
       const { done, value } = await reader.read()
-      if (done) break
+      
+      if (done) {
+        console.log('🔄 [streamingAICall] 数据流读取完成')
+        if (buffer.trim()) {
+          console.log('🔄 [streamingAICall] 处理剩余buffer:', buffer)
+        }
+        break
+      }
 
+      counter++
       const chunk = decoder.decode(value)
-      const lines = chunk.split('\n')
+      buffer += chunk
+      
+      console.log(`🔄 [streamingAICall] 收到数据块 #${counter}:`, {
+        chunkLength: chunk.length,
+        chunk: chunk.substring(0, 100) + (chunk.length > 100 ? '...' : '')
+      })
+
+      // 按行分割并处理
+      const lines = buffer.split('\n')
+      // 保留最后一行（可能不完整）
+      buffer = lines.pop() || ''
 
       for (const line of lines) {
-        if (line.trim() === '') continue
-        if (!line.startsWith('data: ')) continue
+        const trimmedLine = line.trim()
+        if (!trimmedLine || trimmedLine === 'data: [DONE]') {
+          console.log('🔄 [streamingAICall] 跳过空行或结束标记:', trimmedLine)
+          continue
+        }
 
-        try {
-          const data = JSON.parse(line.slice(6))
-          if (data.error) {
-            onError(data.error)
-            return
-          }
-          if (data.content) {
-            // 构造与 OpenAI API 格式兼容的响应
-            const formattedData = {
-              choices: [{
-                delta: { content: data.content }
-              }]
+        if (trimmedLine.startsWith('data: ')) {
+          try {
+            const jsonStr = trimmedLine.slice(6)
+            const data = JSON.parse(jsonStr)
+
+            if (data.error) {
+              console.error('🔄 [streamingAICall] 收到错误:', data.error)
+              onError(data.error)
+              continue
             }
-            onData(data.content)
+
+            const content = data.choices?.[0]?.delta?.content
+            if (content) {
+              onData(content)
+            }
+          } catch (e) {
+            console.error('🔄 [streamingAICall] 解析JSON失败:', e)
+            console.error('🔄 [streamingAICall] 问题行:', trimmedLine)
           }
-        } catch (e) {
-          console.error('解析响应数据失败:', e)
+        } else {
+          console.log('🔄 [streamingAICall] 跳过非data行:', trimmedLine)
         }
       }
     }
   } catch (error: unknown) {
+    console.error('🔄 [streamingAICall] 发生错误:', error)
     const errorMessage = error instanceof Error ? error.message : '未知错误'
-    console.error('AI 调用错误:', errorMessage)
     onError(errorMessage)
   }
 }
@@ -209,6 +230,7 @@ export const callChatCompletion = async (
 }
 
 /**
+ * 处理文件的流式AI调用
  * 处理文件的流式AI调用
  * @param params 调用参数
  * @returns Promise<void>

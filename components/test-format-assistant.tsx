@@ -8,8 +8,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2, Copy, Pencil, Trash2, RotateCcw } from 'lucide-react'
 import { streamingAICall } from '@/lib/services/ai-service'
-import { getDefaultAIConfig } from '@/lib/services/ai-config-service'
-import type { AIModelConfig } from '@/lib/services/ai-service'
 import yaml from 'yaml'
 import { testFormatPromptTemplate } from '@/lib/prompts'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
@@ -30,104 +28,20 @@ export function TestFormatAssistant() {
   const [testDescription, setTestDescription] = useState('')
   const [result, setResult] = useState('')
   const [parsedResult, setParsedResult] = useState<TestCase[]>([])
-  const [editableTestCases, setEditableTestCases] = useState<TestCase[]>([])
-  const [editingCell, setEditingCell] = useState<{
-    index: number;
-    field: keyof TestCase;
-  } | null>(null)
   const [isFormatting, setIsFormatting] = useState(false)
-  const [aiConfig, setAiConfig] = useState<AIModelConfig | null>(null)
-  const { toast } = useToast()
   const [isOutputComplete, setIsOutputComplete] = useState(false)
+  const [editableTestCases, setEditableTestCases] = useState<TestCase[]>([])
+  const { toast } = useToast()
 
+  // 监听结果变化，尝试解析YAML
   useEffect(() => {
-    const loadConfig = async () => {
-      const config = await getDefaultAIConfig()
-      if (config) {
-        setAiConfig(config)
-      }
-    }
-    loadConfig()
-  }, [])
-
-  // 当 parsedResult 更新时，同步更新 editableTestCases
-  useEffect(() => {
-    setEditableTestCases(parsedResult)
-  }, [parsedResult])
-
-  // 处理单元格编辑
-  const handleCellEdit = (index: number, field: keyof TestCase, value: string) => {
-    const newTestCases = [...editableTestCases]
-    newTestCases[index] = {
-      ...newTestCases[index],
-      [field]: value
-    }
-    setEditableTestCases(newTestCases)
-  }
-
-  // 处理删除测试用例
-  const handleDeleteTestCase = (index: number) => {
-    const newTestCases = editableTestCases.filter((_, i) => i !== index)
-    setEditableTestCases(newTestCases)
-  }
-
-  // 处理重置
-  const handleReset = () => {
-    setEditableTestCases(parsedResult)
-    setEditingCell(null)
-  }
-
-  useEffect(() => {
-    const tryParseYaml = (content: string) => {
-      try {
-        const parsed: YamlData = yaml.parse(content)
-        if (parsed?.test_cases && Array.isArray(parsed.test_cases)) {
-          const validTestCases = parsed.test_cases.filter(testCase => 
-            testCase && typeof testCase === 'object'
-          ) as TestCase[]
-          
-          if (validTestCases.length > 0) {
-            setParsedResult(validTestCases)
-            return true
-          }
-        }
-      } catch {
-        // 静默处理解析错误
-        return false
-      }
-      return false
-    }
-
-    try {
-      if (result.includes('test_cases:')) {
-        // 尝试多种清理方式，直到成功解析
-        const attempts = [
-          // 尝试1: 只取到第一个代码块之前的内容
-          () => result.substring(result.indexOf('test_cases:')).split('```')[0].trim(),
-          // 尝试2: 移除所有代码块标记
-          () => result.substring(result.indexOf('test_cases:')).replace(/```/g, '').trim(),
-          // 尝试3: 只保留非空行且不以```开头的行
-          () => result.substring(result.indexOf('test_cases:'))
-            .split('\n')
-            .filter(line => line.trim() && !line.trim().startsWith('```'))
-            .join('\n')
-        ]
-
-        // 依次尝试不同的清理方式
-        for (const attempt of attempts) {
-          const yamlContent = attempt()
-          if (tryParseYaml(yamlContent)) {
-            break
-          }
-        }
-      }
-    } catch {
-      // 完全静默处理所有错误
+    if (result) {
+      handleParseYaml(result)
     }
   }, [result])
 
   const handleFormat = async () => {
-    if (!testDescription.trim() || !aiConfig) return
+    if (!testDescription.trim()) return
 
     setIsFormatting(true)
     setResult('')
@@ -140,7 +54,6 @@ export function TestFormatAssistant() {
 
       await streamingAICall(
         prompt,
-        aiConfig,
         (content: string) => {
           formattedResult += content
           setResult(formattedResult)
@@ -167,6 +80,27 @@ export function TestFormatAssistant() {
     } finally {
       setIsFormatting(false)
     }
+  }
+
+  const handleParseYaml = (content: string) => {
+    try {
+      const parsed: YamlData = yaml.parse(content)
+      if (parsed?.test_cases && Array.isArray(parsed.test_cases)) {
+        const validTestCases = parsed.test_cases.filter(testCase => 
+          testCase && typeof testCase === 'object'
+        ) as TestCase[]
+        
+        if (validTestCases.length > 0) {
+          setParsedResult(validTestCases)
+          setEditableTestCases(validTestCases)
+          return true
+        }
+      }
+    } catch {
+      // 静默处理解析错误
+      return false
+    }
+    return false
   }
 
   const handleCopyYaml = async () => {
@@ -226,15 +160,6 @@ export function TestFormatAssistant() {
 
   return (
     <div className="space-y-2">
-      {!aiConfig && (
-        <Alert>
-          <AlertTitle>提示</AlertTitle>
-          <AlertDescription>
-            请先在设置中配置并选择默认的 AI 模型
-          </AlertDescription>
-        </Alert>
-      )}
-
       <div className="space-y-1">
         <h2 className="text-lg font-semibold">请输入测试描述：</h2>
         <Textarea
@@ -248,7 +173,7 @@ export function TestFormatAssistant() {
       <div className="flex justify-center mt-1 w-full">
         <Button
           onClick={handleFormat}
-          disabled={!testDescription.trim() || isFormatting || !aiConfig}
+          disabled={!testDescription.trim() || isFormatting}
           className="w-full bg-orange-600 hover:bg-orange-700"
         >
           {isFormatting ? (
@@ -286,7 +211,10 @@ export function TestFormatAssistant() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>取消</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleReset}>确认重置</AlertDialogAction>
+                  <AlertDialogAction onClick={() => {
+                    setEditableTestCases(parsedResult)
+                    setIsOutputComplete(false)
+                  }}>确认重置</AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
@@ -328,32 +256,7 @@ export function TestFormatAssistant() {
                   <tr key={index} className="even:bg-gray-50">
                     {(['type', 'summary', 'preconditions', 'steps', 'expected_result'] as const).map((field) => (
                       <td key={field} className="px-3 py-2 text-sm">
-                        {editingCell?.index === index && editingCell?.field === field ? (
-                          <Textarea
-                            autoFocus
-                            defaultValue={testCase[field]}
-                            className="w-full min-h-[60px]"
-                            onBlur={(e) => {
-                              handleCellEdit(index, field, e.target.value)
-                              setEditingCell(null)
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault()
-                                handleCellEdit(index, field, e.currentTarget.value)
-                                setEditingCell(null)
-                              }
-                            }}
-                          />
-                        ) : (
-                          <div 
-                            className="group relative whitespace-pre-line cursor-pointer hover:bg-gray-50"
-                            onClick={() => setEditingCell({ index, field })}
-                          >
-                            {testCase[field]}
-                            <Pencil className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 absolute top-0 right-0" />
-                          </div>
-                        )}
+                        {testCase[field]}
                       </td>
                     ))}
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
@@ -376,7 +279,10 @@ export function TestFormatAssistant() {
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>取消</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeleteTestCase(index)}>
+                            <AlertDialogAction onClick={() => {
+                              const newTestCases = editableTestCases.filter((_, i) => i !== index)
+                              setEditableTestCases(newTestCases)
+                            }}>
                               确认删除
                             </AlertDialogAction>
                           </AlertDialogFooter>

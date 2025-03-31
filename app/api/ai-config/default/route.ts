@@ -3,11 +3,12 @@ import { aiModelConfigService } from '@/lib/services/ai-model-config-service'
 
 export async function GET(request: Request) {
   try {
-    console.log(`获取默认配置`)
+    console.log(`开始获取默认配置`)
     
     const config = await aiModelConfigService.getDefaultConfig()
 
     if (!config) {
+      console.log('未找到默认配置')
       return NextResponse.json(null)
     }
 

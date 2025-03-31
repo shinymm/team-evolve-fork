@@ -8,8 +8,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2, Copy, Pencil, Trash2, RotateCcw } from 'lucide-react'
 import { streamingAICall } from '@/lib/services/ai-service'
-import { getDefaultAIConfig } from '@/lib/services/ai-config-service'
-import type { AIModelConfig } from '@/lib/services/ai-service'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { testCasePromptTemplate } from '@/lib/prompts'
@@ -31,28 +29,15 @@ export function TestCaseAssistant() {
   const [requirements, setRequirements] = useState('')
   const [result, setResult] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
-  const [aiConfig, setAiConfig] = useState<AIModelConfig | null>(null)
   const [parsedTestCases, setParsedTestCases] = useState<TestCase[]>([])
   const { toast } = useToast()
   const [isOutputComplete, setIsOutputComplete] = useState(false)
   const [editableTestCases, setEditableTestCases] = useState<TestCase[]>([])
-  const [editingCell, setEditingCell] = useState<{
-    index: number;
-    field: keyof TestCase;
-  } | null>(null)
   const [scenes, setScenes] = useState<StructuredScene[]>([])
   const [selectedScene, setSelectedScene] = useState<string>('')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
   useEffect(() => {
-    const loadConfig = async () => {
-      const config = await getDefaultAIConfig()
-      if (config) {
-        setAiConfig(config)
-      }
-    }
-    loadConfig()
-
     // 从localStorage获取结构化需求
     const storedRequirement = localStorage.getItem('structuredRequirement')
     if (storedRequirement) {
@@ -103,11 +88,10 @@ export function TestCaseAssistant() {
 
   const handleReset = () => {
     setEditableTestCases(parsedTestCases)
-    setEditingCell(null)
   }
 
   const handleGenerate = async () => {
-    if (!requirements.trim() || !aiConfig) return
+    if (!requirements.trim()) return
 
     setIsGenerating(true)
     let generatedResult = ''
@@ -118,10 +102,6 @@ export function TestCaseAssistant() {
 
       await streamingAICall(
         prompt,
-        {
-          ...aiConfig,
-          temperature: 0.7
-        },
         (content: string) => {
           generatedResult += content
           yamlContent += content
@@ -241,13 +221,10 @@ export function TestCaseAssistant() {
 
   return (
     <div className="space-y-2">
-      {!aiConfig && (
-        <Alert>
-          <AlertTitle>提示</AlertTitle>
-          <AlertDescription>
-            请先在设置中配置并选择默认的 AI 模型
-          </AlertDescription>
-        </Alert>
+      {!parsedTestCases.length && result && (
+        <div className="border rounded-lg p-4 bg-gray-50">
+          <pre className="whitespace-pre-wrap">{result}</pre>
+        </div>
       )}
 
       <div className="space-y-1">
@@ -293,7 +270,7 @@ export function TestCaseAssistant() {
       <div className="flex justify-center mt-1 w-full">
         <Button
           onClick={handleGenerate}
-          disabled={!requirements.trim() || isGenerating || !aiConfig}
+          disabled={!requirements.trim() || isGenerating}
           className="w-full bg-orange-600 hover:bg-orange-700"
         >
           {isGenerating ? (
@@ -373,32 +350,13 @@ export function TestCaseAssistant() {
                   <tr key={index}>
                     {(['type', 'summary', 'preconditions', 'steps', 'expected_result'] as const).map((field) => (
                       <td key={field} className="px-6 py-4 text-sm">
-                        {editingCell?.index === index && editingCell?.field === field ? (
-                          <Textarea
-                            autoFocus
-                            defaultValue={testCase[field]}
-                            className="w-full min-h-[60px]"
-                            onBlur={(e) => {
-                              handleCellEdit(index, field, e.target.value)
-                              setEditingCell(null)
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault()
-                                handleCellEdit(index, field, e.currentTarget.value)
-                                setEditingCell(null)
-                              }
-                            }}
-                          />
-                        ) : (
-                          <div 
-                            className="group relative whitespace-pre-line cursor-pointer hover:bg-gray-50"
-                            onClick={() => setEditingCell({ index, field })}
-                          >
-                            {testCase[field]}
-                            <Pencil className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 absolute top-0 right-0" />
-                          </div>
-                        )}
+                        <div 
+                          className="group relative whitespace-pre-line cursor-pointer hover:bg-gray-50"
+                          onClick={() => handleCellEdit(index, field, testCase[field])}
+                        >
+                          {testCase[field]}
+                          <Pencil className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 absolute top-0 right-0" />
+                        </div>
                       </td>
                     ))}
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -433,12 +391,6 @@ export function TestCaseAssistant() {
               </tbody>
             </table>
           </div>
-        </div>
-      )}
-
-      {!parsedTestCases.length && result && (
-        <div className="border rounded-lg p-4 bg-gray-50">
-          <pre className="whitespace-pre-wrap">{result}</pre>
         </div>
       )}
     </div>

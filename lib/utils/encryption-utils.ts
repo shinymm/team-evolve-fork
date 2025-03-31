@@ -6,17 +6,21 @@ async function getKey(): Promise<CryptoKey> {
   try {
     const encryptionKey = process.env.NEXT_PUBLIC_ENCRYPTION_KEY;
     if (!encryptionKey) {
-      console.warn('警告: NEXT_PUBLIC_ENCRYPTION_KEY 环境变量未设置，使用默认密钥');
+      throw new Error('NEXT_PUBLIC_ENCRYPTION_KEY 环境变量未设置');
     }
     
     // 使用 SHA-256 生成固定长度的密钥材料
     const encoder = new TextEncoder();
-    const keyData = encoder.encode(encryptionKey || 'default-encryption-key-please-change-in-production');
+    const keyData = encoder.encode(encryptionKey);
     
-    console.log('🔑 [加密] 生成密钥材料...');
+    console.log('🔑 [密钥] 生成密钥材料...', {
+      keyLength: encryptionKey.length,
+      keyPreview: encryptionKey.substring(0, 5) + '...'
+    });
+    
     const hash = await crypto.subtle.digest('SHA-256', keyData);
     
-    console.log('🔑 [加密] 导入加密密钥...');
+    console.log('🔑 [密钥] 导入密钥...');
     return await crypto.subtle.importKey(
       'raw',
       hash,
@@ -25,7 +29,7 @@ async function getKey(): Promise<CryptoKey> {
       keyUsages
     );
   } catch (error) {
-    console.error('🔴 [加密] 生成加密密钥失败:', error);
+    console.error('🔴 [密钥] 生成密钥失败:', error);
     throw new Error('生成加密密钥失败');
   }
 }
@@ -37,7 +41,11 @@ export async function encrypt(text: string): Promise<string> {
       return '';
     }
 
-    console.log('🔑 [加密] 开始加密过程...');
+    console.log('🔑 [加密] 开始加密过程...', {
+      inputLength: text.length,
+      inputPreview: text.substring(0, 10) + '...'
+    });
+    
     const key = await getKey();
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const encoder = new TextEncoder();
@@ -68,7 +76,12 @@ export async function encrypt(text: string): Promise<string> {
       .replace(/\//g, '_')
       .replace(/=+$/, '');
     
-    console.log('🔑 [加密] 加密完成，结果长度:', base64.length);
+    console.log('🔑 [加密] 加密完成', {
+      inputLength: text.length,
+      outputLength: base64.length,
+      outputPreview: base64.substring(0, 20) + '...'
+    });
+    
     return base64;
   } catch (error) {
     console.error('🔴 [加密] 加密失败:', error);
@@ -83,8 +96,10 @@ export async function decrypt(encryptedText: string): Promise<string> {
       return '';
     }
 
-    console.log('🔑 [解密] 开始解密过程...');
-    console.log('🔑 [解密] 输入的加密文本长度:', encryptedText.length);
+    console.log('🔑 [解密] 开始解密过程...', {
+      inputLength: encryptedText.length,
+      inputPreview: encryptedText.substring(0, 20) + '...'
+    });
 
     // 将URL安全的base64转换回标准base64
     const standardBase64 = encryptedText
@@ -117,7 +132,13 @@ export async function decrypt(encryptedText: string): Promise<string> {
 
     const decoder = new TextDecoder();
     const result = decoder.decode(decryptedData);
-    console.log('🔑 [解密] 解密完成，结果长度:', result.length);
+    
+    console.log('🔑 [解密] 解密完成', {
+      inputLength: encryptedText.length,
+      outputLength: result.length,
+      outputPreview: result.substring(0, 10) + '...'
+    });
+    
     return result;
   } catch (error) {
     console.error('🔴 [解密] 解密失败:', error);

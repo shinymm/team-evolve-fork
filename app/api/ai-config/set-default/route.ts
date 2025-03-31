@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { setDefaultConfigInRedis } from '@/lib/utils/ai-config-redis';
 import { aiModelConfigService } from '@/lib/services/ai-model-config-service';
 
 // 优化的API端点，实现快速响应，Redis操作在后台处理
@@ -18,28 +17,13 @@ export async function POST(request: NextRequest) {
 
     console.log('设置默认配置ID:', id);
 
-    // 快速响应，不等待操作完成
-    const response = NextResponse.json({
+    // 设置数据库中的默认配置
+    const updatedConfig = await aiModelConfigService.setDefaultConfig(id);
+    
+    return NextResponse.json({
       success: true,
-      message: '设置默认配置操作已触发'
+      config: updatedConfig
     });
-
-    // 在后台处理设置默认配置操作
-    Promise.resolve().then(async () => {
-      try {
-        // 设置数据库中的默认配置（不获取API密钥）
-        await aiModelConfigService.setDefaultConfig(id);
-        
-        // 设置Redis中的默认配置（只处理加密数据）
-        await setDefaultConfigInRedis(id);
-        
-        console.log('设置默认配置完成');
-      } catch (error) {
-        console.error('设置默认配置失败:', error);
-      }
-    });
-
-    return response;
   } catch (error) {
     console.error('设置默认配置API错误:', error);
     return NextResponse.json(
