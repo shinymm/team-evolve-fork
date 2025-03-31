@@ -42,7 +42,6 @@
     "cmdk": "^1.0.4",
     "dashscope": "^1.0.1",
     "date-fns": "^4.1.0",
-    "dotenv": "^16.4.7",
     "encoding": "^0.1.13",
     "eslint": "8.46.0",
     "eslint-config-next": "13.4.12",
@@ -74,7 +73,6 @@
     "tailwindcss": "3.3.3",
     "tailwindcss-animate": "^1.0.7",
     "tls": "^0.0.1",
-    "typescript": "5.1.6",
     "utf-8-validate": "^6.0.5",
     "uuid": "^11.1.0",
     "ws": "^8.16.0",
@@ -93,6 +91,9 @@
     "@shadcn/ui": "^0.0.4",
     "@types/js-yaml": "^4.0.9",
     "@types/plantuml-encoder": "^1.4.2",
-    "@types/ws": "^8.18.0"
+    "@types/ws": "^8.18.0",
+    "dotenv": "^16.4.7",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.2"
   }
 }

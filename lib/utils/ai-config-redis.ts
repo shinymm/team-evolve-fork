@@ -122,8 +122,19 @@ export async function deleteConfigFromRedis(id: string): Promise<void> {
 export async function getDefaultConfigIdFromRedis(): Promise<string | null> {
   try {
     const redis = getRedis();
-    const defaultId = await redis.get(DEFAULT_CONFIG_KEY);
-    return defaultId;
+    const defaultConfigJson = await redis.get(DEFAULT_CONFIG_KEY);
+    
+    // 如果存储的是完整的配置对象（旧格式），则提取ID
+    if (defaultConfigJson && defaultConfigJson.startsWith('{')) {
+      try {
+        const config = JSON.parse(defaultConfigJson);
+        return config.id;
+      } catch {
+        return null;
+      }
+    }
+    
+    return defaultConfigJson;
   } catch (error) {
     console.error('获取默认配置ID失败:', error);
     return null;
@@ -168,14 +179,17 @@ export async function getDefaultConfigFromRedis(): Promise<AIModelConfig | null>
 
 /**
  * 设置默认AI模型配置
- * 确保Redis中的数据保持加密状态
  */
 export async function setDefaultConfigInRedis(id: string): Promise<void> {
   try {
     const redis = getRedis();
     
-    // 获取当前默认配置ID
-    const currentDefaultId = await redis.get(DEFAULT_CONFIG_KEY);
+    // 检查配置是否存在
+    const configExists = await redis.exists(`${AI_CONFIG_PREFIX}${id}`);
+    if (!configExists) {
+      console.error(`配置不存在: ${id}`);
+      return;
+    }
     
     // 使用pipeline合并操作
     const pipeline = redis.pipeline();
@@ -183,30 +197,10 @@ export async function setDefaultConfigInRedis(id: string): Promise<void> {
     // 设置新的默认配置ID
     pipeline.set(DEFAULT_CONFIG_KEY, id);
     
-    // 如果有之前的默认配置且不同于新设置的默认配置
-    if (currentDefaultId && currentDefaultId !== id) {
-      // 获取之前的默认配置
-      const previousDefaultConfig = await getConfigFromRedis(currentDefaultId);
-      
-      // 取消之前默认配置的isDefault标志
-      if (previousDefaultConfig) {
-        previousDefaultConfig.isDefault = false;
-        pipeline.set(
-          `${AI_CONFIG_PREFIX}${currentDefaultId}`, 
-          JSON.stringify(previousDefaultConfig)
-        );
-      }
-    }
-    
-    // 获取新配置并设置isDefault为true
-    const config = await getConfigFromRedis(id);
-    if (config) {
-      config.isDefault = true;
-      pipeline.set(`${AI_CONFIG_PREFIX}${id}`, JSON.stringify(config));
-    }
-    
     // 执行批量操作
     await pipeline.exec();
+    
+    console.log(`已设置默认配置ID: ${id}`);
   } catch (error) {
     console.error('设置默认配置失败:', error);
     // 不抛出异常，允许应用继续运行
@@ -215,7 +209,6 @@ export async function setDefaultConfigInRedis(id: string): Promise<void> {
 
 /**
  * 保存所有AI模型配置到Redis
- * Redis只存储加密后的API密钥，调用前确保所有配置的apiKey都是加密状态
  */
 export async function saveAllConfigsToRedis(configs: AIModelConfig[]): Promise<void> {
   try {
@@ -226,25 +219,7 @@ export async function saveAllConfigsToRedis(configs: AIModelConfig[]): Promise<v
     
     console.log(`尝试保存${configs.length}个配置到Redis...`, configs.map(c => c.id));
     
-    // 检查密钥是否可能未加密
-    configs.forEach(config => {
-      if (config.apiKey && config.apiKey.length < 30) {
-        console.warn(`警告: 配置 ${config.id} 的API密钥可能未加密，建议先加密再保存到Redis`);
-      }
-    });
-    
     const redis = getRedis();
-    
-    // 测试Redis连接
-    try {
-      const testResult = await redis.ping();
-      console.log('Redis连接测试结果:', testResult);
-    } catch (pingError) {
-      console.error('Redis连接测试失败:', pingError);
-      throw new Error(`无法连接到Redis: ${pingError instanceof Error ? pingError.message : String(pingError)}`);
-    }
-    
-    // 创建pipeline
     const pipeline = redis.pipeline();
     
     // 默认配置ID
@@ -259,43 +234,21 @@ export async function saveAllConfigsToRedis(configs: AIModelConfig[]): Promise<v
       // 记录默认配置ID
       if (config.isDefault) {
         defaultId = config.id;
-        console.log(`找到默认配置ID: ${defaultId}`);
       }
     }
     
-    // 如果有默认配置，更新默认配置键
+    // 如果有默认配置，只保存ID
     if (defaultId) {
-      console.log(`设置默认配置键 ${DEFAULT_CONFIG_KEY} 为 ${defaultId}`);
+      console.log(`设置默认配置ID: ${defaultId}`);
       pipeline.set(DEFAULT_CONFIG_KEY, defaultId);
     }
     
-    // 执行批量操作并检查结果
-    const results = await pipeline.exec();
-    
-    if (!results || results.length === 0) {
-      throw new Error('Redis操作未返回结果');
-    }
-    
-    // 检查每个操作的结果
-    const errors = results
-      .map((result, index) => {
-        const [err, reply] = result;
-        if (err) {
-          return `操作 ${index}: ${err.message}`;
-        }
-        return null;
-      })
-      .filter(Boolean);
-    
-    if (errors.length > 0) {
-      throw new Error(`部分Redis操作失败: ${errors.join('; ')}`);
-    }
-    
-    console.log(`成功保存${configs.length}个配置到Redis`);
+    // 执行批量操作
+    await pipeline.exec();
+    console.log('所有配置已保存到Redis');
   } catch (error) {
-    console.error('保存所有配置到Redis失败:', error);
-    // 抛出异常，让调用方知道操作失败
-    throw new Error(`Redis保存失败: ${error instanceof Error ? error.message : String(error)}`);
+    console.error('保存配置到Redis失败:', error);
+    throw error;
   }
 }
 
