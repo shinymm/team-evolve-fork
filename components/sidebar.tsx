@@ -165,15 +165,15 @@ export function Sidebar() {
           />
         </div>
         {openMenus.includes(item.title) && (
-          <div className="mt-0.5 space-y-0">
+          <div className="">
             {item.submenu.map((subitem) => {
               const isAccessible = canAccessPath(subitem.href)
               return (
                 <button
                   key={subitem.href}
                   onClick={() => handleNavigate(subitem.href)}
-                  className={`w-full text-left pl-6 pr-1.5 py-0.5 rounded-md text-[10px] relative
-                    ${!isAccessible ? 'opacity-50 cursor-not-allowed' : 'hover:bg-orange-50 hover:text-orange-700'}
+                  className={`w-full text-left pl-6 pr-1.5 py-[1px] rounded-md text-[10px] relative
+                    ${!isAccessible ? 'opacity-50 cursor-not-allowed' : 'hover:bg-orange-100 hover:text-orange-700'}
                     ${pathname === subitem.href ? "bg-orange-50 text-orange-700 font-medium" : "text-gray-700"}
                     ${navigating === subitem.href ? "opacity-70" : ""}`}
                   disabled={navigating === subitem.href || !isAccessible}
