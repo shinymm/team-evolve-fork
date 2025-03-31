@@ -24,7 +24,7 @@ export default function AIModelsPage() {
           <Skeleton className="h-[400px]" />
         </div>
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-12">
           <AIModelSettings />
         </div>
       )}

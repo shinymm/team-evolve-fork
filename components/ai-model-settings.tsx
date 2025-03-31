@@ -402,85 +402,70 @@ export function AIModelSettings() {
   }, [showAddForm, newConfig, handlePresetChange, handleAddConfig])
 
   return (
-    <div className="space-y-6">
-      <Tabs defaultValue="models" value={selectedTab} onValueChange={setSelectedTab}>
-        <TabsList>
-          <TabsTrigger value="models">AI模型设置</TabsTrigger>
-          <TabsTrigger value="vector">向量模型设置</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="models" className="space-y-4 pt-2">
-          <div className="space-y-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div>
-                  <CardTitle className="text-base">AI模型配置</CardTitle>
-                  <CardDescription className="text-sm">
-                    配置用于AI助手和问答的大语言模型
-                  </CardDescription>
-                </div>
-                {!showAddForm && (
-                  <div className="flex items-center gap-2">
-                    <Button 
-                      variant="outline"
-                      size="sm"
-                      onClick={loadConfigs}
-                    >
-                      刷新配置
-                    </Button>
-                    <Button size="sm" onClick={() => setShowAddForm(true)}>
-                      <Plus className="mr-2 h-3 w-3" />
-                      添加配置
-                    </Button>
-                  </div>
-                )}
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {addForm}
-                  
-                  {configs.length > 0 ? (
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="hover:bg-transparent">
-                          <TableHead className="h-8 text-xs">名称</TableHead>
-                          <TableHead className="h-8 text-xs">模型</TableHead>
-                          <TableHead className="h-8 text-xs">API地址</TableHead>
-                          <TableHead className="h-8 text-xs">温度</TableHead>
-                          <TableHead className="h-8 text-xs">默认</TableHead>
-                          <TableHead className="h-8 text-xs">操作</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {configRows}
-                      </TableBody>
-                    </Table>
-                  ) : (
-                    <div className="text-center py-6 text-sm text-muted-foreground">
-                      暂无AI模型配置，请点击"添加配置"按钮添加
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="vector" className="pt-4">
-          <VectorSettings />
-        </TabsContent>
-      </Tabs>
+    <Tabs
+      value={selectedTab}
+      onValueChange={setSelectedTab}
+      className="w-full"
+    >
+      <TabsList className="mb-6">
+        <TabsTrigger value="models">AI模型设置</TabsTrigger>
+        <TabsTrigger value="vector">向量模型设置</TabsTrigger>
+      </TabsList>
       
-      {/* 全局加载状态 */}
-      {isLoading && (
-        <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50">
-          <div className="bg-white p-4 rounded-md shadow-lg flex items-center">
-            <Loader2 className="animate-spin w-6 h-6 mr-2 text-blue-500" />
-            <p>处理中，请稍候...</p>
-          </div>
-        </div>
-      )}
-    </div>
+      <TabsContent value="models">
+        <Card className="w-full">
+          <CardHeader className="pb-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <CardTitle className="text-xl font-bold mb-3">AI模型配置</CardTitle>
+                <CardDescription className="text-base">
+                  配置不同的AI模型服务，用于问答和聊天功能
+                </CardDescription>
+              </div>
+              {!showAddForm && (
+                <Button size="sm" onClick={() => setShowAddForm(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  添加配置
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <div className="space-y-8">
+              {addForm}
+              
+              {configs.length > 0 ? (
+                <div className="border rounded-md">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="h-8 text-xs">名称</TableHead>
+                        <TableHead className="h-8 text-xs">模型</TableHead>
+                        <TableHead className="h-8 text-xs">API地址</TableHead>
+                        <TableHead className="h-8 text-xs">温度</TableHead>
+                        <TableHead className="h-8 text-xs">默认</TableHead>
+                        <TableHead className="h-8 text-xs">操作</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {configRows}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  暂无配置，请添加新的AI模型配置
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </TabsContent>
+      
+      <TabsContent value="vector">
+        <VectorSettings />
+      </TabsContent>
+    </Tabs>
   )
 }
 

@@ -456,25 +456,25 @@ export default function VectorSettings() {
   }, [showAddForm, newConfig, handlePresetChange, handleAddConfig, isDefault])
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <div>
-          <CardTitle className="text-base">向量模型配置</CardTitle>
-          <CardDescription className="text-sm">
-            配置用于生成文本向量的嵌入模型
-          </CardDescription>
-        </div>
-        {!showAddForm && (
-          <div className="flex items-center">
+    <Card className="w-full">
+      <CardHeader className="pb-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <CardTitle className="text-xl font-bold mb-3">向量模型配置</CardTitle>
+            <CardDescription className="text-base">
+              配置用于语义搜索和向量存储的嵌入模型
+            </CardDescription>
+          </div>
+          {!showAddForm && (
             <Button size="sm" onClick={() => setShowAddForm(true)}>
-              <Plus className="mr-2 h-3 w-3" />
+              <Plus className="mr-2 h-4 w-4" />
               添加配置
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
+      <CardContent className="pt-4">
+        <div className="space-y-8">
           {addForm}
           
           {configs.length > 0 ? (
