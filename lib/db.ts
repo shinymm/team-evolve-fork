@@ -1,19 +1,3 @@
-import { PrismaClient } from '@prisma/client'
-
-declare global {
-  var prisma: PrismaClient | undefined
-}
-
-const prismaClientSingleton = () => {
-  return new PrismaClient({
-    log: ['query', 'error', 'warn'],
-  })
-}
-
-const prisma = globalThis.prisma ?? prismaClientSingleton()
-
-if (process.env.NODE_ENV !== 'production') {
-  globalThis.prisma = prisma
-}
-
-export { prisma } 
+// 重定向到 lib/db/index.ts
+// 这个文件保留是为了向后兼容
+export * from './db/index' 
