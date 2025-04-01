@@ -6,7 +6,14 @@
 项目根目录/
 ├── app/                # Next.js App Router & 页面
 │   └── api/            # API Router API
-│   └── page/           # 页面
+│   └── ai-capability/  # 页面
+│   └── settings/       # 页面
+│   └── auth/           # 页面
+│   └── collaboration/  # 页面
+│   └── special-capability/      # 页面
+│   └── knowledge/      # 页面
+│   └── inspire/        # 页面
+│   └── settings/       # 页面
 ├── components/         # React 组件
 ├── lib/               # 工具函数和服务
 │   └── prompts/       # AI 提示词模板
@@ -34,6 +41,8 @@
 * 使用 PostgreSQL 作为主数据库
 * 使用 Prisma 作为 ORM
 * 支持向量扩展（用于 AI 相关功能）
+* 代码中直接使用 import { prisma } from '@/lib/db' 的导入方式
+
 ### 数据库迁移规范
 * 所有模型变更必须通过 Prisma 迁移实现
 * 迁移文件命名格式：YYYYMMDDHHMMSS_descriptive_name
