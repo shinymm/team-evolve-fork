@@ -3,8 +3,8 @@
 import { Long_Cang } from 'next/font/google'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
+import { useSystemStore } from '@/lib/stores/system-store'
 import { UserMenu } from './auth/user-menu'
-import { SystemSelector } from './system-selector'
 
 const longCang = Long_Cang({
   weight: '400',
@@ -16,6 +16,10 @@ const longCang = Long_Cang({
 
 export function SiteHeader() {
   const { data: session, status } = useSession()
+  const { selectedSystemId, systems } = useSystemStore()
+
+  // 获取当前选中的系统名称
+  const selectedSystem = systems.find(system => system.id === selectedSystemId)
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-gray-900">
@@ -28,13 +32,17 @@ export function SiteHeader() {
             <span className="font-weibei text-orange-500 ml-1 text-2xl">
               异界
             </span>
+            {selectedSystem && (
+              <span className="text-white ml-3 text-lg">
+                · {selectedSystem.name}
+              </span>
+            )}
           </Link>
         </div>
         <div className="hidden md:flex flex-1 justify-center items-center space-x-8">
           <span className={`text-base text-gray-300 hover:text-orange-400 transition-colors duration-200 ${longCang.className}`}>
             知识驱动能力破界，AI召唤协作灵感
           </span>
-          {session?.user && <SystemSelector />}
         </div>
         <div className="w-1/4 flex justify-end items-center">
           {status === 'loading' ? (

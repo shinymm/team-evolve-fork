@@ -9,14 +9,19 @@ import { StructuredRequirement } from '@/lib/services/requirement-export-service
 import { createArchitectureSuggestionTask, createArchitectureConfirmTask } from '@/lib/services/task-control'
 import { generateArchitectureSuggestions } from '@/lib/services/architecture-suggestion-service'
 import { updateTask } from '@/lib/services/task-service'
-import { getProductInfo } from '@/lib/services/product-info-service'
-import { useProductInfoStore } from '@/lib/stores/product-info-store'
+import { useSystemStore } from '@/lib/stores/system-store'
+import type { ArchitectureItem } from '@/types/product-info'
 
 export default function BookConfirmPage() {
   const [requirement, setRequirement] = useState<StructuredRequirement | null>(null)
   const [isUpdating, setIsUpdating] = useState(false)
   const { toast } = useToast()
-  const { flatArchitecture } = useProductInfoStore()
+  const [currentArchitecture, setCurrentArchitecture] = useState<ArchitectureItem[]>([])
+  
+  // 从 store 获取系统信息
+  const selectedSystemId = useSystemStore(state => state.selectedSystemId)
+  const systems = useSystemStore(state => state.systems)
+  const currentSystem = systems.find(sys => sys.id === selectedSystemId)
 
   useEffect(() => {
     // 从localStorage加载结构化需求数据
@@ -35,6 +40,42 @@ export default function BookConfirmPage() {
       }
     }
   }, [])
+
+  // 加载当前系统的信息架构
+  useEffect(() => {
+    const loadArchitecture = async () => {
+      if (!selectedSystemId) {
+        toast({
+          title: "错误",
+          description: "未选择系统",
+          variant: "destructive",
+          duration: 3000
+        })
+        return
+      }
+
+      try {
+        const response = await fetch(`/api/systems/${selectedSystemId}/product-info`)
+        if (!response.ok) {
+          throw new Error('加载系统信息架构失败')
+        }
+        const data = await response.json()
+        setCurrentArchitecture(data.architecture || [])
+      } catch (error) {
+        console.error('加载系统信息架构失败:', error)
+        toast({
+          title: "错误",
+          description: "加载系统信息架构失败",
+          variant: "destructive",
+          duration: 3000
+        })
+      }
+    }
+
+    if (selectedSystemId) {
+      loadArchitecture()
+    }
+  }, [selectedSystemId])
 
   const handleExport = () => {
     if (!requirement) return
@@ -77,15 +118,22 @@ export default function BookConfirmPage() {
       return
     }
 
+    if (!selectedSystemId) {
+      toast({
+        title: "无法更新",
+        description: "未选择系统",
+        variant: "destructive",
+        duration: 3000
+      })
+      return
+    }
+
     setIsUpdating(true)
     toast({
       title: "更新任务已启动",
       description: "系统正在分析需求并生成架构调整建议，您可以稍后在产品信息架构页面查看结果",
       duration: 8000
     })
-
-    // 使用Zustand store获取当前架构数据
-    const currentArchitecture = flatArchitecture
 
     try {
       // 1. 创建产品知识更新建议任务
@@ -102,10 +150,8 @@ export default function BookConfirmPage() {
       // 4. 创建产品知识更新确认任务
       await createArchitectureConfirmTask(suggestions)
 
-      // 5. 确保 localStorage 保存完成后再跳转
-      setTimeout(() => {
-        window.location.href = '/knowledge/information-architecture'
-      }, 500)  // 给予500ms的延迟确保保存完成
+      // 5. 跳转到信息架构页面
+      window.location.href = '/knowledge/information-architecture'
 
     } catch (error) {
       console.error('更新产品知识失败:', error)

@@ -9,10 +9,10 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
+    const limit = parseInt(searchParams.get('limit') || '15')
     const term = searchParams.get('term')
     const status = searchParams.get('status')
-    const domain = searchParams.get('domain') // 获取领域过滤参数
+    const domain = searchParams.get('domain')
     const isApprovedOnly = searchParams.get('approvedOnly') === 'true'
     const format = searchParams.get('format') // 新增：用于控制返回格式
 
@@ -29,12 +29,11 @@ export async function GET(request: Request) {
     if (status) {
       where.status = status
     }
-
-    // 添加领域过滤条件
+    
     if (domain) {
       where.domain = {
         contains: domain,
-        mode: 'insensitive'
+        mode: 'insensitive'  // 添加不区分大小写的搜索
       }
     }
 
@@ -67,21 +66,18 @@ export async function GET(request: Request) {
       return NextResponse.json(formattedItems)
     }
 
-    // 正常分页查询
-    const skip = (page - 1) * limit
-
-    // 查询数据
-    const [items, total] = await prisma.$transaction([
-      prisma.glossary.findMany({
-        where,
-        orderBy: {
-          updatedAt: 'desc'
-        },
-        skip,
-        take: limit
-      }),
-      prisma.glossary.count({ where })
-    ])
+    // 获取总数
+    const total = await prisma.glossary.count({ where })
+    
+    // 获取分页数据
+    const items = await prisma.glossary.findMany({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: {
+        createdAt: 'desc'
+      }
+    })
 
     return NextResponse.json({
       items,

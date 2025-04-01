@@ -33,6 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { useSystemStore } from '@/lib/stores/system-store'
 
 // 硬编码的用户ID
 const HARDCODED_USER_ID = '43170448'
@@ -83,7 +84,7 @@ export default function GlossaryPage() {
     term: '',
     aliases: '',
     explanation: '',
-    domain: 'qare',
+    domain: '', // 设置默认domain为空字符串
   })
   
   // 从 store 获取配置
@@ -92,6 +93,18 @@ export default function GlossaryPage() {
   // 添加警告弹窗
   const [showEditApprovedDialog, setShowEditApprovedDialog] = useState(false)
   const [pendingEditItem, setPendingEditItem] = useState<GlossaryItem | null>(null)
+  
+  // 从 store 获取系统信息
+  const selectedSystemId = useSystemStore(state => state.selectedSystemId)
+  const systems = useSystemStore(state => state.systems)
+  const currentSystem = systems.find(sys => sys.id === selectedSystemId)
+  
+  // 在页面加载和系统变化时设置默认领域过滤
+  useEffect(() => {
+    if (currentSystem?.name && !domainFilter) {
+      setDomainFilter(currentSystem.name)
+    }
+  }, [currentSystem])
   
   // 加载术语列表
   const loadGlossaryItems = async (page = 1) => {
@@ -107,8 +120,11 @@ export default function GlossaryPage() {
         url += `&status=${statusFilter}`
       }
 
-      if (domainFilter) {
-        url += `&domain=${encodeURIComponent(domainFilter)}`
+      // 如果有手动设置的领域过滤，优先使用手动设置的
+      // 否则使用当前系统名称作为默认领域过滤
+      const effectiveDomainFilter = domainFilter || (currentSystem?.name || '')
+      if (effectiveDomainFilter) {
+        url += `&domain=${encodeURIComponent(effectiveDomainFilter)}`
       }
       
       const response = await fetch(url)
@@ -172,7 +188,7 @@ export default function GlossaryPage() {
     setEditingId(null)
     setIsAdding(false)
     setPendingEditItem(null)
-    setFormData({ term: '', aliases: '', explanation: '', domain: 'qare' })
+    setFormData({ term: '', aliases: '', explanation: '', domain: '' })
   }
   
   // 处理表单提交
@@ -237,7 +253,7 @@ export default function GlossaryPage() {
   // 开始添加
   const startAdd = () => {
     setIsAdding(true)
-    setFormData({ term: '', aliases: '', explanation: '', domain: 'qare' })
+    setFormData({ term: '', aliases: '', explanation: '', domain: '' })
   }
   
   // 处理删除

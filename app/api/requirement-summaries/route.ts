@@ -25,54 +25,67 @@ const QuerySchema = z.object({
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const query = QuerySchema.parse(Object.fromEntries(searchParams))
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '15')
+    const term = searchParams.get('term')
+    const domain = searchParams.get('domain')
+    const vectorized = searchParams.get('vectorized')
     
     // 构建查询条件
     const where: any = {}
     
-    if (query.term) {
+    if (term) {
       where.OR = [
-        { name: { contains: query.term } },
-        { summary: { contains: query.term } },
+        {
+          name: {
+            contains: term,
+            mode: 'insensitive'
+          }
+        },
+        {
+          summary: {
+            contains: term,
+            mode: 'insensitive'
+          }
+        }
       ]
     }
     
-    if (query.domain) {
-      where.domain = query.domain
-    }
-    
-    // 处理向量化状态过滤
-    if (query.vectorized === 'true') {
-      where.embedding = {
-        isEmpty: false
-      }
-    } else if (query.vectorized === 'false') {
-      where.embedding = {
-        isEmpty: true
+    if (domain) {
+      where.domain = {
+        contains: domain,
+        mode: 'insensitive'  // 添加不区分大小写的搜索
       }
     }
     
-    // 计算分页
-    const skip = (query.page - 1) * query.limit
+    if (vectorized === 'true') {
+      where.embedding = {
+        not: null
+      }
+    } else if (vectorized === 'false') {
+      where.embedding = null
+    }
     
-    // 查询总数
+    // 获取总数
     const total = await prisma.requirementSummary.count({ where })
     
-    // 查询数据
+    // 获取分页数据
     const items = await prisma.requirementSummary.findMany({
       where,
-      skip,
-      take: query.limit,
-      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: {
+        createdAt: 'desc'
+      }
     })
     
     return NextResponse.json({
       items,
       pagination: {
         total,
-        page: query.page,
-        limit: query.limit,
-        totalPages: Math.ceil(total / query.limit),
+        page: page,
+        limit: limit,
+        totalPages: Math.ceil(total / limit),
       },
     })
   } catch (error) {

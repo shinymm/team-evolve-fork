@@ -461,14 +461,6 @@ export default function InformationArchitecture() {
     const hasChildren = item.children && item.children.length > 0
     const suggestion = suggestions.find(s => s.targetId === item.id)
 
-    console.log('Rendering item:', {
-      id: item.id,
-      title: item.title,
-      hasChildren,
-      isExpanded,
-      childrenCount: item.children?.length
-    })
-
     return (
       <div key={item.id} style={{ marginLeft: `${level * 16}px` }}>
         <div className={`flex items-center py-0.5 group hover:bg-gray-50 ${
@@ -656,7 +648,6 @@ export default function InformationArchitecture() {
           <div className="grid grid-cols-2 gap-4">
             {productInfo?.userPersona.map((item) => {
               const isEditing = editingUserNeedId === item.id
-              console.log(`Rendering persona ${item.id}, isEditing: ${isEditing}`)
               
               return (
                 <div key={item.id} className="border rounded-lg p-3">

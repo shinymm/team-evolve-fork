@@ -20,6 +20,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Slider } from '@/components/ui/slider'
 import { useVectorConfigStore } from '@/lib/stores/vector-config-store'
+import { useSystemStore } from '@/lib/stores/system-store'
 
 // 硬编码的用户ID
 const HARDCODED_USER_ID = '43170448'
@@ -60,6 +61,18 @@ export default function RequirementSummariesPage() {
   const [mounted, setMounted] = useState(false)
   const [vectorFilter, setVectorFilter] = useState<'all' | 'vectorized' | 'unvectorized'>('all')
   
+  // 从 store 获取系统信息
+  const selectedSystemId = useSystemStore(state => state.selectedSystemId)
+  const systems = useSystemStore(state => state.systems)
+  const currentSystem = systems.find(sys => sys.id === selectedSystemId)
+  
+  // 在页面加载和系统变化时设置默认领域过滤
+  useEffect(() => {
+    if (currentSystem?.name && !domainFilter) {
+      setDomainFilter(currentSystem.name)
+    }
+  }, [currentSystem])
+  
   // 编辑状态管理
   const [editingId, setEditingId] = useState<number | null>(null)
   const [isAdding, setIsAdding] = useState(false)
@@ -83,8 +96,11 @@ export default function RequirementSummariesPage() {
         url += `&term=${encodeURIComponent(searchTerm)}`
       }
       
-      if (domainFilter) {
-        url += `&domain=${encodeURIComponent(domainFilter)}`
+      // 如果有手动设置的领域过滤，优先使用手动设置的
+      // 否则使用当前系统名称作为默认领域过滤
+      const effectiveDomainFilter = domainFilter || (currentSystem?.name || '')
+      if (effectiveDomainFilter) {
+        url += `&domain=${encodeURIComponent(effectiveDomainFilter)}`
       }
 
       if (vectorFilter !== 'all') {

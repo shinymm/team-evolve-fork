@@ -20,6 +20,8 @@ interface SystemState {
   // 操作方法
   setSystems: (systems: System[]) => void
   setSelectedSystem: (system: System) => void
+  clearSelectedSystem: () => void
+  clearSystems: () => void
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
   
@@ -27,16 +29,28 @@ interface SystemState {
   fetchSystems: () => Promise<void>
 }
 
+const initialState = {
+  systems: [],
+  selectedSystemId: null,
+  isLoading: false,
+  error: null,
+}
+
 export const useSystemStore = create<SystemState>()(
   persist(
     (set, get) => ({
-      systems: [],
-      selectedSystemId: null,
-      isLoading: false,
-      error: null,
+      ...initialState,
       
       setSystems: (systems) => set({ systems }),
       setSelectedSystem: (system) => set({ selectedSystemId: system.id }),
+      clearSelectedSystem: () => set({ selectedSystemId: null }),
+      clearSystems: () => {
+        set(initialState)
+        // 手动清除localStorage
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('system-storage')
+        }
+      },
       setLoading: (loading) => set({ isLoading: loading }),
       setError: (error) => set({ error }),
       
@@ -50,6 +64,15 @@ export const useSystemStore = create<SystemState>()(
           if (!response.ok) {
             const errorData = await response.json()
             console.error('API错误:', errorData)
+            // 如果是未授权错误，清空所有状态
+            if (response.status === 401) {
+              set(initialState)
+              // 手动清除localStorage
+              if (typeof window !== 'undefined') {
+                localStorage.removeItem('system-storage')
+              }
+              return
+            }
             throw new Error(errorData.error || '获取系统列表失败')
           }
           
@@ -61,10 +84,10 @@ export const useSystemStore = create<SystemState>()(
           
           set({ systems: data })
           
-          // 如果有系统数据但没有选中的系统，自动选择第一个
-          if (data.length > 0 && !get().selectedSystemId) {
-            console.log('自动选择第一个系统:', data[0])
-            set({ selectedSystemId: data[0].id })
+          // 如果当前选中的系统不在列表中，清除选中状态
+          const selectedSystemId = get().selectedSystemId
+          if (selectedSystemId && !data.find((s: System) => s.id === selectedSystemId)) {
+            set({ selectedSystemId: null })
           }
         } catch (error) {
           console.error('获取系统列表失败:', error)
@@ -76,7 +99,11 @@ export const useSystemStore = create<SystemState>()(
     }),
     {
       name: 'system-storage',
-      storage: createJSONStorage(() => localStorage)
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        systems: state.systems,
+        selectedSystemId: state.selectedSystemId
+      })
     }
   )
 ) 
