@@ -5,7 +5,7 @@ import { Suspense } from 'react'
 
 // 动态导入 BoundaryRules 组件
 const BoundaryRules = dynamic(
-  () => import('@/components/boundary-rules').then(mod => ({ default: mod.BoundaryRules })),
+  () => import('@/components/boundary-rules'),
   { ssr: false }
 )
 
