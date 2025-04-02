@@ -30,48 +30,33 @@ export class RequirementExportService {
     
     const sections: Partial<StructuredScene> = {}
     const lines = optimizeResult.split('\n')
-    let currentSection = ''
     let currentContent: string[] = []
-    let isInUserJourney = false
 
-    // 标题到字段的映射
-    const titleToField: Record<string, keyof StructuredScene> = {
-      '场景名称': 'sceneName',
-      '场景概述': 'sceneOverview',
-      '前置条件': 'preconditions',
-      '用户旅程': 'sceneUserJourney',
-      '全局约束条件': 'globalConstraints'
-    }
+    // 检查是否是优化后的格式（以"# 场景名称"开头）
+    const isOptimizedFormat = lines[0]?.trim().startsWith('# 场景名称')
 
-    lines.forEach((line, index) => {
-      const titleMatch = line.match(/^#{1,6}\s+(.+)$/)
-      if (titleMatch) {
-        console.log(`发现标题[${index}]: ${titleMatch[1]}`)
-        
-        // 保存上一个部分的内容
-        if (currentSection && titleToField[currentSection]) {
-          const content = currentContent.join('\n').trim()
-          console.log(`保存上一节内容 - ${currentSection}:`, content)
-          sections[titleToField[currentSection]] = content
-        }
-
-        currentSection = titleMatch[1]
-        isInUserJourney = currentSection === '用户旅程'
-        currentContent = []
-      } else if (currentSection) {
-        currentContent.push(line)
+    // 如果是优化后的格式，直接使用整个内容
+    if (isOptimizedFormat) {
+      return {
+        sceneName: lines[0].replace('# 场景名称', '').trim(),
+        sceneOverview: optimizeResult  // 保存完整内容
       }
-    })
-
-    // 保存最后一个部分的内容
-    if (currentSection && titleToField[currentSection]) {
-      const content = currentContent.join('\n').trim()
-      console.log(`保存最后一节内容 - ${currentSection}:`, content)
-      sections[titleToField[currentSection]] = content
     }
 
-    console.log('解析结果:', sections)
-    return sections
+    // 如果是原始格式，尝试提取场景名称和概述
+    const sceneNameMatch = optimizeResult.match(/^#\s+(.+?)\s*(?:，|,)?\s*场景概述：(.+?)(?:\n|$)/m)
+    if (sceneNameMatch) {
+      return {
+        sceneName: sceneNameMatch[1].trim(),
+        sceneOverview: optimizeResult  // 保存完整内容
+      }
+    }
+
+    // 如果都不匹配，返回原始内容
+    return {
+      sceneName: '',
+      sceneOverview: optimizeResult
+    }
   }
 
   /**
@@ -103,31 +88,8 @@ export class RequirementExportService {
 
       try {
         if (sceneState?.optimizeResult) {
-          const optimizedSections = this.parseOptimizedContent(sceneState.optimizeResult)
-          
-          // 添加场景概述
-          if (optimizedSections.sceneOverview) {
-            mdContent += formatMarkdownTitle('场景概述', 4)
-            mdContent += `${optimizedSections.sceneOverview}\n\n`
-          }
-
-          // 添加前置条件
-          if (optimizedSections.preconditions) {
-            mdContent += formatMarkdownTitle('前置条件', 4)
-            mdContent += `${optimizedSections.preconditions}\n\n`
-          }
-
-          // 添加用户旅程
-          if (optimizedSections.sceneUserJourney) {
-            mdContent += formatMarkdownTitle('用户旅程', 4)
-            mdContent += optimizedSections.sceneUserJourney + '\n\n'
-          }
-
-          // 添加全局约束条件（如果有）
-          if (optimizedSections.globalConstraints) {
-            mdContent += formatMarkdownTitle('全局约束条件', 4)
-            mdContent += `${optimizedSections.globalConstraints}\n\n`
-          }
+          // 直接使用优化后的内容，不再添加额外的标题
+          mdContent += `${sceneState.optimizeResult}\n\n`
         } else {
           // 使用原始内容
           mdContent += formatMarkdownTitle('场景概述', 4)
@@ -167,25 +129,25 @@ export class RequirementExportService {
     content.scenes.forEach(scene => {
       console.log(`处理场景: ${scene.name}`)
       const sceneState = sceneStates[scene.name]
+      
+      // 创建基本的场景结构
       const structuredScene: StructuredScene = {
         sceneName: scene.name,
-        sceneOverview: scene.overview,
+        sceneOverview: '',  // 将在下面设置
         preconditions: 'N/A',
-        sceneUserJourney: '',  // 初始化为空字符串
+        sceneUserJourney: '',
         globalConstraints: 'N/A'
       }
 
       if (sceneState?.optimizeResult) {
-        console.log('使用优化后的内容:', sceneState.optimizeResult)
-        const optimizedSections = this.parseOptimizedContent(sceneState.optimizeResult)
-        console.log('优化内容解析结果:', optimizedSections)
-        Object.assign(structuredScene, optimizedSections)
+        console.log('使用优化后的内容')
+        // 直接使用优化后的完整内容作为场景概述
+        structuredScene.sceneOverview = sceneState.optimizeResult
       } else {
         console.log('使用原始内容')
-        // 如果没有优化结果，则使用原始的用户旅程
-        if (scene.userJourney) {
-          structuredScene.sceneUserJourney = scene.userJourney.join('\n')
-        }
+        // 如果没有优化结果，使用原始内容
+        structuredScene.sceneOverview = scene.overview || ''
+        structuredScene.sceneUserJourney = scene.userJourney ? scene.userJourney.join('\n') : ''
       }
 
       console.log('最终场景结构:', structuredScene)
@@ -200,7 +162,37 @@ export class RequirementExportService {
    * 保存结构化需求书到 localStorage
    */
   static saveStructuredRequirementToStorage(content: RequirementContent, sceneStates: Record<string, SceneAnalysisState>): void {
-    const structuredReq = this.generateStructuredRequirement(content, sceneStates)
-    localStorage.setItem('structuredRequirement', JSON.stringify(structuredReq))
+    try {
+      // 验证输入参数
+      if (!content || !sceneStates) {
+        console.error('保存结构化需求书失败：参数无效', { content, sceneStates })
+        throw new Error('无效的需求内容或场景状态')
+      }
+
+      const structuredReq = this.generateStructuredRequirement(content, sceneStates)
+
+      // 验证生成的结构化需求
+      if (!structuredReq.reqBackground || !structuredReq.reqBrief || !Array.isArray(structuredReq.sceneList)) {
+        console.error('生成的结构化需求格式无效:', structuredReq)
+        throw new Error('生成的结构化需求格式无效')
+      }
+
+      // 验证数据是否可以被正确序列化
+      const jsonString = JSON.stringify(structuredReq)
+      // 验证序列化后的数据是否可以被正确解析
+      JSON.parse(jsonString)
+
+      // 保存到 localStorage
+      localStorage.setItem('structuredRequirement', jsonString)
+      
+      console.log('结构化需求保存成功:', {
+        reqBackgroundLength: structuredReq.reqBackground.length,
+        reqBriefLength: structuredReq.reqBrief.length,
+        sceneCount: structuredReq.sceneList.length
+      })
+    } catch (error) {
+      console.error('保存结构化需求书失败:', error)
+      throw error
+    }
   }
 } 

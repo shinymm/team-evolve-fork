@@ -25,19 +25,46 @@ export default function BookConfirmPage() {
 
   useEffect(() => {
     // 从localStorage加载结构化需求数据
-    const storedReq = localStorage.getItem('structuredRequirement')
-    if (storedReq) {
-      try {
-        setRequirement(JSON.parse(storedReq))
-      } catch (e) {
-        console.error('Failed to parse stored requirement:', e)
-        toast({
-          title: "加载失败",
-          description: "无法加载需求数据",
-          variant: "destructive",
-          duration: 3000
-        })
+    try {
+      const storedReq = localStorage.getItem('structuredRequirement')
+      if (!storedReq) {
+        console.log('未找到存储的需求数据')
+        return
       }
+
+      // 验证JSON格式
+      const parsedReq = JSON.parse(storedReq)
+      
+      // 验证数据结构
+      if (!parsedReq || typeof parsedReq !== 'object') {
+        throw new Error('需求数据格式无效')
+      }
+
+      if (!parsedReq.reqBackground || !parsedReq.reqBrief || !Array.isArray(parsedReq.sceneList)) {
+        throw new Error('需求数据结构不完整')
+      }
+
+      // 验证场景列表
+      parsedReq.sceneList.forEach((scene: any, index: number) => {
+        if (!scene.sceneName || !scene.sceneOverview) {
+          throw new Error(`场景 ${index + 1} 数据不完整`)
+        }
+      })
+
+      setRequirement(parsedReq)
+      console.log('需求数据加载成功:', {
+        reqBackgroundLength: parsedReq.reqBackground.length,
+        reqBriefLength: parsedReq.reqBrief.length,
+        sceneCount: parsedReq.sceneList.length
+      })
+    } catch (e) {
+      console.error('加载需求数据失败:', e)
+      toast({
+        title: "加载失败",
+        description: e instanceof Error ? e.message : "无法加载需求数据",
+        variant: "destructive",
+        duration: 3000
+      })
     }
   }, [])
 

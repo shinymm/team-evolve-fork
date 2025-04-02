@@ -19,7 +19,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
-export function BoundaryRules() {
+export default function BoundaryRules() {
   const { rules, addRule, updateRule, deleteRule, resetRules } = useBoundaryRulesStore()
   const [editingRule, setEditingRule] = useState<BoundaryRule | null>(null)
   const [showDialog, setShowDialog] = useState(false)

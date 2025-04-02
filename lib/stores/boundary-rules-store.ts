@@ -65,12 +65,12 @@ export const DEFAULT_RULES: Omit<BoundaryRule, 'id'>[] = [
 // 生成唯一ID
 const generateId = () => Date.now().toString() + Math.random()
 
+// 检查是否在客户端环境
+const isClient = typeof window !== 'undefined'
+
 // 定义Store的状态和方法
 interface BoundaryRulesState {
-  // 边界规则列表
   rules: BoundaryRule[]
-  
-  // 操作方法
   addRule: (rule: Omit<BoundaryRule, 'id'>) => void
   updateRule: (id: string, rule: Omit<BoundaryRule, 'id'>) => void
   deleteRule: (id: string) => void
@@ -81,23 +81,24 @@ interface BoundaryRulesState {
 export const useBoundaryRulesStore = create<BoundaryRulesState>()(
   persist(
     (set) => ({
-      // 初始状态
-      rules: [],
+      rules: DEFAULT_RULES.map(rule => ({
+        ...rule,
+        id: generateId()
+      })),
       
-      // 添加规则
       addRule: (rule) => {
+        if (!isClient) return
         const newRule: BoundaryRule = {
           ...rule,
           id: generateId()
         }
-        
         set(state => ({
           rules: [...state.rules, newRule]
         }))
       },
       
-      // 更新规则
       updateRule: (id, rule) => {
+        if (!isClient) return
         set(state => ({
           rules: state.rules.map(r => 
             r.id === id ? { ...rule, id } : r
@@ -105,28 +106,31 @@ export const useBoundaryRulesStore = create<BoundaryRulesState>()(
         }))
       },
       
-      // 删除规则
       deleteRule: (id) => {
+        if (!isClient) return
         set(state => ({
           rules: state.rules.filter(rule => rule.id !== id)
         }))
       },
       
-      // 重置为默认规则
       resetRules: () => {
+        if (!isClient) return
         const rulesWithIds = DEFAULT_RULES.map(rule => ({
           ...rule,
           id: generateId()
         }))
-        
         set({ rules: rulesWithIds })
       }
     }),
     {
       name: 'boundary-rules-storage',
-      storage: createJSONStorage(() => localStorage),
-      // 初始化时，如果没有数据，则使用默认规则
+      storage: isClient ? createJSONStorage(() => localStorage) : createJSONStorage(() => ({
+        getItem: () => null,
+        setItem: () => {},
+        removeItem: () => {}
+      })),
       onRehydrateStorage: () => (state) => {
+        if (!isClient) return
         if (!state || state.rules.length === 0) {
           const rulesWithIds = DEFAULT_RULES.map(rule => ({
             ...rule,

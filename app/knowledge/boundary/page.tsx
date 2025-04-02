@@ -1,6 +1,13 @@
 'use client'
 
-import { BoundaryRules } from "@/components/boundary-rules"
+import dynamic from 'next/dynamic'
+import { Suspense } from 'react'
+
+// 动态导入 BoundaryRules 组件
+const BoundaryRules = dynamic(
+  () => import('@/components/boundary-rules').then(mod => ({ default: mod.BoundaryRules })),
+  { ssr: false }
+)
 
 export default function BoundaryPage() {
   return (
@@ -11,7 +18,9 @@ export default function BoundaryPage() {
           这里展示了边界识别的规则和示例，帮助你更好地进行需求分析。
         </p>
       </div>
-      <BoundaryRules />
+      <Suspense fallback={<div>加载中...</div>}>
+        <BoundaryRules />
+      </Suspense>
     </div>
   )
 } 
