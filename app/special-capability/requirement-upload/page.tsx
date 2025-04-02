@@ -36,6 +36,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { useSystemStore } from '@/lib/stores/system-store'
 
 // 添加全局样式
 import './requirement-styles.css'
@@ -308,6 +309,7 @@ export default function RequirementUpload() {
   const terminologyContentRef = useRef<HTMLDivElement>(null)
   const terminologyTextRef = useRef<string>('')
   const architectureContentRef = useRef<HTMLDivElement>(null)
+  const { systems, selectedSystemId } = useSystemStore()
   
   // 批处理设置参数
   const batchSizeRef = useRef<number>(200); // 默认批量大小
@@ -1553,14 +1555,114 @@ export default function RequirementUpload() {
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <h2 className="text-base font-semibold">信息架构树</h2>
-                    <Button 
-                      onClick={handleDownloadArchitecture}
-                      disabled={!contents.architecture}
-                      className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1 px-3 py-1 h-8 text-xs"
-                    >
-                      <Download className="h-3 w-3" />
-                      下载信息架构
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        onClick={handleDownloadArchitecture}
+                        disabled={!contents.architecture}
+                        className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1 px-3 py-1 h-8 text-xs"
+                      >
+                        <Download className="h-3 w-3" />
+                        下载信息架构
+                      </Button>
+                      
+                      <Button
+                        onClick={async () => {
+                          if (!selectedSystemId) {
+                            toast({
+                              title: "导入失败",
+                              description: "请先选择一个系统",
+                              variant: "destructive"
+                            });
+                            return;
+                          }
+
+                          if (!contents.architecture) {
+                            toast({
+                              title: "导入失败",
+                              description: "没有可导入的信息架构内容",
+                              variant: "destructive"
+                            });
+                            return;
+                          }
+
+                          try {
+                            console.log('开始处理架构内容:', contents.architecture);
+                            
+                            // 预处理架构内容，移除可能的代码块标记
+                            const cleanedContent = contents.architecture
+                              .replace(/^```(?:json)?\n/, '')
+                              .replace(/\n```$/, '')
+                              .trim();
+                            
+                            console.log('清理后的内容:', cleanedContent);
+                            
+                            // 解析架构内容
+                            const architectureData = JSON.parse(cleanedContent);
+                            
+                            console.log('解析后的数据:', architectureData);
+                            
+                            // 验证数据结构
+                            if (!Array.isArray(architectureData)) {
+                              throw new Error('信息架构数据格式不正确，应为数组格式');
+                            }
+
+                            // 验证每个节点的结构
+                            const validateNode = (node: any) => {
+                              if (!node.id || !node.title) {
+                                throw new Error('节点缺少必要的id或title字段');
+                              }
+                              if (node.children && Array.isArray(node.children)) {
+                                node.children.forEach(validateNode);
+                              }
+                            };
+                            
+                            architectureData.forEach(validateNode);
+                            
+                            console.log('数据验证通过，准备发送请求');
+
+                            // 调用信息架构页面的 API 更新数据
+                            const response = await fetch(`/api/systems/${selectedSystemId}/product-info`, {
+                              method: 'PUT',
+                              headers: {
+                                'Content-Type': 'application/json',
+                              },
+                              body: JSON.stringify({
+                                architecture: architectureData
+                              })
+                            });
+
+                            console.log('API响应状态:', response.status);
+                            
+                            if (!response.ok) {
+                              const errorData = await response.json();
+                              console.error('API错误响应:', errorData);
+                              throw new Error(errorData.error || '导入信息架构失败');
+                            }
+
+                            const result = await response.json();
+                            console.log('导入成功，返回数据:', result);
+
+                            toast({
+                              title: "导入成功",
+                              description: "信息架构已成功导入到系统中",
+                            });
+
+                          } catch (error) {
+                            console.error('导入信息架构失败:', error);
+                            toast({
+                              title: "导入失败",
+                              description: error instanceof Error ? error.message : "导入信息架构失败",
+                              variant: "destructive"
+                            });
+                          }
+                        }}
+                        disabled={!contents.architecture}
+                        className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1 px-3 py-1 h-8 text-xs"
+                      >
+                        <Upload className="h-3 w-3" />
+                        导入到系统
+                      </Button>
+                    </div>
                   </div>
                   <div className="border rounded p-3 bg-gray-50 min-h-[800px] max-h-[1400px] overflow-auto w-full" ref={architectureContentRef}>
                     {/* 添加调试信息，使用自执行函数避免返回void */}

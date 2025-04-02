@@ -20,10 +20,15 @@ export async function GET(
     })
 
     if (!architecture) {
-      return NextResponse.json(
-        { error: '系统架构不存在' },
-        { status: 404 }
-      )
+      return NextResponse.json({
+        id: '',
+        systemId,
+        highLevel: '',
+        microservice: '',
+        deployment: '',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
     }
 
     return NextResponse.json(architecture)
@@ -49,21 +54,27 @@ export async function PUT(
 
     const { systemId } = params
     const json = await request.json()
-    const { highLevel, microservice, deployment } = json
+    
+    // 获取要更新的字段和内容
+    const { type, content } = json
+    if (!type || !content || !['highLevel', 'microservice', 'deployment'].includes(type)) {
+      return NextResponse.json(
+        { error: '无效的架构类型或内容' },
+        { status: 400 }
+      )
+    }
 
     // 使用upsert确保创建或更新
     const architecture = await prisma.architecture.upsert({
       where: { systemId },
       update: {
-        highLevel,
-        microservice,
-        deployment
+        [type]: content
       },
       create: {
         systemId,
-        highLevel: highLevel || '',
-        microservice: microservice || '',
-        deployment: deployment || ''
+        highLevel: type === 'highLevel' ? content : '',
+        microservice: type === 'microservice' ? content : '',
+        deployment: type === 'deployment' ? content : ''
       }
     })
 

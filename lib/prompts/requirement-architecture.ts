@@ -39,18 +39,24 @@ export const requirementArchitecturePrompt = `<Role_Goal>
    - 对跨章节的关联功能建立映射关系
 
 5. **输出格式**：
-   - 满足TypeScript中ArchitectureItem[]的定义要求
-   - 基于TypeScript可直接解析的JSON数组，不要添加任何其他TypeScript以外的内容或解释说明
+   - 满足JSON列表和格式要求，不要添加任何其他JSON以外的内容或解释说明
 </Instructions>
 
 <Output>
-\`\`\`typescript
-export const ARCHITECTURE: ArchitectureItem[] = [
-  {id:"1", title:"系统概述", description:"系统整体功能与目标简介"},
-  {id:"1-1", parentId:"1", title:"系统目标", description:"系统设计的核心目标与价值"},
-  {id:"2", title:"系統功能說明", description:"系统核心功能模块说明"},
-  {id:"2-1", parentId:"2", title:"資源預約總表", description:"全状态资源预约管理界面"},
-  {id:"2-1-1", parentId:"2-1", title:"預約者管理", description:"处理用户预约申请的功能模块"}
+[
+  {
+    "id": "1",
+    "title": "节点1",
+    "description": "这是一个节点",
+    "children": [
+      {
+        "id": "1-1",
+        "title": "子节点",
+        "parentId": "1",
+        "description": "这是一个子节点",
+        "children": []
+      }
+    ]
+  }
 ]
-\`\`\`
 </Output>`; 

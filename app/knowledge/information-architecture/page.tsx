@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ChevronDown, ChevronRight, Edit2, Check, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, Edit2, Check, Trash2, Plus, Download, Upload } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -53,8 +53,6 @@ export default function InformationArchitecture() {
         rootItems.push(itemMap.get(item.id)!)
       }
     })
-
-    console.log('Built tree structure:', rootItems)
     return rootItems
   }
 
@@ -144,7 +142,6 @@ export default function InformationArchitecture() {
         ...latestData,
         architecture: buildTree(latestData.architecture)
       }
-      console.log('Converted to tree structure:', treeData.architecture)
       
       // 强制更新状态
       setProductInfo(null) // 先清空状态
@@ -193,7 +190,6 @@ export default function InformationArchitecture() {
     }
     
     items.forEach(item => flatten(item))
-    console.log('Flattened architecture:', result)
     return result
   }
 
@@ -393,7 +389,6 @@ export default function InformationArchitecture() {
     }
     
     const updatedArchitecture = updateTreeNode(productInfo.architecture)
-    console.log('Updated architecture before save:', updatedArchitecture)
     await updateProductInfo({ architecture: updatedArchitecture })
     setEditingId(null)
   }
@@ -531,8 +526,58 @@ export default function InformationArchitecture() {
                       size="sm"
                       onClick={() => handleEdit(item)}
                       className="h-5 px-1"
+                      title="编辑"
                     >
                       <Edit2 className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={async () => {
+                        if (!productInfo) return
+                        try {
+                          const newItem = {
+                            id: String(new Date().getTime()),
+                            title: '新节点',
+                            description: '',
+                            parentId: item.id,
+                            children: []
+                          }
+                          
+                          // 在当前节点下添加子节点
+                          const updatedArchitecture = addToParent(
+                            [...productInfo.architecture],
+                            item.id,
+                            newItem
+                          )
+                          
+                          await updateProductInfo({ architecture: updatedArchitecture })
+                          
+                          // 展开父节点
+                          setExpandedItems(prev => new Set([...prev, item.id]))
+                          
+                          // 添加后立即进入编辑状态
+                          setEditingId(newItem.id)
+                          setEditForm({ title: newItem.title, description: '' })
+                          
+                          toast({
+                            title: "添加成功",
+                            description: "子节点已添加",
+                            duration: 2000
+                          })
+                        } catch (error) {
+                          console.error('添加子节点失败:', error)
+                          toast({
+                            title: "添加失败",
+                            description: "添加子节点失败，请重试",
+                            variant: "destructive"
+                          })
+                        }
+                      }}
+                      className="h-5 px-1"
+                      title="添加子节点"
+                    >
+                      <Plus className="h-3 w-3" />
                     </Button>
                     <Button
                       variant="ghost"
@@ -593,148 +638,90 @@ export default function InformationArchitecture() {
   }
 
   // 渲染用户画像
-  const renderUserPersona = () => {
+  const renderUserPersona = (item: UserPersona) => {
+    const isEditing = editingUserNeedId === item.id
+    
     return (
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex justify-between items-center">
-            <CardTitle className="text-base">用户画像</CardTitle>
-            <Button
-              size="sm"
-              onClick={async () => {
-                if (!productInfo) return
-                try {
-                  setIsAddingPersona(true)
-                  const newPersona = {
-                    id: String(new Date().getTime()),
-                    title: '新用户画像',
-                    features: '',
-                    needs: ''
-                  }
-                  
-                  await updateProductInfo({
-                    userPersona: [...productInfo.userPersona, newPersona]
-                  })
-                  
-                  // 新增后立即进入编辑状态
-                  setEditingUserNeedId(newPersona.id)
-                  setEditingUserNeedForm(newPersona)
-                } catch (error) {
-                  console.error('Failed to add new persona:', error)
-                  toast({
-                    title: "添加失败",
-                    description: "添加用户画像失败，请重试",
-                    variant: "destructive"
-                  })
-                } finally {
-                  setIsAddingPersona(false)
-                }
-              }}
-              className="h-7"
-              disabled={isAddingPersona}
-            >
-              {isAddingPersona ? (
-                <>
-                  <span className="animate-spin mr-1">⏳</span>
-                  添加中...
-                </>
-              ) : (
-                '新增画像'
-              )}
-            </Button>
+      <div className="border rounded-lg p-3">
+        {isEditing ? (
+          <div className="space-y-1.5">
+            <Input
+              value={editingUserNeedForm?.title || ''}
+              onChange={(e) => setEditingUserNeedForm(prev => ({ ...prev!, title: e.target.value }))}
+              placeholder="用户类型"
+              className="text-[10px] h-5"
+            />
+            <Textarea
+              value={editingUserNeedForm?.features || ''}
+              onChange={(e) => setEditingUserNeedForm(prev => ({ ...prev!, features: e.target.value }))}
+              placeholder="特征描述"
+              className="text-[10px] min-h-[60px]"
+            />
+            <Textarea
+              value={editingUserNeedForm?.needs || ''}
+              onChange={(e) => setEditingUserNeedForm(prev => ({ ...prev!, needs: e.target.value }))}
+              placeholder="需求描述"
+              className="text-[10px] min-h-[60px]"
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleUserNeedCancel}
+                className="h-5 text-[10px]"
+              >
+                取消
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleUserNeedSave}
+                className="h-5 text-[10px]"
+              >
+                保存
+              </Button>
+            </div>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-4">
-            {productInfo?.userPersona.map((item) => {
-              const isEditing = editingUserNeedId === item.id
-              
-              return (
-                <div key={item.id} className="border rounded-lg p-3">
-                  {isEditing ? (
-                    <div className="space-y-1.5">
-                      <Input
-                        value={editingUserNeedForm?.title || ''}
-                        onChange={(e) => setEditingUserNeedForm(prev => ({ ...prev!, title: e.target.value }))}
-                        placeholder="用户类型"
-                        className="text-[10px] h-5"
-                      />
-                      <Textarea
-                        value={editingUserNeedForm?.features || ''}
-                        onChange={(e) => setEditingUserNeedForm(prev => ({ ...prev!, features: e.target.value }))}
-                        placeholder="特征描述"
-                        className="text-[10px] min-h-[60px]"
-                      />
-                      <Textarea
-                        value={editingUserNeedForm?.needs || ''}
-                        onChange={(e) => setEditingUserNeedForm(prev => ({ ...prev!, needs: e.target.value }))}
-                        placeholder="需求描述"
-                        className="text-[10px] min-h-[60px]"
-                      />
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleUserNeedCancel}
-                          className="h-5 text-[10px]"
-                        >
-                          取消
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={handleUserNeedSave}
-                          className="h-5 text-[10px]"
-                        >
-                          保存
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-xs font-medium">{item.title}</h3>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleUserNeedEdit(item)}
-                            className="h-6 px-2"
-                          >
-                            <Edit2 className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={async () => {
-                              if (!productInfo) return
-                              try {
-                                await updateProductInfo({
-                                  userPersona: productInfo.userPersona.filter(p => p.id !== item.id)
-                                })
-                              } catch (error) {
-                                console.error('Failed to delete persona:', error)
-                              }
-                            }}
-                            className="h-6 px-2 text-red-500 hover:text-red-600 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="text-xs leading-4">
-                        <p className="text-gray-600 whitespace-pre-wrap">{item.features}</p>
-                      </div>
-                      <div className="text-xs leading-4">
-                        <p className="text-gray-600 whitespace-pre-wrap">{item.needs}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+        ) : (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-medium">{item.title}</h3>
+              <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleUserNeedEdit(item)}
+                  className="h-6 px-2"
+                >
+                  <Edit2 className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={async () => {
+                    if (!productInfo) return
+                    try {
+                      await updateProductInfo({
+                        userPersona: productInfo.userPersona.filter(p => p.id !== item.id)
+                      })
+                    } catch (error) {
+                      console.error('Failed to delete persona:', error)
+                    }
+                  }}
+                  className="h-6 px-2 text-red-500 hover:text-red-600 hover:bg-red-50"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+            <div className="text-xs leading-4">
+              <p className="text-gray-600 whitespace-pre-wrap">{item.features}</p>
+            </div>
+            <div className="text-xs leading-4">
+              <p className="text-gray-600 whitespace-pre-wrap">{item.needs}</p>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </div>
     )
   }
 
@@ -751,7 +738,7 @@ export default function InformationArchitecture() {
           <ScrollArea className="h-[300px]">
             <div className="space-y-4">
               {suggestions.map((suggestion, index) => (
-                <Card key={index} className={`border shadow-sm ${
+                <Card key={suggestion.id || index} className={`border shadow-sm ${
                   suggestion.action === 'add' 
                     ? 'border-green-100 bg-green-50/50' 
                     : 'border-orange-100 bg-orange-50/50'
@@ -797,6 +784,62 @@ export default function InformationArchitecture() {
     )
   }
 
+  // 处理导出
+  const handleExport = () => {
+    if (!productInfo?.architecture) return
+    
+    const jsonStr = JSON.stringify(productInfo.architecture, null, 2)
+    const blob = new Blob([jsonStr], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `architecture-${new Date().toISOString().split('T')[0]}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    
+    toast({
+      title: "导出成功",
+      description: "信息架构已导出为 JSON 文件",
+      duration: 2000
+    })
+  }
+
+  // 处理导入
+  const handleImportArchitecture = async (jsonContent: string) => {
+    try {
+      // 预处理输入内容，移除可能的代码块标记
+      const cleanedContent = jsonContent
+        .replace(/^```(?:json)?\n/, '') // 移除开头的 ```json 或 ``` 
+        .replace(/\n```$/, '')          // 移除结尾的 ```
+        .trim();                        // 移除首尾空白
+
+      const importedData = JSON.parse(cleanedContent);
+      
+      // 验证导入的数据结构
+      if (!Array.isArray(importedData)) {
+        throw new Error('导入的数据格式不正确');
+      }
+
+      // 更新架构
+      await updateProductInfo({ architecture: importedData });
+      
+      toast({
+        title: "导入成功",
+        description: "信息架构已更新",
+        duration: 2000
+      });
+    } catch (error) {
+      console.error('导入失败:', error);
+      toast({
+        title: "导入失败",
+        description: error instanceof Error ? error.message : "导入信息架构失败",
+        variant: "destructive"
+      });
+    }
+  };
+
   if (!selectedSystemId) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
@@ -834,7 +877,7 @@ export default function InformationArchitecture() {
                 disabled={isEditingOverview}
               >
                 <Edit2 className="h-3.5 w-3.5 mr-1" />
-                编辑
+                {productInfo?.overview ? '编辑' : '添加'}
               </Button>
             </div>
           </CardHeader>
@@ -845,6 +888,7 @@ export default function InformationArchitecture() {
                   className="w-full h-32 p-2 border rounded-md text-sm"
                   value={editingOverviewText}
                   onChange={(e) => setEditingOverviewText(e.target.value)}
+                  placeholder="请输入产品概述，包括产品的定位、目标用户、核心价值等..."
                 />
                 <div className="flex justify-end gap-2">
                   <Button
@@ -863,9 +907,16 @@ export default function InformationArchitecture() {
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-gray-600 whitespace-pre-wrap leading-4">
-                {productInfo?.overview}
-              </p>
+              productInfo?.overview ? (
+                <p className="text-xs text-gray-600 whitespace-pre-wrap leading-4">
+                  {productInfo.overview}
+                </p>
+              ) : (
+                <div className="text-center py-6">
+                  <p className="text-sm text-gray-500">暂无产品概述</p>
+                  <p className="text-xs text-gray-400 mt-1">点击右上角的添加按钮开始编写产品概述</p>
+                </div>
+              )
             )}
           </CardContent>
         </Card>
@@ -876,34 +927,191 @@ export default function InformationArchitecture() {
             <div className="flex justify-between items-center">
               <CardTitle className="text-base">信息架构</CardTitle>
               <div className="flex gap-2">
+                {(productInfo?.architecture ?? []).length > 0 && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={expandAll}
+                      className="text-xs h-7"
+                    >
+                      展开全部
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={collapseAll}
+                      className="text-xs h-7"
+                    >
+                      折叠全部
+                    </Button>
+                  </>
+                )}
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      
+                      try {
+                        const text = await file.text();
+                        await handleImportArchitecture(text);
+                      } catch (error) {
+                        console.error('读取文件失败:', error);
+                        toast({
+                          title: "读取失败",
+                          description: "无法读取选择的文件",
+                          variant: "destructive"
+                        });
+                      }
+                      
+                      // 清除 input 的值，允许重复导入同一个文件
+                      e.target.value = '';
+                    }}
+                    className="hidden"
+                    id="import-architecture-file"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => document.getElementById('import-architecture-file')?.click()}
+                    className="text-xs h-7"
+                    title="从 JSON 导入"
+                  >
+                    <Upload className="h-3.5 w-3.5 mr-1" />
+                    导入
+                  </Button>
+                </div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={expandAll}
+                  onClick={handleExport}
                   className="text-xs h-7"
+                  title="导出为 JSON"
                 >
-                  展开全部
+                  <Download className="h-3.5 w-3.5 mr-1" />
+                  导出
                 </Button>
                 <Button
-                  variant="ghost"
                   size="sm"
-                  onClick={collapseAll}
+                  onClick={async () => {
+                    if (!productInfo) return
+                    try {
+                      const newItem = {
+                        id: String(new Date().getTime()),
+                        title: '新节点',
+                        description: '',
+                        children: []
+                      }
+                      await updateProductInfo({
+                        architecture: [...(productInfo.architecture || []), newItem]
+                      })
+                      // 添加后立即进入编辑状态
+                      setEditingId(newItem.id)
+                      setEditForm({ title: newItem.title, description: '' })
+                    } catch (error) {
+                      console.error('添加节点失败:', error)
+                      toast({
+                        title: "添加失败",
+                        description: "添加节点失败，请重试",
+                        variant: "destructive"
+                      })
+                    }
+                  }}
                   className="text-xs h-7"
                 >
-                  折叠全部
+                  添加节点
                 </Button>
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-0">
-              {productInfo?.architecture.map(item => renderArchitectureItem(item))}
-            </div>
+            {productInfo?.architecture && productInfo.architecture.length > 0 ? (
+              <div className="space-y-0">
+                {productInfo.architecture.map((item, index) => (
+                  <div key={item.id || `arch-${index}`}>
+                    {renderArchitectureItem(item)}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-sm text-gray-500">暂无信息架构</p>
+                <p className="text-xs text-gray-400 mt-1">点击右上角的添加节点按钮开始构建信息架构</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
         {/* User Persona Section */}
-        {renderUserPersona()}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-base">用户画像</CardTitle>
+              <Button
+                size="sm"
+                onClick={async () => {
+                  if (!productInfo) return
+                  try {
+                    setIsAddingPersona(true)
+                    const newPersona = {
+                      id: String(new Date().getTime()),
+                      title: '新用户画像',
+                      features: '',
+                      needs: ''
+                    }
+                    
+                    await updateProductInfo({
+                      userPersona: [...(productInfo.userPersona || []), newPersona]
+                    })
+                    
+                    // 新增后立即进入编辑状态
+                    setEditingUserNeedId(newPersona.id)
+                    setEditingUserNeedForm(newPersona)
+                  } catch (error) {
+                    console.error('Failed to add new persona:', error)
+                    toast({
+                      title: "添加失败",
+                      description: "添加用户画像失败，请重试",
+                      variant: "destructive"
+                    })
+                  } finally {
+                    setIsAddingPersona(false)
+                  }
+                }}
+                className="h-7"
+                disabled={isAddingPersona}
+              >
+                {isAddingPersona ? (
+                  <>
+                    <span className="animate-spin mr-1">⏳</span>
+                    添加中...
+                  </>
+                ) : (
+                  '新增画像'
+                )}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {productInfo?.userPersona && productInfo.userPersona.length > 0 ? (
+              <div className="grid grid-cols-2 gap-4">
+                {productInfo.userPersona.map((item, index) => (
+                  <div key={item.id || `persona-${index}`}>
+                    {renderUserPersona(item)}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-sm text-gray-500">暂无用户画像</p>
+                <p className="text-xs text-gray-400 mt-1">点击右上角的新增画像按钮开始创建用户画像</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Suggestions Section */}
         {renderSuggestions()}
