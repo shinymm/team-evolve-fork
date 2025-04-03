@@ -1,27 +1,18 @@
-interface SceneRequirementPromptParams {
-  reqBackground: string;
-  reqBrief: string;
-  sceneName: string;
-  sceneContent: string;
-  boundaryAnalysis: string;
-}
-
-export function sceneRequirementPromptTemplate(params: SceneRequirementPromptParams): string {
-  return `基于以下信息，优化场景需求描述：
+export const sceneRequirementPrompt = `基于以下信息，优化场景需求描述：
 
 需求背景：
-${params.reqBackground}
+{{reqBackground}}
 
 需求概述：
-${params.reqBrief}
+{{reqBrief}}
 
-场景名称：${params.sceneName}
+场景名称：{{sceneName}}
 
 场景内容：
-${params.sceneContent}
+{{sceneContent}}
 
 边界分析结果：
-${params.boundaryAnalysis}
+{{boundaryAnalysis}}
 
 <Rules>
 1. 只关注当前场景的需求描述，不要重复需求背景和概述等上下文信息
@@ -78,5 +69,4 @@ ${params.boundaryAnalysis}
 [仅当边界分析结果中确实存在与当前场景角色相关的跨步骤或影响整个场景的约束条件时才包含此部分]
 </Output_Format>
 
-请开始优化：`
-} 
+请开始优化：`; 
