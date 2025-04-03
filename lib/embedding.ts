@@ -9,7 +9,7 @@ import { getEmbedding as getServiceEmbedding, getDefaultVectorConfig, VectorMode
 export async function getEmbedding(text: string, vectorConfig?: VectorModelConfig): Promise<number[]> {
   try {
     // 使用传入的配置或从 store 获取默认配置
-    const config = vectorConfig || getDefaultVectorConfig()
+    const config = vectorConfig || await getDefaultVectorConfig()
     if (!config) {
       throw new Error('未找到可用的向量模型配置')
     }

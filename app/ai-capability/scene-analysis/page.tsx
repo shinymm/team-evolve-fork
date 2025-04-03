@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ChevronDown, ChevronRight, ArrowRight, Loader2, Check, X, FileEdit, Copy } from "lucide-react"
@@ -53,70 +53,78 @@ export default function SceneAnalysisPage() {
   useEffect(() => {
     // 加载结构化内容
     const storedContent = localStorage.getItem('requirement-structured-content')
-    if (storedContent) {
-      try {
-        const parsedContent = JSON.parse(storedContent)
-        
-        // 验证场景数据完整性
-        if (!Array.isArray(parsedContent.scenes)) {
-          throw new Error('场景列表格式无效')
-        }
-        
-        parsedContent.scenes.forEach((scene: Scene, index: number) => {
-          if (!scene.name || !scene.content) {
-            console.error(`场景 ${index + 1} 数据不完整:`, scene);
-            throw new Error(`场景 ${index + 1} 数据不完整: 缺少必要字段`)
-          }
-        })
-        
-        setContent(parsedContent)
-        
-        // 加载需求书内容
-        const storedMdContent = useRequirementAnalysisStore.getState().requirementBook
-        if (storedMdContent) {
-          setMdContent(storedMdContent)
-        }
+    if (!storedContent) return;
 
-        // 加载场景状态
-        const storedSceneStates = localStorage.getItem('scene-analysis-states')
-        // 只有当场景状态存在且与当前需求内容匹配时才加载
-        if (storedSceneStates) {
-          const parsedStates = JSON.parse(storedSceneStates)
-          // 检查场景状态是否与当前需求内容匹配
-          const statesMatchContent = parsedContent.scenes.every(
-            (scene: Scene) => parsedStates[scene.name] !== undefined
-          )
-          
-          if (statesMatchContent) {
-            setSceneStates(parsedStates)
-          } else {
-            // 如果场景状态与需求内容不匹配，清空场景状态
-            localStorage.removeItem('scene-analysis-states')
-            setSceneStates({})
-          }
-        }
-      } catch (e) {
-        console.error('Failed to parse stored content:', e)
-        // 如果解析失败，清空所有状态
-        localStorage.removeItem('scene-analysis-states')
-        setSceneStates({})
-        // 显示错误提示
-        toast({
-          title: "加载失败",
-          description: e instanceof Error ? e.message : "无法加载需求数据",
-          variant: "destructive",
-          duration: 3000
-        })
+    try {
+      const parsedContent = JSON.parse(storedContent)
+      
+      // 验证场景数据完整性
+      if (!Array.isArray(parsedContent.scenes)) {
+        throw new Error('场景列表格式无效')
       }
+      
+      parsedContent.scenes.forEach((scene: Scene, index: number) => {
+        if (!scene.name || !scene.content) {
+          console.error(`场景 ${index + 1} 数据不完整:`, scene);
+          throw new Error(`场景 ${index + 1} 数据不完整: 缺少必要字段`)
+        }
+      })
+      
+      setContent(parsedContent)
+      
+      // 加载需求书内容
+      const storedMdContent = useRequirementAnalysisStore.getState().requirementBook
+      if (storedMdContent) {
+        setMdContent(storedMdContent)
+      }
+
+      // 加载场景状态
+      const storedSceneStates = localStorage.getItem('scene-analysis-states')
+      // 只有当场景状态存在且与当前需求内容匹配时才加载
+      if (storedSceneStates) {
+        const parsedStates = JSON.parse(storedSceneStates)
+        // 检查场景状态是否与当前需求内容匹配
+        const statesMatchContent = parsedContent.scenes.every(
+          (scene: Scene) => parsedStates[scene.name] !== undefined
+        )
+        
+        if (statesMatchContent) {
+          setSceneStates(parsedStates)
+        } else {
+          // 如果场景状态与需求内容不匹配，清空场景状态
+          localStorage.removeItem('scene-analysis-states')
+          setSceneStates({})
+        }
+      }
+    } catch (e) {
+      console.error('Failed to parse stored content:', e)
+      // 如果解析失败，清空所有状态
+      localStorage.removeItem('scene-analysis-states')
+      setSceneStates({})
+      // 显示错误提示
+      toast({
+        title: "加载失败",
+        description: e instanceof Error ? e.message : "无法加载需求数据",
+        variant: "destructive",
+        duration: 3000
+      })
     }
+  }, []) // 确保依赖数组为空，只在组件挂载时执行一次
+
+  // 当场景状态改变时保存到 localStorage，使用 useCallback 避免重复创建函数
+  const saveSceneStates = useCallback((states: Record<string, SceneAnalysisState>) => {
+    localStorage.setItem('scene-analysis-states', JSON.stringify(states))
   }, [])
 
-  // 当场景状态改变时保存到 localStorage
+  // 使用 useEffect 处理场景状态的保存，添加防抖
   useEffect(() => {
     if (Object.keys(sceneStates).length > 0) {
-      localStorage.setItem('scene-analysis-states', JSON.stringify(sceneStates))
+      const timeoutId = setTimeout(() => {
+        saveSceneStates(sceneStates)
+      }, 1000) // 1秒的防抖延迟
+      return () => clearTimeout(timeoutId)
     }
-  }, [sceneStates])
+  }, [sceneStates, saveSceneStates])
 
   const handleParse = () => {
     if (!mdContent.trim()) {
@@ -641,7 +649,7 @@ export default function SceneAnalysisPage() {
                   value={mdContent}
                   onChange={(e) => {
                     setMdContent(e.target.value)
-                    useRequirementAnalysisStore.getState().setRequirementBook(e.target.value);
+                    useRequirementAnalysisStore.getState().setRequirementBook(e.target.value)
                   }}
                   placeholder="请在此输入需求书内容..."
                 />
@@ -695,7 +703,7 @@ export default function SceneAnalysisPage() {
                   value={mdContent}
                   onChange={(e) => {
                     setMdContent(e.target.value)
-                    useRequirementAnalysisStore.getState().setRequirementBook(e.target.value);
+                    useRequirementAnalysisStore.getState().setRequirementBook(e.target.value)
                   }}
                   placeholder="请在此输入需求书内容..."
                 />

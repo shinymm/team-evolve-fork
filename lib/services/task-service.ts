@@ -1,5 +1,6 @@
 import { StructuredRequirement } from './requirement-export-service'
 import { ArchitectureSuggestion } from './architecture-suggestion-service'
+import { Scene } from '@/types/requirement'
 
 interface TaskMetadata {
   systemId?: string
@@ -9,11 +10,7 @@ interface TaskMetadata {
   requirementData?: {
     reqBackground: string
     reqBrief: string
-    scenes: {
-      name: string
-      overview: string
-      userJourney: string[]
-    }[]
+    scenes: Scene[]
   }
   requirement?: StructuredRequirement
   suggestions?: ArchitectureSuggestion[]

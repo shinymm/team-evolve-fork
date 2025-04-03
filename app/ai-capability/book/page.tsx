@@ -18,6 +18,9 @@ import remarkGfm from 'remark-gfm'
 import { getTasks } from '@/lib/services/task-service'
 import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { RequirementParseResult } from '@/lib/services/requirement-parser-service'
+import { RequirementData } from '@/lib/services/task-control'
+import { Scene } from '@/types/requirement'
 
 export default function RequirementBook() {
   const [originalRequirement, setOriginalRequirement] = useState('')
@@ -218,6 +221,15 @@ export default function RequirementBook() {
     }
   }
 
+  // 添加适配器函数
+  function adaptToRequirementData(parsedRequirement: RequirementParseResult): RequirementData {
+    return {
+      reqBackground: parsedRequirement.reqBackground,
+      reqBrief: parsedRequirement.reqBrief,
+      scenes: parsedRequirement.scenes
+    }
+  }
+
   const handleConfirm = async () => {
     try {
       // 获取活跃的需求书内容（优先使用固定的内容）
@@ -267,7 +279,7 @@ export default function RequirementBook() {
       
       // 7. 创建场景边界分析任务
       console.log('创建场景边界分析任务...')
-      await createSceneAnalysisTask(parsedRequirement)
+      await createSceneAnalysisTask(adaptToRequirementData(parsedRequirement))
       
       console.log('所有任务状态更新完成')
       

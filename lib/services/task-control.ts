@@ -1,6 +1,7 @@
 import { createTask } from './task-service'
 import { StructuredRequirement } from './requirement-export-service'
 import { ArchitectureSuggestion } from './architecture-suggestion-service'
+import { Scene } from '@/types/requirement'
 
 interface SystemSubscription {
   systemId: string
@@ -8,14 +9,10 @@ interface SystemSubscription {
   apiEndpoint: string
 }
 
-interface RequirementData {
+export interface RequirementData {
   reqBackground: string
   reqBrief: string
-  scenes: {
-    name: string
-    overview: string
-    userJourney: string[]
-  }[]
+  scenes: Scene[]
 }
 
 export async function createRequirementStructureTask(mdContent: string) {

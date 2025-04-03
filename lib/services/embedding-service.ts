@@ -1,18 +1,8 @@
 import OpenAI from 'openai'
 import fetch from 'node-fetch'
-import { useVectorConfigStore } from '../stores/vector-config-store'
-import { getAllVectorConfigs } from './vector-config-service'
+import { VectorModelConfig, getVectorConfig, getAllVectorConfigs } from './vector-config-service'
+export type { VectorModelConfig } from './vector-config-service'
 import { decrypt } from '@/lib/utils/encryption-utils'
-
-// 向量模型配置类型
-export type VectorModelConfig = {
-  id?: string;
-  name?: string;
-  baseURL: string;
-  model: string;
-  apiKey: string;
-  isDefault?: boolean;
-}
 
 // 服务器端配置存储
 let serverSideConfig: VectorModelConfig | null = null
@@ -38,9 +28,9 @@ export async function getVectorConfigs(): Promise<VectorModelConfig[]> {
  * 获取默认向量模型配置
  * @returns 默认向量模型配置
  */
-export function getDefaultVectorConfig(): VectorModelConfig | null {
+export async function getDefaultVectorConfig(): Promise<VectorModelConfig | null> {
   try {
-    const config = useVectorConfigStore.getState().getDefaultConfig()
+    const config = await getVectorConfig()
     return config || null
   } catch (error) {
     console.error('获取默认向量配置失败:', error)

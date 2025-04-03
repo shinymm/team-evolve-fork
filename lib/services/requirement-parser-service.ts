@@ -1,9 +1,6 @@
-interface Scene {
-  name: string;
-  content: string;  // 场景的完整内容
-}
+import { Scene } from '@/types/requirement'
 
-interface RequirementParseResult {
+export interface RequirementParseResult {
   reqBackground: string;
   reqBrief: string;
   scenes: Scene[];

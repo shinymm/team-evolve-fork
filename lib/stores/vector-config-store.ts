@@ -17,18 +17,14 @@ export const useVectorConfigStore = create<VectorConfigState>()(
       defaultConfig: null,
       
       setDefaultConfig: (config) => {
-        console.log('设置默认配置:', config)
         set({ defaultConfig: config })
       },
       
       getDefaultConfig: () => {
-        const config = get().defaultConfig
-        console.log('获取默认配置:', config)
-        return config
+        return get().defaultConfig
       },
 
       clearDefaultConfig: () => {
-        console.log('清除默认配置')
         set({ defaultConfig: null })
       }
     }),
@@ -36,12 +32,8 @@ export const useVectorConfigStore = create<VectorConfigState>()(
       name: 'vector-config-storage',
       version: 1,
       storage: createJSONStorage(() => localStorage),
-      onRehydrateStorage: () => {
-        console.log('开始重新加载向量配置存储')
-        return (state) => {
-          console.log('向量配置存储已加载:', state?.defaultConfig)
-        }
-      }
+      skipHydration: true,
+      partialize: (state) => ({ defaultConfig: state.defaultConfig }),
     }
   )
 ) 
