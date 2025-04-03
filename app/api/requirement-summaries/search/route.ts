@@ -42,6 +42,7 @@ const SearchSchema = z.object({
     apiKey: z.string(),
     model: z.string(),
     dimension: z.number(),
+    name: z.string(),
   }).optional(),
   minSimilarity: z.number().min(0).max(1).default(0.7),
 })
@@ -78,7 +79,13 @@ export async function POST(request: Request) {
     if (vectorConfig) {
       try {
         console.log('开始向量检索...')
-        const queryVector = await getEmbedding(query, vectorConfig)
+        const queryVector = await getEmbedding(query, {
+          baseURL: vectorConfig.baseURL,
+          apiKey: vectorConfig.apiKey,
+          model: vectorConfig.model,
+          dimension: vectorConfig.dimension,
+          name: vectorConfig.name
+        })
         
         if (!queryVector) {
           throw new Error('无法生成查询向量')

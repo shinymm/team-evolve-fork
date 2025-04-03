@@ -51,11 +51,11 @@ export async function generateArchitectureSuggestions(
   currentArchitecture: ArchitectureItem[]
 ): Promise<ArchitectureSuggestion[]> {
   try {
-    // 只提取用户旅程信息
-    const userJourneys = requirement.sceneList.map((scene, index) => `
+    // 将场景列表转换为易读的字符串格式
+    const scenesStr = requirement.sceneList.map((scene, index) => `
 场景${index + 1}：${scene.sceneName}
-用户旅程：
-${scene.sceneUserJourney}
+场景内容：
+${scene.content}
 `).join('\n\n')
 
     // 将当前架构转换为易读的字符串格式
@@ -65,7 +65,7 @@ ${scene.sceneUserJourney}
 
     // 替换提示词模板中的参数
     const prompt = ARCHITECTURE_SUGGESTION_PROMPT
-      .replace('{{userJourneys}}', userJourneys)
+      .replace('{{userJourneys}}', scenesStr)
       .replace('{{architecture}}', archString)
 
     let fullResponse = ''

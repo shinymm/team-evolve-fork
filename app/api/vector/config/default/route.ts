@@ -16,7 +16,10 @@ export async function GET() {
     }
 
     // 设置服务器端配置
-    setServerSideConfig(defaultConfig)
+    setServerSideConfig({
+      ...defaultConfig,
+      provider: defaultConfig.provider || undefined  // 将 null 转换为 undefined
+    })
 
     return NextResponse.json(defaultConfig)
   } catch (error) {

@@ -21,6 +21,7 @@ export async function POST(request: Request) {
       apiKey,
       model,
       name: name || `${model} (测试)`,
+      dimension: 1536  // 添加必需的 dimension 属性
     }
 
     // 生成测试文本的嵌入向量

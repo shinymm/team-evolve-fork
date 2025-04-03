@@ -8,9 +8,10 @@ const VectorConfigSchema = z.object({
   baseURL: z.string().min(1, "API地址不能为空"),
   model: z.string().min(1, "模型名称不能为空"),
   apiKey: z.string().min(1, "API Key不能为空"),
+  name: z.string().min(1, "向量模型名称不能为空"),
   id: z.string().optional(),
-  name: z.string().optional(),
-  isDefault: z.boolean().optional()
+  isDefault: z.boolean().optional(),
+  dimension: z.number().optional()
 })
 
 // 验证请求体模式
@@ -54,7 +55,10 @@ export async function POST(
     })
 
     const text = `${summary.name}\n${summary.summary}`
-    const embedding = await getEmbedding(text, vectorConfig)
+    const embedding = await getEmbedding(text, {
+      ...vectorConfig,
+      dimension: 1536  // 添加必需的 dimension 属性
+    })
 
     if (!embedding) {
       console.error('生成向量嵌入失败')
