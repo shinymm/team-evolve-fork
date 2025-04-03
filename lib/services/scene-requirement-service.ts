@@ -1,28 +1,34 @@
 import { streamingAICall } from './ai-service'
 import { sceneRequirementPromptTemplate } from '../prompts/scene-requirement'
-
-export interface Scene {
-  name: string
-  overview: string
-  userJourney: string[]
-}
+import { Scene } from '@/types/requirement'
 
 export interface SceneRequirementOptimizeParams {
-  reqBackground: string
-  reqBrief: string
-  scene: Scene
-  boundaryAnalysis: string
+  reqBackground: string;
+  reqBrief: string;
+  scene: Scene;
+  boundaryAnalysis: string;
 }
 
 export class SceneRequirementService {
   async optimize(
     params: SceneRequirementOptimizeParams,
-    onProgress: (content: string) => void
+    onContent: (content: string) => void
   ): Promise<void> {
-    const prompt = sceneRequirementPromptTemplate(params)
+    const { reqBackground, reqBrief, scene, boundaryAnalysis } = params
+    
+    // 生成优化提示
+    const prompt = sceneRequirementPromptTemplate({
+      reqBackground,
+      reqBrief,
+      sceneName: scene.name,
+      sceneContent: scene.content,
+      boundaryAnalysis
+    })
+
+    // 调用AI服务
     await streamingAICall(
-      prompt, 
-      onProgress,
+      prompt,
+      onContent,
       (error: string) => {
         throw new Error(`场景需求优化失败: ${error}`)
       }

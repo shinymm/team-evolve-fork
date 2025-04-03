@@ -1,11 +1,10 @@
 export interface Scene {
-  name: string
-  overview: string
-  userJourney: string[]
+  name: string;
+  content: string;
 }
 
 export interface RequirementContent {
-  reqBackground: string
-  reqBrief: string
-  scenes: Scene[]
+  reqBackground: string;
+  reqBrief: string;
+  scenes: Scene[];
 } 

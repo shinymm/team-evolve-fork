@@ -4,10 +4,7 @@ import { SceneAnalysisState } from '@/types/scene'
 // 定义结构化场景对象
 export type StructuredScene = {
   sceneName: string
-  sceneOverview: string
-  preconditions: string
-  sceneUserJourney: string  // 用户旅程（包含步骤、规则和异常处理）
-  globalConstraints: string
+  content: string  // 场景的完整内容，包括概述、用户旅程等
 }
 
 // 定义完整的结构化需求书对象
@@ -30,7 +27,6 @@ export class RequirementExportService {
     
     const sections: Partial<StructuredScene> = {}
     const lines = optimizeResult.split('\n')
-    let currentContent: string[] = []
 
     // 检查是否是优化后的格式（以"# 场景名称"开头）
     const isOptimizedFormat = lines[0]?.trim().startsWith('# 场景名称')
@@ -39,23 +35,23 @@ export class RequirementExportService {
     if (isOptimizedFormat) {
       return {
         sceneName: lines[0].replace('# 场景名称', '').trim(),
-        sceneOverview: optimizeResult  // 保存完整内容
+        content: optimizeResult  // 保存完整内容
       }
     }
 
-    // 如果是原始格式，尝试提取场景名称和概述
+    // 如果是原始格式，尝试提取场景名称和内容
     const sceneNameMatch = optimizeResult.match(/^#\s+(.+?)\s*(?:，|,)?\s*场景概述：(.+?)(?:\n|$)/m)
     if (sceneNameMatch) {
       return {
         sceneName: sceneNameMatch[1].trim(),
-        sceneOverview: optimizeResult  // 保存完整内容
+        content: optimizeResult  // 保存完整内容
       }
     }
 
     // 如果都不匹配，返回原始内容
     return {
       sceneName: '',
-      sceneOverview: optimizeResult
+      content: optimizeResult
     }
   }
 
@@ -88,24 +84,16 @@ export class RequirementExportService {
 
       try {
         if (sceneState?.optimizeResult) {
-          // 直接使用优化后的内容，不再添加额外的标题
+          // 直接使用优化后的内容
           mdContent += `${sceneState.optimizeResult}\n\n`
         } else {
           // 使用原始内容
-          mdContent += formatMarkdownTitle('场景概述', 4)
-          mdContent += `${scene.overview || 'N/A'}\n\n`
-          
-          mdContent += formatMarkdownTitle('用户旅程', 4)
-          mdContent += `${scene.userJourney ? scene.userJourney.join('\n') : 'N/A'}\n\n`
+          mdContent += scene.content + '\n\n'
         }
       } catch (error) {
         console.error(`Error processing scene ${scene.name}:`, error)
-        // 发生错误时使用基本内容
-        mdContent += formatMarkdownTitle('场景概述', 4)
-        mdContent += `${scene.overview || 'N/A'}\n\n`
-        
-        mdContent += formatMarkdownTitle('用户旅程', 4)
-        mdContent += `${scene.userJourney ? scene.userJourney.join('\n') : 'N/A'}\n\n`
+        // 发生错误时使用原始内容
+        mdContent += scene.content + '\n\n'
       }
 
       mdContent += '---\n\n' // 场景之间的分隔线
@@ -128,26 +116,11 @@ export class RequirementExportService {
 
     content.scenes.forEach(scene => {
       console.log(`处理场景: ${scene.name}`)
-      const sceneState = sceneStates[scene.name]
       
-      // 创建基本的场景结构
+      // 创建场景结构 - 直接使用场景的content，因为优化后的内容已经被保存到那里了
       const structuredScene: StructuredScene = {
         sceneName: scene.name,
-        sceneOverview: '',  // 将在下面设置
-        preconditions: 'N/A',
-        sceneUserJourney: '',
-        globalConstraints: 'N/A'
-      }
-
-      if (sceneState?.optimizeResult) {
-        console.log('使用优化后的内容')
-        // 直接使用优化后的完整内容作为场景概述
-        structuredScene.sceneOverview = sceneState.optimizeResult
-      } else {
-        console.log('使用原始内容')
-        // 如果没有优化结果，使用原始内容
-        structuredScene.sceneOverview = scene.overview || ''
-        structuredScene.sceneUserJourney = scene.userJourney ? scene.userJourney.join('\n') : ''
+        content: scene.content
       }
 
       console.log('最终场景结构:', structuredScene)
@@ -169,6 +142,18 @@ export class RequirementExportService {
         throw new Error('无效的需求内容或场景状态')
       }
 
+      // 验证场景数据完整性
+      if (!Array.isArray(content.scenes)) {
+        throw new Error('场景列表格式无效')
+      }
+
+      content.scenes.forEach((scene, index) => {
+        if (!scene.name || !scene.content) {
+          console.error(`场景 ${index + 1} 数据不完整:`, scene)
+          throw new Error(`场景 ${index + 1} 数据不完整: 缺少必要字段`)
+        }
+      })
+
       const structuredReq = this.generateStructuredRequirement(content, sceneStates)
 
       // 验证生成的结构化需求
@@ -177,10 +162,23 @@ export class RequirementExportService {
         throw new Error('生成的结构化需求格式无效')
       }
 
+      // 验证场景列表数据完整性
+      structuredReq.sceneList.forEach((scene, index) => {
+        if (!scene.sceneName || !scene.content) {
+          console.error(`结构化场景 ${index + 1} 数据不完整:`, scene)
+          throw new Error(`结构化场景 ${index + 1} 数据不完整: 缺少必要字段`)
+        }
+      })
+
       // 验证数据是否可以被正确序列化
       const jsonString = JSON.stringify(structuredReq)
       // 验证序列化后的数据是否可以被正确解析
-      JSON.parse(jsonString)
+      const parsedReq = JSON.parse(jsonString)
+
+      // 再次验证解析后的数据
+      if (!parsedReq.reqBackground || !parsedReq.reqBrief || !Array.isArray(parsedReq.sceneList)) {
+        throw new Error('序列化后的数据格式无效')
+      }
 
       // 保存到 localStorage
       localStorage.setItem('structuredRequirement', jsonString)
@@ -188,7 +186,11 @@ export class RequirementExportService {
       console.log('结构化需求保存成功:', {
         reqBackgroundLength: structuredReq.reqBackground.length,
         reqBriefLength: structuredReq.reqBrief.length,
-        sceneCount: structuredReq.sceneList.length
+        sceneCount: structuredReq.sceneList.length,
+        scenes: structuredReq.sceneList.map(scene => ({
+          name: scene.sceneName,
+          contentLength: scene.content.length
+        }))
       })
     } catch (error) {
       console.error('保存结构化需求书失败:', error)

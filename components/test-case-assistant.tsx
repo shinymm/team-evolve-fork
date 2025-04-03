@@ -53,20 +53,8 @@ export function TestCaseAssistant() {
   const handleSceneSelect = (sceneIndex: string) => {
     const scene = scenes[parseInt(sceneIndex)]
     if (scene) {
-      // 将场景的所有相关信息组合成文本
-      const sceneContent = [
-        `场景名称：${scene.sceneName}`,
-        `场景概述：${scene.sceneOverview}`,
-        `前置条件：${scene.preconditions}`,
-        `用户旅程：\n${scene.sceneUserJourney}`
-      ]
-
-      // 只有在有全局约束条件且不是'N/A'时才添加
-      if (scene.globalConstraints && scene.globalConstraints !== 'N/A') {
-        sceneContent.push(`全局约束条件：${scene.globalConstraints}`)
-      }
-      
-      setRequirements(sceneContent.join('\n\n'))
+      // 将场景内容直接作为需求文本
+      setRequirements(scene.content)
       setSelectedScene(sceneIndex)
       setIsDialogOpen(false)
     }

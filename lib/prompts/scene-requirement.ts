@@ -1,29 +1,24 @@
-export const sceneRequirementPromptTemplate = (params: {
-  reqBackground: string
-  reqBrief: string
-  scene: {
-    name: string
-    overview: string
-    userJourney: string[]
-  }
-  boundaryAnalysis: string
-}): string => `<Role_Goal>
-你是一位专业的需求分析师，负责优化和完善场景需求描述。基于已有的场景信息和边界分析结果，你需要重新组织和优化场景的需求描述。
+interface SceneRequirementPromptParams {
+  reqBackground: string;
+  reqBrief: string;
+  sceneName: string;
+  sceneContent: string;
+  boundaryAnalysis: string;
+}
 
-<Input>
+export function sceneRequirementPromptTemplate(params: SceneRequirementPromptParams): string {
+  return `基于以下信息，优化场景需求描述：
+
 需求背景：
 ${params.reqBackground}
 
 需求概述：
 ${params.reqBrief}
 
-场景名称：${params.scene.name}
+场景名称：${params.sceneName}
 
-场景概述：
-${params.scene.overview}
-
-用户旅程：
-${params.scene.userJourney.map((step, index) => `${index + 1}. ${step}`).join('\n')}
+场景内容：
+${params.sceneContent}
 
 边界分析结果：
 ${params.boundaryAnalysis}
@@ -36,19 +31,7 @@ ${params.boundaryAnalysis}
 5. 注意保持描述的逻辑性和连贯性
 6. 所有输出内容必须基于输入信息的实际分析结果，不要生成通用的、模板化的内容
 7. 如果某些章节（如全局约束条件或补充说明）在分析中没有发现相关内容，可以省略该章节
-8. 准确理解并区分场景中的角色定位：
-   - 仔细识别场景名称和概述中提到的主要角色（如运营用户、管理员、终端用户等）
-   - 明确区分配置场景和使用场景，不要混淆不同角色的行为和约束
-   - 约束条件和异常处理必须严格对应当前场景的实际操作角色
-   - 避免将其他相关场景的约束和异常处理错误地带入当前场景
-9. 特别注意配置场景和使用场景的区别：
-   - 配置场景：描述管理员/运营等角色如何设置系统参数、规则、限制等
-   - 使用场景：描述最终用户如何使用已配置的功能
-   - 数据分析场景：描述分析人员如何查看和分析数据，关注数据口径、统计规则等
-   - 配置场景的约束是针对配置行为本身（如：配置值的范围限制）
-   - 配置场景的异常处理是针对配置操作（如：输入的配置值超出系统允许的范围）
-   - 数据分析场景的约束和异常处理应关注数据质量、时效性、权限等
-   - 不要在配置场景中描述最终用户使用时的约束和异常处理
+</Rules>
 
 <Instructions>
 1. 首先明确识别当前场景的主要操作角色
@@ -67,6 +50,7 @@ ${params.boundaryAnalysis}
    - 前台使用场景：描述用户操作异常、业务规则冲突等情况的处理
    - 数据分析场景：描述数据异常、数据延迟、权限不足等情况的处理
 7. 确保所有输出的内容都能在输入信息中找到对应的依据
+</Instructions>
 
 <Output_Format>
 请按以下格式输出优化后的场景需求描述：
@@ -92,4 +76,7 @@ ${params.boundaryAnalysis}
 
 ### 全局约束条件
 [仅当边界分析结果中确实存在与当前场景角色相关的跨步骤或影响整个场景的约束条件时才包含此部分]
-</Role_Goal>` 
+</Output_Format>
+
+请开始优化：`
+} 

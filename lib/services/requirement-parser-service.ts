@@ -1,9 +1,6 @@
 interface Scene {
   name: string;
-  overview: string;
-  userJourney: string[];
-  systemResponse?: string;
-  expectedResult?: string;
+  content: string;  // 场景的完整内容
 }
 
 interface RequirementParseResult {
@@ -80,7 +77,7 @@ export class RequirementParserService {
     console.log('Detail section:', detailSection);
 
     const scenes: Scene[] = [];
-    // 首先分割出所有场景块
+    // 分割出所有场景块
     const sceneBlocks = detailSection.split(/(?=### \d+\. 场景\d+[：:])/).filter(block => block.trim());
     console.log('Found scene blocks:', sceneBlocks.length);
 
@@ -91,76 +88,11 @@ export class RequirementParserService {
       const nameMatch = block.match(/### \d+\. 场景\d+[：:]\s*(.+?)(?:\n|$)/);
       const sceneName = nameMatch ? nameMatch[1].trim() : '';
       console.log('Scene name:', sceneName);
-      
-      // 提取场景概述 - 适配新格式
-      const overviewSection = block.match(/#### \d+\.\d+\s*场景概述\s*([\s\S]*?)(?=#### \d+\.\d+\s*用户旅程|$)/);
-      let overview = '';
-      
-      if (overviewSection && overviewSection[1]) {
-        // 提取所有标签行
-        const lines = overviewSection[1]
-          .split('\n')
-          .map(line => line.trim())
-          .filter(line => line);
-
-        // 处理每一行，将标签行转换为普通文本
-        overview = lines
-          .map(line => {
-            const tagMatch = line.match(/\*\*([^*]+)\*\*[：:]\s*(.+)/);
-            if (tagMatch) {
-              return `${tagMatch[1]}：${tagMatch[2]}`;
-            }
-            return line;
-          })
-          .join('\n');
-      }
-      
-      console.log('Scene overview section:', overviewSection);
-      console.log('Scene overview:', overview);
-
-      // 提取用户旅程 - 同时兼容新旧格式
-      const journeyMatch = block.match(/(?:#### \d+\.\d+\s*用户旅程|用户旅程)\s*([\s\S]*?)(?=(?:#### \d+\.\d+|###|---|\*\*系统响应\*\*|$))/);
-      const journeyText = journeyMatch ? journeyMatch[1] : '';
-      console.log('Journey text:', journeyText);
-      
-      let steps: string[] = [];
-      let systemResponse: string | undefined;
-      let expectedResult: string | undefined;
-
-      // 检查是否包含系统响应和预期结果（新格式）
-      if (journeyText.includes('**系统响应**')) {
-        // 新格式：包含系统响应和预期结果
-        steps = journeyText
-          .split('\n')
-          .filter(line => /^\d+\./.test(line.trim()))
-          .map(line => line.replace(/^\d+\.\s*/, '').trim());
-
-        // 提取系统响应和预期结果
-        const responseAndResult = block.match(/\*\*系统响应\*\*[：:]\s*([\s\S]*?)(?:\*\*预期结果\*\*[：:]\s*([\s\S]*?)(?=(?:#### \d+\.\d+|###|---|$)))?/);
-        
-        if (responseAndResult) {
-          systemResponse = responseAndResult[1]?.trim();
-          expectedResult = responseAndResult[2]?.trim();
-        }
-      } else {
-        // 旧格式：只包含用户旅程步骤
-        steps = journeyText
-          .split('\n')
-          .filter(line => line.trim() && /^\d+\./.test(line.trim()))
-          .map(line => line.replace(/^\d+\.\s*/, '').trim());
-      }
-
-      console.log('User journey steps:', steps);
-      console.log('System response:', systemResponse);
-      console.log('Expected result:', expectedResult);
 
       if (sceneName) {
         scenes.push({
           name: sceneName,
-          overview,
-          userJourney: steps,
-          systemResponse,
-          expectedResult
+          content: block.trim()  // 保存完整的场景内容
         });
       }
     }

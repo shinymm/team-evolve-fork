@@ -1,79 +1,40 @@
-export const sceneBoundaryPromptTemplate = `
-<Role_Goal>
-你作为一个有着丰富经验、认真细心的需求分析助理，善于结合相关的业务知识，识别出需求初稿中可能遗漏的重要需求点，尤其是边界Case。对于已有功能和新增功能，你能够区分处理的重点和深度。
-</Role_Goal>
+interface SceneBoundaryPromptParams {
+  reqBackground: string;
+  reqBrief: string;
+  sceneName: string;
+  sceneContent: string;
+  boundaryRules: string[];
+}
 
-<Input>
-<需求背景>
-{req_background}
-</需求背景>
+export function sceneBoundaryPromptTemplate(params: SceneBoundaryPromptParams): string {
+  return `基于以下信息，分析场景的边界条件：
 
-<需求概述>
-{req_brief}
-</需求概述>
+需求背景：
+${params.reqBackground}
 
-<场景信息>
-场景名称：{scene_name}
-场景概述：{scene_overview}
-用户旅程：
-{user_journey}
-</场景信息>
+需求概述：
+${params.reqBrief}
 
-<边界识别知识>
-{boundary_rules}
-</边界识别知识>
-</Input>
+场景名称：${params.sceneName}
 
-<Rules>
-1. **禁止杜撰需求内容，必须以输入内容为准**
-2. **严格按照<Instructions>中的步骤和方法进行分析，禁止跳过任何步骤**
-3. **禁止生成重复或相似的Case**
-4. **根据功能类型区分分析深度：**
-   - 已有功能：主要关注权限、角色、数据访问等安全相关的边界case，每个步骤最多输出2个遗漏case
-   - 新增功能：全面分析各类边界case，每个步骤最多输出3个遗漏case
-5. **确保选取与使用场景最相关且最重要的case**
-</Rules>
+场景内容：
+${params.sceneContent}
 
-<Instructions>
-1. 先通读场景信息，确保完全理解，并识别功能类型：
-   - 以下场景自动识别为已有功能：
-     * 登录/注册/登出相关功能
-     * 机器人/知识/剧本等基础CRUD功能
-     * 模型训练、数据集上传、模型测试等基础功能
-     * 外呼任务管理功能、录音上传、下线、发布等功能
-     * 会话数据筛选后标注的功能
-   - 如果场景包含上述功能，这部分按已有功能处理
-   - 如果场景同时包含已有功能和新功能，需要分别处理
-2. 依次针对场景中的每个用户旅程步骤，根据功能类型采用不同的分析策略：
-   - 已有功能：
-     2.1 重点关注权限、角色、数据访问控制相关的边界case
-     2.2 检查是否存在权限提升、越权访问、敏感数据泄露等安全风险
-   - 新增功能：
-     2.1 逐行阅读<边界识别知识>列表，获得每一行的<检查项>及对应的<边界Case检查点>
-     2.2 针对<边界Case检查点>中的每一条检查点，分析识别对应<步骤>中遗漏的Case
-3. 每个Case列为1个条目，表达格式参考该<检查项>对应的<示例-识别出的遗漏Case>
-4. 按照<Rules>进行检查和纠正
-5. 按照<Output>中的Markdown代码格式，整理输出所有遗漏case
-</Instructions>
+边界规则：
+${params.boundaryRules.join('\n')}
 
-<Output>
-### 场景边界分析：{scene_name}
+请针对场景需求片段<场景内容>进行边界分析：
+- 参考<边界规则>使用准确的产品思维逻辑进行边界case识别（只分析片段中的内容），要从产品经理的视角出发：
+    * 注意重点检视和澄清功能及业务规则的边界场景，通过明确需求中的模糊术语、完善规则条件及其组合、检查数值与范围的边界情况，以及验证时间与顺序依赖的各类边界场景，确保需求全面、无歧义且符合预期。
+    * 技术实现层面的边界问题先不深入分析讨论，**不用关注如**通用的交互操作case，如"用户连续点击多次XX"、"网络断开时点击XX"、"重复多次点击XX”、服务中断、资源不足、极端并发等情况下的Case
 
-#### 1. 场景概述
-{scene_overview}
+输出时候，只需要输出针对场景需求片段<场景内容>的边界Case，最好呈现方式能便于产品经理跟原始需求片段<场景内容>一一对应印证的
 
-#### 2. 功能类型
-{feature_type}
+如：
+#### XXX (同<场景内容>中的功能标题，层次与描述与<场景内容>保持一致）
+  1. XXX (同<场景内容>中的小标题，层次与<场景内容>保持一致）
+    - XXX (正常操作下的预期结果，层次与内容与<场景内容>保持一致）
+    - **⚠️ 边界Case**：补充Case简述XXXX (30字内的边界Case简述)
 
-#### 3. 边界Case分析
-1. 步骤1：{step1}
-   - Case1：xxx
-   - Case2：xxx
-   - Case3：xxx
-
-2. 步骤2：{step2}
-   - Case1：xxx
-   - Case2：xxx
-   ...
-</Output>
-` 
+请开始分析：`
+} 

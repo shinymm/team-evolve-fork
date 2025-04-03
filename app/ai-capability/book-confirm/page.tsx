@@ -46,8 +46,9 @@ export default function BookConfirmPage() {
 
       // 验证场景列表
       parsedReq.sceneList.forEach((scene: any, index: number) => {
-        if (!scene.sceneName || !scene.sceneOverview) {
-          throw new Error(`场景 ${index + 1} 数据不完整`)
+        if (!scene.sceneName || !scene.content) {
+          console.error(`场景 ${index + 1} 数据不完整:`, scene);
+          throw new Error(`场景 ${index + 1} 数据不完整: 缺少必要字段`)
         }
       })
 
@@ -55,7 +56,11 @@ export default function BookConfirmPage() {
       console.log('需求数据加载成功:', {
         reqBackgroundLength: parsedReq.reqBackground.length,
         reqBriefLength: parsedReq.reqBrief.length,
-        sceneCount: parsedReq.sceneList.length
+        sceneCount: parsedReq.sceneList.length,
+        scenes: parsedReq.sceneList.map(scene => ({
+          name: scene.sceneName,
+          contentLength: scene.content.length
+        }))
       })
     } catch (e) {
       console.error('加载需求数据失败:', e)
@@ -221,21 +226,7 @@ export default function BookConfirmPage() {
     
     req.sceneList.forEach((scene, index) => {
       md += `### ${index + 1}. ${scene.sceneName}\n\n`
-      
-      md += '#### 场景概述\n\n'
-      md += scene.sceneOverview + '\n\n'
-      
-      md += '#### 前置条件\n\n'
-      md += scene.preconditions + '\n\n'
-      
-      md += '#### 用户旅程\n\n'
-      md += scene.sceneUserJourney + '\n\n'
-      
-      if (scene.globalConstraints && scene.globalConstraints !== 'N/A') {
-        md += '#### 全局约束条件\n\n'
-        md += scene.globalConstraints + '\n\n'
-      }
-      
+      md += scene.content + '\n\n'
       md += '---\n\n'
     })
     
@@ -305,30 +296,10 @@ export default function BookConfirmPage() {
                       {index + 1}. {scene.sceneName}
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <h4 className="text-xs font-medium mb-1">场景概述</h4>
-                      <p className="text-xs whitespace-pre-wrap">{scene.sceneOverview}</p>
+                  <CardContent>
+                    <div className="text-xs whitespace-pre-wrap">
+                      {scene.content}
                     </div>
-                    
-                    <div>
-                      <h4 className="text-xs font-medium mb-1">前置条件</h4>
-                      <p className="text-xs whitespace-pre-wrap">{scene.preconditions}</p>
-                    </div>
-                    
-                    <div>
-                      <h4 className="text-xs font-medium mb-1">用户旅程</h4>
-                      <div className="text-xs whitespace-pre-wrap pl-4 space-y-4">
-                        {scene.sceneUserJourney}
-                      </div>
-                    </div>
-                    
-                    {scene.globalConstraints && scene.globalConstraints !== 'N/A' && (
-                      <div>
-                        <h4 className="text-xs font-medium mb-1">全局约束条件</h4>
-                        <p className="text-xs whitespace-pre-wrap">{scene.globalConstraints}</p>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
               ))}

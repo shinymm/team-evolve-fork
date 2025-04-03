@@ -15,18 +15,7 @@ import { cn } from '@/lib/utils'
 import { SceneRequirementService } from '@/lib/services/scene-requirement-service'
 import { RequirementExportService } from '@/lib/services/requirement-export-service'
 import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store'
-
-interface Scene {
-  name: string
-  overview: string
-  userJourney: string[]
-}
-
-interface RequirementContent {
-  reqBackground: string
-  reqBrief: string
-  scenes: Scene[]
-}
+import { Scene, RequirementContent } from '@/types/requirement'
 
 interface SceneAnalysisState {
   taskId?: string
@@ -42,10 +31,9 @@ interface SceneAnalysisState {
 }
 
 interface EditingScene {
-  name: string
-  overview: string
-  userJourney: string[]
-  analysisResult?: string
+  name: string;
+  content: string;
+  analysisResult?: string;
 }
 
 export default function SceneAnalysisPage() {
@@ -67,25 +55,58 @@ export default function SceneAnalysisPage() {
     const storedContent = localStorage.getItem('requirement-structured-content')
     if (storedContent) {
       try {
-        setContent(JSON.parse(storedContent))
+        const parsedContent = JSON.parse(storedContent)
+        
+        // 验证场景数据完整性
+        if (!Array.isArray(parsedContent.scenes)) {
+          throw new Error('场景列表格式无效')
+        }
+        
+        parsedContent.scenes.forEach((scene: Scene, index: number) => {
+          if (!scene.name || !scene.content) {
+            console.error(`场景 ${index + 1} 数据不完整:`, scene);
+            throw new Error(`场景 ${index + 1} 数据不完整: 缺少必要字段`)
+          }
+        })
+        
+        setContent(parsedContent)
+        
+        // 加载需求书内容
+        const storedMdContent = useRequirementAnalysisStore.getState().requirementBook
+        if (storedMdContent) {
+          setMdContent(storedMdContent)
+        }
+
+        // 加载场景状态
+        const storedSceneStates = localStorage.getItem('scene-analysis-states')
+        // 只有当场景状态存在且与当前需求内容匹配时才加载
+        if (storedSceneStates) {
+          const parsedStates = JSON.parse(storedSceneStates)
+          // 检查场景状态是否与当前需求内容匹配
+          const statesMatchContent = parsedContent.scenes.every(
+            (scene: Scene) => parsedStates[scene.name] !== undefined
+          )
+          
+          if (statesMatchContent) {
+            setSceneStates(parsedStates)
+          } else {
+            // 如果场景状态与需求内容不匹配，清空场景状态
+            localStorage.removeItem('scene-analysis-states')
+            setSceneStates({})
+          }
+        }
       } catch (e) {
         console.error('Failed to parse stored content:', e)
-      }
-    }
-    
-    // 加载需求书内容
-    const storedMdContent = useRequirementAnalysisStore.getState().requirementBook;
-    if (storedMdContent) {
-      setMdContent(storedMdContent)
-    }
-
-    // 加载场景状态
-    const storedSceneStates = localStorage.getItem('scene-analysis-states')
-    if (storedSceneStates) {
-      try {
-        setSceneStates(JSON.parse(storedSceneStates))
-      } catch (e) {
-        console.error('Failed to parse stored scene states:', e)
+        // 如果解析失败，清空所有状态
+        localStorage.removeItem('scene-analysis-states')
+        setSceneStates({})
+        // 显示错误提示
+        toast({
+          title: "加载失败",
+          description: e instanceof Error ? e.message : "无法加载需求数据",
+          variant: "destructive",
+          duration: 3000
+        })
       }
     }
   }, [])
@@ -139,7 +160,7 @@ export default function SceneAnalysisPage() {
       // 创建任务
       const task = await createTask({
         title: `场景${index + 1}边界分析`,
-        description: `分析场景"${scene.name}"（${scene.overview}）的边界条件和异常情况`,
+        description: `分析场景"${scene.name}"的边界条件和异常情况`,
         type: 'scene-boundary-analysis',
         assignee: 'system',
         status: 'pending'
@@ -283,8 +304,7 @@ export default function SceneAnalysisPage() {
   const handleStartEdit = (scene: Scene, index: number) => {
     setEditingScene({
       name: scene.name,
-      overview: scene.overview,
-      userJourney: [...scene.userJourney],
+      content: scene.content,
       analysisResult: sceneStates[scene.name]?.analysisResult
     })
     setSceneStates(prev => ({
@@ -303,9 +323,8 @@ export default function SceneAnalysisPage() {
     // 更新场景内容
     const updatedScenes = [...content.scenes]
     updatedScenes[index] = {
-      name: scene.name,  // 保持原有的场景名称
-      overview: editingScene.overview,
-      userJourney: editingScene.userJourney
+      name: scene.name,
+      content: editingScene.content
     }
 
     // 更新content并保存到localStorage
@@ -453,15 +472,32 @@ export default function SceneAnalysisPage() {
         status: 'completed'
       })
 
-      // 更新场景状态
+      // 更新场景内容
+      const updatedScenes = [...content.scenes]
+      updatedScenes[index] = {
+        name: scene.name,
+        content: state.optimizeResult  // 使用优化后的内容替换原始内容
+      }
+
+      // 更新content并保存到localStorage
+      const updatedContent = {
+        ...content,
+        scenes: updatedScenes
+      }
+      setContent(updatedContent)
+      localStorage.setItem('requirement-structured-content', JSON.stringify(updatedContent))
+
+      // 重置场景状态
       const updatedStates = {
         ...sceneStates,
         [scene.name]: {
-          ...sceneStates[scene.name],
+          taskId: state.taskId,
           isOptimizing: false,
           isOptimizeConfirming: false,
-          optimizeResult: state.optimizeResult,
-          isHideOriginal: true
+          optimizeResult: undefined,  // 清空优化结果
+          isHideOriginal: false,  // 重置隐藏原始内容的标志
+          analysisResult: undefined,  // 清空边界分析结果
+          isCompleted: false  // 重置完成状态
         }
       }
       setSceneStates(updatedStates)
@@ -817,64 +853,25 @@ export default function SceneAnalysisPage() {
                       <div>
                         {sceneStates[scene.name]?.isEditing ? (
                           <textarea
-                            className="w-full p-2 text-sm border rounded-md"
-                            value={editingScene?.overview}
-                            onChange={(e) => setEditingScene(prev => prev ? {...prev, overview: e.target.value} : null)}
-                            rows={2}
+                            className="w-full p-2 text-sm border rounded-md min-h-[200px]"
+                            value={editingScene?.content}
+                            onChange={(e) => setEditingScene(prev => prev ? {...prev, content: e.target.value} : null)}
                           />
                         ) : (
-                          <p className="text-sm text-gray-600">{scene.overview}</p>
+                          <ReactMarkdown 
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              h3: ({children}) => <h3 className="text-base font-semibold text-gray-900 mb-2">{children}</h3>,
+                              h4: ({children}) => <h4 className="text-sm font-medium text-gray-700 mb-1.5">{children}</h4>,
+                              p: ({children}) => <p className="text-sm text-gray-600 mb-2">{children}</p>,
+                              ul: ({children}) => <ul className="list-disc pl-4 my-1 space-y-0.5">{children}</ul>,
+                              ol: ({children}) => <ol className="list-decimal pl-4 my-1 space-y-0.5">{children}</ol>,
+                              li: ({children}) => <li className="text-sm text-gray-600">{children}</li>
+                            }}
+                          >
+                            {scene.content}
+                          </ReactMarkdown>
                         )}
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-medium mb-1.5">用户旅程 ({scene.userJourney.length} 步)</h4>
-                        <div className="space-y-1">
-                          {sceneStates[scene.name]?.isEditing ? (
-                            editingScene?.userJourney.map((step, stepIndex) => (
-                              <div key={stepIndex} className="flex gap-2">
-                                <input
-                                  className="flex-1 p-1 text-sm border rounded-md"
-                                  value={step}
-                                  onChange={(e) => {
-                                    const newJourney = [...editingScene.userJourney]
-                                    newJourney[stepIndex] = e.target.value
-                                    setEditingScene(prev => prev ? {...prev, userJourney: newJourney} : null)
-                                  }}
-                                />
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="px-2 h-8"
-                                  onClick={() => {
-                                    const newJourney = editingScene.userJourney.filter((_, i) => i !== stepIndex)
-                                    setEditingScene(prev => prev ? {...prev, userJourney: newJourney} : null)
-                                  }}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            ))
-                          ) : (
-                            scene.userJourney.map((step, stepIndex) => (
-                              <p key={stepIndex} className="text-sm text-gray-600">
-                                {stepIndex + 1}. {step}
-                              </p>
-                            ))
-                          )}
-                          {sceneStates[scene.name]?.isEditing && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full mt-2"
-                              onClick={() => {
-                                const newJourney = [...editingScene?.userJourney || [], '']
-                                setEditingScene(prev => prev ? {...prev, userJourney: newJourney} : null)
-                              }}
-                            >
-                              添加步骤
-                            </Button>
-                          )}
-                        </div>
                       </div>
                       {/* 显示分析结果：如果有分析结果就显示 */}
                       {(sceneStates[scene.name]?.analysisResult || selectedScene?.name === scene.name) && (

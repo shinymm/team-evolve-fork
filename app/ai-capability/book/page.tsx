@@ -255,8 +255,17 @@ export default function RequirementBook() {
       await updateTask(structureTask.id, {
         status: 'completed'
       })
+
+      // 5. 清空之前的分析结果
+      console.log('清空之前的分析结果...')
+      localStorage.removeItem('scene-analysis-states')
+      localStorage.removeItem('requirement-structured-content')
       
-      // 5. 创建场景边界分析任务
+      // 6. 保存新的结构化内容
+      console.log('保存新的结构化内容...')
+      localStorage.setItem('requirement-structured-content', JSON.stringify(parsedRequirement))
+      
+      // 7. 创建场景边界分析任务
       console.log('创建场景边界分析任务...')
       await createSceneAnalysisTask(parsedRequirement)
       

@@ -1,17 +1,12 @@
 import { streamingAICall } from '@/lib/services/ai-service'
 import { sceneBoundaryPromptTemplate } from '@/lib/prompts/scene-boundary'
 import { useBoundaryRulesStore } from '@/lib/stores/boundary-rules-store'
-
-interface Scene {
-  name: string
-  overview: string
-  userJourney: string[]
-}
+import { Scene } from '@/types/requirement'
 
 interface BoundaryAnalysisParams {
-  reqBackground: string
-  reqBrief: string
-  scene: Scene
+  reqBackground: string;
+  reqBrief: string;
+  scene: Scene;
 }
 
 // 从Zustand store获取边界识别知识规则表格
@@ -41,25 +36,25 @@ const getRulesTable = () => {
 }
 
 export class SceneBoundaryService {
-  async analyzeScene(params: BoundaryAnalysisParams, onContent: (content: string) => void) {
-    // 构建用户旅程字符串
-    const userJourneyStr = params.scene.userJourney
-      .map((step, index) => `${index + 1}. ${step}`)
-      .join('\n')
+  async analyzeScene(
+    params: BoundaryAnalysisParams,
+    onContent: (content: string) => void
+  ): Promise<void> {
+    const { reqBackground, reqBrief, scene } = params
+    
+    // 获取边界规则
+    const boundaryRules = useBoundaryRulesStore.getState().rules
+    
+    // 生成分析提示
+    const prompt = sceneBoundaryPromptTemplate({
+      reqBackground,
+      reqBrief,
+      sceneName: scene.name,
+      sceneContent: scene.content,
+      boundaryRules
+    })
 
-    // 获取边界识别知识规则表
-    const rulesTable = getRulesTable()
-
-    // 构建prompt
-    const prompt = sceneBoundaryPromptTemplate
-      .replace('{req_background}', params.reqBackground)
-      .replace('{req_brief}', params.reqBrief)
-      .replace('{scene_name}', params.scene.name)
-      .replace('{scene_overview}', params.scene.overview)
-      .replace('{user_journey}', userJourneyStr)
-      .replace('{boundary_rules}', rulesTable)
-
-    // 调用AI服务进行分析
+    // 调用AI服务
     await streamingAICall(
       prompt,
       onContent,
