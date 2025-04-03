@@ -67,15 +67,8 @@ export default function UserStoryPage() {
       // 将场景的所有相关信息组合成文本
       const sceneContent = [
         `场景名称：${scene.sceneName}`,
-        `\n场景概述：${scene.sceneOverview}`,
-        `\n前置条件：${scene.preconditions}`,
-        `\n用户旅程：\n${scene.sceneUserJourney}`,
+        `\n场景内容：${scene.content}`
       ]
-
-      // 只有在有全局约束条件且不是'N/A'时才添加
-      if (scene.globalConstraints && scene.globalConstraints !== 'N/A') {
-        sceneContent.push(`\n全局约束条件：${scene.globalConstraints}`)
-      }
       
       setRequirementText(sceneContent.join('\n'))
       setSelectedScene(sceneIndex)
