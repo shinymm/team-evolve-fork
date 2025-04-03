@@ -1,58 +1,47 @@
-import { streamingAICall } from '@/lib/services/ai-service'
-import { sceneBoundaryPromptTemplate } from '@/lib/prompts/scene-boundary'
-import { useBoundaryRulesStore } from '@/lib/stores/boundary-rules-store'
+import { streamingAICall } from './ai-service'
+import { sceneBoundaryPrompt } from '../prompts/scene-boundary'
 import { Scene } from '@/types/requirement'
 
-interface BoundaryAnalysisParams {
+export interface SceneBoundaryAnalysisParams {
   reqBackground: string;
   reqBrief: string;
   scene: Scene;
 }
 
-// 从Zustand store获取边界识别知识规则表格
-const getRulesTable = () => {
-  // 使用Zustand store的getState方法获取当前状态
-  const { rules } = useBoundaryRulesStore.getState()
-  if (!rules || rules.length === 0) return ''
-  
-  // 构建表格头
-  let table = '| 检查项 | 适用场景 | 检查要点 | 需求示例 | 边界示例 |\n'
-  table += '|---------|------------|------------|------------|------------|\n'
-  
-  // 添加表格内容
-  table += rules.map((rule) => {
-    // 处理每个字段中可能存在的换行符，替换为空格
-    const checkItem = rule.checkItem?.replace(/\n/g, ' ') || ''
-    const scenario = rule.scenario?.replace(/\n/g, ' ') || ''
-    const checkPoints = rule.checkPoints?.replace(/\n/g, ' ') || ''
-    const example = rule.example?.replace(/\n/g, ' ') || ''
-    const boundaryExample = rule.boundaryExample?.replace(/\n/g, ' ') || ''
-    
-    // 处理可能包含 | 符号的内容，使用 \ 转义
-    return `| ${checkItem.replace(/\|/g, '\\|')} | ${scenario.replace(/\|/g, '\\|')} | ${checkPoints.replace(/\|/g, '\\|')} | ${example.replace(/\|/g, '\\|')} | ${boundaryExample.replace(/\|/g, '\\|')} |`
-  }).join('\n')
-  
-  return table
+// 替换模板中的变量
+function replaceTemplateVariables(template: string, variables: Record<string, string>): string {
+  return Object.entries(variables).reduce((result, [key, value]) => {
+    const regex = new RegExp(`{{${key}}}`, 'g')
+    return result.replace(regex, value)
+  }, template)
 }
 
 export class SceneBoundaryService {
+  private boundaryRules: string[] = [
+    "检查功能和业务规则的边界场景",
+    "明确需求中的模糊术语",
+    "完善规则条件及其组合",
+    "检查数值与范围的边界情况",
+    "验证时间与顺序依赖的边界场景"
+  ]
+
   async analyzeScene(
-    params: BoundaryAnalysisParams,
+    params: SceneBoundaryAnalysisParams,
     onContent: (content: string) => void
   ): Promise<void> {
     const { reqBackground, reqBrief, scene } = params
-    
-    // 获取边界规则
-    const boundaryRules = useBoundaryRulesStore.getState().rules
-    
-    // 生成分析提示
-    const prompt = sceneBoundaryPromptTemplate({
+
+    // 准备变量映射
+    const variables = {
       reqBackground,
       reqBrief,
       sceneName: scene.name,
       sceneContent: scene.content,
-      boundaryRules
-    })
+      boundaryRules: this.boundaryRules.join('\n')
+    }
+    
+    // 替换模板中的变量
+    const prompt = replaceTemplateVariables(sceneBoundaryPrompt, variables)
 
     // 调用AI服务
     await streamingAICall(

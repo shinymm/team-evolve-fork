@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 import { Toaster } from "@/components/ui/toaster"
-import { StructuredRequirement } from '@/lib/services/requirement-export-service'
+import { StructuredRequirement, StructuredScene } from '@/lib/services/requirement-export-service'
 import { createArchitectureSuggestionTask, createArchitectureConfirmTask } from '@/lib/services/task-control'
 import { generateArchitectureSuggestions } from '@/lib/services/architecture-suggestion-service'
 import { updateTask } from '@/lib/services/task-service'
@@ -57,7 +57,7 @@ export default function BookConfirmPage() {
         reqBackgroundLength: parsedReq.reqBackground.length,
         reqBriefLength: parsedReq.reqBrief.length,
         sceneCount: parsedReq.sceneList.length,
-        scenes: parsedReq.sceneList.map(scene => ({
+        scenes: parsedReq.sceneList.map((scene: StructuredScene) => ({
           name: scene.sceneName,
           contentLength: scene.content.length
         }))
