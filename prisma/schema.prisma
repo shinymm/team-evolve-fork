@@ -131,6 +131,19 @@ model AiTeamMember {
   @@index([createdBy])
 }
 
+model AiTeamApplication {
+  id          String   @id @default(cuid())
+  name        String   @db.VarChar(50)
+  introduction String  @db.Text
+  entryUrl    String   @db.Text
+  category    String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String
+
+  @@index([createdBy])
+}
+
 // 系统/产品模型
 model System {
   id          String   @id @default(cuid())
