@@ -20,11 +20,7 @@ export const pagePermissions: Record<string, Permission> = {
   "/ai-capability/book-confirm": { requiresAuth: false },
   "/ai-capability/user-story": { requiresAuth: false },
   "/ai-capability/test-detail": { requiresAuth: false },
-  "/ai-capability/log-analysis": { requiresAuth: false },
-
-  // 特殊能力胶囊 - 全部需要登录
-  "/special-capability/requirement-upload": { requiresAuth: true, allowedRoles: ["USER", "ADMIN"] },
-  "/special-capability/prompt-debug": { requiresAuth: true, allowedRoles: ["ADMIN"] },
+  "/ai-capability/log-analysis": { requiresAuth: false, allowedRoles: ["ADMIN"]  },
 
   // 知识熔炉 - 全部需要登录
   "/knowledge/glossary": { requiresAuth: true, allowedRoles: ["USER", "ADMIN"] },
@@ -34,8 +30,12 @@ export const pagePermissions: Record<string, Permission> = {
   "/knowledge/api-interfaces": { requiresAuth: true, allowedRoles: ["USER", "ADMIN"] },
   "/knowledge/boundary": { requiresAuth: true, allowedRoles: ["USER", "ADMIN"] },
 
+    // 特殊能力胶囊 - 全部需要登录   
+    "/special-capability/prompt-debug": { requiresAuth: true, allowedRoles: ["ADMIN"] },
+
   // 灵犀阁
   "/inspire/req-analysis-skill": { requiresAuth: true, allowedRoles: ["USER", "ADMIN"] },
+  "/special-capability/requirement-upload": { requiresAuth: true, allowedRoles: ["USER", "ADMIN"] },
 
   // 设置页面 - 仅管理员可访问
   "/settings/ai-models": { requiresAuth: true, allowedRoles: ["ADMIN"] },

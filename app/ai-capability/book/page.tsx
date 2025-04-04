@@ -290,7 +290,7 @@ export default function RequirementBook() {
       })
       
       // 直接使用 window.location.replace 进行导航
-      window.location.replace('/collaboration/tactical-board')
+      window.location.replace('/ai-capability/scene-analysis')
     } catch (error) {
       console.error('任务状态更新失败:', error)
       toast({

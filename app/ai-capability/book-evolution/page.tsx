@@ -239,7 +239,7 @@ export default function RequirementAnalysis() {
         description: "已更新任务状态",
         duration: 3000
       })
-      router.push('/collaboration/tactical-board')
+      router.push('/ai-capability/book-evolution/book-evolution')
     } catch (error) {
       toast({
         title: "状态更新失败",
