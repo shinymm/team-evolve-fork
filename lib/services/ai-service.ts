@@ -87,7 +87,6 @@ export async function streamingAICall(
   onError: (error: string) => void
 ) {
   try {
-    console.log('🔄 [streamingAICall] 开始调用，prompt长度:', prompt.length)
 
     const response = await fetch('/api/ai', {
       method: 'POST',
@@ -124,20 +123,12 @@ export async function streamingAICall(
       
       if (done) {
         console.log('🔄 [streamingAICall] 数据流读取完成')
-        if (buffer.trim()) {
-          console.log('🔄 [streamingAICall] 处理剩余buffer:', buffer)
-        }
         break
       }
 
       counter++
       const chunk = decoder.decode(value)
       buffer += chunk
-      
-      console.log(`🔄 [streamingAICall] 收到数据块 #${counter}:`, {
-        chunkLength: chunk.length,
-        chunk: chunk.substring(0, 100) + (chunk.length > 100 ? '...' : '')
-      })
 
       // 按行分割并处理
       const lines = buffer.split('\n')
@@ -147,7 +138,6 @@ export async function streamingAICall(
       for (const line of lines) {
         const trimmedLine = line.trim()
         if (!trimmedLine || trimmedLine === 'data: [DONE]') {
-          console.log('🔄 [streamingAICall] 跳过空行或结束标记:', trimmedLine)
           continue
         }
 
@@ -261,8 +251,6 @@ export async function streamingFileAICall(params: {
     fileIds.forEach(fileId => {
       formData.append('fileIds', fileId)
     });
-    
-    console.log(`🔄 发送请求到后端API，可能需要数秒至数十秒等待首次响应...`);
     
     // 发送请求到后端
     const response = await fetch('/api/ai/file', {
