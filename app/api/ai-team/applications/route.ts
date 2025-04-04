@@ -6,7 +6,7 @@ import { authOptions } from '@/lib/auth'
 // GET - 获取所有应用
 export async function GET() {
   try {
-    const applications = await prisma.AiTeamApplication.findMany({
+    const applications = await prisma.aiTeamApplication.findMany({
       orderBy: {
         createdAt: 'desc'
       }
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const application = await prisma.AiTeamApplication.create({
+    const application = await prisma.aiTeamApplication.create({
       data: {
         name,
         introduction,

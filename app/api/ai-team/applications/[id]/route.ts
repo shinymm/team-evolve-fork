@@ -25,7 +25,7 @@ export async function PUT(
       )
     }
 
-    const application = await prisma.AiTeamApplication.update({
+    const application = await prisma.aiTeamApplication.update({
       where: { id: params.id },
       data: {
         name,
@@ -53,7 +53,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    await prisma.AiTeamApplication.delete({
+    await prisma.aiTeamApplication.delete({
       where: { id: params.id }
     })
 
