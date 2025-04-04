@@ -32,7 +32,7 @@ export function TeamCard({
   return (
     <Card>
       <CardHeader className="px-4 py-3 pb-4">
-        <div className="space-y-2">
+        <div className="flex flex-col h-full min-h-[120px]">
           <div className="flex justify-between items-start">
             <div className="flex items-center gap-2.5">
               <div 
@@ -55,31 +55,31 @@ export function TeamCard({
                   <ExternalLink className="h-4 w-4" />
                 </Button>
               )}
-              {type === 'application' && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                  onClick={onEdit}
-                  title="编辑应用"
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={onEdit}
+                title={type === 'member' ? '编辑成员' : '编辑应用'}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-7 w-7 p-0 text-red-600 hover:text-red-600 hover:bg-red-50"
                 onClick={onDelete}
-                title="删除应用"
+                title={type === 'member' ? '删除成员' : '删除应用'}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
             </div>
           </div>
-          <p className="text-xs text-gray-600 line-clamp-4 mb-1">{introduction}</p>
+          <div className="flex-1 mt-2">
+            <p className="text-xs text-gray-600 line-clamp-3">{introduction}</p>
+          </div>
           {category && (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5 mt-2">
               {category.split(/[,，]/).map((tag, index) => (
                 tag.trim() && (
                   <span 
