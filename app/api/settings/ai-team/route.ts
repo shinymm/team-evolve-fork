@@ -34,16 +34,21 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const { name, introduction, role, responsibilities, greeting, category } = body
+    const { name, introduction, role, responsibilities, greeting, category, mcpConfigJson } = body
+
+    if (!name || !introduction || !role || !responsibilities) {
+      return new NextResponse('Missing required fields', { status: 400 })
+    }
 
     const member = await prisma.aiTeamMember.create({
       data: {
-        name,
-        introduction,
-        role,
-        responsibilities,
-        greeting,
-        category,
+        name: name.trim(),
+        introduction: introduction.trim(),
+        role: role.trim(),
+        responsibilities: responsibilities.trim(),
+        greeting: greeting?.trim() || null,
+        category: category?.trim() || null,
+        mcpConfigJson: mcpConfigJson || null,
         createdBy: session.user.email
       }
     })
@@ -97,21 +102,22 @@ export async function PATCH(req: Request) {
     }
 
     const body = await req.json()
-    const { name, introduction, role, responsibilities, greeting, category } = body
+    const { name, introduction, role, responsibilities, greeting, category, mcpConfigJson } = body
 
     if (!name || !introduction || !role || !responsibilities) {
       console.error('Missing required fields:', { name, introduction, role, responsibilities })
       return new NextResponse('Missing required fields', { status: 400 })
     }
 
-    console.log('Updating member with data:', {
+    console.log('Updating member with data (including MCP config):', {
       id,
       name,
       introduction,
       role,
       responsibilities,
       greeting,
-      category
+      category,
+      mcpConfigJson
     })
 
     const member = await prisma.aiTeamMember.update({
@@ -122,7 +128,8 @@ export async function PATCH(req: Request) {
         role: role.trim(),
         responsibilities: responsibilities.trim(),
         greeting: greeting?.trim() || null,
-        category: category?.trim() || null
+        category: category?.trim() || null,
+        mcpConfigJson: mcpConfigJson || null,
       }
     })
 

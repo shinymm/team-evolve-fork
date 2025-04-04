@@ -11,7 +11,7 @@ import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, A
 import { Card, CardHeader } from '@/components/ui/card'
 import { ExternalLink, Pencil, Trash2 } from 'lucide-react'
 
-type AITeamMember = MemberFormData & { id: string }
+type AITeamMember = MemberFormData & { id: string; mcpConfigJson?: string | null }
 
 interface Application {
   id: string
@@ -92,7 +92,7 @@ export default function AITeamPage() {
   }
 
   // 提交成员表单（添加或编辑）
-  const handleSubmitMember = async (data: MemberFormData) => {
+  const handleSubmitMember = async (data: MemberFormData & { mcpConfigJson?: string | null }) => {
     if (!data.name?.trim() || !data.introduction?.trim() || !data.role?.trim() || !data.responsibilities?.trim()) {
       toast({
         title: '错误',
@@ -116,6 +116,7 @@ export default function AITeamPage() {
           ...data,
           greeting: data.greeting?.trim() || null,
           category: data.category?.trim() || null,
+          mcpConfigJson: data.mcpConfigJson || null,
         }),
       })
 

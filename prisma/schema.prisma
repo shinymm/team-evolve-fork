@@ -124,6 +124,7 @@ model AiTeamMember {
   responsibilities String  @db.Text
   greeting        String?  @db.Text
   category        String?  @db.Text
+  mcpConfigJson   String?  @db.Text
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   createdBy       String
