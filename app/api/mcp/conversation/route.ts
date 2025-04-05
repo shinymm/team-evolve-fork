@@ -673,4 +673,122 @@ export async function POST(req: Request) {
       error: error instanceof Error ? error.message : '处理对话时发生未知错误'
     }, { status: 500 });
   }
-} 
+}
+
+// 处理openai响应
+const handleResponse = async (response: any, sessionId?: string): Promise<any> => {
+  // 如果响应是一个错误
+  if (response instanceof Error) {
+    return {
+      content: `处理请求时出错: ${response.message}`
+    };
+  }
+  
+  // 处理openai的响应
+  if (response.choices && response.choices.length > 0) {
+    const message = response.choices[0].message;
+    
+    // 获取主要内容
+    const content = message.content || '';
+    
+    // 处理工具调用
+    if (message.tool_calls && message.tool_calls.length > 0) {
+      // 提取工具调用信息
+      const toolCalls = message.tool_calls.map((toolCall: any) => {
+        try {
+          return {
+            name: toolCall.function.name,
+            arguments: toolCall.function.arguments,
+            id: toolCall.id
+          };
+        } catch (e) {
+          console.error('[对话请求] 无法解析工具调用:', e);
+          return { error: '工具调用解析失败' };
+        }
+      });
+      
+      console.log('[对话请求] 原始API响应:', JSON.stringify(response).substring(0, 250) + '...');
+      
+      // 分离第一个工具调用来执行
+      const firstToolCall = message.tool_calls[0];
+      
+      if (firstToolCall && firstToolCall.function && firstToolCall.function.name) {
+        const toolName = firstToolCall.function.name;
+        let toolArgs;
+        
+        try {
+          toolArgs = JSON.parse(firstToolCall.function.arguments);
+          console.log(`[对话请求] 执行工具调用: ${toolName}`, toolArgs);
+          
+          // 调用工具
+          const toolResult = await executeTool(toolName, toolArgs, sessionId);
+          
+          if (toolResult) {
+            // 有会话ID，使用MCP处理工具调用结果
+            if (sessionId) {
+              // 返回工具调用和结果
+              return { 
+                content: toolResult.content || toolResult.message?.content || toolResult.text || '工具执行完成，但未返回内容',
+                toolCalls: toolCalls  // 同时返回工具调用信息到前端
+              };
+            } else {
+              // 无会话ID，直接返回工具结果
+              return { 
+                content: toolResult.content || toolResult.message?.content || toolResult.text || '工具执行完成，但未返回内容',
+                toolCalls: toolCalls  // 同时返回工具调用信息到前端
+              };
+            }
+          } else {
+            // 工具调用失败，返回错误信息
+            return { 
+              content: '工具调用失败，未返回结果',
+              toolCalls: toolCalls  // 同时返回工具调用信息到前端
+            };
+          }
+        } catch (error) {
+          console.error(`[对话请求] 工具调用出错 (${toolName}):`, error);
+          return { 
+            content: `调用工具 ${toolName} 时出错: ${error instanceof Error ? error.message : JSON.stringify(error)}`,
+            toolCalls: toolCalls  // 同时返回工具调用信息到前端
+          };
+        }
+      }
+    }
+    
+    // 没有工具调用，直接返回内容
+    return { content };
+  }
+  
+  // 处理claude的响应
+  if (response.content) {
+    return { content: response.content };
+  }
+  
+  // 其他情况
+  return { content: '无法解析AI响应' };
+};
+
+/**
+ * 执行工具调用
+ * @param toolName 工具名称
+ * @param toolArgs 工具参数
+ * @param sessionId 会话ID，可选
+ * @returns 工具执行结果
+ */
+const executeTool = async (toolName: string, toolArgs: any, sessionId?: string): Promise<any> => {
+  if (!sessionId) {
+    console.log(`[对话请求] 无会话ID，无法执行工具 ${toolName}`);
+    return { content: `由于未连接到工具服务器，无法执行工具 ${toolName}` };
+  }
+  
+  try {
+    console.log(`[MCP] 会话 ${sessionId} 调用工具 ${toolName} 参数:`, toolArgs);
+    
+    // 使用MCP客户端调用工具
+    const result = await mcpClientService.callTool(sessionId, toolName, toolArgs);
+    return result;
+  } catch (error) {
+    console.error(`[MCP] 会话 ${sessionId} 调用工具 ${toolName} 失败:`, error);
+    throw error;
+  }
+}; 

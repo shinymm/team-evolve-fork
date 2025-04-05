@@ -554,47 +554,94 @@ export default function AITeamPage() {
         requestData.sessionId = sessionId;
       }
       
-      // 统一使用 /api/mcp/conversation 接口
-      const response = await fetch('/api/mcp/conversation', {
+      // 使用 fetch 发送请求
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000); // 2分钟超时
+      
+      // 使用流式请求，获取实时响应
+      const response = await fetch('/api/mcp/conversation/stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestData),
+        signal: controller.signal
       });
       
-      // 如果是MCP模式且会话失效，重试为普通对话
-      if (sessionId && response.status === 404) {
-        console.warn('会话已过期，回退到普通对话模式');
-        setSessionId(null);
-        
-        // 更新请求参数并重试 - 删除会话ID但保留所有其他信息
-        delete requestData.sessionId;
-        
-        // 重新请求
-        const retryResponse = await fetch('/api/mcp/conversation', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestData),
-        });
-        
-        if (!retryResponse.ok) {
-          const errorData = await retryResponse.json();
-          throw new Error(errorData.error || '对话请求失败');
-        }
-        
-        // 使用重试的响应结果
-        const result = await retryResponse.json();
-        handleModelResponse(result);
-      } else if (!response.ok) {
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || '对话请求失败');
-      } else {
-        // 处理成功的响应
-        const result = await response.json();
-        handleModelResponse(result);
+      }
+      
+      // 处理流式响应
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('无法读取响应流');
+      }
+      
+      // 追踪我们是否已经显示了工具调用消息
+      let toolCallMessageShown = false;
+      let toolCallMessage = '';
+      let currentContent = '';
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        // 解析收到的数据
+        const chunk = new TextDecoder().decode(value);
+        const lines = chunk.split('\n').filter(line => line.trim() !== '');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.substring(6));
+              
+              // 处理工具调用事件
+              if (data.type === 'tool_call') {
+                const toolName = data.name || 'unknown';
+                const formattedArgs = data.arguments || '{}';
+                
+                // 创建或更新工具调用消息
+                toolCallMessage = `🔧 正在使用工具: ${toolName}; \n参数: ${formattedArgs}`;
+                
+                // 如果尚未显示工具消息，则显示它
+                if (!toolCallMessageShown) {
+                  setMessages(prev => {
+                    const newMessages = [...prev];
+                    newMessages[newMessages.length - 1].content = toolCallMessage;
+                    return newMessages;
+                  });
+                  
+                  // 添加一个新消息来接收后续内容
+                  setMessages(prev => [...prev, { role: 'assistant', content: '处理中...' }]);
+                  toolCallMessageShown = true;
+                }
+              }
+              // 处理内容更新事件
+              else if (data.type === 'content') {
+                const newContent = data.content || '';
+                // 累积内容而不是替换
+                currentContent += newContent;
+                
+                // 更新最后一条消息内容
+                setMessages(prev => {
+                  const newMessages = [...prev];
+                  
+                  // 始终更新最后一条消息
+                  const lastIndex = newMessages.length - 1;
+                  newMessages[lastIndex].content = currentContent;
+                  
+                  return newMessages;
+                });
+              }
+            } catch (error) {
+              console.error('解析流数据出错:', error, line);
+            }
+          }
+        }
       }
     } catch (error) {
       console.error('对话错误:', error);
@@ -618,25 +665,6 @@ export default function AITeamPage() {
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
-    }
-  }
-  
-  // 处理模型响应
-  const handleModelResponse = (result: any) => {
-    if (result.content) {
-      // 更新最后一条消息的内容
-      setMessages(prev => {
-        const newMessages = [...prev];
-        newMessages[newMessages.length - 1].content = result.content;
-        return newMessages;
-      });
-      
-      // 如果有工具调用信息，可以在UI中显示
-      if (result.toolCalls && result.toolCalls.length > 0) {
-        console.log('模型使用了工具:', result.toolCalls);
-      }
-    } else {
-      throw new Error('服务器返回内容为空');
     }
   }
 
