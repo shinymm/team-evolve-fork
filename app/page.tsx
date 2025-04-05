@@ -70,8 +70,7 @@ export default function HomePage() {
         ) : !session?.user ? (
           <div className="text-center">
             <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-2xl p-8 max-w-2xl mx-auto">
-              <h3 className="text-xl font-semibold text-orange-700 mb-3">欢迎来到 QARE AI</h3>
-              <p className="text-gray-600 mb-6">登录后即可创建和管理您的专属 AI 系统，开启智能对话之旅</p>
+              <h3 className="text-xl font-semibold text-orange-700 mb-3">欢迎来到 TeamEvolve</h3>
               <Button 
                 onClick={() => router.push('/auth/signin')}
                 className="bg-orange-500 hover:bg-orange-600 text-base px-5 py-2 h-auto shadow-md"

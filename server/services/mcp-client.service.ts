@@ -42,7 +42,7 @@ const activeSessions = new Map<string, McpSessionInfo>();
 // 会话配置
 const SESSION_CLEANUP_INTERVAL = 5 * 60 * 1000; // 5分钟清理一次
 const SESSION_MAX_IDLE_TIME = 30 * 60 * 1000; // 30分钟未使用自动清理
-const SESSION_MAX_LIFETIME = 3 * 60 * 60 * 1000; // 3小时最大生命周期
+const SESSION_MAX_LIFETIME = 2 * 60 * 60 * 1000; // 3小时最大生命周期
 
 // 读取包白名单
 let ALLOWED_NPM_PACKAGES: Set<string> = new Set();
