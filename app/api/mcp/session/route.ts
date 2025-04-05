@@ -53,7 +53,7 @@ const saveUserSessionMapping = (userKey: string, sessionId: string) => {
     };
     
     // 将用户会话键存储到会话信息中
-    mcpClientService.updateSessionInfo(sessionId, {
+    mcpClientService.setSessionInfo(sessionId, {
       memberInfo: updatedMemberInfo
     });
     
@@ -84,7 +84,7 @@ export async function POST(req: Request) {
           console.log(`[MCP会话] 复用现有会话 ${existingSessionId}`);
           
           // 更新会话使用时间
-          mcpClientService.updateSessionInfo(existingSessionId, { lastUsed: Date.now() });
+          mcpClientService.setSessionInfo(existingSessionId, { lastUsed: Date.now() });
           
           // 返回现有会话信息
           return NextResponse.json({
@@ -193,6 +193,11 @@ export async function POST(req: Request) {
       console.error(`[MCP会话] 加载AI配置失败:`, configError);
       // 即使配置加载失败，仍然返回会话信息，后续可以重试
     }
+    
+    // 添加成员信息到会话
+    mcpClientService.setSessionInfo(sessionId, {
+      memberInfo
+    });
     
     // 返回会话信息
     return NextResponse.json({

@@ -127,7 +127,7 @@ export async function POST(req: Request) {
               apiConfig = sessionInfo.aiModelConfig;
               
               // 更新会话使用时间
-              mcpClientService.updateSessionInfo(effectiveSessionId, { lastUsed: Date.now() });
+              mcpClientService.setSessionInfo(effectiveSessionId, { lastUsed: Date.now() });
             } else {
               // 会话无效，将重置会话ID
               console.log(`[流式对话] 会话 ${effectiveSessionId} 无效，需要重新获取配置`);
