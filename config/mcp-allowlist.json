@@ -1,0 +1,20 @@
+{
+  "// 说明": "此文件列出了允许通过命令行测试的MCP服务器包。只有在此列表中的包才能使用测试功能。",
+  "// 可测试示例": "下面是两个示例配置，您可以在MCP配置JSON中这样配置服务器",
+  "// 示例配置": {
+    "mcpServers": {
+      "youtube-transcript": {
+        "command": "npx",
+        "args": ["-y", "@kimtaeyoon83/mcp-server-youtube-transcript"]
+      },
+      "sequential-thinking": {
+        "command": "npx", 
+        "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+      }
+    }
+  },
+  "// 注意": "当前配置为通配模式，允许所有MCP服务器包。生产环境建议删除通配符，仅保留受信任的包。",
+  "allowedNpmPackages": [
+    "*"
+  ]
+} 

@@ -6,6 +6,45 @@ import { Session } from 'next-auth'
 
 export const dynamic = 'force-dynamic'
 
+// 验证 MCP 服务器配置
+function isValidMcpServerConfig(config: any): boolean {
+  if (!config || typeof config !== 'object') return false;
+  
+  // 检查 mcpServers 字段是否存在且为对象
+  if (!config.mcpServers || typeof config.mcpServers !== 'object') {
+    console.warn('MCP 配置缺少有效的 mcpServers 对象');
+    return false;
+  }
+  
+  // 验证每个服务器配置
+  let hasValidServer = false;
+  for (const [key, server] of Object.entries(config.mcpServers)) {
+    if (!server || typeof server !== 'object') continue;
+    
+    // 验证必需的字段
+    if (typeof (server as any).command !== 'string' || (server as any).command.trim() === '') {
+      console.warn(`MCP 服务器 "${key}" 配置缺少有效的 command 字段`);
+      continue;
+    }
+    
+    // 验证 args 是否为数组
+    if (!Array.isArray((server as any).args)) {
+      console.warn(`MCP 服务器 "${key}" 配置的 args 字段必须是数组`);
+      continue;
+    }
+    
+    // 验证 args 是否包含有效的内容
+    if ((server as any).args.length < 1 || (server as any).args.some((arg: any) => typeof arg !== 'string')) {
+      console.warn(`MCP 服务器 "${key}" 配置的 args 数组必须包含至少一个字符串元素`);
+      continue;
+    }
+    
+    hasValidServer = true;
+  }
+  
+  return hasValidServer;
+}
+
 // GET /api/settings/ai-team
 export async function GET() {
   try {
@@ -40,6 +79,28 @@ export async function POST(req: Request) {
       return new NextResponse('Missing required fields', { status: 400 })
     }
 
+    // 验证 mcpConfigJson 如果存在
+    let validatedMcpConfigJson = null;
+    if (mcpConfigJson) {
+      try {
+        // 如果是字符串，尝试解析为JSON
+        const configObj = typeof mcpConfigJson === 'string' 
+          ? JSON.parse(mcpConfigJson) 
+          : mcpConfigJson;
+        
+        if (isValidMcpServerConfig(configObj)) {
+          validatedMcpConfigJson = typeof mcpConfigJson === 'string' 
+            ? mcpConfigJson 
+            : JSON.stringify(configObj);
+          console.log('验证 MCP 配置成功');
+        } else {
+          console.warn('提供的 MCP 配置无效，将设置为 null');
+        }
+      } catch (error) {
+        console.warn('解析 MCP 配置 JSON 失败:', error);
+      }
+    }
+
     const member = await prisma.aiTeamMember.create({
       data: {
         name: name.trim(),
@@ -48,7 +109,7 @@ export async function POST(req: Request) {
         responsibilities: responsibilities.trim(),
         greeting: greeting?.trim() || null,
         category: category?.trim() || null,
-        mcpConfigJson: mcpConfigJson || null,
+        mcpConfigJson: validatedMcpConfigJson,
         createdBy: session.user.email
       }
     })
@@ -109,6 +170,28 @@ export async function PATCH(req: Request) {
       return new NextResponse('Missing required fields', { status: 400 })
     }
 
+    // 验证 mcpConfigJson 如果存在
+    let validatedMcpConfigJson = null;
+    if (mcpConfigJson) {
+      try {
+        // 如果是字符串，尝试解析为JSON
+        const configObj = typeof mcpConfigJson === 'string' 
+          ? JSON.parse(mcpConfigJson) 
+          : mcpConfigJson;
+        
+        if (isValidMcpServerConfig(configObj)) {
+          validatedMcpConfigJson = typeof mcpConfigJson === 'string' 
+            ? mcpConfigJson 
+            : JSON.stringify(configObj);
+          console.log('验证 MCP 配置成功');
+        } else {
+          console.warn('提供的 MCP 配置无效，将设置为 null');
+        }
+      } catch (error) {
+        console.warn('解析 MCP 配置 JSON 失败:', error);
+      }
+    }
+
     console.log('Updating member with data (including MCP config):', {
       id,
       name,
@@ -117,7 +200,7 @@ export async function PATCH(req: Request) {
       responsibilities,
       greeting,
       category,
-      mcpConfigJson
+      mcpConfigJson: validatedMcpConfigJson ? '(valid JSON)' : null
     })
 
     const member = await prisma.aiTeamMember.update({
@@ -129,7 +212,7 @@ export async function PATCH(req: Request) {
         responsibilities: responsibilities.trim(),
         greeting: greeting?.trim() || null,
         category: category?.trim() || null,
-        mcpConfigJson: mcpConfigJson || null,
+        mcpConfigJson: validatedMcpConfigJson,
       }
     })
 

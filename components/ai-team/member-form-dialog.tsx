@@ -13,7 +13,10 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useState, useEffect } from 'react'
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card'
-import { Pencil, Loader2, AlertCircle, CheckCircle, PlugZap } from 'lucide-react'
+import { Pencil, Loader2, AlertCircle, CheckCircle, PlugZap, Code, ExternalLink, HelpCircle, Clipboard } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { parseMcpConfig, testMcpConnection, McpServerConfig } from '@/lib/mcp-client'
 
 export interface MemberFormData {
   id?: string
@@ -24,12 +27,6 @@ export interface MemberFormData {
   greeting?: string | null
   category?: string | null
   mcpConfigJson?: string | null
-}
-
-interface McpServerConfig {
-  url?: string;
-  command?: string;
-  args?: string[];
 }
 
 interface ParsedMcpServer {
@@ -50,6 +47,28 @@ interface MemberFormDialogProps {
   onSubmit: (data: MemberFormData) => Promise<void>
   onClose: () => void
 }
+
+// 放宽客户端命令格式验证规则
+const isCommandPotentiallyTestable = (command?: string, args?: string[]) => {
+  // 记录详细日志以便调试
+  console.log('[isCommandPotentiallyTestable] 检查命令:', command, '参数:', args);
+  
+  // 如果没有命令或参数，不可测试
+  if (!command || !args || args.length < 2) {
+    console.log('[isCommandPotentiallyTestable] 命令或参数无效');
+    return false;
+  }
+  
+  // 放宽检查条件：只要命令是npx且有参数就行
+  // 后端会严格验证白名单，前端只需基本检查命令格式
+  if (command === 'npx' && args[0] === '-y') {
+    console.log('[isCommandPotentiallyTestable] 命令格式有效:', command, args);
+    return true;
+  }
+  
+  console.log('[isCommandPotentiallyTestable] 命令格式无效');
+  return false;
+};
 
 export function MemberFormDialog({
   open,
@@ -74,6 +93,9 @@ export function MemberFormDialog({
   const [isEditingJson, setIsEditingJson] = useState(true);
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('info');
+  const [testingTools, setTestingTools] = useState(false);
+  const [availableTools, setAvailableTools] = useState<string[]>([]);
+  const [testError, setTestError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -170,47 +192,47 @@ export function MemberFormDialog({
     setIsEditingJson(true);
   }
 
-  const handleTestConnection = async (serverName: string, serverConfig: McpServerConfig) => {
-    console.log(`[handleTestConnection] Testing: ${serverName}, Config:`, serverConfig);
-    setServerStatusMap(prev => ({
-      ...prev,
-      [serverName]: { status: 'testing', tools: [], error: undefined }
-    }));
-
+  const handleTestConnection = async () => {
+    // 清理之前的测试结果
+    setTestingTools(true);
+    setAvailableTools([]);
+    setTestError(null);
+    
     try {
-      if (!serverConfig.url) {
-        console.warn(`[handleTestConnection] No URL for ${serverName}, skipping test.`);
-        throw new Error('目前仅支持测试基于 URL 的 MCP Server');
+      // 尝试解析MCP配置
+      const mcpConfig = parseMcpConfig(formData.mcpConfigJson);
+      if (!mcpConfig) {
+        throw new Error('无效的MCP配置，请确保JSON格式正确');
       }
-
-      console.log(`[handleTestConnection] Fetching API for URL: ${serverConfig.url}`);
-      const response = await fetch('/api/mcp/test-connection', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: serverConfig.url }),
-      });
-      console.log(`[handleTestConnection] API response status: ${response.status}`);
-
-      const result = await response.json();
-      console.log(`[handleTestConnection] API response JSON:`, result);
-
-      if (!response.ok) {
-        console.error(`[handleTestConnection] API error for ${serverName}:`, result.error || `HTTP ${response.status}`);
-        throw new Error(result.error || `连接失败 (HTTP ${response.status})`);
+      
+      // 检查是否有服务器配置
+      const serverNames = Object.keys(mcpConfig);
+      if (serverNames.length === 0) {
+        throw new Error('未找到任何MCP服务器配置');
       }
-
-      console.log(`[handleTestConnection] Success for ${serverName}. Tools:`, result.tools);
-      setServerStatusMap(prev => ({
-        ...prev,
-        [serverName]: { status: 'success', tools: result.tools || [], error: undefined }
-      }));
-
-    } catch (error: any) {
-      console.error(`[handleTestConnection] CATCH block error for ${serverName}:`, error);
-      setServerStatusMap(prev => ({
-        ...prev,
-        [serverName]: { status: 'error', tools: [], error: error.message }
-      }));
+      
+      // 测试第一个服务器
+      const serverName = serverNames[0];
+      const serverConfig = mcpConfig[serverName];
+      
+      // 验证配置格式
+      if (!serverConfig.command || !Array.isArray(serverConfig.args)) {
+        throw new Error(`服务器 "${serverName}" 配置格式无效`);
+      }
+      
+      console.log(`测试 MCP 服务器 "${serverName}" 连接:`, serverConfig);
+      
+      // 调用测试API
+      const tools = await testMcpConnection(serverConfig);
+      
+      // 更新状态
+      setAvailableTools(tools);
+      console.log(`MCP服务器 "${serverName}" 测试成功，可用工具:`, tools);
+    } catch (error) {
+      console.error('MCP服务器测试失败:', error);
+      setTestError(error instanceof Error ? error.message : '测试失败');
+    } finally {
+      setTestingTools(false);
     }
   };
 
@@ -261,22 +283,67 @@ export function MemberFormDialog({
     await onSubmit(dataToSubmit);
   };
 
+  // 在解析 JSON 成功后，添加日志记录所有解析出的服务器
+  useEffect(() => {
+    if (parsedServers.length > 0) {
+      console.log('======== 解析的服务器配置 ========');
+      parsedServers.forEach(server => {
+        console.log(`服务器: ${server.name}`);
+        console.log(`配置:`, server.config);
+        console.log(`命令可测试: ${isCommandPotentiallyTestable(server.config.command, server.config.args)}`);
+        console.log('----------------------------');
+      });
+    }
+  }, [parsedServers]);
+
+  const handleConfigChange = (value: string) => {
+    setFormData(prev => ({ ...prev, mcpConfigJson: value }));
+    
+    // 验证JSON格式
+    if (!value.trim()) {
+      setJsonError(null);
+      return;
+    }
+    
+    try {
+      JSON.parse(value);
+      setJsonError(null);
+    } catch (e) {
+      setJsonError(`JSON格式错误: ${(e as Error).message}`);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[60rem] w-[90%] max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-[60rem] w-[90%] h-[90vh] flex flex-col">
         <DialogHeader className="pb-1 flex-shrink-0">
           <DialogTitle>{editingMember?.id ? '编辑' : '添加'}AI团队成员</DialogTitle>
         </DialogHeader>
-        <div className="flex-grow overflow-y-auto pr-2 pt-2">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="info">基础信息</TabsTrigger>
-                <TabsTrigger value="skills">技能设定</TabsTrigger>
-                <TabsTrigger value="mcp">MCP Servers</TabsTrigger>
+        <div className="flex-grow overflow-hidden pt-2">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+              <TabsList className="grid w-full grid-cols-3 flex-shrink-0">
+                <TabsTrigger 
+                  value="info"
+                  className="data-[state=active]:bg-orange-500 data-[state=active]:text-white"
+                >
+                  基础信息
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="skills"
+                  className="data-[state=active]:bg-orange-500 data-[state=active]:text-white"
+                >
+                  技能设定
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="mcp"
+                  className="data-[state=active]:bg-orange-500 data-[state=active]:text-white"
+                >
+                  外挂工具
+                </TabsTrigger>
               </TabsList>
 
-              <div>
-                <TabsContent value="info" className="space-y-3 mt-4">
+              <div className="overflow-y-auto flex-grow px-1">
+                <TabsContent value="info" className="space-y-3 mt-4 h-full p-1">
                    <div className="space-y-1">
                     <Label htmlFor="name">成员名称 *</Label>
                     <Input
@@ -340,7 +407,7 @@ export function MemberFormDialog({
                   </div>
                 </TabsContent>
 
-                <TabsContent value="skills" className="space-y-3 mt-4">
+                <TabsContent value="skills" className="space-y-3 mt-4 h-full p-1">
                    <div className="space-y-1.5">
                     <Label htmlFor="role">角色定位 *</Label>
                     <Textarea
@@ -369,90 +436,198 @@ export function MemberFormDialog({
                   </div>
                 </TabsContent>
 
-                 <TabsContent value="mcp" className="space-y-4 mt-4">
-                    {isEditingJson ? (
-                      <div>
-                        <div className="flex justify-between items-center mb-1">
-                           <Label htmlFor="mcpJson" className="block text-sm font-medium">
-                             MCP Server 配置 (JSON)
-                           </Label>
-                        </div>
-
-                        <Textarea
-                          id="mcpJson"
-                          rows={15}
-                          placeholder='输入 JSON 配置，例如：\n{\n  "mcpServers": {\n    "youtube-transcript": {\n      "url": "http://localhost:8001/sse"\n    },\n    "another-server": {\n       "url": "https://example.com/mcp/sse" \n    }\n  }\n}'
-                          value={mcpJsonStringInternal}
-                          onChange={handleMcpJsonChange}
-                          onBlur={() => tryParseJson(mcpJsonStringInternal)}
-                          className="font-mono text-sm"
-                        />
-                        {jsonError && <p className="text-red-500 text-sm mt-1">{jsonError}</p>}
+                 <TabsContent value="mcp" className="space-y-4 mt-4 h-full p-1">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-lg font-medium">MCP 服务器配置</h3>
+                      <div className="flex gap-2">
+                        {isEditingJson ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon"
+                                  onClick={handleSaveAndPreviewJson}
+                                  disabled={!mcpJsonStringInternal.trim()}
+                                >
+                                  <CheckCircle size={18} />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>保存并预览</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon"
+                                  onClick={handleEditJson}
+                                >
+                                  <Pencil size={18} />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>编辑JSON</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                        
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={() => {
+                                  const mcpServerConfig = {
+                                    mcpServers: {
+                                      "youtube-transcript": {
+                                        command: "npx",
+                                        args: ["-y", "@kimtaeyoon83/mcp-server-youtube-transcript", "--port", "8001"]
+                                      },
+                                      "sequential-thinking": {
+                                        command: "npx",
+                                        args: ["-y", "@smithery-ai/server-sequential-thinking", "--port", "8002"]
+                                      }
+                                    }
+                                  };
+                                  setFormData(prev => ({ 
+                                    ...prev, 
+                                    mcpConfigJson: JSON.stringify(mcpServerConfig, null, 2) 
+                                  }));
+                                  tryParseJson(JSON.stringify(mcpServerConfig, null, 2));
+                                }}
+                              >
+                                <Clipboard size={18} />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>插入示例配置</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="flex justify-end">
-                            <Button variant="outline" size="sm" onClick={handleEditJson}>
-                                <Pencil className="h-4 w-4 mr-1" /> 编辑 JSON
-                            </Button>
+                    </div>
+                    
+                    {isEditingJson ? (
+                      <>
+                        <div className="relative">
+                          <Label htmlFor="mcpConfigJson">
+                            MCP 配置 JSON
+                          </Label>
+                          <Textarea
+                            id="mcpConfigJson"
+                            placeholder='{"mcpServers": {"工具名称": {"command": "npx", "args": ["-y", "包名", "--port", "8001"]}}}'
+                            className="font-mono text-sm h-[200px]"
+                            value={mcpJsonStringInternal}
+                            onChange={handleMcpJsonChange}
+                          />
                         </div>
-                        {parsedServers.length === 0 && <p className="text-sm text-gray-500 text-center py-4">JSON 中未配置 MCP 服务器或 JSON 为空。</p>}
-                        {parsedServers.map((server) => {
-                          const status = serverStatusMap[server.name] || { status: 'idle', tools: [] };
-                          return (
-                            <Card key={server.name}>
-                              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-3 px-4">
-                                <CardTitle className="text-base font-medium leading-none">{server.name}</CardTitle>
-                                <div className="flex items-center space-x-2">
-                                  {status.status === 'success' && <CheckCircle className="h-4 w-4 text-green-500" />}
-                                  {status.status === 'error' && <AlertCircle className="h-4 w-4 text-red-500" />}
-                                  {status.status === 'idle' && <span className="text-xs text-gray-400">未测试</span>}
-
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 px-2"
-                                    onClick={(e) => {
-                                      console.log(`Testing connection for: ${server.name}`);
-                                      e.stopPropagation();
-                                      handleTestConnection(server.name, server.config);
-                                    }}
-                                    disabled={status.status === 'testing' || !server.config.url}
-                                    title={!server.config.url ? "仅支持测试基于 URL 的服务器" : "测试连接"}
-                                 >
-                                   {status.status === 'testing' ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                   ) : (
-                                      <PlugZap className="h-4 w-4" />
-                                   )}
-                                 </Button>
+                        
+                        {jsonError && (
+                          <p className="text-red-500 text-sm mt-2">
+                            <AlertCircle className="inline-block h-4 w-4 mr-1" />
+                            {jsonError}
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <div className="space-y-2">
+                          {parsedServers.map((server) => (
+                            <Card key={server.name} className="overflow-hidden">
+                              <CardHeader className="bg-muted/50 py-2 px-4">
+                                <div className="flex justify-between items-center">
+                                  <CardTitle className="text-sm flex items-center gap-2">
+                                    <Code size={14} />
+                                    {server.name}
+                                  </CardTitle>
+                                  <div className="flex gap-1">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        // 测试特定服务器连接
+                                        const serverConfig = server.config;
+                                        setServerStatusMap(prev => ({
+                                          ...prev,
+                                          [server.name]: {
+                                            status: 'testing',
+                                            tools: []
+                                          }
+                                        }));
+                                        
+                                        testMcpConnection(serverConfig)
+                                          .then(tools => {
+                                            setServerStatusMap(prev => ({
+                                              ...prev,
+                                              [server.name]: {
+                                                status: 'success',
+                                                tools
+                                              }
+                                            }));
+                                            console.log(`服务器 "${server.name}" 测试成功，可用工具:`, tools);
+                                          })
+                                          .catch(error => {
+                                            console.error(`服务器 "${server.name}" 测试失败:`, error);
+                                            setServerStatusMap(prev => ({
+                                              ...prev,
+                                              [server.name]: {
+                                                status: 'error',
+                                                tools: [],
+                                                error: error instanceof Error ? error.message : '测试失败'
+                                              }
+                                            }));
+                                          });
+                                      }}
+                                      disabled={serverStatusMap[server.name]?.status === 'testing' || !isCommandPotentiallyTestable(server.config.command, server.config.args)}
+                                      className="flex items-center px-2 h-7 text-xs"
+                                    >
+                                      {serverStatusMap[server.name]?.status === 'testing' ? (
+                                        <>
+                                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                          测试中
+                                        </>
+                                      ) : (
+                                        <>
+                                          <PlugZap className="h-3 w-3 mr-1" />
+                                          测试
+                                        </>
+                                      )}
+                                    </Button>
+                                  </div>
                                 </div>
                               </CardHeader>
-
-                              <CardContent className="pt-1 pb-3 px-4">
-                                 {server.config.url && <p className="text-xs text-muted-foreground break-all">URL: {server.config.url}</p>}
-                                 {server.config.command && <p className="text-xs text-muted-foreground truncate">Command: {server.config.command} {server.config.args?.join(' ')}</p>}
-
-                                 <div className="mt-2">
-                                    <h4 className="text-xs font-medium mb-1 text-gray-600">可用工具:</h4>
-                                    {status.status === 'testing' && <span className='text-xs text-muted-foreground'>正在加载...</span>}
-                                    {status.status === 'success' && (
-                                        status.tools.length > 0 ? (
-                                            <div className="flex flex-wrap gap-1">
-                                                {status.tools.map(tool => <Badge key={tool} variant="secondary" className="text-xs font-normal">{tool}</Badge>)}
-                                            </div>
-                                        ) : (
-                                            <span className='text-xs text-muted-foreground'>未发现工具</span>
-                                        )
-                                    )}
-                                    {status.status === 'error' && <span className='text-xs text-red-500'>加载失败: {status.error}</span>}
-                                    {status.status === 'idle' && <span className='text-xs text-muted-foreground'>点击测试获取</span>}
-                                 </div>
+                              <CardContent className="py-2 px-4 text-xs">
+                                <div className="font-mono bg-muted/30 p-2 rounded max-h-20 overflow-auto">
+                                  <div><span className="text-blue-600">command:</span> {server.config.command}</div>
+                                  <div><span className="text-blue-600">args:</span> {JSON.stringify(server.config.args)}</div>
+                                </div>
+                                
+                                {serverStatusMap[server.name]?.status === 'success' && (
+                                  <div className="mt-1 text-green-600 flex items-center">
+                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                    可用工具: {serverStatusMap[server.name]?.tools.join(', ')}
+                                  </div>
+                                )}
+                                
+                                {serverStatusMap[server.name]?.status === 'error' && (
+                                  <div className="mt-1 text-red-500 flex items-center">
+                                    <AlertCircle className="h-3 w-3 mr-1" />
+                                    {serverStatusMap[server.name]?.error}
+                                  </div>
+                                )}
                               </CardContent>
                             </Card>
-                          );
-                        })}
-                      </div>
+                          ))}
+                        </div>
+                      </>
                     )}
                   </TabsContent>
                </div>
