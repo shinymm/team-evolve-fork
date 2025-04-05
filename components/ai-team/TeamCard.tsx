@@ -1,6 +1,6 @@
 import { Card, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Pencil, Trash2, ExternalLink } from 'lucide-react'
+import { Pencil, Trash2, ExternalLink, MessageCircle } from 'lucide-react'
 
 interface TeamCardProps {
   id: string
@@ -11,6 +11,7 @@ interface TeamCardProps {
   entryUrl?: string
   onEdit: () => void
   onDelete: () => void
+  onChat?: () => void
 }
 
 export function TeamCard({
@@ -22,6 +23,7 @@ export function TeamCard({
   entryUrl,
   onEdit,
   onDelete,
+  onChat,
 }: TeamCardProps) {
   const handleVisit = () => {
     if (entryUrl) {
@@ -53,6 +55,17 @@ export function TeamCard({
                   title="访问应用"
                 >
                   <ExternalLink className="h-4 w-4" />
+                </Button>
+              )}
+              {type === 'member' && onChat && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  onClick={onChat}
+                  title="与成员对话"
+                >
+                  <MessageCircle className="h-4 w-4" />
                 </Button>
               )}
               <Button

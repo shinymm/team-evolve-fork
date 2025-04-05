@@ -14,12 +14,31 @@ type McpSessionInfo = {
   client: Client;
   transport: StdioClientTransport;
   tools: any[];
+  formattedTools?: any[]; // 格式化后的工具列表，直接供AI使用
+  aiModelConfig?: {      // 缓存的AI模型配置
+    model: string;
+    baseURL: string;
+    apiKey: string;     // 已解密的API密钥
+    temperature?: number;
+  };
+  systemPrompt?: string; // 缓存的系统提示词
+  memberInfo?: {         // 缓存的成员信息
+    name: string;
+    role: string;
+    responsibilities: string;
+    userSessionKey?: string;  // 添加用户会话键字段，用于会话复用
+  };
   startTime: number;
   lastUsed: number;
 };
 
 // 活跃会话映射
 const activeSessions = new Map<string, McpSessionInfo>();
+
+// 会话配置
+const SESSION_CLEANUP_INTERVAL = 5 * 60 * 1000; // 5分钟清理一次
+const SESSION_MAX_IDLE_TIME = 30 * 60 * 1000; // 30分钟未使用自动清理
+const SESSION_MAX_LIFETIME = 3 * 60 * 60 * 1000; // 3小时最大生命周期
 
 // 读取包白名单
 let ALLOWED_NPM_PACKAGES: Set<string> = new Set();
@@ -47,6 +66,38 @@ try {
  * 提供了与MCP服务器交互的能力
  */
 export class McpClientService {
+  private cleanupTimer: NodeJS.Timeout | null = null;
+  
+  constructor() {
+    // 启动会话清理计时器
+    this.startCleanupTimer();
+    
+    // 确保在进程结束时清理所有会话
+    process.on('beforeExit', () => {
+      this.cleanupAllSessions();
+    });
+  }
+  
+  /**
+   * 启动定时清理会话的计时器
+   */
+  private startCleanupTimer() {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+    }
+    
+    this.cleanupTimer = setInterval(() => {
+      this.cleanupSessions();
+    }, SESSION_CLEANUP_INTERVAL);
+    
+    // 确保计时器不会阻止进程退出
+    if (this.cleanupTimer.unref) {
+      this.cleanupTimer.unref();
+    }
+    
+    console.log(`[MCP] 会话清理计时器已启动，每 ${SESSION_CLEANUP_INTERVAL/1000/60} 分钟执行一次`);
+  }
+
   /**
    * 验证服务器配置的有效性
    */
@@ -193,15 +244,69 @@ export class McpClientService {
     console.log(`[MCP] 关闭会话 ${sessionId}`);
     
     try {
-      // 使用正确的方法关闭传输连接
-      await sessionInfo.transport.close();
-      console.log(`[MCP] 会话 ${sessionId} 已关闭`);
+      // 先尝试关闭MCP客户端连接
+      try {
+        await sessionInfo.client.close();
+        console.log(`[MCP] 会话 ${sessionId} 客户端已关闭`);
+      } catch (clientError) {
+        console.warn(`[MCP] 关闭会话 ${sessionId} 客户端时发生错误:`, clientError);
+        // 继续尝试关闭传输层
+      }
+      
+      // 再关闭传输层连接
+      try {
+        await sessionInfo.transport.close();
+        console.log(`[MCP] 会话 ${sessionId} 传输层已关闭`);
+      } catch (transportError) {
+        console.warn(`[MCP] 关闭会话 ${sessionId} 传输层时发生错误:`, transportError);
+        
+        // 如果常规关闭失败，尝试强制终止子进程
+        try {
+          const childProcess = (sessionInfo.transport as any)?.process;
+          if (childProcess && typeof childProcess.kill === 'function') {
+            console.log(`[MCP] 尝试强制终止会话 ${sessionId} 的子进程`);
+            childProcess.kill('SIGTERM'); // 尝试正常终止
+            
+            // 给进程一点时间正常退出
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // 如果进程仍在运行，强制终止
+            if (!childProcess.killed) {
+              console.log(`[MCP] 会话 ${sessionId} 的子进程未响应SIGTERM，尝试SIGKILL`);
+              childProcess.kill('SIGKILL');
+            }
+          }
+        } catch (killError) {
+          console.error(`[MCP] 强制终止会话 ${sessionId} 子进程失败:`, killError);
+        }
+      }
       
       // 从活跃会话中移除
       activeSessions.delete(sessionId);
+      console.log(`[MCP] 会话 ${sessionId} 已从活跃会话列表中移除`);
       return true;
     } catch (error) {
       console.error(`[MCP] 关闭会话 ${sessionId} 失败:`, error);
+      
+      // 确保会话被清理，即使发生错误
+      try {
+        // 尝试通过引用直接获取子进程并终止
+        const childProcess = (sessionInfo.transport as any)?.process;
+        if (childProcess && typeof childProcess.kill === 'function') {
+          try {
+            childProcess.kill('SIGKILL');
+            console.log(`[MCP] 已强制终止会话 ${sessionId} 子进程`);
+          } catch (killError) {
+            console.error(`[MCP] 强制终止会话 ${sessionId} 子进程失败:`, killError);
+          }
+        }
+        
+        activeSessions.delete(sessionId);
+        console.log(`[MCP] 会话 ${sessionId} 已强制从活跃会话列表中移除`);
+      } catch (cleanupError) {
+        console.error(`[MCP] 清理会话 ${sessionId} 时发生错误:`, cleanupError);
+      }
+      
       return false;
     }
   }
@@ -209,37 +314,214 @@ export class McpClientService {
   /**
    * 获取会话信息
    */
-  getSessionInfo(sessionId: string): { tools: any[] } | null {
+  getSessionInfo(sessionId: string): McpSessionInfo | null {
     const sessionInfo = activeSessions.get(sessionId);
     if (!sessionInfo) {
+      console.log(`[MCP] 未找到会话 ${sessionId}`);
       return null;
     }
+    
+    // 记录日志，包含会话是否包含AI配置
+    console.log(`[MCP] 获取会话 ${sessionId} 信息:`, {
+      hasTools: sessionInfo.tools?.length > 0,
+      toolsCount: sessionInfo.tools?.length || 0,
+      hasFormattedTools: !!sessionInfo.formattedTools,
+      hasSystemPrompt: !!sessionInfo.systemPrompt,
+      hasAIConfig: !!sessionInfo.aiModelConfig,
+      hasMemberInfo: !!sessionInfo.memberInfo,
+      idleTime: Math.floor((Date.now() - sessionInfo.lastUsed) / 1000 / 60) + "分钟"
+    });
+    
+    // 更新最后使用时间
+    sessionInfo.lastUsed = Date.now();
+    return sessionInfo;
+  }
 
-    return {
-      tools: sessionInfo.tools
-    };
+  /**
+   * 更新会话信息
+   */
+  updateSessionInfo(sessionId: string, updateData: Partial<McpSessionInfo>): boolean {
+    const sessionInfo = activeSessions.get(sessionId);
+    if (!sessionInfo) {
+      return false;
+    }
+    
+    // 更新会话信息
+    Object.assign(sessionInfo, updateData);
+    // 更新最后使用时间
+    sessionInfo.lastUsed = Date.now();
+    
+    // 保存更新后的会话信息
+    activeSessions.set(sessionId, sessionInfo);
+    return true;
+  }
+
+  /**
+   * 设置会话的AI配置信息
+   */
+  setSessionAIConfig(sessionId: string | undefined, aiConfig: McpSessionInfo['aiModelConfig'], 
+                    systemPrompt?: string, memberInfo?: McpSessionInfo['memberInfo']): boolean {
+    // 如果会话ID不存在，返回false
+    if (!sessionId) {
+      console.log('[MCP] 无法设置AI配置: 会话ID不存在');
+      return false;
+    }
+    
+    console.log(`[MCP] 保存会话 ${sessionId} 的AI配置:`, {
+      model: aiConfig?.model,
+      baseURL: aiConfig?.baseURL,
+      hasApiKey: !!aiConfig?.apiKey,
+      keyLength: aiConfig?.apiKey?.length || 0,
+      hasSystemPrompt: !!systemPrompt,
+      hasMemberInfo: !!memberInfo
+    });
+    
+    const result = this.updateSessionInfo(sessionId, {
+      aiModelConfig: aiConfig,
+      systemPrompt,
+      memberInfo
+    });
+    
+    if (result) {
+      console.log(`[MCP] 成功保存会话 ${sessionId} 的AI配置`);
+      
+      // 验证保存是否成功
+      const sessionInfo = this.getSessionInfo(sessionId);
+      if (sessionInfo) {
+        console.log(`[MCP] 验证会话 ${sessionId} 的AI配置:`, {
+          hasConfig: !!sessionInfo.aiModelConfig,
+          configModel: sessionInfo.aiModelConfig?.model,
+          hasPrompt: !!sessionInfo.systemPrompt
+        });
+      }
+    } else {
+      console.error(`[MCP] 无法保存会话 ${sessionId} 的AI配置，会话可能不存在`);
+    }
+    
+    return result;
+  }
+  
+  /**
+   * 设置会话的工具格式化信息
+   */
+  setSessionFormattedTools(sessionId: string, formattedTools: any[]): boolean {
+    return this.updateSessionInfo(sessionId, { formattedTools });
+  }
+
+  /**
+   * 获取当前活跃会话数量
+   */
+  getActiveSessionCount(): number {
+    return activeSessions.size;
   }
 
   /**
    * 清理过期会话
    */
-  cleanupSessions(maxAge: number = 30 * 60 * 1000): void {
+  cleanupSessions(): void {
     const now = Date.now();
     let closedCount = 0;
+    const idleSessions: string[] = [];
+    const oldSessions: string[] = [];
 
+    // 找出需要清理的会话
     for (const [sessionId, info] of activeSessions.entries()) {
-      if (now - info.lastUsed > maxAge) {
+      // 检查空闲时间
+      if (now - info.lastUsed > SESSION_MAX_IDLE_TIME) {
+        console.log(`[MCP] 会话 ${sessionId} 空闲超过 ${Math.floor((now - info.lastUsed) / 1000 / 60)} 分钟，准备清理`);
+        idleSessions.push(sessionId);
+      }
+      // 检查总生命周期
+      else if (now - info.startTime > SESSION_MAX_LIFETIME) {
+        console.log(`[MCP] 会话 ${sessionId} 生命周期超过 ${Math.floor((now - info.startTime) / 1000 / 60 / 60)} 小时，准备清理`);
+        oldSessions.push(sessionId);
+      }
+    }
+
+    // 关闭空闲会话
+    if (idleSessions.length > 0) {
+      console.log(`[MCP] 准备清理 ${idleSessions.length} 个空闲会话...`);
+      for (const sessionId of idleSessions) {
         this.closeSession(sessionId)
           .then(success => {
             if (success) closedCount++;
           })
-          .catch(err => console.error(`[MCP] 清理会话 ${sessionId} 失败:`, err));
+          .catch(err => console.error(`[MCP] 清理空闲会话 ${sessionId} 失败:`, err));
       }
     }
 
-    if (closedCount > 0) {
-      console.log(`[MCP] 已清理 ${closedCount} 个过期会话`);
+    // 关闭生命周期过长的会话
+    if (oldSessions.length > 0) {
+      console.log(`[MCP] 准备清理 ${oldSessions.length} 个生命周期过长的会话...`);
+      for (const sessionId of oldSessions) {
+        this.closeSession(sessionId)
+          .then(success => {
+            if (success) closedCount++;
+          })
+          .catch(err => console.error(`[MCP] 清理过期会话 ${sessionId} 失败:`, err));
+      }
     }
+
+    // 定期打印当前活跃会话状态
+    const activeSessionCount = activeSessions.size;
+    if (activeSessionCount > 0) {
+      const sessionsList = Array.from(activeSessions.keys());
+      console.log(`[MCP] 当前活跃会话 (${activeSessionCount}): ${sessionsList.join(', ')}`);
+      
+      // 输出每个会话的详细信息
+      for (const [sessionId, info] of activeSessions.entries()) {
+        const idleMinutes = Math.floor((now - info.lastUsed) / 1000 / 60);
+        const lifetimeHours = ((now - info.startTime) / 1000 / 60 / 60).toFixed(1);
+        console.log(`[MCP] 会话 ${sessionId}: 空闲 ${idleMinutes} 分钟，存活 ${lifetimeHours} 小时，工具数量 ${info.tools.length}`);
+      }
+    }
+
+    if (idleSessions.length > 0 || oldSessions.length > 0) {
+      console.log(`[MCP] 会话清理完成，关闭了 ${closedCount} 个会话，当前活跃会话: ${activeSessions.size}`);
+    }
+  }
+
+  /**
+   * 清理所有会话
+   */
+  async cleanupAllSessions(): Promise<number> {
+    console.log(`[MCP] 正在清理所有会话 (${activeSessions.size})...`);
+    let closedCount = 0;
+    
+    // 停止清理计时器
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
+    
+    // 获取所有会话ID
+    const sessionIds = Array.from(activeSessions.keys());
+    
+    // 关闭所有会话
+    for (const sessionId of sessionIds) {
+      try {
+        const success = await this.closeSession(sessionId);
+        if (success) closedCount++;
+      } catch (error) {
+        console.error(`[MCP] 清理会话 ${sessionId} 失败:`, error);
+      }
+    }
+    
+    console.log(`[MCP] 所有会话清理完成，成功关闭 ${closedCount}/${sessionIds.length} 个会话`);
+    return closedCount;
+  }
+
+  /**
+   * 获取所有活跃会话信息
+   * 返回所有会话的映射
+   */
+  getAllSessions(): Record<string, McpSessionInfo> {
+    // 将 Map 转换为普通对象
+    const sessionsObject: Record<string, McpSessionInfo> = {};
+    activeSessions.forEach((value, key) => {
+      sessionsObject[key] = value;
+    });
+    return sessionsObject;
   }
 }
 
