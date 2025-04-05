@@ -17,6 +17,10 @@ interface ConversationRequest {
     responsibilities: string;
     mcpConfigJson?: string;  // 添加MCP配置字段
   };
+  previousToolState?: {  // 添加上一次工具状态
+    name: string;
+    state: any;
+  }
 }
 
 // 消息类型定义
@@ -55,7 +59,7 @@ export async function POST(req: Request) {
     async start(controller) {
       try {
         // 解析请求参数
-        const { sessionId, userMessage, memberInfo } = await req.json() as ConversationRequest;
+        const { sessionId, userMessage, memberInfo, previousToolState } = await req.json() as ConversationRequest;
         
         // 验证必要参数
         if (!userMessage) {
@@ -69,6 +73,19 @@ export async function POST(req: Request) {
           hasGlobalKey: !!globalDecryptedKey,
           keyLength: globalDecryptedKey?.length || 0
         });
+        
+        // 获取会话中的工具状态
+        let toolState = previousToolState;
+        if (sessionId && !toolState) {
+          const sessionInfo = mcpClientService.getSessionInfo(sessionId);
+          if (sessionInfo && sessionInfo.toolState) {
+            toolState = sessionInfo.toolState;
+            console.log(`[流式对话] 从会话中恢复工具状态:`, {
+              toolName: toolState.name,
+              hasState: !!toolState.state
+            });
+          }
+        }
         
         // 确定使用哪种对话模式 - 根据成员是否有MCP配置判断，而不仅看sessionId
         const hasMcpConfig = !!memberInfo?.mcpConfigJson;
@@ -430,8 +447,22 @@ export async function POST(req: Request) {
         // 准备对话消息
         const messages: ChatMessage[] = [
           { role: "system", content: systemPrompt },
-          { role: "user", content: userMessage }
         ];
+        
+        // 如果有sequentialthinking工具状态，加入上下文
+        if (toolState && (toolState.name === 'sequentialthinking' || toolState.name === 'mcp_sequential_thinking_sequentialthinking') 
+            && toolState.state && toolState.state.thought) {
+          
+          // 构建思考过程上下文
+          const thoughtContext = `上次我们正在进行思考过程 ${toolState.state.thoughtNumber || '?'}/${toolState.state.totalThoughts || '?'}。
+上次的思考是: "${toolState.state.thought}"
+请继续这个思考过程，考虑我的回答: "${userMessage}"`;
+          
+          messages.push({ role: "user", content: thoughtContext });
+        } else {
+          // 正常用户消息
+          messages.push({ role: "user", content: userMessage });
+        }
         
         console.log("[流式对话] 发送消息:", {
           mode: useMcpMode ? 'MCP模式' : '普通对话模式',
@@ -656,6 +687,23 @@ export async function POST(req: Request) {
                 // 兜底处理其他数据类型
                 resultText = String(toolResult);
               }
+              
+              // 特殊处理sequentialthinking工具：在会话中保存状态
+              if ((toolCallName === 'sequentialthinking' || toolCallName === 'mcp_sequential_thinking_sequentialthinking') 
+                  && typeof toolResult === 'object' && toolResult.nextThoughtNeeded === true) {
+                // 将工具状态保存到会话中
+                mcpClientService.setSessionInfo(effectiveSessionId, {
+                  toolState: {
+                    name: toolCallName,
+                    state: toolResult
+                  }
+                });
+                
+                // 提示用户这是多轮思考过程
+                if (toolResult.thoughtNumber && toolResult.totalThoughts) {
+                  sendStatusEvent(controller, `这是思考过程 ${toolResult.thoughtNumber}/${toolResult.totalThoughts}，请继续对话以完成思考`);
+                }
+              }
             } catch (e) {
               // 最终安全检查
               resultText = `工具执行成功，但结果格式无法处理: ${e instanceof Error ? e.message : '未知错误'}`;
@@ -711,6 +759,17 @@ export async function POST(req: Request) {
               if (finalData.choices && finalData.choices[0] && finalData.choices[0].message) {
                 const finalContent = finalData.choices[0].message.content || '';
                 sendContentEvent(controller, `\n\n${finalContent}`);
+                
+                // 如果有工具状态，通知客户端
+                if (effectiveSessionId) {
+                  const sessionInfo = mcpClientService.getSessionInfo(effectiveSessionId);
+                  if (sessionInfo && sessionInfo.toolState) {
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
+                      type: 'tool_state', 
+                      state: sessionInfo.toolState
+                    })}\n\n`));
+                  }
+                }
               }
             }
           } catch (error) {

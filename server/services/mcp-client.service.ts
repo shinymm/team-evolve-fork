@@ -28,6 +28,10 @@ type McpSessionInfo = {
     responsibilities: string;
     userSessionKey?: string;  // 添加用户会话键字段，用于会话复用
   };
+  toolState?: {          // 工具状态，用于保存连续性工具的状态
+    name: string;
+    state: any;
+  };
   startTime: number;
   lastUsed: number;
 };
@@ -338,21 +342,23 @@ export class McpClientService {
   }
 
   /**
-   * 更新会话信息
+   * 更新会话信息（通用方法）
    */
-  updateSessionInfo(sessionId: string, updateData: Partial<McpSessionInfo>): boolean {
+  setSessionInfo(sessionId: string, updateData: Partial<Omit<McpSessionInfo, 'client' | 'transport'>>): boolean {
     const sessionInfo = activeSessions.get(sessionId);
     if (!sessionInfo) {
+      console.log(`[MCP] 会话 ${sessionId} 不存在，无法更新信息`);
       return false;
     }
-    
-    // 更新会话信息
+
+    // 更新会话信息，但不允许更新client和transport
     Object.assign(sessionInfo, updateData);
-    // 更新最后使用时间
-    sessionInfo.lastUsed = Date.now();
     
-    // 保存更新后的会话信息
-    activeSessions.set(sessionId, sessionInfo);
+    // 记录更新
+    console.log(`[MCP] 会话 ${sessionId} 信息已更新:`, 
+      Object.keys(updateData).map(k => `${k}: ${k === 'toolState' ? '(状态已保存)' : '已更新'}`).join(', ')
+    );
+    
     return true;
   }
 
@@ -376,7 +382,7 @@ export class McpClientService {
       hasMemberInfo: !!memberInfo
     });
     
-    const result = this.updateSessionInfo(sessionId, {
+    const result = this.setSessionInfo(sessionId, {
       aiModelConfig: aiConfig,
       systemPrompt,
       memberInfo
@@ -405,7 +411,7 @@ export class McpClientService {
    * 设置会话的工具格式化信息
    */
   setSessionFormattedTools(sessionId: string, formattedTools: any[]): boolean {
-    return this.updateSessionInfo(sessionId, { formattedTools });
+    return this.setSessionInfo(sessionId, { formattedTools });
   }
 
   /**
