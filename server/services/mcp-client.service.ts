@@ -8,11 +8,14 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { join } from 'path';
 import { readFileSync } from 'fs';
+// 导入Vercel AI SDK的实验性MCP客户端
+import { experimental_createMCPClient } from 'ai';
+import { Experimental_StdioMCPTransport } from 'ai/mcp-stdio';
 
 // 会话管理
 type McpSessionInfo = {
-  client: Client;
-  transport: StdioClientTransport;
+  client: Client | any; // 修改为支持多种客户端类型
+  transport: StdioClientTransport | any; // 修改为支持多种传输类型
   tools: any[];
   formattedTools?: any[]; // 格式化后的工具列表，直接供AI使用
   aiModelConfig?: {      // 缓存的AI模型配置
@@ -34,6 +37,7 @@ type McpSessionInfo = {
   };
   startTime: number;
   lastUsed: number;
+  isVercelSdk?: boolean; // 标记是否使用Vercel SDK连接
 };
 
 // 活跃会话映射
@@ -143,6 +147,75 @@ export class McpClientService {
   }
 
   /**
+   * 检测是否在Vercel环境中运行
+   * 通过环境变量和文件路径判断
+   */
+  private isVercelEnvironment(): boolean {
+    // 检查Vercel特有的环境变量
+    if (process.env.VERCEL || process.env.VERCEL_ENV) {
+      return true;
+    }
+    
+    // 检查Vercel Lambda环境的特定目录
+    try {
+      const fs = require('fs');
+      if (fs.existsSync('/var/task/.next')) {
+        return true;
+      }
+    } catch (error) {
+      // 忽略文件系统错误
+    }
+    
+    // 默认为非Vercel环境
+    return false;
+  }
+  
+  /**
+   * 使用Vercel AI SDK连接到MCP服务器
+   * 适用于Vercel服务器环境
+   */
+  private async connectWithVercelSdk(command: string, args: string[], sessionId?: string): Promise<{ sessionId: string; tools: any[]; client: any; transport: any }> {
+    // 生成唯一会话ID，如果未提供
+    const newSessionId = sessionId || `mcp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    console.log(`[MCP] 使用Vercel AI SDK创建会话 ${newSessionId}: ${command} ${args.join(' ')}`);
+    
+    try {
+      // 使用Vercel AI SDK的MCP客户端
+      const mcpClient = await experimental_createMCPClient({
+        transport: new Experimental_StdioMCPTransport({
+          command,
+          args,
+          env: { ...process.env } as Record<string, string>
+        })
+      });
+      
+      // 获取工具列表
+      console.log('[MCP] 获取可用工具...');
+      const toolsObj = await mcpClient.tools();
+      const toolNames = Object.keys(toolsObj || {});
+      console.log(`[MCP] 发现 ${toolNames.length} 个工具`);
+      
+      // 将工具转换为与现有格式兼容的结构
+      const compatibleTools = toolNames.map(name => ({
+        name,
+        description: `使用${name}工具执行操作`,
+        // 直接包装函数而不进行调用
+        inputSchema: {}
+      }));
+      
+      return {
+        sessionId: newSessionId,
+        tools: compatibleTools,
+        client: mcpClient,
+        transport: mcpClient // 不访问私有属性
+      };
+    } catch (error) {
+      console.error('[MCP] Vercel AI SDK连接失败:', error);
+      throw new Error(error instanceof Error ? error.message : '连接MCP服务器失败');
+    }
+  }
+
+  /**
    * 连接到MCP服务器并返回会话ID和工具列表
    */
   async connect(command: string, args: string[], sessionId?: string): Promise<{ sessionId: string; tools: any[] }> {
@@ -151,56 +224,86 @@ export class McpClientService {
     if (!validation.valid) {
       throw new Error(`无效的服务器配置: ${validation.error}`);
     }
-
-    // 生成唯一会话ID，如果未提供
-    const newSessionId = sessionId || `mcp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-    console.log(`[MCP] 创建会话 ${newSessionId}: ${command} ${args.join(' ')}`);
-
+    
+    // 检测是否在Vercel环境
+    const isVercel = this.isVercelEnvironment();
+    console.log(`[MCP] 当前环境检测: ${isVercel ? 'Vercel服务器环境' : '本地开发环境'}`);
+    
     try {
-      // 创建传输层
-      const transport = new StdioClientTransport({
-        command,
-        args,
-        env: { ...process.env } as Record<string, string>
-      });
+      let sessionInfo: McpSessionInfo;
+      
+      if (isVercel) {
+        // 在Vercel环境中使用Vercel AI SDK连接
+        const { sessionId: newSessionId, tools, client, transport } = await this.connectWithVercelSdk(command, args, sessionId);
+        
+        // 存储会话信息
+        sessionInfo = {
+          client,
+          transport,
+          tools,
+          startTime: Date.now(),
+          lastUsed: Date.now(),
+          isVercelSdk: true
+        };
+        activeSessions.set(newSessionId, sessionInfo);
+        
+        return {
+          sessionId: newSessionId,
+          tools
+        };
+      } else {
+        // 在本地环境中使用传统方式连接
+        
+        // 生成唯一会话ID，如果未提供
+        const newSessionId = sessionId || `mcp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        console.log(`[MCP] 创建会话 ${newSessionId}: ${command} ${args.join(' ')}`);
+        
+        // 创建传输层
+        const transport = new StdioClientTransport({
+          command,
+          args,
+          env: { ...process.env } as Record<string, string>
+        });
 
-      // 创建客户端
-      const client = new Client({
-        name: "MCP-Client",
-        version: "1.0.0"
-      }, {
-        capabilities: {
-          tools: {},
-          resources: {},
-          prompts: {}
-        }
-      });
+        // 创建客户端
+        const client = new Client({
+          name: "MCP-Client",
+          version: "1.0.0"
+        }, {
+          capabilities: {
+            tools: {},
+            resources: {},
+            prompts: {}
+          }
+        });
 
-      // 连接到服务器
-      console.log('[MCP] 连接到服务器...');
-      await client.connect(transport);
-      console.log('[MCP] 服务器连接成功');
+        // 连接到服务器
+        console.log('[MCP] 连接到服务器...');
+        await client.connect(transport);
+        console.log('[MCP] 服务器连接成功');
 
-      // 获取工具列表 - 调用标准的listTools方法
-      console.log('[MCP] 获取可用工具...');
-      const toolList = await client.listTools();
-      const tools = toolList.tools || [];
-      console.log(`[MCP] 发现 ${tools.length} 个工具`);
+        // 获取工具列表 - 调用标准的listTools方法
+        console.log('[MCP] 获取可用工具...');
+        const toolList = await client.listTools();
+        const tools = toolList.tools || [];
+        console.log(`[MCP] 发现 ${tools.length} 个工具`);
 
-      // 存储会话信息
-      const sessionInfo: McpSessionInfo = {
-        client,
-        transport,
-        tools,
-        startTime: Date.now(),
-        lastUsed: Date.now()
-      };
-      activeSessions.set(newSessionId, sessionInfo);
+        // 存储会话信息
+        sessionInfo = {
+          client,
+          transport,
+          tools,
+          startTime: Date.now(),
+          lastUsed: Date.now(),
+          isVercelSdk: false
+        };
+        activeSessions.set(newSessionId, sessionInfo);
 
-      return {
-        sessionId: newSessionId,
-        tools
-      };
+        return {
+          sessionId: newSessionId,
+          tools
+        };
+      }
     } catch (error) {
       console.error('[MCP] 连接失败:', error);
       throw new Error(error instanceof Error ? error.message : '连接MCP服务器失败');
@@ -222,13 +325,22 @@ export class McpClientService {
     try {
       console.log(`[MCP] 会话 ${sessionId} 调用工具 ${toolName} 参数:`, input);
       
-      // 使用官方SDK调用工具
-      const result = await sessionInfo.client.callTool({
-        name: toolName,
-        arguments: input
-      });
-
-      return result;
+      // 根据会话类型选择调用方式
+      if (sessionInfo.isVercelSdk) {
+        // 使用Vercel SDK方式调用工具
+        const toolsObj = await (sessionInfo.client.tools as Function)();
+        if (!toolsObj || typeof toolsObj[toolName] !== 'function') {
+          throw new Error(`工具 ${toolName} 在当前会话中不可用`);
+        }
+        return await toolsObj[toolName](input);
+      } else {
+        // 使用传统SDK调用工具
+        const result = await sessionInfo.client.callTool({
+          name: toolName,
+          arguments: input
+        });
+        return result;
+      }
     } catch (error) {
       console.error(`[MCP] 工具 ${toolName} 调用失败:`, error);
       throw error;
@@ -248,40 +360,47 @@ export class McpClientService {
     console.log(`[MCP] 关闭会话 ${sessionId}`);
     
     try {
-      // 先尝试关闭MCP客户端连接
-      try {
+      // 根据会话类型选择关闭方式
+      if (sessionInfo.isVercelSdk) {
+        // 关闭Vercel SDK客户端
         await sessionInfo.client.close();
-        console.log(`[MCP] 会话 ${sessionId} 客户端已关闭`);
-      } catch (clientError) {
-        console.warn(`[MCP] 关闭会话 ${sessionId} 客户端时发生错误:`, clientError);
-        // 继续尝试关闭传输层
-      }
-      
-      // 再关闭传输层连接
-      try {
-        await sessionInfo.transport.close();
-        console.log(`[MCP] 会话 ${sessionId} 传输层已关闭`);
-      } catch (transportError) {
-        console.warn(`[MCP] 关闭会话 ${sessionId} 传输层时发生错误:`, transportError);
-        
-        // 如果常规关闭失败，尝试强制终止子进程
+        console.log(`[MCP] 会话 ${sessionId} Vercel SDK客户端已关闭`);
+      } else {
+        // 先尝试关闭MCP客户端连接
         try {
-          const childProcess = (sessionInfo.transport as any)?.process;
-          if (childProcess && typeof childProcess.kill === 'function') {
-            console.log(`[MCP] 尝试强制终止会话 ${sessionId} 的子进程`);
-            childProcess.kill('SIGTERM'); // 尝试正常终止
-            
-            // 给进程一点时间正常退出
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            // 如果进程仍在运行，强制终止
-            if (!childProcess.killed) {
-              console.log(`[MCP] 会话 ${sessionId} 的子进程未响应SIGTERM，尝试SIGKILL`);
-              childProcess.kill('SIGKILL');
+          await sessionInfo.client.close();
+          console.log(`[MCP] 会话 ${sessionId} 客户端已关闭`);
+        } catch (clientError) {
+          console.warn(`[MCP] 关闭会话 ${sessionId} 客户端时发生错误:`, clientError);
+          // 继续尝试关闭传输层
+        }
+        
+        // 再关闭传输层连接
+        try {
+          await sessionInfo.transport.close();
+          console.log(`[MCP] 会话 ${sessionId} 传输层已关闭`);
+        } catch (transportError) {
+          console.warn(`[MCP] 关闭会话 ${sessionId} 传输层时发生错误:`, transportError);
+          
+          // 如果常规关闭失败，尝试强制终止子进程
+          try {
+            const childProcess = (sessionInfo.transport as any)?.process;
+            if (childProcess && typeof childProcess.kill === 'function') {
+              console.log(`[MCP] 尝试强制终止会话 ${sessionId} 的子进程`);
+              childProcess.kill('SIGTERM'); // 尝试正常终止
+              
+              // 给进程一点时间正常退出
+              await new Promise(resolve => setTimeout(resolve, 500));
+              
+              // 如果进程仍在运行，强制终止
+              if (!childProcess.killed) {
+                console.log(`[MCP] 会话 ${sessionId} 的子进程未响应SIGTERM，尝试SIGKILL`);
+                childProcess.kill('SIGKILL');
+              }
             }
+          } catch (killError) {
+            console.error(`[MCP] 强制终止会话 ${sessionId} 子进程失败:`, killError);
           }
-        } catch (killError) {
-          console.error(`[MCP] 强制终止会话 ${sessionId} 子进程失败:`, killError);
         }
       }
       
@@ -294,14 +413,16 @@ export class McpClientService {
       
       // 确保会话被清理，即使发生错误
       try {
-        // 尝试通过引用直接获取子进程并终止
-        const childProcess = (sessionInfo.transport as any)?.process;
-        if (childProcess && typeof childProcess.kill === 'function') {
-          try {
-            childProcess.kill('SIGKILL');
-            console.log(`[MCP] 已强制终止会话 ${sessionId} 子进程`);
-          } catch (killError) {
-            console.error(`[MCP] 强制终止会话 ${sessionId} 子进程失败:`, killError);
+        // 如果是传统会话，尝试通过引用直接获取子进程并终止
+        if (!sessionInfo.isVercelSdk) {
+          const childProcess = (sessionInfo.transport as any)?.process;
+          if (childProcess && typeof childProcess.kill === 'function') {
+            try {
+              childProcess.kill('SIGKILL');
+              console.log(`[MCP] 已强制终止会话 ${sessionId} 子进程`);
+            } catch (killError) {
+              console.error(`[MCP] 强制终止会话 ${sessionId} 子进程失败:`, killError);
+            }
           }
         }
         
