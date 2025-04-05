@@ -16,13 +16,40 @@ export interface McpToolDescription {
 
 export interface McpSessionInfo {
   sessionId: string;
-  port: number;
+  port?: number;
   tools: string[];
 }
 
 export interface McpToolResult {
   content: any;
   [key: string]: any;
+}
+
+/**
+ * 测试 MCP 服务器连接
+ * 用于验证服务器配置是否正确，可以获取到工具
+ * 
+ * @param config 服务器配置
+ * @returns 可用工具列表
+ */
+export async function testMcpConnection(config: McpServerConfig): Promise<string[]> {
+  console.log('[MCP客户端] 测试连接:', config);
+  
+  const response = await fetch('/api/mcp/test-connection', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(config),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || `连接失败 (${response.status})`);
+  }
+  
+  const result = await response.json();
+  return result.tools;
 }
 
 /**
@@ -51,7 +78,7 @@ export class McpClient {
     console.log('[McpClient] 连接到服务器, 配置:', config);
     
     try {
-      const response = await fetch(`${this.baseUrl}/api/mcp/client`, {
+      const response = await fetch(`${this.baseUrl}/api/mcp/session`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -128,7 +155,7 @@ export class McpClient {
         },
         body: JSON.stringify({
           sessionId: this.sessionInfo.sessionId,
-          tool,
+          toolName: tool,
           input
         }),
       });
@@ -158,7 +185,7 @@ export class McpClient {
     }
     
     try {
-      const response = await fetch(`${this.baseUrl}/api/mcp/client?sessionId=${this.sessionInfo.sessionId}`, {
+      const response = await fetch(`${this.baseUrl}/api/mcp/session?sessionId=${this.sessionInfo.sessionId}`, {
         method: 'DELETE',
       });
       
@@ -204,5 +231,62 @@ export function parseMcpConfig(json: string | null | undefined): Record<string, 
   } catch (error) {
     console.error('[McpClient] 解析 MCP 配置失败:', error);
     return null;
+  }
+}
+
+/**
+ * @deprecated 使用 McpClient 类替代
+ * 兼容旧版 McpSession 类
+ */
+export class McpSession {
+  private client: McpClient;
+  
+  constructor() {
+    this.client = new McpClient();
+  }
+  
+  /**
+   * 检查是否已连接
+   */
+  isConnected(): boolean {
+    return this.client.isConnected();
+  }
+  
+  /**
+   * 获取可用工具列表
+   */
+  getTools(): McpToolDescription[] {
+    return this.client.getAvailableTools().map(name => ({ name }));
+  }
+  
+  /**
+   * 获取会话ID
+   */
+  getSessionId(): string | null {
+    return this.client.getSessionInfo()?.sessionId || null;
+  }
+  
+  /**
+   * 创建 MCP 会话
+   * @param config 服务器配置
+   */
+  async connect(config: McpServerConfig): Promise<McpSessionInfo> {
+    return this.client.connect(config);
+  }
+  
+  /**
+   * 调用 MCP 工具
+   * @param toolName 工具名称
+   * @param input 工具输入
+   */
+  async callTool(toolName: string, input: any): Promise<any> {
+    return this.client.callTool(toolName, input);
+  }
+  
+  /**
+   * 关闭 MCP 会话
+   */
+  async close(): Promise<void> {
+    await this.client.disconnect();
   }
 } 

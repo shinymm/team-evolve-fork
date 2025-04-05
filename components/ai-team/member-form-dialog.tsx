@@ -16,7 +16,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/componen
 import { Pencil, Loader2, AlertCircle, CheckCircle, PlugZap, Code, ExternalLink, HelpCircle, Clipboard } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { parseMcpConfig, testMcpConnection, McpServerConfig } from '@/lib/mcp-client'
+import { parseMcpConfig, testMcpConnection, McpServerConfig } from '@/lib/mcp/client'
 
 export interface MemberFormData {
   id?: string
