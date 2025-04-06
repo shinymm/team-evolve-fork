@@ -16,7 +16,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/componen
 import { Pencil, Loader2, AlertCircle, CheckCircle, PlugZap, Code, ExternalLink, HelpCircle, Clipboard } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { parseMcpConfig, testMcpConnection, McpServerConfig } from '@/lib/mcp/client'
+import { parseMcpConfig, testMcpConnection, McpServerConfig, McpSseConfig } from '@/lib/mcp/client'
 
 export interface MemberFormData {
   id?: string
@@ -31,7 +31,7 @@ export interface MemberFormData {
 
 interface ParsedMcpServer {
   name: string;
-  config: McpServerConfig;
+  config: McpServerConfig | McpSseConfig;
 }
 
 interface ServerStatus {
@@ -161,7 +161,7 @@ export function MemberFormDialog({
       if (parsed && typeof parsed === 'object' && parsed.mcpServers && typeof parsed.mcpServers === 'object') {
         const servers: ParsedMcpServer[] = Object.entries(parsed.mcpServers).map(([name, config]) => ({
           name,
-          config: config as McpServerConfig,
+          config: config as (McpServerConfig | McpSseConfig),
         }));
         setParsedServers(servers);
         setIsEditingJson(false);
@@ -547,82 +547,29 @@ export function MemberFormDialog({
                                     <Code size={14} />
                                     {server.name}
                                   </CardTitle>
-                                  <div className="flex gap-1">
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => {
-                                        // 测试特定服务器连接
-                                        const serverConfig = server.config;
-                                        setServerStatusMap(prev => ({
-                                          ...prev,
-                                          [server.name]: {
-                                            status: 'testing',
-                                            tools: []
-                                          }
-                                        }));
-                                        
-                                        testMcpConnection(serverConfig)
-                                          .then(tools => {
-                                            setServerStatusMap(prev => ({
-                                              ...prev,
-                                              [server.name]: {
-                                                status: 'success',
-                                                tools
-                                              }
-                                            }));
-                                            console.log(`服务器 "${server.name}" 测试成功，可用工具:`, tools);
-                                          })
-                                          .catch(error => {
-                                            console.error(`服务器 "${server.name}" 测试失败:`, error);
-                                            setServerStatusMap(prev => ({
-                                              ...prev,
-                                              [server.name]: {
-                                                status: 'error',
-                                                tools: [],
-                                                error: error instanceof Error ? error.message : '测试失败'
-                                              }
-                                            }));
-                                          });
-                                      }}
-                                      disabled={serverStatusMap[server.name]?.status === 'testing' || !isCommandPotentiallyTestable(server.config.command, server.config.args)}
-                                      className="flex items-center px-2 h-7 text-xs"
-                                    >
-                                      {serverStatusMap[server.name]?.status === 'testing' ? (
-                                        <>
-                                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                          测试中
-                                        </>
-                                      ) : (
-                                        <>
-                                          <PlugZap className="h-3 w-3 mr-1" />
-                                          测试
-                                        </>
-                                      )}
-                                    </Button>
-                                  </div>
                                 </div>
                               </CardHeader>
                               <CardContent className="py-2 px-4 text-xs">
                                 <div className="font-mono bg-muted/30 p-2 rounded max-h-20 overflow-auto">
-                                  <div><span className="text-blue-600">command:</span> {server.config.command}</div>
-                                  <div><span className="text-blue-600">args:</span> {JSON.stringify(server.config.args)}</div>
+                                  {'url' in server.config ? (
+                                    <>
+                                      <div><span className="text-blue-600">url:</span> {server.config.url}</div>
+                                      {server.config.headers && (
+                                        <div>
+                                          <span className="text-blue-600">headers:</span>
+                                          <pre className="mt-1 pl-2">
+                                            {JSON.stringify(server.config.headers, null, 2)}
+                                          </pre>
+                                        </div>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <>
+                                      <div><span className="text-blue-600">command:</span> {server.config.command}</div>
+                                      <div><span className="text-blue-600">args:</span> {JSON.stringify(server.config.args)}</div>
+                                    </>
+                                  )}
                                 </div>
-                                
-                                {serverStatusMap[server.name]?.status === 'success' && (
-                                  <div className="mt-1 text-green-600 flex items-center">
-                                    <CheckCircle className="h-3 w-3 mr-1" />
-                                    可用工具: {serverStatusMap[server.name]?.tools.join(', ')}
-                                  </div>
-                                )}
-                                
-                                {serverStatusMap[server.name]?.status === 'error' && (
-                                  <div className="mt-1 text-red-500 flex items-center">
-                                    <AlertCircle className="h-3 w-3 mr-1" />
-                                    {serverStatusMap[server.name]?.error}
-                                  </div>
-                                )}
                               </CardContent>
                             </Card>
                           ))}

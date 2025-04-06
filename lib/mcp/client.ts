@@ -8,6 +8,11 @@ export interface McpServerConfig {
   args: string[];
 }
 
+export interface McpSseConfig {
+  url: string;
+  headers?: Record<string, string>;
+}
+
 export interface McpToolDescription {
   name: string;
   description?: string;

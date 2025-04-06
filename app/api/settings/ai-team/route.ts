@@ -21,8 +21,26 @@ function isValidMcpServerConfig(config: any): boolean {
   for (const [key, server] of Object.entries(config.mcpServers)) {
     if (!server || typeof server !== 'object') continue;
     
-    // 验证必需的字段
-    if (typeof (server as any).command !== 'string' || (server as any).command.trim() === '') {
+    // 检查是否为SSE配置
+    if ('url' in server) {
+      // SSE模式验证
+      if (typeof (server as any).url !== 'string' || !(server as any).url.trim()) {
+        console.warn(`MCP 服务器 "${key}" 配置缺少有效的 url 字段`);
+        continue;
+      }
+      
+      // headers是可选的，但如果存在必须是对象
+      if ('headers' in server && (typeof (server as any).headers !== 'object' || (server as any).headers === null)) {
+        console.warn(`MCP 服务器 "${key}" 配置的 headers 字段必须是对象`);
+        continue;
+      }
+      
+      hasValidServer = true;
+      continue;
+    }
+    
+    // 命令行模式验证
+    if (!('command' in server) || typeof (server as any).command !== 'string' || (server as any).command.trim() === '') {
       console.warn(`MCP 服务器 "${key}" 配置缺少有效的 command 字段`);
       continue;
     }
