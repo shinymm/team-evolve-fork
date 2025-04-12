@@ -596,8 +596,12 @@ export class McpClientService {
       } else {
         // 先尝试关闭MCP客户端连接
         try {
-          await sessionInfo.client.close();
-          console.log(`[MCP] 会话 ${sessionId} 客户端已关闭`);
+          if (sessionInfo.client) {
+            await sessionInfo.client.close();
+            console.log(`[MCP] 会话 ${sessionId} 客户端已关闭`);
+          } else {
+            console.log(`[MCP] 会话 ${sessionId} (类型: ${sessionInfo.isStreamableHttp ? 'StreamableHttp' : '未知'}) 没有独立的客户端对象，跳过客户端关闭`);
+          }
         } catch (clientError) {
           console.warn(`[MCP] 关闭会话 ${sessionId} 客户端时发生错误:`, clientError);
           // 继续尝试关闭传输层
