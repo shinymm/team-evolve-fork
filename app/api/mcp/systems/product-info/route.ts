@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { timingSafeEqual } from 'crypto';
+// import { timingSafeEqual } from 'crypto'; // 不再需要直接导入
+import { safeCompare } from '@/lib/utils/auth-utils'; // 导入 safeCompare
 
 // --- Start: API Key Authentication Logic (Copied from /api/mcp/systems/route.ts) ---
 
@@ -8,26 +9,6 @@ const EXPECTED_API_KEY = process.env.MCP_SERVER_API_KEY;
 
 if (!EXPECTED_API_KEY) {
   console.warn("[MCP Systems ProductInfo API] 警告: 环境变量 MCP_SERVER_API_KEY 未设置。此 API 将无法正常工作。");
-}
-
-function safeCompare(a: string | undefined | null, b: string | undefined | null): boolean {
-  if (!a || !b) {
-    return false;
-  }
-  try {
-    const bufA = Buffer.from(a);
-    const bufB = Buffer.from(b);
-    if (bufA.length !== bufB.length) {
-        const crypto = require('crypto');
-        const randomBytes = crypto.randomBytes(bufA.length);
-        timingSafeEqual(Uint8Array.from(bufA), Uint8Array.from(randomBytes));
-        return false;
-    }
-    return timingSafeEqual(Uint8Array.from(bufA), Uint8Array.from(bufB));
-  } catch (error) {
-    console.error("[MCP Systems ProductInfo API] 安全比较时出错:", error);
-    return false;
-  }
 }
 
 async function authenticateRequest(request: Request): Promise<{ authorized: boolean; errorResponse?: NextResponse }> {
@@ -100,19 +81,32 @@ export async function GET(request: Request) {
       }
     });
 
+    // 处理查询结果: 如果系统不存在或没有产品信息，返回 200 OK 和空结构
     if (!systemWithProductInfo) {
-      console.log(`[MCP Systems ProductInfo API] System not found or inactive (case-insensitive): ${systemName}`);
-      return NextResponse.json({ error: `系统 '${systemName}' 未找到或非活动状态` }, { status: 404 });
+      console.log(`[MCP Systems ProductInfo API] System not found or inactive: ${systemName}. Returning empty product info.`);
+      return NextResponse.json(
+        { overview: '', userPersona: [], architecture: {} }, 
+        { status: 200 }
+      );
     }
 
     if (!systemWithProductInfo.productInfo) {
-      console.log(`[MCP Systems ProductInfo API] ProductInfo not found for system: ${systemName} (Matched name: ${systemWithProductInfo.name})`);
-       return NextResponse.json({ error: `系统 '${systemName}' (匹配为 ${systemWithProductInfo.name}) 未找到对应的产品信息` }, { status: 404 });
+      console.log(`[MCP Systems ProductInfo API] ProductInfo not found for system: ${systemName} (Matched name: ${systemWithProductInfo.name}). Returning empty product info.`);
+       return NextResponse.json(
+         { overview: '', userPersona: [], architecture: {} }, 
+         { status: 200 }
+       );
     }
 
+    // 如果系统和产品信息都存在，则正常返回
     console.log(`[MCP Systems ProductInfo API] Successfully fetched product info for system: ${systemName}`);
-    // Return only the productInfo part
-    return NextResponse.json(systemWithProductInfo.productInfo);
+    // Return only the productInfo part, ensuring potential null values are handled (though schema might prevent them)
+    const productInfo = systemWithProductInfo.productInfo;
+    return NextResponse.json({
+        overview: productInfo.overview || '',
+        userPersona: productInfo.userPersona || [], // Assuming userPersona is an array or similar
+        architecture: productInfo.architecture || {} // Assuming architecture is an object
+    });
 
   } catch (error) {
     console.error(`[MCP Systems ProductInfo API] 获取系统 '${systemName}' 产品信息失败:`, error);
