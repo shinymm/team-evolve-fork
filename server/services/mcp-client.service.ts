@@ -4,18 +4,27 @@
  * 参考文档: https://modelcontextprotocol.io/quickstart/client
  */
 
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+// 导入基础SDK
+import { Client } from '@modelcontextprotocol/sdk/client';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio';
 import { join } from 'path';
 import { readFileSync } from 'fs';
 // 导入Vercel AI SDK的实验性MCP客户端
 import { experimental_createMCPClient } from 'ai';
 import { Experimental_StdioMCPTransport } from 'ai/mcp-stdio';
+// 导入ClientSession
+import { ClientSession } from '@modelcontextprotocol/sdk';
+// 导入HTTP模块
+import * as http from 'http';
+import * as https from 'https';
+import { URL } from 'url';
+// 使用自己实现的StreamableHttpClientTransport
+import { StreamableHttpClientTransport } from '@/lib/mcp/streamableHttp';
 
 // 会话管理
 type McpSessionInfo = {
-  client: Client | any; // 修改为支持多种客户端类型
-  transport: StdioClientTransport | any; // 修改为支持多种传输类型
+  client: Client | any; // 支持多种客户端类型
+  transport: any; // 传输层可以是任意类型，支持多种传输方式
   tools: any[];
   formattedTools?: any[]; // 格式化后的工具列表，直接供AI使用
   aiModelConfig?: {      // 缓存的AI模型配置
@@ -38,6 +47,7 @@ type McpSessionInfo = {
   startTime: number;
   lastUsed: number;
   isVercelSdk?: boolean; // 标记是否使用Vercel SDK连接
+  isStreamableHttp?: boolean; // StreamableHttp连接方式标记
 };
 
 // 活跃会话映射
@@ -216,13 +226,168 @@ export class McpClientService {
   }
 
   /**
+   * 测试服务器可用性
+   * 发送简单HTTP请求检查服务器是否可访问
+   */
+  private async testServerAvailability(url: string): Promise<boolean> {
+    try {
+      console.log(`[MCP] 测试服务器可用性: ${url}`);
+      
+      const urlObj = new URL(url);
+      const isSecure = urlObj.protocol === 'https:';
+      const httpLib = isSecure ? https : http;
+      
+      const options = {
+        hostname: urlObj.hostname,
+        port: urlObj.port || (isSecure ? 443 : 80),
+        path: urlObj.pathname,
+        method: 'HEAD',
+        timeout: 10000,
+        headers: {
+          'User-Agent': 'MCP-Client-Test/1.0'
+        }
+      };
+      
+      return new Promise<boolean>((resolve, reject) => {
+        const req = httpLib.request(options, (res) => {
+          console.log(`[MCP] 服务器测试响应状态码: ${res.statusCode}`);
+          resolve(true);
+        });
+        
+        req.on('error', (err) => {
+          console.error(`[MCP] 服务器测试失败: ${err.message}`);
+          reject(new Error(`服务器测试失败: ${err.message}`));
+        });
+        
+        req.on('timeout', () => {
+          console.error(`[MCP] 服务器测试超时`);
+          req.destroy();
+          reject(new Error('服务器测试连接超时'));
+        });
+        
+        req.end();
+      });
+    } catch (error) {
+      console.error(`[MCP] 服务器测试异常: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`无法连接到服务器: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
    * 连接到MCP服务器并返回会话ID和工具列表
    */
   async connect(command: string, args: string[], sessionId?: string): Promise<{ sessionId: string; tools: any[] }> {
     // 验证配置合法性
-    const validation = this.validateServerConfig(command, args);
-    if (!validation.valid) {
-      throw new Error(`无效的服务器配置: ${validation.error}`);
+    if (command === '_STREAMABLE_HTTP_') {
+      // Streamable HTTP连接方式（符合官方SDK推荐用法）
+      console.log('[MCP] 使用标准StreamableHttp连接方式');
+      
+      // 提取URL参数
+      const urlArgIndex = args.indexOf('--url') + 1;
+      if (urlArgIndex <= 0 || urlArgIndex >= args.length) {
+        throw new Error('无效的Streamable HTTP配置: 缺少URL参数');
+      }
+      
+      const httpUrl = args[urlArgIndex];
+      console.log(`[MCP] 使用Streamable HTTP连接: ${httpUrl}`);
+
+      // 先测试服务器可用性
+      try {
+        // await this.testServerAvailability(httpUrl); // <--- 注释掉这一行
+
+        // 生成唯一会话ID
+        const newSessionId = sessionId || `mcp-http-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
+        // 创建Streamable HTTP传输层（根据官方SDK实现）
+        console.log('[MCP] 创建Streamable HTTP传输层');
+        const httpTransport = new StreamableHttpClientTransport(
+          httpUrl,
+          {
+            headers: {
+              'User-Agent': 'MCP-Client/1.0',
+              'Content-Type': 'application/json',
+              'Accept': 'application/json, text/event-stream'
+            }
+          }
+        );
+        
+        // -- 执行手动初始化握手 --
+        console.log('[MCP] 手动执行 Initialize 握手...');
+        const initializeId = `init-${Date.now()}`;
+        await httpTransport.send({ 
+          jsonrpc: "2.0", 
+          method: "initialize", 
+          params: { 
+            // 与 transport 内部的 connect 匹配 (如果需要)
+             capabilities: {}, 
+             protocolVersion: "2025-03-26", 
+             clientInfo: { name: "mcp-robust-client", version: "1.0.0" } 
+          },
+          id: initializeId
+        });
+        
+        // 接收 initialize 响应 (主要目的是让 transport 捕获 session ID)
+        const initializeResponse = await httpTransport.receive();
+        if (initializeResponse.error || !initializeResponse.result) {
+             console.error('[MCP] Initialize 握手失败:', initializeResponse);
+             throw new Error('MCP Initialize 握手失败');
+        }
+        // 确认 transport 已获取 session ID
+        if (!httpTransport.sessionId) {
+            console.error('[MCP] Initialize 后未能获取 Session ID');
+            throw new Error('未能从服务器获取 Session ID');
+        }
+        console.log(`[MCP] Initialize 握手成功，获取 Session ID: ${httpTransport.sessionId}`);
+        const actualSessionId = httpTransport.sessionId; // 使用服务器提供的Session ID
+
+        // -- 初始化完成，现在获取工具列表 --
+        console.log('[MCP] 直接发送 tools/list 请求 (使用服务器 Session ID)...');
+        const listToolsId = `listTools-${actualSessionId}`;
+        await httpTransport.send({ 
+            jsonrpc: "2.0", // 保持JSON-RPC结构发送
+            method: "tools/list", // <-- 使用 mcp-framework 的方法名
+            params: {}, 
+            id: listToolsId 
+        });
+        
+        // 直接接收 tools/list 响应
+        console.log('[MCP] 直接接收 tools/list 响应...');
+        const toolListResponse = await httpTransport.receive(); 
+        
+        // 验证响应 (改回检查 result.tools)
+        if (!toolListResponse || !toolListResponse.result || !Array.isArray(toolListResponse.result.tools)) { // <-- 检查 response.result.tools
+            console.error('[MCP] 无效的 tools/list 响应 (JSON-RPC 格式):', toolListResponse);
+            throw new Error('从服务器获取工具列表失败');
+        }
+        const tools = toolListResponse.result.tools; // <-- 从 response.result.tools 获取
+        console.log(`[MCP] 发现 ${tools.length} 个工具 (直接调用)`);
+
+        // 存储会话信息 (使用服务器提供的 Session ID)
+        const sessionInfo: McpSessionInfo = {
+          client: null, // 标记为直接传输会话
+          transport: httpTransport,
+          tools,
+          startTime: Date.now(),
+          lastUsed: Date.now(),
+          isStreamableHttp: true
+        };
+        
+        activeSessions.set(actualSessionId, sessionInfo);
+        
+        return {
+          sessionId: actualSessionId,
+          tools
+        };
+      } catch (error) {
+        console.error('[MCP] 连接失败:', error);
+        throw new Error(error instanceof Error ? error.message : '连接MCP服务器失败');
+      }
+    } else {
+      // 标准命令连接方式
+      const validation = this.validateServerConfig(command, args);
+      if (!validation.valid) {
+        throw new Error(`无效的服务器配置: ${validation.error}`);
+      }
     }
     
     // 检测是否在Vercel环境
@@ -269,12 +434,6 @@ export class McpClientService {
         const client = new Client({
           name: "MCP-Client",
           version: "1.0.0"
-        }, {
-          capabilities: {
-            tools: {},
-            resources: {},
-            prompts: {}
-          }
         });
 
         // 连接到服务器
@@ -333,8 +492,39 @@ export class McpClientService {
           throw new Error(`工具 ${toolName} 在当前会话中不可用`);
         }
         return await toolsObj[toolName](input);
+      } else if (sessionInfo.isStreamableHttp && sessionInfo.client === null) {
+        // 使用直接 Streamable HTTP 传输调用工具
+        console.log(`[MCP] 使用直接 HTTP 传输调用工具 ${toolName}`);
+        const callToolId = `callTool-${sessionId}-${Date.now()}`;
+        const transport = sessionInfo.transport as StreamableHttpClientTransport;
+        
+        // 发送 call_tool 请求
+        await transport.send({
+          jsonrpc: "2.0",
+          method: "call_tool",
+          params: { 
+            name: toolName,
+            parameters: input // 直接使用输入作为参数
+          },
+          id: callToolId
+        });
+        
+        // 接收 call_tool 响应
+        const result = await transport.receive();
+        console.log(`[MCP] 直接 HTTP 传输收到工具 ${toolName} 结果:`, result);
+        
+        // 假设 transport.receive 返回的是 { result: ... } 或直接是结果
+        // 需要根据 transport.receive 的实际返回值调整
+        if (result && result.result) {
+            return result.result; // 如果返回的是完整 JSON-RPC 对象
+        } else if (result) {
+             return result; // 如果 transport.receive 已提取结果
+        } else {
+            throw new Error('调用工具未收到预期结果');
+        }
+
       } else {
-        // 使用传统SDK调用工具
+        // 使用标准Client API调用工具
         const result = await sessionInfo.client.callTool({
           name: toolName,
           arguments: input

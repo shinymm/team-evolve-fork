@@ -6,8 +6,10 @@ import { getApiEndpointAndHeaders } from '@/lib/services/ai-service';
 
 // 会话创建请求
 interface CreateSessionRequest {
-  command: string;
-  args: string[];
+  command?: string;
+  args?: string[];
+  url?: string;
+  headers?: Record<string, string>;
   memberInfo?: {
     name: string;
     role: string;
@@ -70,7 +72,10 @@ const saveUserSessionMapping = (userKey: string, sessionId: string) => {
 export async function POST(req: Request) {
   try {
     // 解析请求参数
-    const { command, args, memberInfo, userSessionKey } = await req.json() as CreateSessionRequest;
+    const { command, args, url, headers, memberInfo, userSessionKey } = await req.json() as CreateSessionRequest;
+    
+    // 确定是SSE连接还是命令行连接
+    const isSSE = !!url; 
     
     // 如果提供了用户会话键，检查是否已存在会话
     if (userSessionKey) {
@@ -102,15 +107,39 @@ export async function POST(req: Request) {
       }
     }
     
-    // 验证配置
-    const validation = mcpClientService.validateServerConfig(command, args);
-    if (!validation.valid) {
-      return NextResponse.json({ error: validation.error }, { status: 400 });
-    }
+    let sessionId: string;
+    let tools: any[];
     
-    // 连接服务器并创建会话
-    console.log(`[MCP会话] 创建会话: ${command} ${args.join(' ')}`);
-    const { sessionId, tools } = await mcpClientService.connect(command, args);
+    if (isSSE) {
+      // SSE连接
+      if (!url) {
+        return NextResponse.json({ error: '无效的SSE配置: URL不能为空' }, { status: 400 });
+      }
+      
+      console.log(`[MCP会话] 创建SSE会话: ${url}`);
+      
+      // 使用特殊命令标识SSE连接
+      const { sessionId: newSessionId, tools: sseTools } = await mcpClientService.connect('_SSE_CONNECTION_', ['--url', url]);
+      sessionId = newSessionId;
+      tools = sseTools;
+    } else {
+      // 命令行连接
+      if (!command || !args) {
+        return NextResponse.json({ error: '无效的服务器配置: 命令和参数必须存在' }, { status: 400 });
+      }
+      
+      // 验证配置
+      const validation = mcpClientService.validateServerConfig(command, args);
+      if (!validation.valid) {
+        return NextResponse.json({ error: validation.error }, { status: 400 });
+      }
+      
+      // 连接服务器并创建会话
+      console.log(`[MCP会话] 创建会话: ${command} ${args.join(' ')}`);
+      const result = await mcpClientService.connect(command, args);
+      sessionId = result.sessionId;
+      tools = result.tools;
+    }
     
     // 如果提供了用户会话键，保存映射关系
     if (userSessionKey) {

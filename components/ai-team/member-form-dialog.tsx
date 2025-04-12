@@ -16,7 +16,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/componen
 import { Pencil, Loader2, AlertCircle, CheckCircle, PlugZap, Code, ExternalLink, HelpCircle, Clipboard } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { parseMcpConfig, testMcpConnection, McpServerConfig, McpSseConfig } from '@/lib/mcp/client'
+import { parseMcpConfig, testMcpConnection, McpServerConfig, McpSseConfig, McpStreamableHttpConfig } from '@/lib/mcp/client'
 
 export interface MemberFormData {
   id?: string
@@ -31,7 +31,7 @@ export interface MemberFormData {
 
 interface ParsedMcpServer {
   name: string;
-  config: McpServerConfig | McpSseConfig;
+  config: McpServerConfig | McpSseConfig | McpStreamableHttpConfig;
 }
 
 interface ServerStatus {
@@ -48,25 +48,34 @@ interface MemberFormDialogProps {
   onClose: () => void
 }
 
-// 放宽客户端命令格式验证规则
-const isCommandPotentiallyTestable = (command?: string, args?: string[]) => {
-  // 记录详细日志以便调试
-  console.log('[isCommandPotentiallyTestable] 检查命令:', command, '参数:', args);
+// 检查配置是否可测试
+const isConfigTestable = (config: McpServerConfig | McpSseConfig | McpStreamableHttpConfig) => {
+  // 检查是否是URL配置（SSE或Streamable HTTP）
+  if ('url' in config) {
+    try {
+      const urlObj = new URL(String(config.url));
+      return true;
+    } catch (e) {
+      console.log('[isConfigTestable] 无效URL:', config.url, e);
+      return false;
+    }
+  }
   
-  // 如果没有命令或参数，不可测试
+  // 命令行配置检查
+  const command = config.command;
+  const args = config.args;
+  
   if (!command || !args || args.length < 2) {
-    console.log('[isCommandPotentiallyTestable] 命令或参数无效');
+    console.log('[isConfigTestable] 命令或参数无效');
     return false;
   }
   
-  // 放宽检查条件：只要命令是npx且有参数就行
-  // 后端会严格验证白名单，前端只需基本检查命令格式
   if (command === 'npx' && args[0] === '-y') {
-    console.log('[isCommandPotentiallyTestable] 命令格式有效:', command, args);
+    console.log('[isConfigTestable] 命令格式有效:', command, args);
     return true;
   }
   
-  console.log('[isCommandPotentiallyTestable] 命令格式无效');
+  console.log('[isConfigTestable] 命令格式无效');
   return false;
 };
 
@@ -161,7 +170,7 @@ export function MemberFormDialog({
       if (parsed && typeof parsed === 'object' && parsed.mcpServers && typeof parsed.mcpServers === 'object') {
         const servers: ParsedMcpServer[] = Object.entries(parsed.mcpServers).map(([name, config]) => ({
           name,
-          config: config as (McpServerConfig | McpSseConfig),
+          config: config as (McpServerConfig | McpSseConfig | McpStreamableHttpConfig),
         }));
         setParsedServers(servers);
         setIsEditingJson(false);
@@ -214,11 +223,6 @@ export function MemberFormDialog({
       // 测试第一个服务器
       const serverName = serverNames[0];
       const serverConfig = mcpConfig[serverName];
-      
-      // 验证配置格式
-      if (!serverConfig.command || !Array.isArray(serverConfig.args)) {
-        throw new Error(`服务器 "${serverName}" 配置格式无效`);
-      }
       
       console.log(`测试 MCP 服务器 "${serverName}" 连接:`, serverConfig);
       
@@ -290,7 +294,7 @@ export function MemberFormDialog({
       parsedServers.forEach(server => {
         console.log(`服务器: ${server.name}`);
         console.log(`配置:`, server.config);
-        console.log(`命令可测试: ${isCommandPotentiallyTestable(server.config.command, server.config.args)}`);
+        console.log(`可测试: ${isConfigTestable(server.config)}`);
         console.log('----------------------------');
       });
     }
@@ -507,7 +511,38 @@ export function MemberFormDialog({
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>插入示例配置</p>
+                              <p>插入命令行配置示例</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+
+                        {/* 添加Streamable HTTP配置示例按钮 */}
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={() => {
+                                  const mcpStreamableHttpConfig = {
+                                    mcpServers: {
+                                      "crew-ai-mcp": {
+                                        url: "https://crew-ai-mcp-b7cdf81f032f.herokuapp.com/mcp"
+                                      }
+                                    }
+                                  };
+                                  setFormData(prev => ({ 
+                                    ...prev, 
+                                    mcpConfigJson: JSON.stringify(mcpStreamableHttpConfig, null, 2) 
+                                  }));
+                                  tryParseJson(JSON.stringify(mcpStreamableHttpConfig, null, 2));
+                                }}
+                              >
+                                <ExternalLink size={18} />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>插入Streamable HTTP配置示例</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -547,6 +582,29 @@ export function MemberFormDialog({
                                     <Code size={14} />
                                     {server.name}
                                   </CardTitle>
+                                  
+                                  {/* 测试连接按钮 */}
+                                  {isConfigTestable(server.config) && (
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm" 
+                                      className="flex gap-1 items-center h-7"
+                                      onClick={handleTestConnection}
+                                      disabled={testingTools}
+                                    >
+                                      {testingTools ? (
+                                        <>
+                                          <Loader2 size={12} className="animate-spin" />
+                                          <span>测试中</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <PlugZap size={12} />
+                                          <span>测试</span>
+                                        </>
+                                      )}
+                                    </Button>
+                                  )}
                                 </div>
                               </CardHeader>
                               <CardContent className="py-2 px-4 text-xs">
@@ -571,6 +629,47 @@ export function MemberFormDialog({
                                   )}
                                 </div>
                               </CardContent>
+                              
+                              {/* 测试结果展示区域 */}
+                              {testingTools && (
+                                <CardFooter className="bg-muted/20 py-2 px-4 text-xs border-t">
+                                  <div className="w-full text-center">
+                                    <Loader2 size={16} className="animate-spin mx-auto" />
+                                    <p className="mt-1">连接服务器中...</p>
+                                  </div>
+                                </CardFooter>
+                              )}
+                              
+                              {/* 测试成功结果 */}
+                              {!testingTools && availableTools.length > 0 && (
+                                <CardFooter className="bg-green-50 py-2 px-4 text-xs border-t">
+                                  <div className="w-full">
+                                    <div className="flex items-center gap-1 text-green-600 mb-1">
+                                      <CheckCircle size={14} />
+                                      <span>连接成功，发现 {availableTools.length} 个工具</span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {availableTools.map(tool => (
+                                        <Badge key={tool} variant="outline" className="bg-white">
+                                          {tool}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </CardFooter>
+                              )}
+                              
+                              {/* 测试失败结果 */}
+                              {!testingTools && testError && (
+                                <CardFooter className="bg-red-50 py-2 px-4 text-xs border-t">
+                                  <div className="w-full">
+                                    <div className="flex items-center gap-1 text-red-600">
+                                      <AlertCircle size={14} />
+                                      <span>连接失败: {testError}</span>
+                                    </div>
+                                  </div>
+                                </CardFooter>
+                              )}
                             </Card>
                           ))}
                         </div>

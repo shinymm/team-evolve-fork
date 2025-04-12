@@ -3,6 +3,9 @@
  * 基于官方 MCP 协议规范 (https://modelcontextprotocol.io/quickstart/client)
  */
 
+import { mcpClientService } from '@/server/services/mcp-client.service';
+import { StreamableHttpClientTransport } from './streamableHttp';
+
 export interface McpServerConfig {
   command: string;
   args: string[];
@@ -12,6 +15,15 @@ export interface McpSseConfig {
   url: string;
   headers?: Record<string, string>;
 }
+
+export interface McpStreamableHttpConfig {
+  url: string;
+  headers?: Record<string, string>;
+}
+
+export type McpConfig = {
+  [key: string]: McpServerConfig | McpSseConfig | McpStreamableHttpConfig;
+};
 
 export interface McpToolDescription {
   name: string;
@@ -30,6 +42,12 @@ export interface McpToolResult {
   [key: string]: any;
 }
 
+export interface McpTool {
+  name: string;
+  description?: string;
+  parameters?: Record<string, any>;
+}
+
 /**
  * 测试 MCP 服务器连接
  * 用于验证服务器配置是否正确，可以获取到工具
@@ -37,24 +55,27 @@ export interface McpToolResult {
  * @param config 服务器配置
  * @returns 可用工具列表
  */
-export async function testMcpConnection(config: McpServerConfig): Promise<string[]> {
-  console.log('[MCP客户端] 测试连接:', config);
-  
-  const response = await fetch('/api/mcp/test-connection', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(config),
-  });
-  
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || `连接失败 (${response.status})`);
+export async function testMcpConnection(config: McpServerConfig | McpSseConfig | McpStreamableHttpConfig): Promise<string[]> {
+  try {
+    const response = await fetch('/api/mcp/test-connection', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(config),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `连接失败 (${response.status})`);
+    }
+    
+    const result = await response.json();
+    return result.tools;
+  } catch (error) {
+    console.error('MCP连接测试失败:', error);
+    throw error;
   }
-  
-  const result = await response.json();
-  return result.tools;
 }
 
 /**

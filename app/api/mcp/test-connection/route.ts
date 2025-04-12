@@ -1,47 +1,62 @@
 import { NextResponse } from 'next/server';
-import { mcpClientService } from '../../../../server/services/mcp-client.service';
+import { mcpClientService } from '@/server/services/mcp-client.service';
+import { McpServerConfig, McpSseConfig, McpStreamableHttpConfig } from '@/lib/mcp/client';
 
 // 测试连接请求结构
 interface TestConnectionRequest {
-  command: string;
-  args: string[];
+  command?: string;
+  args?: string[];
+  url?: string;
+  headers?: Record<string, string>;
 }
 
 /**
  * 测试 MCP 服务器连接
  * 使用官方 MCP SDK 建立连接并获取工具列表
  */
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    // 解析请求参数
-    const { command, args } = await req.json() as TestConnectionRequest;
+    const config = await request.json() as McpServerConfig | McpSseConfig | McpStreamableHttpConfig;
     
-    // 验证配置
-    const validation = mcpClientService.validateServerConfig(command, args);
-    if (!validation.valid) {
-      return NextResponse.json({ error: validation.error }, { status: 400 });
+    // 如果是URL配置（SSE或Streamable HTTP）
+    if ('url' in config) {
+      const url = config.url;
+      if (!url) {
+        return NextResponse.json({ error: 'URL不能为空' }, { status: 400 });
+      }
+
+      // 验证URL格式
+      try {
+        new URL(url);
+      } catch (e) {
+        return NextResponse.json({ error: `URL格式无效: ${url}` }, { status: 400 });
+      }
+
+      // 使用Streamable HTTP方式连接
+      const { sessionId, tools } = await mcpClientService.connect(
+        '_STREAMABLE_HTTP_',
+        ['--url', url]
+      );
+
+      return NextResponse.json({ tools: tools.map(tool => tool.name) });
+    } else {
+      // 命令行配置
+      if (!config.command || !Array.isArray(config.args)) {
+        return NextResponse.json({ error: '配置格式无效' }, { status: 400 });
+      }
+
+      const { sessionId, tools } = await mcpClientService.connect(
+        config.command,
+        config.args
+      );
+
+      return NextResponse.json({ tools: tools.map(tool => tool.name) });
     }
-    
-    // 连接服务器
-    console.log(`[MCP测试] 测试连接: ${command} ${args.join(' ')}`);
-    const { sessionId, tools } = await mcpClientService.connect(command, args);
-    
-    // 连接成功，返回工具列表
-    console.log(`[MCP测试] 测试成功, 会话ID: ${sessionId}, 工具:`, tools.map(t => t.name));
-    
-    // 测试完成后关闭会话
-    await mcpClientService.closeSession(sessionId);
-    
-    // 返回成功结果
-    return NextResponse.json({ 
-      tools: tools.map(t => t.name)
-    });
   } catch (error) {
-    // 处理错误
-    console.error('[MCP测试] 测试连接失败:', error);
-    
-    return NextResponse.json({ 
-      error: error instanceof Error ? error.message : '未知错误'
-    }, { status: 500 });
+    console.error('MCP连接测试失败:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : '连接失败' },
+      { status: 500 }
+    );
   }
 } 
