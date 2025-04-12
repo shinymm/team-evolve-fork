@@ -31,7 +31,6 @@ export function MessageItem({ message, memberName, memberInitial }: MessageItemP
   // 过滤出非执行中状态的工具调用
   const finalToolCalls = message.toolCalls?.filter(tc => tc.status !== 'running')
   const hasToolCalls = finalToolCalls && finalToolCalls.length > 0
-  const [expandTools, setExpandTools] = React.useState(true)
   
   // 获取工具调用状态统计
   const toolCallsStatus = hasToolCalls ? getToolCallsStatus(finalToolCalls) : null
@@ -63,39 +62,26 @@ export function MessageItem({ message, memberName, memberInitial }: MessageItemP
                 )}
               </div>
               
-              {/* 工具调用状态统计显示 - 总是显示折叠/展开按钮 */}
-              <div className="flex items-center space-x-1">
-                {/* 折叠/展开按钮 */}
-                <button 
-                  onClick={() => setExpandTools(!expandTools)}
-                  className="flex items-center text-xs text-gray-500 hover:text-gray-700 transition-colors"
-                >
-                  {expandTools ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                  <span className="ml-1">{expandTools ? '收起' : '展开'}</span>
-                </button>
-                
-                {/* 状态指示器 - 只在有多个工具时显示 */}
-                {hasMultipleTools && toolCallsStatus && (
-                  <div className="flex items-center space-x-2 px-2">
-                    {/* 不再显示running状态的统计 */}
-                    {toolCallsStatus.success > 0 && (
-                      <span className="flex items-center text-green-600">
-                        <CheckCircle size={12} className="mr-0.5" />
-                        {toolCallsStatus.success}
-                      </span>
-                    )}
-                    {toolCallsStatus.error > 0 && (
-                      <span className="flex items-center text-red-600">
-                        <XCircle size={12} className="mr-0.5" />
-                        {toolCallsStatus.error}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
+              {/* 状态指示器 - 只在有多个工具时显示 */}
+              {hasMultipleTools && toolCallsStatus && (
+                <div className="flex items-center space-x-2 px-2">
+                  {toolCallsStatus.success > 0 && (
+                    <span className="flex items-center text-green-600">
+                      <CheckCircle size={12} className="mr-0.5" />
+                      {toolCallsStatus.success}
+                    </span>
+                  )}
+                  {toolCallsStatus.error > 0 && (
+                    <span className="flex items-center text-red-600">
+                      <XCircle size={12} className="mr-0.5" />
+                      {toolCallsStatus.error}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
             
-            {/* 默认展开工具列表，但每个工具卡片内容默认折叠 */}
+            {/* 总是展示工具列表，每个工具卡片内容默认折叠 */}
             <div className={hasMultipleTools ? "space-y-2" : ""}>
               {finalToolCalls?.map((toolCall) => (
                 <ToolCallView key={toolCall.id} toolCall={toolCall} />
@@ -129,16 +115,59 @@ function ToolCallView({ toolCall }: { toolCall: ToolCall }) {
   
   const [expanded, setExpanded] = React.useState(false)
   
+  // 递归解析JSON字符串的函数
+  const parseNestedJsonString = (str: string): any => {
+    try {
+      // 尝试解析
+      const parsed = JSON.parse(str);
+      return parsed;
+    } catch (e) {
+      // 如果不是有效的JSON，返回原始字符串
+      return str;
+    }
+  };
+  
+  // 递归处理可能的嵌套结构
+  const processNestedResult = (data: any): any => {
+    // 处理字符串类型
+    if (typeof data === 'string') {
+      if ((data.startsWith('{') && data.endsWith('}')) || 
+          (data.startsWith('[') && data.endsWith(']'))) {
+        return parseNestedJsonString(data);
+      }
+      return data;
+    }
+    
+    // 处理数组类型
+    if (Array.isArray(data)) {
+      return data.map(item => processNestedResult(item));
+    }
+    
+    // 处理对象类型
+    if (data && typeof data === 'object') {
+      const result: Record<string, any> = {};
+      for (const key in data) {
+        result[key] = processNestedResult(data[key]);
+      }
+      return result;
+    }
+    
+    // 其他类型直接返回
+    return data;
+  };
+  
   // 格式化工具参数显示
   const formatArguments = (args: Record<string, any> | undefined) => {
     if (!args) return null
     
     try {
+      // 对参数进行递归处理，寻找嵌套的JSON字符串
+      const processedArgs = processNestedResult(args);
       return (
         <pre className="whitespace-pre-wrap text-2xs overflow-auto max-h-24">
-          {JSON.stringify(args, null, 2)}
+          {JSON.stringify(processedArgs, null, 2)}
         </pre>
-      )
+      );
     } catch (error) {
       return <span className="text-red-500 text-2xs">无法显示参数</span>
     }
@@ -149,17 +178,62 @@ function ToolCallView({ toolCall }: { toolCall: ToolCall }) {
     if (result === undefined || result === null) return null
     
     try {
+      // 处理特殊的API返回结构
+      if (typeof result === 'object' && result.content && Array.isArray(result.content)) {
+        // 尝试处理content数组
+        const textItem = result.content.find((item: {type: string, text?: string}) => 
+          item.type === 'text' && item.text
+        );
+        
+        if (textItem?.text) {
+          // 对文本内容中可能的JSON进行递归解析
+          const processedContent = processNestedResult(textItem.text);
+          
+          // 如果解析后的结果是对象或数组，说明成功解析了嵌套JSON
+          if (typeof processedContent === 'object') {
+            return (
+              <pre className="whitespace-pre-wrap text-2xs overflow-auto max-h-36">
+                {JSON.stringify(processedContent, null, 2)}
+              </pre>
+            );
+          }
+          
+          // 否则返回原始文本
+          return (
+            <pre className="whitespace-pre-wrap text-2xs overflow-auto max-h-36">
+              {textItem.text}
+            </pre>
+          );
+        }
+      }
+      
+      // 对各种类型的结果进行处理
       if (typeof result === 'object') {
+        // 处理对象，尝试递归解析其中的嵌套JSON字符串
+        const processedResult = processNestedResult(result);
         return (
           <pre className="whitespace-pre-wrap text-2xs overflow-auto max-h-36">
-            {JSON.stringify(result, null, 2)}
+            {JSON.stringify(processedResult, null, 2)}
           </pre>
-        )
+        );
+      } else if (typeof result === 'string') {
+        // 处理字符串，尝试解析为JSON
+        const processedResult = processNestedResult(result);
+        if (typeof processedResult === 'object') {
+          return (
+            <pre className="whitespace-pre-wrap text-2xs overflow-auto max-h-36">
+              {JSON.stringify(processedResult, null, 2)}
+            </pre>
+          );
+        }
+        // 普通字符串处理
+        return <span className="whitespace-pre-line text-2xs">{result}</span>;
       } else {
-        return <span className="whitespace-pre-line text-2xs">{String(result)}</span>
+        // 其他类型直接转为字符串
+        return <span className="whitespace-pre-line text-2xs">{String(result)}</span>;
       }
     } catch (error) {
-      return <span className="text-red-500 text-2xs">无法显示结果</span>
+      return <span className="text-red-500 text-2xs">无法显示结果</span>;
     }
   }
   
