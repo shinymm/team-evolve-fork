@@ -102,9 +102,6 @@ export function MemberFormDialog({
   const [isEditingJson, setIsEditingJson] = useState(true);
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('info');
-  const [testingTools, setTestingTools] = useState(false);
-  const [availableTools, setAvailableTools] = useState<string[]>([]);
-  const [testError, setTestError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -201,43 +198,36 @@ export function MemberFormDialog({
     setIsEditingJson(true);
   }
 
-  const handleTestConnection = async () => {
-    // 清理之前的测试结果
-    setTestingTools(true);
-    setAvailableTools([]);
-    setTestError(null);
+  const handleTestConnection = async (serverName: string, serverConfig: McpServerConfig | McpSseConfig | McpStreamableHttpConfig) => {
+    // Set status for the specific server to 'testing'
+    setServerStatusMap(prev => ({ 
+        ...prev, 
+        [serverName]: { status: 'testing', tools: [] } 
+    }));
     
     try {
-      // 尝试解析MCP配置
-      const mcpConfig = parseMcpConfig(formData.mcpConfigJson);
-      if (!mcpConfig) {
-        throw new Error('无效的MCP配置，请确保JSON格式正确');
-      }
-      
-      // 检查是否有服务器配置
-      const serverNames = Object.keys(mcpConfig);
-      if (serverNames.length === 0) {
-        throw new Error('未找到任何MCP服务器配置');
-      }
-      
-      // 测试第一个服务器
-      const serverName = serverNames[0];
-      const serverConfig = mcpConfig[serverName];
-      
       console.log(`测试 MCP 服务器 "${serverName}" 连接:`, serverConfig);
       
-      // 调用测试API
-      const tools = await testMcpConnection(serverConfig);
+      // Call test API with the specific config
+      const toolsResult = await testMcpConnection(serverConfig);
       
-      // 更新状态
-      setAvailableTools(tools);
-      console.log(`MCP服务器 "${serverName}" 测试成功，可用工具:`, tools);
+      // Update status for the specific server on success
+      setServerStatusMap(prev => ({ 
+          ...prev, 
+          [serverName]: { status: 'success', tools: toolsResult }
+      }));
+      console.log(`MCP服务器 "${serverName}" 测试成功，可用工具:`, toolsResult);
+
     } catch (error) {
-      console.error('MCP服务器测试失败:', error);
-      setTestError(error instanceof Error ? error.message : '测试失败');
-    } finally {
-      setTestingTools(false);
-    }
+      console.error(`MCP服务器 "${serverName}" 测试失败:`, error);
+      const errorMessage = error instanceof Error ? error.message : '测试连接失败';
+      // Update status for the specific server on error
+      setServerStatusMap(prev => ({ 
+          ...prev, 
+          [serverName]: { status: 'error', tools: [], error: errorMessage } 
+      }));
+    } 
+    // No finally block needed as status is updated directly on success/error
   };
 
   const handleFinalSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
@@ -548,6 +538,16 @@ export function MemberFormDialog({
                         </TooltipProvider>
                       </div>
                     </div>
+
+                    {/* --- 添加提示信息 --- */}
+                    <Alert variant="default" className="bg-blue-50 border-blue-200 text-blue-800">
+                      <HelpCircle className="h-4 w-4 !text-blue-800" />
+                      <AlertTitle className="font-semibold">提示</AlertTitle>
+                      <AlertDescription>
+                        当前系统只支持连接和使用 JSON 配置中 `mcpServers` 对象里的 **第一个** 服务器及其工具。
+                      </AlertDescription>
+                    </Alert>
+                    {/* --- 提示信息结束 --- */}
                     
                     {isEditingJson ? (
                       <>
@@ -574,104 +574,107 @@ export function MemberFormDialog({
                     ) : (
                       <>
                         <div className="space-y-2">
-                          {parsedServers.map((server) => (
-                            <Card key={server.name} className="overflow-hidden">
-                              <CardHeader className="bg-muted/50 py-2 px-4">
-                                <div className="flex justify-between items-center">
-                                  <CardTitle className="text-sm flex items-center gap-2">
-                                    <Code size={14} />
-                                    {server.name}
-                                  </CardTitle>
-                                  
-                                  {/* 测试连接按钮 */}
-                                  {isConfigTestable(server.config) && (
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm" 
-                                      className="flex gap-1 items-center h-7"
-                                      onClick={handleTestConnection}
-                                      disabled={testingTools}
-                                    >
-                                      {testingTools ? (
-                                        <>
-                                          <Loader2 size={12} className="animate-spin" />
-                                          <span>测试中</span>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <PlugZap size={12} />
-                                          <span>测试</span>
-                                        </>
-                                      )}
-                                    </Button>
-                                  )}
-                                </div>
-                              </CardHeader>
-                              <CardContent className="py-2 px-4 text-xs">
-                                <div className="font-mono bg-muted/30 p-2 rounded max-h-20 overflow-auto">
-                                  {'url' in server.config ? (
-                                    <>
-                                      <div><span className="text-blue-600">url:</span> {server.config.url}</div>
-                                      {server.config.headers && (
-                                        <div>
-                                          <span className="text-blue-600">headers:</span>
-                                          <pre className="mt-1 pl-2">
-                                            {JSON.stringify(server.config.headers, null, 2)}
-                                          </pre>
-                                        </div>
-                                      )}
-                                    </>
-                                  ) : (
-                                    <>
-                                      <div><span className="text-blue-600">command:</span> {server.config.command}</div>
-                                      <div><span className="text-blue-600">args:</span> {JSON.stringify(server.config.args)}</div>
-                                    </>
-                                  )}
-                                </div>
-                              </CardContent>
-                              
-                              {/* 测试结果展示区域 */}
-                              {testingTools && (
-                                <CardFooter className="bg-muted/20 py-2 px-4 text-xs border-t">
-                                  <div className="w-full text-center">
-                                    <Loader2 size={16} className="animate-spin mx-auto" />
-                                    <p className="mt-1">连接服务器中...</p>
+                          {parsedServers.map((server) => {
+                            // Get status for the current server
+                            const currentStatus = serverStatusMap[server.name] || { status: 'idle', tools: [] };
+                            
+                            return (
+                              <Card key={server.name} className="overflow-hidden">
+                                <CardHeader className="bg-muted/50 py-2 px-4">
+                                  <div className="flex justify-between items-center">
+                                    <CardTitle className="text-sm flex items-center gap-2">
+                                      <Code size={14} />
+                                      {server.name}
+                                    </CardTitle>
+                                    
+                                    {/* Test Button - Uses current server's status and calls handleTestConnection with specific details */} 
+                                    {isConfigTestable(server.config) && (
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="flex gap-1 items-center h-7"
+                                        onClick={() => handleTestConnection(server.name, server.config)} // Pass server name and config
+                                        disabled={currentStatus.status === 'testing'} // Disable based on current server status
+                                      >
+                                        {currentStatus.status === 'testing' ? (
+                                          <>
+                                            <Loader2 size={12} className="animate-spin" />
+                                            <span>测试中</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <PlugZap size={12} />
+                                            <span>测试</span>
+                                          </>
+                                        )}
+                                      </Button>
+                                    )}
                                   </div>
-                                </CardFooter>
-                              )}
-                              
-                              {/* 测试成功结果 */}
-                              {!testingTools && availableTools.length > 0 && (
-                                <CardFooter className="bg-green-50 py-2 px-4 text-xs border-t">
-                                  <div className="w-full">
-                                    <div className="flex items-center gap-1 text-green-600 mb-1">
-                                      <CheckCircle size={14} />
-                                      <span>连接成功，发现 {availableTools.length} 个工具</span>
-                                    </div>
-                                    <div className="flex flex-wrap gap-1 mt-1">
-                                      {availableTools.map(tool => (
-                                        <Badge key={tool} variant="outline" className="bg-white">
-                                          {tool}
-                                        </Badge>
-                                      ))}
-                                    </div>
+                                </CardHeader>
+                                <CardContent className="py-2 px-4 text-xs">
+                                  <div className="font-mono bg-muted/30 p-2 rounded max-h-20 overflow-auto">
+                                    {'url' in server.config ? (
+                                      <>
+                                        <div><span className="text-blue-600">url:</span> {server.config.url}</div>
+                                        {server.config.headers && (
+                                          <div>
+                                            <span className="text-blue-600">headers:</span>
+                                            <pre className="mt-1 pl-2">
+                                              {JSON.stringify(server.config.headers, null, 2)}
+                                            </pre>
+                                          </div>
+                                        )}
+                                      </>
+                                    ) : (
+                                      <>
+                                        <div><span className="text-blue-600">command:</span> {server.config.command}</div>
+                                        <div><span className="text-blue-600">args:</span> {JSON.stringify(server.config.args)}</div>
+                                      </>
+                                    )}
                                   </div>
-                                </CardFooter>
-                              )}
-                              
-                              {/* 测试失败结果 */}
-                              {!testingTools && testError && (
-                                <CardFooter className="bg-red-50 py-2 px-4 text-xs border-t">
-                                  <div className="w-full">
-                                    <div className="flex items-center gap-1 text-red-600">
-                                      <AlertCircle size={14} />
-                                      <span>连接失败: {testError}</span>
+                                </CardContent>
+                                
+                                {/* Test Result Area - Renders based on current server's status */} 
+                                {currentStatus.status === 'testing' && (
+                                  <CardFooter className="bg-muted/20 py-2 px-4 text-xs border-t">
+                                    <div className="w-full text-center">
+                                      <Loader2 size={16} className="animate-spin mx-auto" />
+                                      <p className="mt-1">连接服务器中...</p>
                                     </div>
-                                  </div>
-                                </CardFooter>
-                              )}
-                            </Card>
-                          ))}
+                                  </CardFooter>
+                                )}
+                                
+                                {currentStatus.status === 'success' && (
+                                  <CardFooter className="bg-green-50 py-2 px-4 text-xs border-t">
+                                    <div className="w-full">
+                                      <div className="flex items-center gap-1 text-green-600 mb-1">
+                                        <CheckCircle size={14} />
+                                        <span>连接成功，发现 {currentStatus.tools.length} 个工具</span>
+                                      </div>
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {currentStatus.tools.map(tool => (
+                                          <Badge key={tool} variant="outline" className="bg-white">
+                                            {tool}
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </CardFooter>
+                                )}
+                                
+                                {currentStatus.status === 'error' && (
+                                  <CardFooter className="bg-red-50 py-2 px-4 text-xs border-t">
+                                    <div className="w-full">
+                                      <div className="flex items-center gap-1 text-red-600">
+                                        <AlertCircle size={14} />
+                                        <span>连接失败: {currentStatus.error}</span>
+                                      </div>
+                                    </div>
+                                  </CardFooter>
+                                )}
+                              </Card>
+                            )
+                          })}
                         </div>
                       </>
                     )}
