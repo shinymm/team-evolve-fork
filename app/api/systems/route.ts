@@ -2,79 +2,26 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { timingSafeEqual } from 'crypto'; // 用于更安全的密钥比较
 
-// 从环境变量读取期望的 API Key
-const EXPECTED_API_KEY = process.env.MCP_SERVER_API_KEY;
-
-if (!EXPECTED_API_KEY) {
-  console.warn("警告: 环境变量 MCP_SERVER_API_KEY 未设置。API Key 认证将不可用。");
-}
-
-// 辅助函数：安全比较字符串 (防止时序攻击)
-function safeCompare(a: string | undefined | null, b: string | undefined | null): boolean {
-  if (!a || !b) {
-    return false;
-  }
+// 获取系统列表 (仅支持用户会话)
+export async function GET(request: Request) {
+  // --- 检查用户会话 ---
   try {
-    const bufA = Buffer.from(a);
-    const bufB = Buffer.from(b);
-    if (bufA.length !== bufB.length) {
-      const crypto = require('crypto');
-      const randomBuf = Buffer.from(crypto.randomBytes(bufA.length));
-      timingSafeEqual(Uint8Array.from(bufA), Uint8Array.from(randomBuf)); // 转换为 Uint8Array
-      return false;
+    const session = await getServerSession(authOptions);
+    if (session && session.user) {
+      console.log('[API Systems Auth] Authorized via User Session for user:', session.user.email);
+    } else {
+      // 如果没有会话，直接拒绝访问
+      console.log('[API Systems Auth] Access Denied. No valid User Session found.');
+      return NextResponse.json({ error: '未授权访问' }, { status: 401 });
     }
-    return timingSafeEqual(Uint8Array.from(bufA), Uint8Array.from(bufB)); // 转换为 Uint8Array
-  } catch (error) {
-    console.error("安全比较时出错:", error);
-    return false;
-  }
-}
-
-// 获取系统列表 (支持 API Key 或用户会话)
-export async function GET(request: Request) { // 接收 request 参数以访问 headers
-  let isAuthorized = false;
-  let authMethod = 'none';
-
-  // --- 1. 检查 API Key ---
-  const authorizationHeader = request.headers.get('Authorization');
-  const providedApiKey = authorizationHeader?.startsWith('Bearer ')
-    ? authorizationHeader.substring(7)
-    : null;
-
-  if (EXPECTED_API_KEY && providedApiKey) {
-      if (safeCompare(providedApiKey, EXPECTED_API_KEY)) {
-          console.log('[API Systems Auth] Authorized via API Key');
-          isAuthorized = true;
-          authMethod = 'apiKey';
-      } else {
-          console.warn('[API Systems Auth] Invalid API Key provided');
-      }
-  }
-
-  // --- 2. 如果 API Key 未授权，检查用户会话 ---
-  if (!isAuthorized) {
-    try {
-      const session = await getServerSession(authOptions);
-      if (session && session.user) {
-         console.log('[API Systems Auth] Authorized via User Session for user:', session.user.email);
-         isAuthorized = true;
-         authMethod = 'session';
-      }
-    } catch (sessionError) {
-         console.error("[API Systems Auth] Error checking user session:", sessionError);
-    }
-  }
-
-  // --- 3. 最终授权判断 ---
-  if (!isAuthorized) {
-    console.log('[API Systems Auth] Access Denied. No valid API Key or User Session found.');
-    return NextResponse.json({ error: '未授权访问' }, { status: 401 });
+  } catch (sessionError) {
+    console.error("[API Systems Auth] Error checking user session:", sessionError);
+    return NextResponse.json({ error: '检查用户会话时出错' }, { status: 500 });
   }
 
   // --- 授权通过，继续处理请求 ---
-  console.log(`[API Systems Auth] Access Granted via ${authMethod}. Fetching system list...`);
+  console.log(`[API Systems Auth] Access Granted via User Session. Fetching system list...`);
   try {
     // 移除或注释掉显式的 $connect, $disconnect，让 Prisma 自动管理
     // await prisma.$connect(); 
