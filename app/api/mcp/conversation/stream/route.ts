@@ -5,6 +5,7 @@ import { getApiEndpointAndHeaders } from "@/lib/services/ai-service";
 import { AIModelConfig } from "@/lib/services/ai-service";
 import { aiModelConfigService } from "@/lib/services/ai-model-config-service";
 import { getRedisClient } from '@/lib/redis';
+import { QueuedToolCall } from '@/types/mcp'; // 导入QueuedToolCall接口
 
 // 流式响应编码器
 const encoder = new TextEncoder();
@@ -79,6 +80,9 @@ export async function POST(req: Request) {
   const stream = new ReadableStream({
     async start(controller) {
       try {
+        // 初始化工具调用队列
+        const toolCallQueue: QueuedToolCall[] = [];
+
         // 解析请求参数，包含 connectionParams
         const { sessionId, userMessage, memberInfo, connectionParams, previousToolState } = await req.json() as ConversationRequest;
         
@@ -455,9 +459,9 @@ export async function POST(req: Request) {
 
               if (value) {
                   const rawChunk = new TextDecoder().decode(value);
-                  if (rawChunk.includes('data:')) {
-                      console.log('[流式对话] 收到原始 Chunk:', rawChunk.substring(0, 200) + (rawChunk.length > 200 ? '...' : ''));
-                  }
+                  // if (rawChunk.includes('data:')) {
+                  //     console.log('[流式对话] 收到原始 Chunk:', rawChunk);
+                  // }
               }
 
               if (done) {
@@ -486,67 +490,49 @@ export async function POST(req: Request) {
                       } else {
                           try {
                               const data = JSON.parse(lineContent);
-                              // <-- 日志：打印解析后的 data 对象
-                              console.log('[流式对话] 解析后的行数据:', JSON.stringify(data));
       
                               if (data.choices && data.choices[0]) {
                                 const delta = data.choices[0].delta || {};
-                                // <-- 日志：打印 delta 对象以供检查
-                                console.log('[流式对话] 准备检查 delta:', JSON.stringify(delta));
           
-                                // 处理工具调用
+                                // 处理工具调用 - 方案二: 只记录工具调用的出现，不累积参数
                                 if (delta.tool_calls && delta.tool_calls.length > 0) {
                                   toolCallDetected = true;
-                                  // <-- 日志：确认 toolCallDetected 被设置
-                                  console.log('[流式对话] 循环内部: toolCallDetected 被设置为 true。当前状态:', {
-                                      toolCallDetected, 
-                                      toolCallName: toolCallName || '(空)', 
-                                      argsChunk: delta.tool_calls[0].function?.arguments?.substring(0,50) + '...' || '(无参数块)',
-                                      linePreview: lineContent.substring(0, 60) + '...'
-                                  });
-
-                                  // --- Check for Tool Name ---
-                                  if (delta.tool_calls[0].function?.name) {
-                                      const currentToolName = delta.tool_calls[0].function.name;
-                                      // Accumulate the name (though usually it comes in one go)
-                                      if (!toolCallName.includes(currentToolName)) {
-                                           toolCallName += currentToolName;
+                                  
+                                  // 遍历检测到的工具调用
+                                  for (let i = 0; i < delta.tool_calls.length; i++) {
+                                    const toolCall = delta.tool_calls[i];
+                                    
+                                    // 只处理有名称的新工具调用
+                                    if (toolCall.function?.name && toolCall.id) {
+                                      // 检查是否是新工具调用
+                                      const existingTool = toolCallQueue.find(tc => tc.id === toolCall.id);
+                                      if (!existingTool) {
+                                        // 记录新工具
+                                        const newTool = {
+                                          id: toolCall.id,
+                                          name: toolCall.function.name,
+                                          args: {},
+                                          executed: false
+                                        };
+                                        toolCallQueue.push(newTool);
+                                        
+                                        // 发送工具启动消息
+                                        const toolStartMessage = `🔧 正在使用工具: ${toolCall.function.name}\n`;
+                                        sendContentEvent(controller, toolStartMessage);
+                                        
+                                        console.log(`[流式对话] 检测到新工具: ${toolCall.function.name} (ID: ${toolCall.id})`);
                                       }
-                                      // --- Send Tool Start Message ONCE when name is first detected ---
-                                      const toolStartMessage = `🔧 正在使用工具: ${toolCallName}\\n`;
-                                      if (!accumContent.includes(toolStartMessage)) { // Use the full message for the check
-                                           sendContentEvent(controller, toolStartMessage);
-                                           accumContent = toolStartMessage; // Set accumContent immediately
-                                           console.log(`[流式对话] 发送工具启动消息: ${toolCallName}`); // Add log
-                                      }
+                                    }
                                   }
-
-                                  // --- Check for Tool ID ---
-                                  if (delta.tool_calls[0].id && !toolCallId) {
-                                      toolCallId = delta.tool_calls[0].id;
-                                  }
-
-                                  // --- Check for Tool Arguments ---
-                                  if (delta.tool_calls[0].function?.arguments) {
-                                      rawArgsString += delta.tool_calls[0].function.arguments;
-                                      // Argument parsing logic remains the same
-                                      try {
-                                          // 尝试解析累积的参数字符串为 JSON 对象
-                                          // 确保在完整的 JSON 结构出现时才解析
-                                          if (rawArgsString.trim().startsWith('{') && rawArgsString.trim().endsWith('}')) {
-                                              toolCallArgs = JSON.parse(rawArgsString);
-                                              console.log(`[流式对话] 解析工具参数: ${toolCallName}`, toolCallArgs); // Add log
-                                          }
-                                      } catch (e) { /* 解析错误忽略, 等待更多数据 */ }
+                                  
+                                  // 显示"处理中"信息
+                                  if (!accumContent.includes('处理中')) {
+                                    sendContentEvent(controller, '处理中...');
+                                    accumContent = '处理中...';
                                   }
                                 }
                                 // 处理普通内容更新
                                 else if (delta.content) {
-                                  // 当检测到工具调用后，如果先收到内容块，显示 "处理中..."
-                                  if (toolCallDetected && accumContent.includes('正在使用工具') && !accumContent.includes('处理中')) {
-                                    sendContentEvent(controller, '处理中...');
-                                    accumContent = '处理中...'; // 更新状态避免重复发送
-                                  }
                                   sendContentEvent(controller, delta.content);
                                   accumContent += delta.content;
                                 }
@@ -564,184 +550,377 @@ export async function POST(req: Request) {
               }
               // --- 处理逻辑结束 ---
             }
-            console.log('[流式对话] 退出了流处理循环'); // <-- 增加日志：确认循环退出
+            console.log('[流式对话] 退出了流处理循环');
+            
+            // 方案二: 流处理结束后，向LLM API发送一次非流式请求，获取完整的工具调用信息
+            if (toolCallDetected && toolCallQueue.length > 0) {
+              try {
+                console.log('[流式对话] 流结束后，发送非流式请求获取完整工具调用');
+                
+                // 使用相同的请求体，但禁用流式响应
+                const completeRequestBody: any = {
+                  model: apiConfig.model,
+                  messages: messages,
+                  temperature: apiConfig.temperature || 0.7,
+                  max_tokens: 1000,
+                  stream: false // 非流式请求
+                };
+                
+                // 如果有工具列表，添加到请求中
+                if (useMcpMode && formattedTools.length > 0) {
+                  completeRequestBody.tools = formattedTools
+                    .filter(tool => tool && typeof tool === 'object' && tool.name)
+                    .map(tool => ({
+                      type: "function",
+                      function: {
+                        name: tool.name,
+                        description: tool.description || `使用${tool.name}工具执行操作`,
+                        parameters: tool.input_schema || {}
+                      }
+                    }));
+                  completeRequestBody.tool_choice = "auto";
+                }
+                
+                // 发送非流式请求
+                const completeResponse = await fetch(endpoint, {
+                  method: "POST",
+                  headers,
+                  body: JSON.stringify(completeRequestBody),
+                });
+                
+                if (!completeResponse.ok) {
+                  throw new Error(`获取完整工具调用信息失败: ${completeResponse.status}`);
+                }
+                
+                // 解析完整响应
+                const completeResult = await completeResponse.json();
+                console.log('[流式对话] 成功获取完整响应:', {
+                  hasChoices: !!completeResult.choices,
+                  choicesLength: completeResult.choices?.length || 0
+                });
+                
+                // 从完整响应中提取工具调用信息
+                if (completeResult.choices && completeResult.choices.length > 0 && 
+                    completeResult.choices[0].message && 
+                    completeResult.choices[0].message.tool_calls) {
+                  
+                  const completeTool_calls = completeResult.choices[0].message.tool_calls;
+                  console.log(`[流式对话] 从完整响应中提取到 ${completeTool_calls.length} 个工具调用`);
+                  
+                  // 更新工具队列中的信息
+                  for (const fullToolCall of completeTool_calls) {
+                    // 查找对应的工具
+                    const queuedTool = toolCallQueue.find(tc => tc.id === fullToolCall.id);
+                    
+                    if (queuedTool) {
+                      // 如果工具在队列中，直接更新参数
+                      try {
+                        if (fullToolCall.function && fullToolCall.function.arguments) {
+                          queuedTool.args = JSON.parse(fullToolCall.function.arguments);
+                          console.log(`[流式对话] 成功解析工具 ${queuedTool.name} 的完整参数`);
+                        } else {
+                          console.warn(`[流式对话] 工具 ${queuedTool.name} 在完整响应中没有参数`);
+                        }
+                      } catch (parseError) {
+                        console.error(`[流式对话] 解析工具 ${queuedTool.name} 参数失败:`, parseError);
+                        // 尝试手动解析
+                        try {
+                          const argsString = fullToolCall.function.arguments.trim();
+                          // 简单修复JSON格式问题
+                          const fixedArgsString = argsString
+                            .replace(/(\{|\,)\s*([a-zA-Z0-9_]+)\s*\:/g, '$1"$2":')
+                            .replace(/\:\s*([a-zA-Z0-9_]+)(\s*[\,\}])/g, ':"$1"$2')
+                            .replace(/([{,]\s*"[^"]+):\s*"([^"]*?)(?=,\s*"|\s*})/g, '$1":"$2"');
+                          
+                          queuedTool.args = JSON.parse(fixedArgsString);
+                          console.log(`[流式对话] 修复后成功解析工具 ${queuedTool.name} 参数`);
+                        } catch (e) {
+                          // 如果仍然失败，使用包含原始字符串的对象
+                          queuedTool.args = { raw: fullToolCall.function.arguments };
+                          console.error(`[流式对话] 无法修复和解析工具 ${queuedTool.name} 参数`);
+                        }
+                      }
+                    } else {
+                      // 如果工具不在队列中（可能是之前漏了），添加到队列
+                      try {
+                        const args = fullToolCall.function && fullToolCall.function.arguments ? 
+                          JSON.parse(fullToolCall.function.arguments) : {};
+                          
+                        toolCallQueue.push({
+                          id: fullToolCall.id,
+                          name: fullToolCall.function.name,
+                          args: args,
+                          executed: false
+                        });
+                        
+                        console.log(`[流式对话] 从完整响应添加新工具 ${fullToolCall.function.name} 到队列`);
+                      } catch (e) {
+                        console.error(`[流式对话] 添加新工具失败:`, e);
+                      }
+                    }
+                  }
+                } else {
+                  console.warn('[流式对话] 完整响应中未找到工具调用信息');
+                }
+              } catch (error) {
+                console.error('[流式对话] 获取完整工具调用信息失败:', error);
+              }
+            }
 
-            // <-- 日志：检查进入工具调用块前的状态
-            console.log('[流式对话] 检查工具调用条件:', {
+            // <-- 日志：检查工具队列状态
+            console.log('[流式对话] 工具解析完成后状态:', {
               toolCallDetected,
-              toolCallName,
-              toolCallArgs: JSON.stringify(toolCallArgs), // 打印解析后的参数
-              toolCallArgsKeys: Object.keys(toolCallArgs).length,
+              queueSize: toolCallQueue.length,
               effectiveSessionId: effectiveSessionId || '无',
               isConnectionInMemory
             });
 
             // --- 工具调用逻辑 ---
-            if (toolCallDetected && toolCallName && typeof toolCallArgs === 'object' && toolCallArgs !== null && effectiveSessionId && isConnectionInMemory) {
+            if (toolCallDetected && toolCallQueue.length > 0 && effectiveSessionId && isConnectionInMemory) {
                 try {
-                    // <-- 日志：准备调用工具
-                    console.log(`[流式对话] 准备执行工具调用 (会话: ${effectiveSessionId}, 连接内存状态: ${isConnectionInMemory}): ${toolCallName}`, {
-                      args: JSON.stringify(toolCallArgs).substring(0,100) + '...' // 记录部分参数
-                    });
-                    const toolResult = await mcpClientService.callTool(effectiveSessionId, toolCallName, toolCallArgs);
-                    // <-- 日志：工具调用完成，记录原始结果
-                    console.log(`[流式对话] 工具 ${toolCallName} 调用完成，原始结果:`, 
-                      JSON.stringify(toolResult).substring(0, 200) + (JSON.stringify(toolResult).length > 200 ? '...' : '')
-                    );
-
-                    // 获取工具结果文本
-                    let resultText = '';
-                    try {
-                      // 通用结果处理逻辑，不依赖特定工具名称
-                      if (typeof toolResult === 'string') {
-                        resultText = toolResult;
-                      } else if (toolResult === null || toolResult === undefined) {
-                        resultText = '工具未返回结果';
-                      } else if (typeof toolResult === 'object') {
-                        const possibleContentFields = ['content', 'text', 'message', 'result', 'data', 'thought'];
-                        let foundContent = false;
-
-                        for (const field of possibleContentFields) {
-                          if (toolResult[field] !== undefined) {
-                            // 1. Check if the field itself is a string
-                            if (typeof toolResult[field] === 'string') {
-                              resultText = toolResult[field]; // Assign directly
-                              foundContent = true;
-                              console.log(`[流式对话] 工具结果提取方式1: Directly using field ${field}`);
-                              break;
-                            }
-                            // 2. Check if field is object with .content string
-                            else if (toolResult[field] && typeof toolResult[field] === 'object' && typeof toolResult[field].content === 'string') {
-                              resultText = toolResult[field].content; // Assign directly
-                              foundContent = true;
-                              console.log(`[流式对话] 工具结果提取方式2: Using field ${field}.content`);
-                              break;
-                            }
-                            // 3. Check if field is an array
-                            else if (Array.isArray(toolResult[field])) {
-                                for (const item of toolResult[field]) {
-                                    if (item && typeof item === 'object' && item.type === 'text' && typeof item.text === 'string') {
-                                        resultText = item.text; // Assign directly
-                                        foundContent = true;
-                                        console.log(`[流式对话] 工具结果提取方式3: Found type: 'text' in field ${field} array`);
-                                        break;
+                    console.log(`[流式对话] 开始按顺序处理 ${toolCallQueue.length} 个工具调用`);
+                    
+                    // 准备消息历史，从原始消息开始
+                    let updatedMessages: ChatMessage[] = [...messages];
+                    
+                    // 依次处理每个工具调用
+                    for (let i = 0; i < toolCallQueue.length; i++) {
+                        const queuedTool = toolCallQueue[i];
+                        
+                        // 跳过无效的工具调用
+                        if (!queuedTool.name || (Object.keys(queuedTool.args || {}).length === 0 && !queuedTool.argsString)) {
+                            console.warn(`[流式对话] 跳过无效的工具调用 #${i+1}: ${queuedTool.name || '未命名'} (ID: ${queuedTool.id})`);
+                            continue;
+                        }
+                        
+                        console.log(`[流式对话] 执行工具 ${i+1}/${toolCallQueue.length}: ${queuedTool.name} (ID: ${queuedTool.id})`);
+                        
+                        // 检查工具名是否包含连接的多个工具名
+                        const possibleToolPrefixes = [
+                          'get_', 'search_', 'query_', 'fetch_', 'create_', 'update_', 'delete_'
+                        ];
+                        
+                        let toolName = queuedTool.name;
+                        // 解析可能连接的工具名
+                        for (const prefix of possibleToolPrefixes) {
+                          const prefixIndex = queuedTool.name.indexOf(prefix);
+                          if (prefixIndex > 0) {
+                            console.warn(`[流式对话] 执行前检测到工具名可能被错误连接: "${queuedTool.name}"`);
+                            // 只保留前缀开始的部分作为实际工具名
+                            toolName = queuedTool.name.substring(prefixIndex);
+                            console.log(`[流式对话] 修复后的工具名: "${toolName}" (原始: "${queuedTool.name}")`);
+                            break;
+                          }
+                        }
+                        
+                        try {
+                            // 执行工具调用
+                            console.log(`[流式对话] 调用工具 ${toolName}`, {
+                              args: JSON.stringify(queuedTool.args).substring(0,100) + '...'
+                            });
+                            
+                            const toolResult = await mcpClientService.callTool(effectiveSessionId, toolName, queuedTool.args);
+                            console.log(`[流式对话] 工具 ${toolName} 调用完成，原始结果:`, 
+                              JSON.stringify(toolResult).substring(0, 200) + (JSON.stringify(toolResult).length > 200 ? '...' : '')
+                            );
+                            
+                            // 获取工具结果文本
+                            let resultText = '';
+                            try {
+                              // 通用结果处理逻辑，不依赖特定工具名称
+                              if (typeof toolResult === 'string') {
+                                resultText = toolResult;
+                              } else if (toolResult === null || toolResult === undefined) {
+                                resultText = '工具未返回结果';
+                              } else if (typeof toolResult === 'object') {
+                                const possibleContentFields = ['content', 'text', 'message', 'result', 'data', 'thought'];
+                                let foundContent = false;
+                                
+                                for (const field of possibleContentFields) {
+                                  if (toolResult[field] !== undefined) {
+                                    // 1. Check if the field itself is a string
+                                    if (typeof toolResult[field] === 'string') {
+                                      resultText = toolResult[field]; // Assign directly
+                                      foundContent = true;
+                                      console.log(`[流式对话] 工具结果提取方式1: Directly using field ${field}`);
+                                      break;
+                                    }
+                                    // 2. Check if field is object with .content string
+                                    else if (toolResult[field] && typeof toolResult[field] === 'object' && typeof toolResult[field].content === 'string') {
+                                      resultText = toolResult[field].content; // Assign directly
+                                      foundContent = true;
+                                      console.log(`[流式对话] 工具结果提取方式2: Using field ${field}.content`);
+                                      break;
+                                    }
+                                    // 3. Check if field is an array
+                                    else if (Array.isArray(toolResult[field])) {
+                                        for (const item of toolResult[field]) {
+                                            if (item && typeof item === 'object' && item.type === 'text' && typeof item.text === 'string') {
+                                                resultText = item.text; // Assign directly
+                                                foundContent = true;
+                                                console.log(`[流式对话] 工具结果提取方式3: Found type: 'text' in field ${field} array`);
+                                                break;
+                                            }
+                                        }
+                                        if (foundContent) {
+                                            break;
+                                        }
+                                    }
+                                  }
+                                }
+                                
+                                if (toolResult.thoughtNumber && toolResult.totalThoughts) {
+                                  resultText = `${resultText ? resultText : ''}${resultText ? '\n' : ''}(进度: ${toolResult.thoughtNumber}/${toolResult.totalThoughts})`;
+                                }
+                                
+                                // 如果无法提取内容，使用整个对象的JSON
+                                if (!foundContent) {
+                                    console.log(`[流式对话] 未能从特定字段提取工具结果，将 Stringify 整个对象`);
+                                    try {
+                                        resultText = JSON.stringify(toolResult, null, 2);
+                                    } catch (stringifyError) {
+                                        resultText = "无法序列化工具结果对象";
                                     }
                                 }
-                                if (foundContent) {
-                                    break;
-                                }
+                              } else {
+                                // 其他类型直接转字符串
+                                resultText = String(toolResult);
+                              }
+                              
+                              // 特殊处理sequentialthinking工具：在会话中保存状态
+                              if ((toolName === 'sequentialthinking' || toolName === 'mcp_sequential_thinking_sequentialthinking')
+                                  && typeof toolResult === 'object' && toolResult.nextThoughtNeeded === true) {
+                                  mcpClientService.setSessionInfo(effectiveSessionId, {
+                                    toolState: { name: toolName, state: toolResult }
+                                  });
+                                  if (toolResult.thoughtNumber && toolResult.totalThoughts) {
+                                    sendStatusEvent(controller, `这是思考过程 ${toolResult.thoughtNumber}/${toolResult.totalThoughts}，请继续对话以完成思考`);
+                                  }
+                              }
+                            } catch (e) {
+                              resultText = `工具执行成功，但结果格式无法处理: ${e instanceof Error ? e.message : '未知错误'}`;
                             }
-                          }
-                        }
-
-                        // --- Remove unwrapping logic ---
-
-                        // --- Simple fallback logic ---
-                        if (!foundContent) {
-                             console.log(`[流式对话] Could not extract specific field, stringifying the whole object`);
-                            try {
-                                resultText = JSON.stringify(toolResult, null, 2);
-                            } catch (stringifyError) {
-                                resultText = "Cannot serialize tool result object";
-                            }
-                        }
-                        // --- Fallback logic end ---
-
-                        // ... (subsequent processing uses the simplified resultText)
-                        if (toolResult.thoughtNumber && toolResult.totalThoughts) {
-                          resultText = `${resultText ? resultText : ''}${resultText ? '\n' : ''}(进度: ${toolResult.thoughtNumber}/${toolResult.totalThoughts})`;
-                        }
-                        // 4. 如果以上都没找到，或者对象结构复杂，则 stringify 整个对象
-                        if (!foundContent) {
-                            // 仅当对象包含多个顶层键时才 stringify，避免简单结果也被 stringify
-                            // （如果 toolResult 只有 content 一个键，即使没提取成功，也可能不希望 stringify）
-                            // 优化：只有在明确找不到内容，*且* 对象看起来复杂时才 stringify
-                            // if (Object.keys(toolResult).length > 1) { 
-                            //  更简单的回退：如果没找到就 stringify
-                            console.log(`[流式对话] 未能从特定字段提取工具结果，将 Stringify 整个对象`);
-                           try {
-                                resultText = JSON.stringify(toolResult, null, 2);
-                            } catch (stringifyError) {
-                                resultText = "无法序列化工具结果对象";
-                            }
-                            // }
-                        }
-                      } else {
-                        // 其他类型直接转字符串
-                        resultText = String(toolResult);
-                      }
-
-                      // 特殊处理sequentialthinking工具：在会话中保存状态
-                       if ((toolCallName === 'sequentialthinking' || toolCallName === 'mcp_sequential_thinking_sequentialthinking')
-                            && typeof toolResult === 'object' && toolResult.nextThoughtNeeded === true) {
-                            mcpClientService.setSessionInfo(effectiveSessionId, {
-                              toolState: { name: toolCallName, state: toolResult }
+                            
+                            // 确保结果是字符串
+                            resultText = String(resultText);
+                            
+                            // 标记工具为已执行并保存结果
+                            queuedTool.executed = true;
+                            queuedTool.result = resultText;
+                            
+                            // 向用户发送当前工具的执行结果
+                            sendContentEvent(controller, `\n⚙️ 工具 ${toolName} 执行结果:\n${resultText.substring(0, 1000)}${resultText.length > 1000 ? '...' : ''}`);
+                            
+                            // 发送工具状态更新
+                            sendToolStateEvent(controller, queuedTool);
+                            
+                            // 将当前工具调用和结果添加到消息历史
+                            updatedMessages.push({
+                                role: "assistant",
+                                content: null,
+                                tool_calls: [{
+                                    id: queuedTool.id,
+                                    type: "function",
+                                    function: {
+                                        name: toolName,
+                                        arguments: JSON.stringify(queuedTool.args)
+                                    }
+                                }]
                             });
-                            if (toolResult.thoughtNumber && toolResult.totalThoughts) {
-                              sendStatusEvent(controller, `这是思考过程 ${toolResult.thoughtNumber}/${toolResult.totalThoughts}，请继续对话以完成思考`);
-                            }
-                       } else {
-                            // 如果不是 sequential thinking 或思考完成，清除工具状态
-                            mcpClientService.setSessionInfo(effectiveSessionId, { toolState: undefined });
-                       }
-
-                    } catch (e) {
-                      resultText = `工具执行成功，但结果格式无法处理: ${e instanceof Error ? e.message : '未知错误'}`;
+                            
+                            updatedMessages.push({
+                                role: "tool",
+                                tool_call_id: queuedTool.id,
+                                name: toolName,
+                                content: resultText
+                            });
+                            
+                            console.log(`[流式对话] 工具 ${toolName} 执行完毕，已添加到消息历史`);
+                            
+                        } catch (singleToolError) {
+                            // 记录单个工具执行错误，但继续处理队列中的下一个工具
+                            console.error(`[流式对话] 工具 ${queuedTool.name} 执行失败:`, singleToolError);
+                            const errorMessage = singleToolError instanceof Error
+                                ? singleToolError.message
+                                : JSON.stringify(singleToolError);
+                                
+                            // 向用户发送错误消息
+                            sendContentEvent(controller, `\n❌ 工具 ${queuedTool.name} 执行失败: ${errorMessage}`);
+                            
+                            // 标记工具为已执行（尽管失败）
+                            queuedTool.executed = true;
+                            queuedTool.result = `执行失败: ${errorMessage}`;
+                            
+                            // 发送工具状态更新（失败）
+                            sendToolStateEvent(controller, queuedTool);
+                            
+                            // 将失败的工具调用也添加到消息历史
+                            updatedMessages.push({
+                                role: "assistant",
+                                content: null,
+                                tool_calls: [{
+                                    id: queuedTool.id,
+                                    type: "function",
+                                    function: {
+                                        name: queuedTool.name,
+                                        arguments: JSON.stringify(queuedTool.args)
+                                    }
+                                }]
+                            });
+                            
+                            updatedMessages.push({
+                                role: "tool",
+                                tool_call_id: queuedTool.id,
+                                name: queuedTool.name,
+                                content: `执行失败: ${errorMessage}`
+                            });
+                        }
+                        
+                        // 打印当前队列的处理进度
+                        console.log(`[流式对话] 工具队列处理进度: ${i+1}/${toolCallQueue.length}`);
                     }
-                    resultText = String(resultText); // 确保是字符串
-                    sendContentEvent(controller, `\n⚙️ 工具执行结果:\n${resultText.substring(0, 1000)}${resultText.length > 1000 ? '...' : ''}`);
-
-                    // *** 发送新轮次开始信号 ***
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'new_turn' })}\n\n`));
-                    console.log('[流式对话] 发送 new_turn 信号');
-
-                    // 构建包含工具调用和结果的完整消息历史
-                    const updatedMessages: ChatMessage[] = [
-                      ...messages,
-                      {
-                        role: "assistant",
-                        content: null, // 必须为 null
-                        tool_calls: [{
-                          id: toolCallId || `call_${Date.now()}`,
-                          type: "function",
-                          function: {
-                            name: toolCallName,
-                            arguments: JSON.stringify(toolCallArgs) // 确保参数是字符串
-                          }
-                        }]
-                      },
-                      {
-                        role: "tool",
-                        tool_call_id: toolCallId || `call_${Date.now()}`,
-                        name: toolCallName, // OpenAI 格式需要 name
-                        content: resultText // 结果是字符串
-                      }
-                    ];
                     
-                    // <-- 日志：准备第二次 LLM 调用
-                    console.log(`[流式对话] 准备进行第二次 LLM 调用以生成最终回复 (消息数量: ${updatedMessages.length})`);
-                    // console.log('[流式对话] 发送给第二次 LLM 的消息:', JSON.stringify(updatedMessages)); // 可选：打印完整消息体，可能很长
-
-                    // 再次调用模型获取最终回复
+                    // 处理完所有工具后，发送最终的工具队列状态
+                    if (toolCallQueue.length > 1) {
+                        console.log(`[流式对话] 发送最终的工具队列状态 (共 ${toolCallQueue.length} 个工具)`);
+                        sendToolStateEvent(controller, toolCallQueue);
+                    }
+                    
+                    // 全部工具处理完成，检查并清除工具状态（除非有sequentialthinking工具设置了状态）
+                    const currentSessionInfo = mcpClientService.getSessionInfo(effectiveSessionId);
+                    const hasSequentialThinkingState = currentSessionInfo?.toolState?.name === 'sequentialthinking' || 
+                                                      currentSessionInfo?.toolState?.name === 'mcp_sequential_thinking_sequentialthinking';
+                    if (!hasSequentialThinkingState) {
+                        mcpClientService.setSessionInfo(effectiveSessionId, { toolState: undefined });
+                    }
+                    
+                    // 发送新轮次开始信号
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'new_turn' })}\n\n`));
+                    console.log('[流式对话] 所有工具执行完毕，发送 new_turn 信号');
+                    
+                    // <-- 日志：准备最终 LLM 调用
+                    console.log(`[流式对话] 准备进行最终 LLM 调用以生成回复 (消息数量: ${updatedMessages.length})`);
+                    
+                    // 最终LLM调用
                     const finalResponse = await fetch(endpoint, {
-                      method: "POST",
-                      headers,
-                      body: JSON.stringify({
-                        model: apiConfig.model,
-                        messages: updatedMessages,
-                        temperature: apiConfig.temperature || 0.7,
-                        max_tokens: 1000,
-                        stream: true // 仍然使用流式获取最终回复
-                      }),
+                        method: "POST",
+                        headers,
+                        body: JSON.stringify({
+                            model: apiConfig.model,
+                            messages: updatedMessages,
+                            temperature: apiConfig.temperature || 0.7,
+                            max_tokens: 1000,
+                            stream: true
+                        }),
                     });
                     
-                    // <-- 日志：第二次 LLM 调用响应状态
-                    console.log(`[流式对话] 第二次 LLM 调用响应状态: ${finalResponse.status}`);
+                    // <-- 日志：最终 LLM 调用响应状态
+                    console.log(`[流式对话] 最终 LLM 调用响应状态: ${finalResponse.status}`);
 
                     if (!finalResponse.ok) {
                       const finalText = await finalResponse.text();
-                      // <-- 日志：第二次 LLM 调用失败
-                      console.error(`[流式对话] 第二次 LLM 调用失败 (${finalResponse.status}): ${finalText}`);
+                      // <-- 日志：最终 LLM 调用失败
+                      console.error(`[流式对话] 最终 LLM 调用失败 (${finalResponse.status}): ${finalText}`);
                       sendErrorEvent(controller, `获取工具调用后的回复失败 (${finalResponse.status}): ${finalText.substring(0, 200)}...`);
                       // 注意：这里没有关闭流，让流程继续到最后的 controller.close()
                     } else {
@@ -780,20 +959,25 @@ export async function POST(req: Request) {
                                 }
                             }
                             // 如果有工具状态，通知客户端
-                             if (effectiveSessionId) {
+                            if (effectiveSessionId) {
                                 const currentSessionInfo = mcpClientService.getSessionInfo(effectiveSessionId);
                                 if (currentSessionInfo && currentSessionInfo.toolState) {
-                                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-                                      type: 'tool_state',
-                                      state: currentSessionInfo.toolState
-                                    })}\n\n`));
+                                    // 使用新的发送工具状态事件函数
+                                    const toolStateInfo: QueuedToolCall = {
+                                        id: `state_${Date.now()}`,
+                                        name: currentSessionInfo.toolState.name,
+                                        args: {},
+                                        executed: false,
+                                        result: JSON.stringify(currentSessionInfo.toolState.state)
+                                    };
+                                    sendToolStateEvent(controller, toolStateInfo);
                                 }
-                             }
+                            }
                         }
                     }
 
-                    // 更新 Redis TTL (移到 try 块的末尾，确保成功后再更新)
-                    if (effectiveSessionId) { // 再次检查，以防万一
+                    // 更新 Redis TTL
+                    if (effectiveSessionId) {
                        try {
                            const redisKey = REDIS_SESSION_PREFIX + effectiveSessionId;
                            const currentSessionDataJson = await redis.get(redisKey);
@@ -811,21 +995,23 @@ export async function POST(req: Request) {
                     }
 
                 } catch (toolError) {
-                    // <-- 日志：工具调用或后续处理出错
-                    console.error('[流式对话] 工具调用或后续处理失败:', toolError);
+                    // <-- 日志：整体工具处理过程出错
+                    console.error('[流式对话] 工具调用队列处理失败:', toolError);
                     const errorMessage = toolError instanceof Error
-                      ? `工具调用失败: ${toolError.message}${toolError.cause ? `\n原因: ${JSON.stringify(toolError.cause)}` : ''}`
-                      : `工具调用失败: ${JSON.stringify(toolError)}`;
+                      ? `工具调用处理失败: ${toolError.message}${toolError.cause ? `\n原因: ${JSON.stringify(toolError.cause)}` : ''}`
+                      : `工具调用处理失败: ${JSON.stringify(toolError)}`;
                     sendContentEvent(controller, `\n❌ ${errorMessage}`);
-                    sendErrorEvent(controller, errorMessage); // 发送错误事件
-                    // 这里不关闭 controller，让流程自然走到最后的 close
+                    sendErrorEvent(controller, errorMessage);
                 }
             } else if (toolCallDetected && (!effectiveSessionId || !isConnectionInMemory)) {
                 // <-- 日志：检测到工具调用但无法执行
-                console.warn(`[流式对话] 检测到工具调用 ${toolCallName}，但会话 ${effectiveSessionId || '无效'} 或连接不在内存中 (${isConnectionInMemory})，无法执行`);
-                sendErrorEvent(controller, `无法执行工具 ${toolCallName}：连接丢失或会话无效`);
+                console.warn(`[流式对话] 检测到工具调用，但会话 ${effectiveSessionId || '无效'} 或连接不在内存中 (${isConnectionInMemory})，无法执行`);
+                sendErrorEvent(controller, `无法执行工具调用：连接丢失或会话无效`);
+            } else if (toolCallDetected && toolCallQueue.length === 0) {
+                // <-- 日志：检测到工具调用但队列为空
+                console.warn(`[流式对话] 检测到工具调用，但工具队列为空`);
+                sendErrorEvent(controller, `无法执行工具调用：工具队列为空`);
             }
-            // --- 工具调用结束 ---
 
         } catch (fetchError) { // <--- 捕获构造请求体或 fetch 调用本身的错误
             // <-- 日志：第一次 LLM 调用出错
@@ -889,4 +1075,92 @@ function sendContentEvent(controller: ReadableStreamDefaultController, content: 
     type: 'content', 
     content 
   })}\n\n`));
+}
+
+// 发送工具状态事件的辅助函数（支持多工具）
+function sendToolStateEvent(controller: ReadableStreamDefaultController, toolCalls: QueuedToolCall | QueuedToolCall[]) {
+  // 处理单个工具调用的情况
+  if (!Array.isArray(toolCalls)) {
+    toolCalls = [toolCalls];
+  }
+  
+  // 如果数组为空，不发送任何事件
+  if (toolCalls.length === 0) {
+    return;
+  }
+  
+  // 如果只有一个工具调用，使用传统格式发送
+  if (toolCalls.length === 1) {
+    const toolCall = toolCalls[0];
+    
+    controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+      type: 'tool_state',
+      state: {
+        id: toolCall.id,
+        type: 'function',
+        name: toolCall.name,
+        arguments: toolCall.args,
+        status: toolCall.executed ? 'success' : 'running',
+        result: toolCall.result
+      }
+    })}\n\n`));
+    
+    console.log(`[流式对话] 发送单个工具 ${toolCall.name} 的状态: ${toolCall.executed ? 'success' : 'running'}`);
+    return;
+  }
+  
+  // 多个工具调用的情况，使用states数组
+  const states = toolCalls.map(toolCall => ({
+    id: toolCall.id,
+    type: 'function',
+    name: toolCall.name,
+    arguments: toolCall.args,
+    status: toolCall.executed ? 'success' : 'running',
+    result: toolCall.result
+  }));
+  
+  controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+    type: 'tool_state',
+    states: states
+  })}\n\n`));
+  
+  console.log(`[流式对话] 发送 ${states.length} 个工具的状态更新`);
+}
+
+// 检查JSON字符串是否完整（括号和引号配对）
+function isCompleteJson(str: string): boolean {
+  if (!str || typeof str !== 'string') return false;
+  
+  // 简单检查：必须以{开始，以}结束
+  if (!str.trim().startsWith('{') || !str.trim().endsWith('}')) {
+    return false;
+  }
+  
+  let braceCount = 0;
+  let inString = false;
+  let escaped = false;
+  
+  for (const char of str) {
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    
+    if (char === '\\' && inString) {
+      escaped = true;
+      continue;
+    }
+    
+    if (char === '"' && !escaped) {
+      inString = !inString;
+      continue;
+    }
+    
+    if (!inString) {
+      if (char === '{') braceCount++;
+      if (char === '}') braceCount--;
+    }
+  }
+  
+  return braceCount === 0 && !inString;
 }

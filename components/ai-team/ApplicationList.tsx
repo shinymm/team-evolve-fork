@@ -4,16 +4,7 @@ import { ApplicationDialog } from './ApplicationDialog'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import { ConfirmDeleteDialog } from './ConfirmDeleteDialog'
 
 interface Application {
   id: string
@@ -23,7 +14,11 @@ interface Application {
   category?: string
 }
 
-export function ApplicationList() {
+interface ApplicationListProps {
+  onStatusChange?: (loading: boolean) => void
+}
+
+export function ApplicationList({ onStatusChange }: ApplicationListProps) {
   const { toast } = useToast()
   const [applications, setApplications] = useState<Application[]>([])
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -32,6 +27,7 @@ export function ApplicationList() {
   const [deletingAppId, setDeletingAppId] = useState<string | null>(null)
 
   const fetchApplications = async () => {
+    onStatusChange?.(true)
     try {
       const response = await fetch('/api/ai-team/applications')
       if (!response.ok) {
@@ -46,6 +42,8 @@ export function ApplicationList() {
         description: '获取应用列表失败',
         variant: 'destructive',
       })
+    } finally {
+      onStatusChange?.(false)
     }
   }
 
@@ -73,6 +71,7 @@ export function ApplicationList() {
   const handleDeleteConfirm = async () => {
     if (!deletingAppId) return
 
+    onStatusChange?.(true)
     try {
       const response = await fetch(`/api/ai-team/applications/${deletingAppId}`, {
         method: 'DELETE',
@@ -98,6 +97,7 @@ export function ApplicationList() {
     } finally {
       setDeleteDialogOpen(false)
       setDeletingAppId(null)
+      onStatusChange?.(false)
     }
   }
 
@@ -151,34 +151,20 @@ export function ApplicationList() {
         />
       )}
 
-      {/* 删除确认弹窗 */}
-      <AlertDialog 
+      {/* 使用抽象的删除确认对话框 */}
+      <ConfirmDeleteDialog 
         open={deleteDialogOpen} 
         onOpenChange={(open) => {
           if (!open) {
             setDeleteDialogOpen(false)
             setDeletingAppId(null)
+          } else {
+            setDeleteDialogOpen(open)
           }
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认删除</AlertDialogTitle>
-            <AlertDialogDescription>
-              您确定要删除应用"{deletingAppName}"吗？此操作无法撤销。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDeleteConfirm} 
-              className="bg-red-600 hover:bg-red-700"
-            >
-              删除
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onConfirm={handleDeleteConfirm}
+        itemName={deletingAppName}
+      />
     </div>
   )
 } 

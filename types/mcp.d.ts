@@ -84,3 +84,12 @@ declare module '@modelcontextprotocol/sdk/dist/esm/index.js' {
   export * from '@modelcontextprotocol/sdk';
 }
 
+export interface QueuedToolCall {
+  id: string;              // 工具调用ID
+  name: string;            // 工具名称
+  args: any;               // 工具参数
+  argsString?: string;     // 参数的原始字符串形式（用于累积参数）
+  executed: boolean;       // 是否已执行
+  result?: string;         // 执行结果
+}
+
