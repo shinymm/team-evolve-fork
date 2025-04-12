@@ -12,6 +12,7 @@ import { Card, CardHeader } from '@/components/ui/card'
 import { ExternalLink, Pencil, Trash2, UserCircle2, Send } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { McpClient, McpServerConfig } from '@/lib/mcp/client'
+import { v4 as uuidv4 } from 'uuid'
 
 type AITeamMember = MemberFormData & { id: string; mcpConfigJson?: string | null }
 
@@ -24,6 +25,7 @@ interface Application {
 }
 
 interface Message {
+  id: string
   role: 'user' | 'assistant'
   content: string
 }
@@ -301,7 +303,7 @@ export default function AITeamPage() {
     setChatMember(member);
     setIsChatDialogOpen(true);
     setIsSessionReady(false); 
-    setMessages([{ role: 'assistant', content: '正在准备会话环境，请稍候...' }]);
+    setMessages([{ id: uuidv4(), role: 'assistant', content: '正在准备会话环境，请稍候...' }]);
     setInputValue('');
     setSessionId(null); // 清空旧会话ID
     
@@ -408,13 +410,13 @@ export default function AITeamPage() {
         console.error('初始化MCP会话失败:', error);
         toast({ title: '警告', description: '无法配置工具服务，将使用普通对话模式', variant: 'destructive' });
         // 即使失败，也设置会话准备就绪，进行普通对话
-        setMessages([{ role: 'assistant', content: welcomeMessage }]);
+        setMessages([{ id: uuidv4(), role: 'assistant', content: welcomeMessage }]);
         setIsSessionReady(true);
         return; // 提前返回，避免覆盖消息
       }
     }
     
-    setMessages([{ role: 'assistant', content: welcomeMessage }]);
+    setMessages([{ id: uuidv4(), role: 'assistant', content: welcomeMessage }]);
     setIsSessionReady(true);
   }
   
@@ -521,18 +523,25 @@ export default function AITeamPage() {
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading || !chatMember) return
     
-    const userMessage = { role: 'user' as const, content: inputValue }
+    // 创建用户消息时生成 ID
+    const userMessage: Message = { id: uuidv4(), role: 'user' as const, content: inputValue }
     setMessages(prev => [...prev, userMessage])
     setInputValue('')
     setIsLoading(true)
-    setMessages(prev => [...prev, { role: 'assistant', content: '' }])
     
+    // 创建初始助手消息时生成 ID
+    const initialAssistantMessage: Message = { id: uuidv4(), role: 'assistant', content: '' };
+    setMessages(prev => [...prev, initialAssistantMessage]);
+    const assistantMessageId = initialAssistantMessage.id; // 保存 ID
+    
+    let currentAssistantMsgId: string | null = assistantMessageId;
+
     try {
-      console.log('[SendMessage] 会话状态:', { 
-        sessionId, 
-        chatMember: chatMember?.name 
+      console.log('[SendMessage] 会话状态:', {
+        sessionId,
+        chatMember: chatMember?.name
       });
-      
+
       const requestData: any = {
         userMessage: inputValue,
         memberInfo: { // 始终发送成员信息
@@ -541,121 +550,128 @@ export default function AITeamPage() {
           responsibilities: chatMember.responsibilities,
         }
       };
-      
+
       // 只添加 sessionId
       if (sessionId) {
         requestData.sessionId = sessionId;
       }
-      
+
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 120000); 
-      
+      const timeoutId = setTimeout(() => controller.abort(), 120000);
+
       const response = await fetch('/api/mcp/conversation/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestData),
         signal: controller.signal
       });
-      
+
       clearTimeout(timeoutId);
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || '对话请求失败');
       }
-      
+
       // 处理流式响应
       const reader = response.body?.getReader();
       if (!reader) {
         throw new Error('无法读取响应流');
       }
-      
-      // 追踪我们是否已经显示了工具调用消息
-      let toolCallMessageShown = false;
-      let toolCallMessage = '';
-      let currentContent = '';
-      
+
+      // 标志：下一条 'content' 是否应开始新消息
+      let startNewMessageNext = false;
+
+      // *** Ensure the while loop is inside the try block ***
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        
-        // 解析收到的数据
+
         const chunk = new TextDecoder().decode(value);
         const lines = chunk.split('\n').filter(line => line.trim() !== '');
-        
+
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             try {
               const data = JSON.parse(line.substring(6));
-              
-              // 处理工具调用事件
-              if (data.type === 'tool_call') {
-                const toolName = data.name || 'unknown';
-                const formattedArgs = data.arguments || '{}';
-                
-                // 创建或更新工具调用消息
-                toolCallMessage = `🔧 正在使用工具: ${toolName}; \n参数: ${formattedArgs}`;
-                
-                // 如果尚未显示工具消息，则显示它
-                if (!toolCallMessageShown) {
-                  setMessages(prev => {
-                    const newMessages = [...prev];
-                    newMessages[newMessages.length - 1].content = toolCallMessage;
-                    return newMessages;
-                  });
-                  
-                  // 添加一个新消息来接收后续内容
-                  setMessages(prev => [...prev, { role: 'assistant', content: '处理中...' }]);
-                  toolCallMessageShown = true;
-                }
-              }
-              // 处理内容更新事件
-              else if (data.type === 'content') {
+
+              if (data.type === 'content') {
                 const newContent = data.content || '';
-                // 累积内容而不是替换
-                currentContent += newContent;
                 
-                // 更新最后一条消息内容
-                setMessages(prev => {
-                  const newMessages = [...prev];
-                  
-                  // 始终更新最后一条消息
-                  const lastIndex = newMessages.length - 1;
-                  newMessages[lastIndex].content = currentContent;
-                  
-                  return newMessages;
+                // Decide whether to append or start new based on the flag
+                if (startNewMessageNext) {
+                  // Start a new message
+                  setMessages(prevMessages => [
+                    ...prevMessages,
+                    { id: uuidv4(), role: 'assistant', content: newContent }
+                  ]);
+                  startNewMessageNext = false; // Reset flag *after* adding the new message
+                } else {
+                  // Append to the last message
+                  setMessages(prevMessages => {
+                    const newMessages = [...prevMessages];
+                    const lastMessageIndex = newMessages.length - 1;
+                    if (lastMessageIndex >= 0 && newMessages[lastMessageIndex].role === 'assistant') {
+                      // Ensure we only append if the last message is indeed an assistant message
+                      const updatedLastMessage = {
+                        ...newMessages[lastMessageIndex],
+                        content: newMessages[lastMessageIndex].content + newContent
+                      };
+                      newMessages[lastMessageIndex] = updatedLastMessage;
+                      return newMessages;
+                    } else {
+                      // Fallback: If last message isn't assistant (shouldn't happen often here),
+                      // just add a new one instead of appending.
+                      console.warn('[Flow] Tried to append content, but last message was not from assistant. Creating new message.');
+                      newMessages.push({ id: uuidv4(), role: 'assistant', content: newContent });
+                      return newMessages;
+                    }
+                  });
+                }
+              } else if (data.type === 'new_turn') {
+                console.log('[Flow] Received new_turn signal');
+                startNewMessageNext = true;
+              } else if (data.type === 'error') {
+                console.error('[Flow] Received error:', data.content);
+                setMessages(prevMessages => {
+                    const newMessages = [...prevMessages];
+                    newMessages.push({ id: uuidv4(), role: 'assistant', content: `错误: ${data.content}` });
+                    return newMessages;
                 });
+                startNewMessageNext = false;
+              } else if (data.type === 'status') {
+                 console.log('[Flow] Received status:', data.content);
+              } else if (data.type === 'tool_state') {
+                 console.log('[Flow] Received tool_state:', data.state);
               }
+
             } catch (error) {
               console.error('解析流数据出错:', error, line);
             }
-          }
-        }
-      }
-    } catch (error) {
+          } // end if line.startsWith
+        } // end for line of lines
+      } // end while(true)
+
+    } catch (error) { // <--- handleSendMessage 的 try...catch
       console.error('对话错误:', error);
-      
-      // 更新最后一条消息为错误信息
-      setMessages(prev => {
-        const newMessages = [...prev];
-        newMessages[newMessages.length - 1].content = `对话出错: ${error instanceof Error ? error.message : '未知错误'}`;
+      setMessages(prevMessages => {
+        const newMessages = [...prevMessages];
+        const errorText = `对话出错: ${error instanceof Error ? error.message : '未知错误'}`;
+        newMessages.push({ id: uuidv4(), role: 'assistant', content: errorText });
         return newMessages;
       });
-      
       toast({
         title: '错误',
         description: '对话处理出错，请稍后再试',
         variant: 'destructive',
       });
-    } finally {
+    } finally { // <--- finally block
       setIsLoading(false);
-      
-      // 滚动到底部
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
-    }
-  }
+    } // <--- End of finally block
+  } // <--- End of handleSendMessage
 
   return (
     <div className="mx-auto py-6 w-[90%]">
@@ -798,10 +814,10 @@ export default function AITeamPage() {
             </DialogTitle>
           </DialogHeader>
           
-          {/* 消息列表区域 */}
+          {/* 消息列表区域 - 更新 key */} 
           <div className="flex-1 overflow-y-auto p-4 space-y-4 my-4 border rounded-md">
-            {messages.map((message, index) => (
-              <div key={index} className={`flex items-start space-x-2 ${message.role === 'user' ? 'justify-end' : ''}`}>
+            {messages.map((message) => (
+              <div key={message.id} className={`flex items-start space-x-2 ${message.role === 'user' ? 'justify-end' : ''}`}>
                 {message.role === 'assistant' && (
                   <div className="w-8 h-8 rounded-full bg-orange-600 flex items-center justify-center text-white">
                     {chatMember?.name.charAt(0) || '?'}

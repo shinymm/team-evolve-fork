@@ -603,52 +603,51 @@ export async function POST(req: Request) {
 
                         for (const field of possibleContentFields) {
                           if (toolResult[field] !== undefined) {
-                            // 1. 检查字段本身是否为字符串
+                            // 1. Check if the field itself is a string
                             if (typeof toolResult[field] === 'string') {
-                              resultText = toolResult[field]; // 直接赋值
+                              resultText = toolResult[field]; // Assign directly
                               foundContent = true;
-                              console.log(`[流式对话] 工具结果提取方式1: 直接使用字段 ${field}`);
-                              break;
-                            } 
-                            // 2. 检查字段是否为对象且包含 .content 字符串
-                            else if (toolResult[field] && typeof toolResult[field] === 'object' && typeof toolResult[field].content === 'string') {
-                              resultText = toolResult[field].content; // 直接赋值
-                              foundContent = true;
-                              console.log(`[流式对话] 工具结果提取方式2: 使用字段 ${field}.content`);
+                              console.log(`[流式对话] 工具结果提取方式1: Directly using field ${field}`);
                               break;
                             }
-                            // 3. 检查字段是否为数组
+                            // 2. Check if field is object with .content string
+                            else if (toolResult[field] && typeof toolResult[field] === 'object' && typeof toolResult[field].content === 'string') {
+                              resultText = toolResult[field].content; // Assign directly
+                              foundContent = true;
+                              console.log(`[流式对话] 工具结果提取方式2: Using field ${field}.content`);
+                              break;
+                            }
+                            // 3. Check if field is an array
                             else if (Array.isArray(toolResult[field])) {
                                 for (const item of toolResult[field]) {
                                     if (item && typeof item === 'object' && item.type === 'text' && typeof item.text === 'string') {
-                                        resultText = item.text; // 直接赋值
+                                        resultText = item.text; // Assign directly
                                         foundContent = true;
-                                        console.log(`[流式对话] 工具结果提取方式3: 从字段 ${field} 数组中找到 type: 'text'`);
-                                        break; 
+                                        console.log(`[流式对话] 工具结果提取方式3: Found type: 'text' in field ${field} array`);
+                                        break;
                                     }
                                 }
                                 if (foundContent) {
-                                    break; 
+                                    break;
                                 }
                             }
                           }
                         }
 
-                        // --- 移除循环解包逻辑 ---
-                        // if (foundContent && initialExtractedText) { ... } else { ... }
-                        // --- 恢复简单的回退逻辑 ---
+                        // --- Remove unwrapping logic ---
+
+                        // --- Simple fallback logic ---
                         if (!foundContent) {
-                             // 如果初步提取失败，则执行原来的回退逻辑
-                            console.log(`[流式对话] 未能从特定字段提取工具结果，将 Stringify 整个对象`);
+                             console.log(`[流式对话] Could not extract specific field, stringifying the whole object`);
                             try {
                                 resultText = JSON.stringify(toolResult, null, 2);
                             } catch (stringifyError) {
-                                resultText = "无法序列化工具结果对象";
+                                resultText = "Cannot serialize tool result object";
                             }
                         }
-                        // --- 回退逻辑结束 ---
+                        // --- Fallback logic end ---
 
-                        // ... (后续 thoughtNumber/totalThoughts 处理保持不变，使用提取或 stringify 后的 resultText)
+                        // ... (subsequent processing uses the simplified resultText)
                         if (toolResult.thoughtNumber && toolResult.totalThoughts) {
                           resultText = `${resultText ? resultText : ''}${resultText ? '\n' : ''}(进度: ${toolResult.thoughtNumber}/${toolResult.totalThoughts})`;
                         }
@@ -691,6 +690,10 @@ export async function POST(req: Request) {
                     }
                     resultText = String(resultText); // 确保是字符串
                     sendContentEvent(controller, `\n⚙️ 工具执行结果:\n${resultText.substring(0, 1000)}${resultText.length > 1000 ? '...' : ''}`);
+
+                    // *** 发送新轮次开始信号 ***
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'new_turn' })}\n\n`));
+                    console.log('[流式对话] 发送 new_turn 信号');
 
                     // 构建包含工具调用和结果的完整消息历史
                     const updatedMessages: ChatMessage[] = [
@@ -751,7 +754,7 @@ export async function POST(req: Request) {
                         } else {
                             // <-- 日志：开始处理最终回复流
                             console.log('[流式对话] 开始处理最终回复流...');
-                            sendContentEvent(controller, `\n\n`); // 添加换行分隔
+                            // sendContentEvent(controller, `\n\n`); // 移除：不再需要手动添加换行分隔，由前端处理新气泡
                             let finalBuffer = '';
                             while (true) {
                                 const { done: finalDone, value: finalValue } = await finalReader.read();
