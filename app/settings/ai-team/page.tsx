@@ -29,12 +29,16 @@ interface Message {
 }
 
 // 定义MCP配置接口
+interface LocalMcpServerConfig { // 重命名局部接口以避免冲突
+  command?: string; 
+  args?: string[];  
+  url?: string;     
+  headers?: Record<string, string>; 
+}
+
 interface McpConfig {
   mcpServers: {
-    [key: string]: {
-      command: string;
-      args: string[];
-    }
+    [key: string]: LocalMcpServerConfig; // 使用重命名后的接口
   };
 }
 
@@ -56,7 +60,6 @@ export default function AITeamPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [mcpSession, setMcpSession] = useState<McpClient | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
 
   // 在组件顶部添加消息滚动的引用
@@ -297,21 +300,18 @@ export default function AITeamPage() {
   const handleOpenChat = async (member: AITeamMember) => {
     setChatMember(member);
     setIsChatDialogOpen(true);
-    setIsSessionReady(false); // 重置会话准备状态
-    
-    // 重置消息列表 - 初始显示准备中的消息
+    setIsSessionReady(false); 
     setMessages([{ role: 'assistant', content: '正在准备会话环境，请稍候...' }]);
     setInputValue('');
+    setSessionId(null); // 清空旧会话ID
     
-    // 如果成员配置了MCP服务器，创建MCP会话
     let welcomeMessage = member.greeting || `你好！我是${member.name}，有什么可以帮你的吗？`;
     
     if (member.mcpConfigJson) {
       try {
         console.log('开始创建MCP会话...');
         
-        // 创建会话，添加重试逻辑
-        let newSessionId = null;
+        let newSessionId: string | null = null;
         let retryCount = 0;
         const maxRetries = 3;
         
@@ -319,13 +319,14 @@ export default function AITeamPage() {
           try {
             // 解析MCP配置
             const config = JSON.parse(member.mcpConfigJson) as McpConfig;
-            if (!config || !config.mcpServers) {
-              throw new Error('无效的MCP配置');
+            if (!config || typeof config.mcpServers !== 'object' || Object.keys(config.mcpServers).length === 0) {
+              throw new Error('无效或空的MCP配置');
             }
             
             const serverName = Object.keys(config.mcpServers)[0];
-            if (!serverName) {
-              throw new Error('未找到MCP服务器配置');
+            const serverConfig = config.mcpServers[serverName];
+            if (!serverConfig) {
+                throw new Error(`未找到名为 "${serverName}" 的服务器配置`);
             }
             
             // 准备成员信息
@@ -334,83 +335,85 @@ export default function AITeamPage() {
               role: member.role,
               responsibilities: member.responsibilities
             };
-            
-            // 创建MCP会话 - 添加唯一标识，确保不会为同一用户创建多个会话
             const userSessionKey = `mcp-session-${member.id}`;
-            console.log(`使用用户会话键：${userSessionKey}`);
             
-            // 创建MCP会话
+            // --- 核心修改：根据配置类型构造请求体 ---
+            let requestBody: any;
+            if (serverConfig.url && typeof serverConfig.url === 'string') {
+              // Streamable HTTP 类型
+              console.log(`[handleOpenChat] 检测到 Streamable HTTP 配置: ${serverConfig.url}`);
+              requestBody = {
+                command: '_STREAMABLE_HTTP_', // 特殊标识符
+                url: serverConfig.url,
+                memberInfo,
+                userSessionKey
+              };
+            } else if (serverConfig.command && Array.isArray(serverConfig.args)) {
+              // 命令行类型
+              console.log(`[handleOpenChat] 检测到命令行配置: ${serverConfig.command} ${serverConfig.args.join(' ')}`);
+              requestBody = {
+                command: serverConfig.command,
+                args: serverConfig.args,
+                memberInfo,
+                userSessionKey
+              };
+            } else {
+              // 配置格式无效
+              throw new Error('MCP服务器配置无效: 必须包含 url 或 command/args');
+            }
+            // --- 修改结束 ---
+            
+            console.log(`[handleOpenChat] 发送到 /api/mcp/session 的请求体:`, requestBody);
+
+            // 创建MCP会话 - 使用构造好的 requestBody
             const response = await fetch('/api/mcp/session', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
               },
-              body: JSON.stringify({
-                command: config.mcpServers[serverName].command,
-                args: config.mcpServers[serverName].args,
-                memberInfo, // 传递成员信息到会话创建API
-                userSessionKey // 添加用户标识，服务端可用于防止为同一用户创建多个会话
-              }),
+              body: JSON.stringify(requestBody), // 使用构造好的请求体
             });
             
             if (!response.ok) {
-              throw new Error('创建MCP会话失败');
+              // 抛出错误以触发重试
+              throw new Error(`创建MCP会话失败 (${response.status})`);
             }
             
             const result = await response.json();
-            console.log('已创建MCP会话:', result.sessionId);
-            newSessionId = result.sessionId;
+            if (result.sessionId) { // <-- 检查响应中是否包含参数
+                console.log('已创建MCP会话:', result.sessionId);
+                newSessionId = result.sessionId;
+            } else {
+                throw new Error('创建会话响应无效: 缺少 sessionId');
+            }
           } catch (error) {
             console.error(`创建会话失败(尝试 ${retryCount + 1}/${maxRetries}):`, error);
             retryCount++;
-            
             if (retryCount < maxRetries) {
-              // 等待一秒再重试
               await new Promise(resolve => setTimeout(resolve, 1000));
               console.log(`重试创建会话 (${retryCount}/${maxRetries})...`);
             }
           }
         }
         
-        if (newSessionId) {
+        if (newSessionId) { // <-- 确保参数也获取成功
           setSessionId(newSessionId);
-          console.log('会话已创建并设置:', newSessionId);
-          
-          // 验证会话是否有效
-          try {
-            const checkResponse = await fetch(`/api/mcp/session?sessionId=${newSessionId}`, {
-              method: 'GET',
-            });
-            
-            if (checkResponse.ok) {
-              console.log('会话验证成功:', newSessionId);
-              welcomeMessage = `${welcomeMessage} (已连接工具服务器，你可以向我询问任何问题)`;
-            } else {
-              throw new Error(`会话验证失败: ${checkResponse.status}`);
-            }
-          } catch (error) {
-            console.error('会话验证错误:', error);
-            toast({
-              title: '警告',
-              description: '会话创建可能不稳定，对话过程中可能会遇到问题',
-              variant: 'destructive',
-            });
-          }
+          console.log('会话ID已设置:', newSessionId);
+          welcomeMessage = `${welcomeMessage} (工具服务已配置)`; 
         } else {
-          welcomeMessage = `${welcomeMessage} (无法连接工具服务器，仅提供普通对话)`;
-          throw new Error('多次尝试后仍无法创建会话');
+          welcomeMessage = `${welcomeMessage} (无法配置工具服务，仅提供普通对话)`;
+          throw new Error('多次尝试后仍无法配置会话');
         }
       } catch (error) {
         console.error('初始化MCP会话失败:', error);
-        toast({
-          title: '警告',
-          description: '无法连接到对话服务器，将使用普通对话模式',
-          variant: 'destructive',
-        });
+        toast({ title: '警告', description: '无法配置工具服务，将使用普通对话模式', variant: 'destructive' });
+        // 即使失败，也设置会话准备就绪，进行普通对话
+        setMessages([{ role: 'assistant', content: welcomeMessage }]);
+        setIsSessionReady(true);
+        return; // 提前返回，避免覆盖消息
       }
     }
     
-    // 会话准备完成，更新欢迎消息并激活输入框
     setMessages([{ role: 'assistant', content: welcomeMessage }]);
     setIsSessionReady(true);
   }
@@ -518,52 +521,38 @@ export default function AITeamPage() {
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading || !chatMember) return
     
-    // 添加用户消息
     const userMessage = { role: 'user' as const, content: inputValue }
     setMessages(prev => [...prev, userMessage])
     setInputValue('')
     setIsLoading(true)
-    
-    // 创建一个临时的响应消息
     setMessages(prev => [...prev, { role: 'assistant', content: '' }])
     
     try {
-      console.log('会话状态:', { 
-        hasMcpConfig: !!chatMember?.mcpConfigJson, 
+      console.log('[SendMessage] 会话状态:', { 
         sessionId, 
         chatMember: chatMember?.name 
       });
       
-      // 构建请求参数 - 始终包含完整的成员信息
       const requestData: any = {
         userMessage: inputValue,
-        memberInfo: {
+        memberInfo: { // 始终发送成员信息
           name: chatMember.name,
           role: chatMember.role,
-          responsibilities: chatMember.responsibilities
+          responsibilities: chatMember.responsibilities,
         }
       };
       
-      // 如果有MCP配置，添加到请求中
-      if (chatMember.mcpConfigJson) {
-        requestData.memberInfo.mcpConfigJson = chatMember.mcpConfigJson;
-      }
-      
-      // 如果有会话ID，添加到请求中
+      // 只添加 sessionId
       if (sessionId) {
         requestData.sessionId = sessionId;
       }
       
-      // 使用 fetch 发送请求
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 120000); // 2分钟超时
+      const timeoutId = setTimeout(() => controller.abort(), 120000); 
       
-      // 使用流式请求，获取实时响应
       const response = await fetch('/api/mcp/conversation/stream', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestData),
         signal: controller.signal
       });

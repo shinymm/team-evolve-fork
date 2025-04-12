@@ -482,58 +482,96 @@ export class McpClientService {
     sessionInfo.lastUsed = Date.now();
 
     try {
-      console.log(`[MCP] 会话 ${sessionId} 调用工具 ${toolName} 参数:`, input);
-      
+      console.log(`[MCP] 会话 ${sessionId} 调用工具 ${toolName} 参数:`, JSON.stringify(input).substring(0, 100) + '...'); // 避免日志过长
+
       // 根据会话类型选择调用方式
       if (sessionInfo.isVercelSdk) {
         // 使用Vercel SDK方式调用工具
+        console.log(`[MCP] 使用 Vercel SDK 调用工具 ${toolName}`);
+        // 确保 client 存在且是函数（虽然类型已指定，但增加运行时检查）
+        if (!sessionInfo.client || typeof sessionInfo.client.tools !== 'function') {
+            throw new Error('Vercel SDK client 或 tools 方法无效');
+        }
         const toolsObj = await (sessionInfo.client.tools as Function)();
         if (!toolsObj || typeof toolsObj[toolName] !== 'function') {
-          throw new Error(`工具 ${toolName} 在当前会话中不可用`);
+          throw new Error(`工具 ${toolName} 在当前会话中不可用 (Vercel SDK)`);
         }
-        return await toolsObj[toolName](input);
-      } else if (sessionInfo.isStreamableHttp && sessionInfo.client === null) {
+        const result = await toolsObj[toolName](input);
+        console.log(`[MCP] Vercel SDK 工具 ${toolName} 调用成功，结果: ${JSON.stringify(result).substring(0,150)}...`);
+        return result;
+
+      } else if (sessionInfo.isStreamableHttp && sessionInfo.transport instanceof StreamableHttpClientTransport) {
         // 使用直接 Streamable HTTP 传输调用工具
         console.log(`[MCP] 使用直接 HTTP 传输调用工具 ${toolName}`);
         const callToolId = `callTool-${sessionId}-${Date.now()}`;
-        const transport = sessionInfo.transport as StreamableHttpClientTransport;
-        
-        // 发送 call_tool 请求
-        await transport.send({
+        const transport = sessionInfo.transport; // 类型已在上层检查
+
+        // 构造 JSON-RPC 请求
+        const jsonRpcRequest = {
           jsonrpc: "2.0",
-          method: "call_tool",
-          params: { 
+          method: "tools/call", // <-- 改为服务器期望的方法名
+          params: {
             name: toolName,
-            parameters: input // 直接使用输入作为参数
+            arguments: input // <-- 改为服务器期望的参数名
           },
           id: callToolId
-        });
-        
-        // 接收 call_tool 响应
-        const result = await transport.receive();
-        console.log(`[MCP] 直接 HTTP 传输收到工具 ${toolName} 结果:`, result);
-        
-        // 假设 transport.receive 返回的是 { result: ... } 或直接是结果
-        // 需要根据 transport.receive 的实际返回值调整
-        if (result && result.result) {
-            return result.result; // 如果返回的是完整 JSON-RPC 对象
-        } else if (result) {
-             return result; // 如果 transport.receive 已提取结果
+        };
+
+        console.log(`[MCP] 发送 call_tool 请求: ${JSON.stringify(jsonRpcRequest).substring(0, 150)}...`);
+        // 发送请求， send 内部会处理 JSON 序列化
+        await transport.send(jsonRpcRequest); 
+
+        // 接收响应 (receive 返回的是 convertFromJsonRpc 处理后的结果)
+        console.log('[MCP] 等待 call_tool 响应...');
+        const response = await transport.receive(); 
+        console.log(`[MCP] 直接 HTTP 传输收到工具 ${toolName} 原始响应: ${JSON.stringify(response).substring(0,150)}...`);
+
+        // 处理响应
+        // convertFromJsonRpc 对于标准的 JSON-RPC 响应（包含 id 和 result/error）会返回完整的对象
+        if (response && typeof response === 'object') {
+            if (response.error) {
+               console.error(`[MCP] 工具 ${toolName} 调用错误 (HTTP):`, response.error);
+               // 构造更友好的错误信息
+               const errorMessage = response.error.message || JSON.stringify(response.error);
+               throw new Error(`工具调用失败: ${errorMessage}`);
+            } else if (response.hasOwnProperty('result')) { // 显式检查 'result' 属性是否存在
+               console.log(`[MCP] 工具 ${toolName} 调用成功 (HTTP)，结果: ${JSON.stringify(response.result).substring(0,150)}...`);
+               return response.result; // 返回 result 字段的内容
+            } else {
+                // 如果没有 error 也没有 result，但 response 是一个对象，可能是一个通知或其他非标准格式
+                console.warn(`[MCP] 工具 ${toolName} 收到非标准 JSON-RPC 成功响应 (HTTP)，返回整个响应: ${JSON.stringify(response).substring(0,150)}...`);
+                return response; // 返回整个对象，让调用者处理
+            }
         } else {
-            throw new Error('调用工具未收到预期结果');
+             // 如果响应不是对象，或者为空 (null, undefined)
+             console.error(`[MCP] 工具 ${toolName} 调用收到无效或空的响应 (HTTP):`, response);
+             throw new Error('调用工具未收到有效响应');
         }
 
-      } else {
+      } else if (sessionInfo.client) { // 确保 client 存在再调用其方法
         // 使用标准Client API调用工具
+        console.log(`[MCP] 使用标准 Client SDK 调用工具 ${toolName}`);
         const result = await sessionInfo.client.callTool({
           name: toolName,
-          arguments: input
+          arguments: input // 标准 SDK 使用 arguments
         });
+        console.log(`[MCP] 标准 Client SDK 工具 ${toolName} 调用成功，结果: ${JSON.stringify(result).substring(0,150)}...`);
         return result;
+      } else {
+         // 处理未知或无效的会话类型 (例如 transport 不是 StreamableHttpClientTransport 且 client 也不存在)
+         console.error(`[MCP] 会话 ${sessionId} 类型未知或客户端/传输层无效，无法调用工具`);
+         throw new Error(`会话 ${sessionId} 类型未知或配置无效，无法调用工具`);
       }
     } catch (error) {
-      console.error(`[MCP] 工具 ${toolName} 调用失败:`, error);
-      throw error;
+      console.error(`[MCP] 会话 ${sessionId} 调用工具 ${toolName} 过程中发生异常:`, error);
+      // 重新抛出，以便上层可以捕获并处理
+      // 优先抛出 Error 实例以保留堆栈信息
+      if (error instanceof Error) {
+          throw error; 
+      } else {
+          // 如果不是 Error 实例，则包装成 Error
+          throw new Error(`工具调用异常: ${String(error)}`);
+      }
     }
   }
 
