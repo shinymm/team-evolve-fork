@@ -79,13 +79,17 @@ export async function GET(request: Request) {
 
   // 3. Query the database
   try {
-    const systemWithProductInfo = await prisma.system.findUnique({
+    const systemWithProductInfo = await prisma.system.findFirst({
       where: {
-        name: systemName, // 'name' is unique in schema
+        name: {
+          equals: systemName,
+          mode: 'insensitive',
+        },
         status: 'active'   // Optionally ensure the system is active
       },
       select: {
         id: true, // Select system id for context if needed
+        name: true, // 同时返回匹配到的 name，方便确认
         productInfo: {
           select: {
             overview: true,
@@ -97,13 +101,13 @@ export async function GET(request: Request) {
     });
 
     if (!systemWithProductInfo) {
-      console.log(`[MCP Systems ProductInfo API] System not found or inactive: ${systemName}`);
+      console.log(`[MCP Systems ProductInfo API] System not found or inactive (case-insensitive): ${systemName}`);
       return NextResponse.json({ error: `系统 '${systemName}' 未找到或非活动状态` }, { status: 404 });
     }
 
     if (!systemWithProductInfo.productInfo) {
-      console.log(`[MCP Systems ProductInfo API] ProductInfo not found for system: ${systemName}`);
-       return NextResponse.json({ error: `系统 '${systemName}' 未找到对应的产品信息` }, { status: 404 });
+      console.log(`[MCP Systems ProductInfo API] ProductInfo not found for system: ${systemName} (Matched name: ${systemWithProductInfo.name})`);
+       return NextResponse.json({ error: `系统 '${systemName}' (匹配为 ${systemWithProductInfo.name}) 未找到对应的产品信息` }, { status: 404 });
     }
 
     console.log(`[MCP Systems ProductInfo API] Successfully fetched product info for system: ${systemName}`);
