@@ -453,8 +453,8 @@ export function MemberFormDialog({
                                 onClick={() => {
                                   const mcpStreamableHttpConfig = {
                                     mcpServers: {
-                                      "crew-ai-mcp": {
-                                        url: "https://crew-ai-mcp-b7cdf81f032f.herokuapp.com/mcp"
+                                      "heroku-mcp-server": {
+                                        url: "https://mcpframework-http-server-94494a527897.herokuapp.com//mcp"
                                       }
                                     }
                                   };
