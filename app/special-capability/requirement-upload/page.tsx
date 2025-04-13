@@ -8,6 +8,7 @@ import { RequirementBoundaryComparisonService } from '@/lib/services/requirement
 import { RequirementTerminologyService } from '@/lib/services/requirement-terminology-service'
 import { RequirementArchitectureService } from '@/lib/services/requirement-architecture-service'
 import { RequirementToSummaryService } from '@/lib/services/requirement-to-summary-service'
+import { ProductValuePositioningService } from '@/lib/services/product-value-positioning-service'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -51,7 +52,7 @@ type UploadedFile = {
 };
 
 // 修改TabType定义
-type TabType = 'md' | 'test' | 'boundary' | 'terminology' | 'architecture' | 'summary';
+type TabType = 'md' | 'test' | 'boundary' | 'terminology' | 'architecture' | 'summary' | 'value-positioning';
 
 interface TabConfig {
   id: TabType;
@@ -118,6 +119,15 @@ const TAB_CONFIGS: TabConfig[] = [
     minFiles: 1,
     maxFiles: 1,
     downloadFileName: '信息架构树'
+  },
+  {
+    id: 'value-positioning',
+    title: '产品价值定位',
+    buttonText: '总结产品价值定位',
+    service: ProductValuePositioningService,
+    minFiles: 1,
+    maxFiles: 1,
+    downloadFileName: '产品价值定位'
   }
 ];
 
@@ -296,7 +306,8 @@ export default function RequirementUpload() {
     test: '',
     boundary: '',
     terminology: '',
-    architecture: ''
+    architecture: '',
+    'value-positioning': ''
   })
   const [showChapterDialog, setShowChapterDialog] = useState(false)
   const [requirementChapter, setRequirementChapter] = useState('')
@@ -328,7 +339,8 @@ export default function RequirementUpload() {
     test: false,
     boundary: false,
     terminology: false,
-    architecture: false
+    architecture: false,
+    'value-positioning': false
   });
   
   // 在 RequirementUpload 组件内添加新的状态
@@ -704,6 +716,18 @@ export default function RequirementUpload() {
           })
           break
         }
+        case 'value-positioning': {
+          const service = new ProductValuePositioningService()
+          await service.analyzeProductValuePositioning(fileIds, (content: string) => {
+            console.log(`收到${tabId}内容:`, content.length, '字符')
+            accumulatedContent = content
+            setContents(prev => ({
+              ...prev,
+              [tabId]: content
+            }))
+          })
+          break
+        }
         default:
           throw new Error(`未找到${tabId}对应的服务`)
       }
@@ -798,6 +822,7 @@ export default function RequirementUpload() {
   const handleExtractTerminology = () => handleProcessDocument('terminology');
   const handleExtractArchitecture = () => handleProcessDocument('architecture');
   const handleConvertToSummary = () => handleProcessDocument('summary');
+  const handleAnalyzeProductValuePositioning = () => handleProcessDocument('value-positioning');
 
   // 修改原有的下载函数，使用统一的下载函数
   const handleDownloadMd = () => handleDownload('md');
@@ -806,6 +831,7 @@ export default function RequirementUpload() {
   const handleDownloadTerminology = () => handleDownload('terminology');
   const handleDownloadArchitecture = () => handleDownload('architecture');
   const handleDownloadSummary = () => handleDownload('summary');
+  const handleDownloadValuePositioning = () => handleDownload('value-positioning');
 
   // 处理打开需求章节输入弹窗
   const handleOpenTestDialog = () => {
@@ -1264,6 +1290,24 @@ export default function RequirementUpload() {
                   {processingStates.architecture ? '抽取中...' : '抽取信息架构树'}
                 </Button>
 
+                {/* 添加产品价值定位按钮 */}
+                <Button
+                  onClick={handleAnalyzeProductValuePositioning}
+                  disabled={uploadedFiles.length === 0 || processingStates['value-positioning']}
+                  className={`flex items-center gap-1 px-3 py-1.5 h-auto text-xs ${
+                    uploadedFiles.length > 0 && !processingStates['value-positioning']
+                      ? 'bg-orange-500 hover:bg-orange-600 text-white' 
+                      : 'bg-gray-400 text-gray-100 cursor-not-allowed'
+                  }`}
+                >
+                  {processingStates['value-positioning'] ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <FileText className="h-3 w-3" />
+                  )}
+                  {processingStates['value-positioning'] ? '分析中...' : '总结产品价值定位'}
+                </Button>
+
               </div>
               
               {/* 文件选择警告提示 */}
@@ -1410,6 +1454,16 @@ export default function RequirementUpload() {
                 >
                   信息架构树
                 </button>
+                <button
+                  onClick={() => setActiveTab('value-positioning')}
+                  className={`px-3 py-1.5 font-medium text-xs rounded-t-lg transition-colors ${
+                    activeTab === 'value-positioning' 
+                      ? 'bg-orange-500 text-white' 
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  产品价值定位
+                </button>
               </div>
               
               {/* 需求书内容 */}
@@ -1461,7 +1515,7 @@ export default function RequirementUpload() {
                       >
                         {importingSummary ? (
                           <>
-                            <Loader2 className="h-3 w-3 animate-spin" />
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             导入中...
                           </>
                         ) : (
@@ -1718,6 +1772,26 @@ export default function RequirementUpload() {
                   </div>
                 </div>
               )}
+
+              {/* 产品价值定位 */}
+              {activeTab === 'value-positioning' && (
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <h2 className="text-base font-semibold">产品价值定位</h2>
+                    <Button 
+                      onClick={handleDownloadValuePositioning}
+                      disabled={!contents['value-positioning']}
+                      className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1 px-3 py-1 h-8 text-xs"
+                    >
+                      <Download className="h-3 w-3" />
+                      下载产品价值定位
+                    </Button>
+                  </div>
+                  <div className="border rounded p-3 bg-gray-50 min-h-[800px] max-h-[1400px] overflow-auto w-full">
+                    <ContentDisplay content={contents['value-positioning']} />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1804,7 +1878,7 @@ export default function RequirementUpload() {
             >
               {importingTerms ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="h-3 w-3 animate-spin" />
                   导入中...
                 </>
               ) : (

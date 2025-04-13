@@ -19,6 +19,7 @@ export * from './user-persona'
 export * from './architecture-suggestion'
 export * from './exception-analysis'
 export * from './requirement-architecture'
+export * from './product-value-positioning'
 
 export function replaceTemplateVariables<T extends { [key: string]: string }>(template: string, variables: T): string {
   let result = template
