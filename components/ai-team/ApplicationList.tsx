@@ -114,8 +114,7 @@ export function ApplicationList({ onStatusChange }: ApplicationListProps) {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">集成应用</h2>
+      <div className="flex justify-end items-center mb-2">
         <Button onClick={handleAddClick}>
           <Plus className="mr-2 h-4 w-4" />
           引入应用

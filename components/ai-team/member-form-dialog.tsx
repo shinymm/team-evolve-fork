@@ -221,22 +221,20 @@ export function MemberFormDialog({
     let isJsonValid = true;
 
     if (isEditingJson && mcpJsonStringInternal.trim()) {
-        isJsonValid = tryParseJson(mcpJsonStringInternal);
+        isJsonValid = tryParseJson(mcpJsonStringInternal, false);
         if (isJsonValid) {
-            finalMcpJson = mcpJsonStringInternal.trim() || null;
+            finalMcpJson = mcpJsonStringInternal.trim();
+        } else {
+            setActiveTab('mcp');
+            console.error("MCP JSON is invalid, cannot save.");
+            return;
         }
     } else if (!isEditingJson) {
-        finalMcpJson = formData.mcpConfigJson === undefined ? null : formData.mcpConfigJson;
+        finalMcpJson = formData.mcpConfigJson && formData.mcpConfigJson.trim() ? formData.mcpConfigJson.trim() : null;
         isJsonValid = true;
     } else {
         finalMcpJson = null;
         isJsonValid = true;
-    }
-
-    if (!isJsonValid) {
-      setActiveTab('mcp');
-      console.error("MCP JSON is invalid, cannot save.");
-      return;
     }
 
     const dataToSubmit: MemberFormData = {
@@ -460,11 +458,13 @@ export function MemberFormDialog({
                                       }
                                     }
                                   };
+                                  const exampleJson = JSON.stringify(mcpStreamableHttpConfig, null, 2);
+                                  setMcpJsonStringInternal(exampleJson);
                                   setFormData(prev => ({ 
                                     ...prev, 
-                                    mcpConfigJson: JSON.stringify(mcpStreamableHttpConfig, null, 2) 
+                                    mcpConfigJson: exampleJson
                                   }));
-                                  tryParseJson(JSON.stringify(mcpStreamableHttpConfig, null, 2));
+                                  tryParseJson(exampleJson);
                                 }}
                               >
                                 <ExternalLink size={18} />
