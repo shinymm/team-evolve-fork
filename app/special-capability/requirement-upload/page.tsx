@@ -877,76 +877,118 @@ export default function RequirementUpload() {
     }
 
     try {
-      setImportingTerms(true)
+      setImportingTerms(true);
+      
+      // 从内容中寻找表格部分
+      let tableContent = contents.terminology;
+      let foundTable = false;
+      
+      // 尝试识别表格开始部分（表头行）
+      const tableHeaderPattern = /\|\s*名称\s*\|\s*定义\s*\|\s*别名\s*\|\s*类型\s*\|/i;
+      const headerMatch = contents.terminology.match(tableHeaderPattern);
+      
+      if (headerMatch) {
+        console.log('找到表格表头');
+        const headerIndex = contents.terminology.indexOf(headerMatch[0]);
+        
+        // 提取从表头开始的全部内容
+        tableContent = contents.terminology.substring(headerIndex);
+        foundTable = true;
+      } else {
+        // 尝试寻找任何表格格式的内容
+        const anyTableHeaderPattern = /\|[^\n]*\|[^\n]*\|[^\n]*\|[^\n]*\|/;
+        const anyHeaderMatch = contents.terminology.match(anyTableHeaderPattern);
+        
+        if (anyHeaderMatch) {
+          console.log('找到可能的表格格式');
+          const headerIndex = contents.terminology.indexOf(anyHeaderMatch[0]);
+          tableContent = contents.terminology.substring(headerIndex);
+          foundTable = true;
+        }
+      }
+      
+      if (!foundTable) {
+        console.log('未找到表格格式，将尝试处理整个内容');
+      }
       
       // 解析 Markdown 表格
-      const lines = contents.terminology.split('\n')
-      const terms: any[] = []
+      const lines = tableContent.split('\n');
+      const terms: any[] = [];
       
-      console.log('开始解析术语表格，总行数:', lines.length)
+      console.log('开始解析术语表格，总行数:', lines.length);
       
-      let isHeader = true
-      let headerFound = false
+      let isHeader = true;
+      let headerFound = false;
+      let separatorFound = false;
       
       for (const line of lines) {
-        const trimmedLine = line.trim()
-        console.log('处理行:', trimmedLine)
-        
-        if (trimmedLine === '') continue
+        const trimmedLine = line.trim();
+        if (trimmedLine === '') continue;
         
         // 检查是否是表格行
-        if (trimmedLine.startsWith('|')) {
+        if (trimmedLine.startsWith('|') && trimmedLine.endsWith('|')) {
           // 检查是否是表头
           if (trimmedLine.includes('名称') && trimmedLine.includes('定义') && trimmedLine.includes('别名') && trimmedLine.includes('类型')) {
-            console.log('找到表头')
-            headerFound = true
-            isHeader = true
-            continue
+            console.log('找到表头:', trimmedLine);
+            headerFound = true;
+            isHeader = true;
+            continue;
           }
           
-          // 跳过分隔行
+          // 检查是否是分隔行（包含 --- 的行）
           if (trimmedLine.includes('---')) {
-            console.log('跳过分隔行')
-            isHeader = false
-            continue
+            console.log('找到分隔行:', trimmedLine);
+            separatorFound = true;
+            isHeader = false;
+            continue;
           }
           
-          // 如果已经找到表头且不是表头行，则处理数据行
-          if (headerFound && !isHeader) {
-            // 分割单元格并过滤掉空字符串
+          // 已找到表头和分隔行后，处理数据行
+          if (headerFound && separatorFound) {
+            // 分割单元格 - 首先按 | 分割，然后去除首尾空白字符
             const cells = trimmedLine.split('|')
-              .map(cell => cell.trim())
-              .filter(cell => cell !== '')
+              .filter((cell, index, array) => index > 0 && index < array.length - 1) // 移除首尾空元素
+              .map(cell => cell.trim());
             
-            console.log('解析的单元格:', cells)
+            console.log('解析的单元格:', cells);
             
             if (cells.length >= 4) {
-              const [name, definition, aliases, type] = cells
+              const [name, definition, aliases, type] = cells;
               
-              // 组合 domain（用户输入的领域标识 + 原始类型）
-              const domain = domainPrefix ? `${domainPrefix}，${type}` : type
+              // 验证术语名称和定义不能为空
+              if (!name || !definition) {
+                console.warn('跳过无效行，名称或定义为空:', trimmedLine);
+                continue;
+              }
               
-              // 处理别名中的换行符
-              const processedAliases = aliases.replace(/<BR>/g, '\n')
+              // 组合 domain
+              const domain = domainPrefix ? `${domainPrefix}，${type || '未分类'}` : (type || '未分类');
+              
+              // 处理别名，确保即使为空也能正确处理
+              const processedAliases = aliases ? aliases.replace(/<BR>/g, '\n') : '';
               
               terms.push({
                 term: name,
                 explanation: definition,
-                aliases: processedAliases || '',
+                aliases: processedAliases,
                 domain: domain,
                 createdBy: '43170448'
-              })
+              });
               
-              console.log('添加术语:', { name, definition, aliases: processedAliases, domain })
+              console.log('添加术语:', { name, definition, aliases: processedAliases, domain });
+            } else {
+              console.warn('跳过格式不正确的行，单元格数量不足:', trimmedLine);
             }
           }
         }
       }
       
-      console.log('解析完成，找到术语数量:', terms.length)
+      console.log('解析完成，找到术语数量:', terms.length);
       
       if (terms.length === 0) {
-        throw new Error('未找到有效的术语数据，请确保表格格式正确')
+        // 显示完整错误和处理过程
+        console.error('未能提取有效术语，表格内容:', tableContent);
+        throw new Error('未找到有效的术语数据，请确保表格格式正确。可能原因：未找到表头或分隔行，或数据行格式不符合要求。');
       }
       
       // 调用批量导入 API
@@ -956,33 +998,33 @@ export default function RequirementUpload() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ terms })
-      })
+      });
       
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || '导入失败')
+        const error = await response.json();
+        throw new Error(error.error || '导入失败');
       }
       
-      const result = await response.json()
+      const result = await response.json();
       
       toast({
         title: "导入成功",
         description: result.message,
-      })
+      });
       
       // 关闭弹窗
-      setShowDomainDialog(false)
-      setDomainPrefix('')
+      setShowDomainDialog(false);
+      setDomainPrefix('');
       
     } catch (error) {
-      console.error('导入术语失败:', error)
+      console.error('导入术语失败:', error);
       toast({
         title: "导入失败",
         description: error instanceof Error ? error.message : "未知错误",
         variant: "destructive",
-      })
+      });
     } finally {
-      setImportingTerms(false)
+      setImportingTerms(false);
     }
   }
 

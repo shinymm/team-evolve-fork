@@ -798,7 +798,12 @@ export default function GlossaryPage() {
                             className="min-h-[40px] text-xs"
                           />
                         ) : (
-                          <span className="max-w-[300px] truncate text-xs">{item.explanation}</span>
+                          <div 
+                            title={item.explanation} 
+                            className="text-xs max-w-[300px] line-clamp-3 text-ellipsis overflow-hidden hover:text-orange-700"
+                          >
+                            {item.explanation}
+                          </div>
                         )}
                       </TableCell>
                       <TableCell className="py-1">
