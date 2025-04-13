@@ -1,5 +1,5 @@
-import { PrismaClient } from '@prisma/client'
-import { APIInterface } from '@/lib/stores/api-interfaces-store'
+import { PrismaClient, APIInterface as PrismaAPIInterface } from '@prisma/client'
+// import { APIInterface } from '@/lib/stores/api-interfaces-store'
 import { highLevelArchitecture } from '@/lib/plantuml-templates/high-level'
 import { microserviceArchitecture } from '@/lib/plantuml-templates/microservice'
 import { deploymentArchitecture } from '@/lib/plantuml-templates/deployment'
@@ -11,8 +11,20 @@ import {
 import { chatApiSpec } from '@/lib/swagger-docs/chat'
 import { outcallTaskApiSpec } from '@/lib/swagger-docs/outcall_task'
 
-// 默认API接口列表
-const DEFAULT_INTERFACES: (APIInterface & { swaggerDoc: any })[] = [
+// 使用简单的接口来定义种子数据
+interface APIInterfaceSeed {
+  id: string;
+  name: string; 
+  description: string;
+  type: string;
+  endpoint: string;
+  operation: string;
+  swaggerEndpoint: string | null;
+  swaggerDoc: any;
+}
+
+// 默认API接口列表，使用简单的类型
+const DEFAULT_INTERFACES: APIInterfaceSeed[] = [
   {
     id: '1',
     name: '文本机器人对话接口',
@@ -20,7 +32,7 @@ const DEFAULT_INTERFACES: (APIInterface & { swaggerDoc: any })[] = [
     type: 'REST',
     endpoint: '/api/v1/chat',
     operation: 'POST',
-    swaggerEndpoint: '/api/v1/chat',
+    swaggerEndpoint: '/api/v1/chat' as string,
     swaggerDoc: chatApiSpec
   },
   {
@@ -30,7 +42,7 @@ const DEFAULT_INTERFACES: (APIInterface & { swaggerDoc: any })[] = [
     type: 'REST',
     endpoint: '/api/v1/outcall/tasks',
     operation: 'POST',
-    swaggerEndpoint: '/api/v1/outcall/tasks',
+    swaggerEndpoint: '/api/v1/outcall/tasks' as string,
     swaggerDoc: outcallTaskApiSpec
   }
 ]
