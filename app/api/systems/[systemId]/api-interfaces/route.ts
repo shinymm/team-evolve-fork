@@ -8,24 +8,33 @@ export async function GET(
   request: Request,
   { params }: { params: { systemId: string } }
 ) {
+  const { systemId } = params;
+
+  if (!systemId) {
+    return NextResponse.json({ error: 'System ID is required' }, { status: 400 });
+  }
+
   try {
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: '未授权访问' }, { status: 401 })
-    }
-
-    const { systemId } = params
     const apiInterfaces = await prisma.aPIInterface.findMany({
-      where: { systemId }
-    })
+      where: {
+        systemId: systemId,
+      },
+      orderBy: {
+        createdAt: 'desc', // 或者根据需要排序
+      },
+    });
 
-    return NextResponse.json(apiInterfaces)
+    // 注意：这里没有获取订阅信息，因为数据库模型中没有定义
+    // 如果需要订阅信息，需要先扩展 Prisma schema 并实现相关逻辑
+
+    return NextResponse.json(apiInterfaces);
   } catch (error) {
-    console.error('获取API接口列表失败:', error)
-    return NextResponse.json(
-      { error: '获取API接口列表失败' },
-      { status: 500 }
-    )
+    console.error('Failed to fetch API interfaces:', error);
+    // 根据错误类型返回更具体的错误信息可能更好
+    if (error instanceof Error) {
+        return NextResponse.json({ error: `Failed to fetch API interfaces: ${error.message}` }, { status: 500 });
+    }
+    return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
 
