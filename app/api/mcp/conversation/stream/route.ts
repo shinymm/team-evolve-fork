@@ -6,6 +6,7 @@ import { AIModelConfig } from "@/lib/services/ai-service";
 import { aiModelConfigService } from "@/lib/services/ai-model-config-service";
 import { getRedisClient } from '@/lib/redis';
 import { QueuedToolCall } from '@/types/mcp'; // 导入QueuedToolCall接口
+import { getCurrentUser } from '@/lib/utils/auth-utils'; // 导入获取用户信息的函数
 
 // 流式响应编码器
 const encoder = new TextEncoder();
@@ -76,6 +77,18 @@ const redis = getRedisClient();
  * 统一处理流式对话请求 - 支持实时推送工具调用和结果
  */
 export async function POST(req: Request) {
+  // --- 获取当前用户信息 --- 
+  const user = await getCurrentUser();
+  if (!user) {
+      // 如果没有登录用户，根据你的业务逻辑处理
+      // 可以返回 401 未授权错误，或者允许匿名访问（如果设计如此）
+      console.error("[API Stream] Unauthorized: No authenticated user found.");
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+  }
+  const userId = user.id;
+  const userEmail = user.email; 
+  console.log(`[API Stream] Authenticated user: ${userEmail} (ID: ${userId})`);
+
   // 创建流式响应
   const stream = new ReadableStream({
     async start(controller) {
@@ -118,19 +131,46 @@ export async function POST(req: Request) {
         let effectiveSessionId = sessionId;
         let sessionData: RedisSessionData | null = null; // 存储从 Redis 读取的数据
         let sessionInfo: any = null; // <-- 移回外部声明
-        
+        let availableTools: any[] = []; // 确保在外部声明
+        let connectCommand: string | undefined;
+        let connectArgs: string[] | undefined;
+        // 移除错误的 session.user 访问
+        // const user = session.user; 
+        // const userId = user?.id;
+        // const userEmail = user?.email || 'anonymous';
+
+        // --- 生成或获取 Redis 会话 Key (使用真实用户信息) --- 
+        const sessionKey = effectiveSessionId ? REDIS_SESSION_PREFIX + effectiveSessionId : REDIS_SESSION_PREFIX + `user:${userId}:${Date.now()}`; // 优先使用 userId
+        console.log(`[API Stream] Using Redis session key: ${sessionKey}`);
+
         // --- 步骤 1: 尝试从 Redis 获取会话数据 --- 
         if (effectiveSessionId) {
             const redisKey = REDIS_SESSION_PREFIX + effectiveSessionId;
             try {
-                const sessionDataJson = await redis.get(redisKey);
-                if (sessionDataJson) {
-                    sessionData = JSON.parse(sessionDataJson) as RedisSessionData;
-                    console.log(`[流式对话] 从 Redis 成功加载会话 ${effectiveSessionId}`);
+                // 改用 hgetall 读取 Hash
+                const sessionDataHash = await redis.hgetall(redisKey);
+                // 检查返回的是否是有效的 Hash (非空对象)
+                if (sessionDataHash && Object.keys(sessionDataHash).length > 0) {
+                    // 将 Hash 数据转换为 sessionData 对象 (注意类型转换)
+                    sessionData = {
+                        sessionId: sessionDataHash.sessionId,
+                        connectionParams: JSON.parse(sessionDataHash.connectionParams || '{}'),
+                        tools: JSON.parse(sessionDataHash.tools || '[]'),
+                        formattedTools: JSON.parse(sessionDataHash.formattedTools || '[]'),
+                        aiModelConfig: JSON.parse(sessionDataHash.aiModelConfig || '{}'),
+                        systemPrompt: sessionDataHash.systemPrompt,
+                        memberInfo: JSON.parse(sessionDataHash.memberInfo || '{}'),
+                        startTime: parseInt(sessionDataHash.startTime || '0', 10),
+                        lastUsed: parseInt(sessionDataHash.lastUsed || '0', 10),
+                    };
+                    console.log(`[流式对话] 从 Redis 成功加载会话 ${effectiveSessionId} (Hash)`);
                     
                     // 更新 lastUsed 和 TTL
                     sessionData.lastUsed = Date.now();
-                    await redis.setex(redisKey, SESSION_TTL_SECONDS, JSON.stringify(sessionData));
+                    // 改为 hset 更新字段 + expire 设置 TTL
+                    await redis.hset(redisKey, 'lastUsed', sessionData.lastUsed.toString()); 
+                    await redis.expire(redisKey, SESSION_TTL_SECONDS);
+                    console.log(`[流式对话] 更新会话 ${effectiveSessionId} 的 lastUsed 和 TTL`);
                     
                     // 检查连接是否在当前内存中
                     isConnectionInMemory = mcpClientService.getSessionInfo(effectiveSessionId) !== null;
@@ -139,8 +179,8 @@ export async function POST(req: Request) {
                     }
 
                 } else {
-                    console.log(`[流式对话] Redis 中未找到会话 ${effectiveSessionId}，视为无效会话`);
-                    effectiveSessionId = undefined; // 会话无效
+                    console.log(`[流式对话] Redis 中未找到会话 ${effectiveSessionId} (或为空 Hash)，视为无效会话`);
+                    effectiveSessionId = undefined; 
                 }
             } catch (redisError) {
                 console.error(`[流式对话] 从 Redis 读取会话 ${effectiveSessionId} 失败:`, redisError);
@@ -154,48 +194,148 @@ export async function POST(req: Request) {
              console.log(`[流式对话] 会话 ${effectiveSessionId} 不在内存中，尝试使用 Redis 中的参数重新连接...`);
              const savedConnectionParams = sessionData.connectionParams;
              if (savedConnectionParams) {
-                 try {
-                    let connectCommand: string;
-                    let connectArgs: string[];
-                    if (savedConnectionParams.url) {
-                        connectCommand = '_STREAMABLE_HTTP_';
-                        connectArgs = ['--url', savedConnectionParams.url];
-                    } else if (savedConnectionParams.command && savedConnectionParams.args) {
-                        connectCommand = savedConnectionParams.command;
-                        connectArgs = savedConnectionParams.args;
-                    } else {
-                        throw new Error('Redis 中存储的 connectionParams 无效');
-                    }
-                    
-                    // 尝试重连，传入 sessionId
-                    const connectResult = await mcpClientService.connect(connectCommand, connectArgs, effectiveSessionId);
-                    
-                    // --- 修复：确保 effectiveSessionId 更新为 connect 返回的新 ID ---
-                    const newSessionIdAfterReconnect = connectResult.sessionId;
-                    console.log('[流式对话] 按需重新连接成功，旧ID:', effectiveSessionId, '新ID:', newSessionIdAfterReconnect);
-                    effectiveSessionId = newSessionIdAfterReconnect; // 强制更新为新 ID
-                    // --- 修复结束 ---
-                    
-                    isConnectionInMemory = true; // 标记连接已在内存中
-                    
-                    // 重新获取一下 sessionInfo，因为 connect 可能更新了内存状态
-                    sessionInfo = mcpClientService.getSessionInfo(effectiveSessionId);
-                    if (!sessionInfo) {
-                        console.warn(`[流式对话] 警告：重新连接成功后，未能立即从 mcpClientService 获取到新会话 ${effectiveSessionId} 的信息`);
-                        // 即使内存信息获取稍有延迟，我们仍然有 Redis 中的 sessionData 可以继续
-                    }
+                 let httpUrl: string | undefined;
+                 let isUnsupportedConfig = false;
 
-                 } catch (reconnectError) {
-                     console.error('[流式对话] 按需重新连接失败:', reconnectError);
-                     // 连接失败，但 sessionData 仍然有效，可以尝试无工具模式或报错
-                     // 根据业务决定是报错还是继续 (当前会继续，但工具调用会失败)
-                     sendStatusEvent(controller, '警告: 无法重新连接到工具服务');
+                 if (savedConnectionParams.url) { // 只处理 URL 配置
+                     httpUrl = savedConnectionParams.url;
+                 } else {
+                     // 其他配置（包括 Stdio 或无效配置）均视为不支持
+                     isUnsupportedConfig = true;
+                     console.error('[流式对话] Redis 中存储的 connectionParams 无效或为不支持的 Stdio 类型');
+                 }
+
+                 if (httpUrl) {
+                     // --- Streamable HTTP 重连 --- 
+                     console.log(`[流式对话] Reconnecting with Streamable HTTP: ${httpUrl}, Session ID: ${effectiveSessionId}`);
+                     try {
+                         const connectResult = await mcpClientService.connect(httpUrl, effectiveSessionId);
+                         const newSessionIdAfterReconnect = connectResult.sessionId;
+                         console.log(`[流式对话] Reconnect successful, new session ID: ${newSessionIdAfterReconnect}`);
+                         effectiveSessionId = newSessionIdAfterReconnect;
+                         sessionInfo = mcpClientService.getSessionInfo(effectiveSessionId);
+                         if (sessionInfo) {
+                             availableTools = sessionInfo.tools || [];
+                         } else {
+                            console.warn(`[流式对话] 重连成功但无法立即获取 sessionInfo for ${effectiveSessionId}`);
+                            availableTools = connectResult.tools;
+                         }
+                         await redis.hmset(sessionKey, { sessionId: effectiveSessionId });
+                         console.log(`[API Stream] Redis session ${sessionKey} updated with new sessionId after reconnect.`);
+                         isConnectionInMemory = true;
+
+                     } catch (reconnectError) {
+                         console.error("[API Stream] Reconnect attempt failed:", reconnectError);
+                         effectiveSessionId = undefined;
+                         sessionInfo = null;
+                         isConnectionInMemory = false;
+                         await redis.hdel(sessionKey, 'sessionId');
+                         sendStatusEvent(controller, `警告: 无法重新连接到工具服务 (${reconnectError instanceof Error ? reconnectError.message : String(reconnectError)})`);
+                     }
+                 } else if (isUnsupportedConfig) {
+                      // --- 不支持的配置（Stdio 或无效）--- 
+                      console.error(`[API Stream] Reconnect failed: Connection type from Redis is no longer supported or invalid.`);
+                      effectiveSessionId = undefined; sessionInfo = null; isConnectionInMemory = false; await redis.hdel(sessionKey, 'sessionId');
+                      sendStatusEvent(controller, '警告: 旧的或无效的连接方式不再支持，无法重连工具服务');
+                 } else {
+                      // --- 缺少必要参数 --- 
+                      console.warn(`[流式对话] Redis 中会话 ${effectiveSessionId} 的 connectionParams 格式无效或不完整，无法重连`);
+                      effectiveSessionId = undefined; sessionInfo = null; isConnectionInMemory = false; await redis.hdel(sessionKey, 'sessionId');
                  }
              } else {
                  console.warn(`[流式对话] Redis 中会话 ${effectiveSessionId} 缺少 connectionParams，无法重新连接`);
+                 effectiveSessionId = undefined; sessionInfo = null; isConnectionInMemory = false; await redis.hdel(sessionKey, 'sessionId');
              }
         }
         // --- 重连逻辑结束 ---
+
+        // --- 如果仍然没有会话 (首次连接或重连失败)，则创建新会话 --- 
+        if (!sessionInfo) {
+            console.log("[API Stream] No active session, creating a new one...");
+            effectiveSessionId = undefined; 
+            const mcpConfigJson = memberInfo?.mcpConfigJson;
+            let mcpConfig: any = {}; // 初始化为空对象
+            if (mcpConfigJson) {
+                try {
+                    mcpConfig = JSON.parse(mcpConfigJson);
+                } catch (parseError) {
+                    console.error("[API Stream] Failed to parse mcpConfigJson:", parseError);
+                    // JSON 解析失败，视为没有有效配置
+                    return new NextResponse(
+                        JSON.stringify({ error: "提供的 MCP 配置 JSON 格式无效。"}),
+                        { status: 400, headers: { 'Content-Type': 'application/json' } }
+                    );
+                }
+            }
+            
+            // --- 添加检查：确保 mcpConfig 和 mcpConfig.mcpServers 有效 ---
+            if (!mcpConfig || typeof mcpConfig !== 'object' || !mcpConfig.mcpServers || typeof mcpConfig.mcpServers !== 'object') {
+                console.error("[API Stream] Invalid mcpConfig structure: mcpServers object is missing or invalid.", mcpConfig);
+                return new NextResponse(
+                   JSON.stringify({ error: "MCP 配置无效：缺少 mcpServers 对象或格式错误。"}),
+                   { status: 400, headers: { 'Content-Type': 'application/json' } }
+                );
+            }
+            // --- 检查结束 ---
+
+            const serverNames = Object.keys(mcpConfig.mcpServers);
+            if (serverNames.length === 0) {
+                console.error("[API Stream] mcpConfig.mcpServers is empty.");
+                return new NextResponse(
+                   JSON.stringify({ error: "MCP 配置无效：mcpServers 对象不能为空。"}),
+                   { status: 400, headers: { 'Content-Type': 'application/json' } }
+                );
+            }
+
+            const firstServerName = serverNames[0];
+            const firstServerConfig = mcpConfig.mcpServers[firstServerName];
+
+            // 严格检查是否为 Streamable HTTP 配置
+            if (firstServerConfig && typeof firstServerConfig === 'object' && 'url' in firstServerConfig && typeof firstServerConfig.url === 'string' && !('command' in firstServerConfig) && !('args' in firstServerConfig)) {
+                const httpUrl = firstServerConfig.url;
+                try {
+                    console.log(`[API Stream] Connecting to new Streamable HTTP server: ${httpUrl}`);
+                    const connectResult = await mcpClientService.connect(httpUrl);
+                    effectiveSessionId = connectResult.sessionId;
+                    availableTools = connectResult.tools;
+                    sessionInfo = mcpClientService.getSessionInfo(effectiveSessionId);
+                    console.log(`[API Stream] New connection successful, Session ID: ${effectiveSessionId}`);
+                    
+                    // 保存到 Redis (hmset 保持不变，但确保所有字段都是字符串)
+                    const connectionParamsToSave = { url: httpUrl }; 
+                    const dataToSave: Record<string, string> = {
+                        sessionId: effectiveSessionId,
+                        connectionParams: JSON.stringify(connectionParamsToSave),
+                        tools: JSON.stringify(availableTools), // 确保 tools 是字符串
+                        formattedTools: JSON.stringify(sessionInfo?.formattedTools || []), // 确保存储格式化工具
+                        aiModelConfig: JSON.stringify(sessionInfo?.aiModelConfig || {}), // 确保 aiConfig 是字符串
+                        systemPrompt: sessionInfo?.systemPrompt || '', // 确保 systemPrompt 是字符串
+                        memberInfo: JSON.stringify(sessionInfo?.memberInfo || {}), // 确保 memberInfo 是字符串
+                        startTime: sessionInfo?.startTime?.toString() || Date.now().toString(), // 确保存储时间戳
+                        lastUsed: sessionInfo?.lastUsed?.toString() || Date.now().toString()
+                    };
+                    await redis.hmset(sessionKey, dataToSave);
+                    // 设置 TTL
+                    await redis.expire(sessionKey, SESSION_TTL_SECONDS);
+                    console.log(`[API Stream] New session ${effectiveSessionId} saved to Redis (Hash) for ${sessionKey}`);
+
+                } catch (connectError) {
+                    console.error("[API Stream] Initial connection failed:", connectError);
+                    // 使用 NextResponse 返回错误
+                    return new NextResponse(
+                      JSON.stringify({ error: `连接 MCP 服务器失败: ${connectError instanceof Error ? connectError.message : String(connectError)}` }),
+                      { status: 500, headers: { 'Content-Type': 'application/json' } }
+                    );
+                }
+            } else {
+                 console.error("[API Stream] Invalid or unsupported MCP server configuration for initial connection:", firstServerConfig);
+                 // 使用 NextResponse 返回错误
+                 return new NextResponse(
+                    JSON.stringify({ error: "无效或不支持的 MCP 服务器配置：只支持 Streamable HTTP URL 配置。请检查 mcpConfig.mcpServers 中的第一个条目。"}),
+                    { status: 400, headers: { 'Content-Type': 'application/json' } }
+                 );
+            }
+        }
 
         // --- 确定对话模式 (只声明一次) --- 
         const useMcpMode = !!sessionData;

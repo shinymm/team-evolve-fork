@@ -16,7 +16,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/componen
 import { Pencil, Loader2, AlertCircle, CheckCircle, PlugZap, Code, ExternalLink, HelpCircle, Clipboard } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { parseMcpConfig, testMcpConnection, McpServerConfig, McpSseConfig, McpStreamableHttpConfig } from '@/lib/mcp/client'
+import { parseMcpConfig, testMcpConnection, McpStreamableHttpConfig } from '@/lib/mcp/client'
 
 export interface MemberFormData {
   id?: string
@@ -31,7 +31,7 @@ export interface MemberFormData {
 
 interface ParsedMcpServer {
   name: string;
-  config: McpServerConfig | McpSseConfig | McpStreamableHttpConfig;
+  config: McpStreamableHttpConfig;
 }
 
 interface ServerStatus {
@@ -48,35 +48,14 @@ interface MemberFormDialogProps {
   onClose: () => void
 }
 
-// 检查配置是否可测试
-const isConfigTestable = (config: McpServerConfig | McpSseConfig | McpStreamableHttpConfig) => {
-  // 检查是否是URL配置（SSE或Streamable HTTP）
-  if ('url' in config) {
-    try {
-      const urlObj = new URL(String(config.url));
-      return true;
-    } catch (e) {
-      console.log('[isConfigTestable] 无效URL:', config.url, e);
-      return false;
-    }
-  }
-  
-  // 命令行配置检查
-  const command = config.command;
-  const args = config.args;
-  
-  if (!command || !args || args.length < 2) {
-    console.log('[isConfigTestable] 命令或参数无效');
+const isConfigTestable = (config: McpStreamableHttpConfig) => {
+  try {
+    const urlObj = new URL(String(config.url));
+    return true;
+  } catch (e) {
+    console.log('[isConfigTestable] 无效URL:', config.url, e);
     return false;
   }
-  
-  if (command === 'npx' && args[0] === '-y') {
-    console.log('[isConfigTestable] 命令格式有效:', command, args);
-    return true;
-  }
-  
-  console.log('[isConfigTestable] 命令格式无效');
-  return false;
 };
 
 export function MemberFormDialog({
@@ -165,10 +144,14 @@ export function MemberFormDialog({
     try {
       const parsed = JSON.parse(jsonStr);
       if (parsed && typeof parsed === 'object' && parsed.mcpServers && typeof parsed.mcpServers === 'object') {
-        const servers: ParsedMcpServer[] = Object.entries(parsed.mcpServers).map(([name, config]) => ({
-          name,
-          config: config as (McpServerConfig | McpSseConfig | McpStreamableHttpConfig),
-        }));
+        const servers: ParsedMcpServer[] = [];
+        for (const [name, config] of Object.entries(parsed.mcpServers)) {
+           if (config && typeof config === 'object' && 'url' in config && !('command' in config) && !('args' in config)) {
+             servers.push({ name, config: config as McpStreamableHttpConfig });
+           } else {
+             throw new Error(`服务器 "${name}" 配置无效：只支持包含 'url' 字段的 Streamable HTTP 配置，不允许包含 'command' 或 'args'。`);
+           }
+        }
         setParsedServers(servers);
         setIsEditingJson(false);
         setFormData(prev => ({ ...prev, mcpConfigJson: jsonStr.trim() }));
@@ -177,7 +160,7 @@ export function MemberFormDialog({
         throw new Error('JSON 结构无效，顶层必须包含 "mcpServers" 对象');
       }
     } catch (error: any) {
-      setJsonError(`JSON 解析失败: ${error.message}`);
+      setJsonError(`JSON 解析或验证失败: ${error.message}`);
       setParsedServers([]);
        if (forceEditOnError) setIsEditingJson(true);
       return false;
@@ -198,20 +181,16 @@ export function MemberFormDialog({
     setIsEditingJson(true);
   }
 
-  const handleTestConnection = async (serverName: string, serverConfig: McpServerConfig | McpSseConfig | McpStreamableHttpConfig) => {
-    // Set status for the specific server to 'testing'
+  const handleTestConnection = async (serverName: string, serverConfig: McpStreamableHttpConfig) => {
     setServerStatusMap(prev => ({ 
         ...prev, 
         [serverName]: { status: 'testing', tools: [] } 
     }));
     
     try {
-      console.log(`测试 MCP 服务器 "${serverName}" 连接:`, serverConfig);
-      
-      // Call test API with the specific config
+      console.log(`测试 MCP 服务器 "${serverName}" 连接 (HTTP):`, serverConfig);
       const toolsResult = await testMcpConnection(serverConfig);
       
-      // Update status for the specific server on success
       setServerStatusMap(prev => ({ 
           ...prev, 
           [serverName]: { status: 'success', tools: toolsResult }
@@ -221,13 +200,11 @@ export function MemberFormDialog({
     } catch (error) {
       console.error(`MCP服务器 "${serverName}" 测试失败:`, error);
       const errorMessage = error instanceof Error ? error.message : '测试连接失败';
-      // Update status for the specific server on error
       setServerStatusMap(prev => ({ 
           ...prev, 
           [serverName]: { status: 'error', tools: [], error: errorMessage } 
       }));
     } 
-    // No finally block needed as status is updated directly on success/error
   };
 
   const handleFinalSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
@@ -277,7 +254,6 @@ export function MemberFormDialog({
     await onSubmit(dataToSubmit);
   };
 
-  // 在解析 JSON 成功后，添加日志记录所有解析出的服务器
   useEffect(() => {
     if (parsedServers.length > 0) {
       console.log('======== 解析的服务器配置 ========');
@@ -293,7 +269,6 @@ export function MemberFormDialog({
   const handleConfigChange = (value: string) => {
     setFormData(prev => ({ ...prev, mcpConfigJson: value }));
     
-    // 验证JSON格式
     if (!value.trim()) {
       setJsonError(null);
       return;
@@ -432,7 +407,7 @@ export function MemberFormDialog({
 
                  <TabsContent value="mcp" className="space-y-4 mt-4 h-full p-1">
                     <div className="flex justify-between items-center">
-                      <h3 className="text-lg font-medium">MCP 服务器配置</h3>
+                      <h3 className="text-lg font-medium">MCP 服务器配置 (仅支持 HTTP URL)</h3>
                       <div className="flex gap-2">
                         {isEditingJson ? (
                           <TooltipProvider>
@@ -478,42 +453,6 @@ export function MemberFormDialog({
                                 variant="ghost" 
                                 size="icon"
                                 onClick={() => {
-                                  const mcpServerConfig = {
-                                    mcpServers: {
-                                      "youtube-transcript": {
-                                        command: "npx",
-                                        args: ["-y", "@kimtaeyoon83/mcp-server-youtube-transcript", "--port", "8001"]
-                                      },
-                                      "sequential-thinking": {
-                                        command: "npx",
-                                        args: ["-y", "@smithery-ai/server-sequential-thinking", "--port", "8002"]
-                                      }
-                                    }
-                                  };
-                                  setFormData(prev => ({ 
-                                    ...prev, 
-                                    mcpConfigJson: JSON.stringify(mcpServerConfig, null, 2) 
-                                  }));
-                                  tryParseJson(JSON.stringify(mcpServerConfig, null, 2));
-                                }}
-                              >
-                                <Clipboard size={18} />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>插入命令行配置示例</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-
-                        {/* 添加Streamable HTTP配置示例按钮 */}
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="icon"
-                                onClick={() => {
                                   const mcpStreamableHttpConfig = {
                                     mcpServers: {
                                       "crew-ai-mcp": {
@@ -539,7 +478,6 @@ export function MemberFormDialog({
                       </div>
                     </div>
 
-                    {/* --- 添加提示信息 --- */}
                     <Alert variant="default" className="bg-blue-50 border-blue-200 text-blue-800">
                       <HelpCircle className="h-4 w-4 !text-blue-800" />
                       <AlertTitle className="font-semibold">提示</AlertTitle>
@@ -547,7 +485,6 @@ export function MemberFormDialog({
                         当前系统只支持连接和使用 JSON 配置中 `mcpServers` 对象里的 **第一个** 服务器及其工具。
                       </AlertDescription>
                     </Alert>
-                    {/* --- 提示信息结束 --- */}
                     
                     {isEditingJson ? (
                       <>
@@ -557,7 +494,14 @@ export function MemberFormDialog({
                           </Label>
                           <Textarea
                             id="mcpConfigJson"
-                            placeholder='{"mcpServers": {"工具名称": {"command": "npx", "args": ["-y", "包名", "--port", "8001"]}}}'
+                            placeholder='{
+  "mcpServers": {
+    "<服务器名称>": { 
+      "url": "<Streamable HTTP 服务器的完整 URL>",
+      "headers": { "Optional-Header": "value" } 
+    }
+  }
+}'
                             className="font-mono text-sm h-[200px]"
                             value={mcpJsonStringInternal}
                             onChange={handleMcpJsonChange}
@@ -575,26 +519,23 @@ export function MemberFormDialog({
                       <>
                         <div className="space-y-2">
                           {parsedServers.map((server) => {
-                            // Get status for the current server
                             const currentStatus = serverStatusMap[server.name] || { status: 'idle', tools: [] };
-                            
                             return (
                               <Card key={server.name} className="overflow-hidden">
                                 <CardHeader className="bg-muted/50 py-2 px-4">
                                   <div className="flex justify-between items-center">
                                     <CardTitle className="text-sm flex items-center gap-2">
-                                      <Code size={14} />
+                                      <ExternalLink size={14} />
                                       {server.name}
                                     </CardTitle>
                                     
-                                    {/* Test Button - Uses current server's status and calls handleTestConnection with specific details */} 
                                     {isConfigTestable(server.config) && (
                                       <Button 
                                         variant="outline" 
                                         size="sm" 
                                         className="flex gap-1 items-center h-7"
-                                        onClick={() => handleTestConnection(server.name, server.config)} // Pass server name and config
-                                        disabled={currentStatus.status === 'testing'} // Disable based on current server status
+                                        onClick={() => handleTestConnection(server.name, server.config)}
+                                        disabled={currentStatus.status === 'testing'}
                                       >
                                         {currentStatus.status === 'testing' ? (
                                           <>
@@ -613,28 +554,18 @@ export function MemberFormDialog({
                                 </CardHeader>
                                 <CardContent className="py-2 px-4 text-xs">
                                   <div className="font-mono bg-muted/30 p-2 rounded max-h-20 overflow-auto">
-                                    {'url' in server.config ? (
-                                      <>
-                                        <div><span className="text-blue-600">url:</span> {server.config.url}</div>
-                                        {server.config.headers && (
-                                          <div>
-                                            <span className="text-blue-600">headers:</span>
-                                            <pre className="mt-1 pl-2">
-                                              {JSON.stringify(server.config.headers, null, 2)}
-                                            </pre>
-                                          </div>
-                                        )}
-                                      </>
-                                    ) : (
-                                      <>
-                                        <div><span className="text-blue-600">command:</span> {server.config.command}</div>
-                                        <div><span className="text-blue-600">args:</span> {JSON.stringify(server.config.args)}</div>
-                                      </>
+                                    <div><span className="text-blue-600">url:</span> {server.config.url}</div>
+                                    {server.config.headers && (
+                                      <div>
+                                        <span className="text-blue-600">headers:</span>
+                                        <pre className="mt-1 pl-2">
+                                          {JSON.stringify(server.config.headers, null, 2)}
+                                        </pre>
+                                      </div>
                                     )}
                                   </div>
                                 </CardContent>
                                 
-                                {/* Test Result Area - Renders based on current server's status */} 
                                 {currentStatus.status === 'testing' && (
                                   <CardFooter className="bg-muted/20 py-2 px-4 text-xs border-t">
                                     <div className="w-full text-center">

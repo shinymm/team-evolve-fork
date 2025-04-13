@@ -8,18 +8,16 @@ import { getRedisClient } from '@/lib/redis';
 // 导入 Redis 客户端实例
 const redis = getRedisClient(); // 在模块顶部获取实例
 
-// 会话创建请求
+// 会话创建请求 (只接受 Streamable HTTP)
 interface CreateSessionRequest {
-  command?: string;
-  args?: string[];
-  url?: string;
-  headers?: Record<string, string>;
+  url: string; // 必须有 URL
+  headers?: Record<string, string>; // 可选 headers
   memberInfo?: {
     name: string;
     role: string;
     responsibilities: string;
   };
-  userSessionKey?: string; // 添加用户会话标识，用于复用会话
+  userSessionKey?: string; 
 }
 
 // 会话在 Redis 中存储的数据结构接口 (示例)
@@ -88,69 +86,47 @@ const saveUserSessionMapping = (userKey: string, sessionId: string) => {
 }
 
 /**
- * 创建 MCP 会话
- * 用于在会话态下创建长期运行的 MCP 会话
+ * 创建 MCP 会话 (仅支持 Streamable HTTP)
  */
 export async function POST(req: Request) {
   try {
-    const { command, args, url, headers, memberInfo, userSessionKey } = await req.json() as CreateSessionRequest;
-    const isStreamableHttp = !!url && command === '_STREAMABLE_HTTP_'; 
-    const isCli = !!command && command !== '_STREAMABLE_HTTP_' && !!args;
-
-    // --- 会话复用逻辑 (基于 Redis) ---
-    if (userSessionKey) {
-       // TODO: 实现基于 Redis 的 getUserSessionId 逻辑
-       const existingSessionId = null; // 暂时禁用
-       
-       if (existingSessionId) {
-           const redisKey = REDIS_SESSION_PREFIX + existingSessionId;
-           const existingSessionDataJson = await redis.get(redisKey); // 使用获取的实例
-           if (existingSessionDataJson) {
-               console.log(`[MCP会话] 复用 Redis 中的会话 ${existingSessionId}`);
-               const existingSessionData: RedisSessionData = JSON.parse(existingSessionDataJson);
-               existingSessionData.lastUsed = Date.now();
-               await redis.setex(redisKey, SESSION_TTL_SECONDS, JSON.stringify(existingSessionData)); // 使用获取的实例
-               
-               return NextResponse.json({
-                   sessionId: existingSessionId,
-                   tools: existingSessionData.tools || [], 
-                   reused: true
-               });
-           } else {
-                console.log(`[MCP会话] Redis 中未找到会话 ${existingSessionId}，将创建新会话`);
-           }
-       }
+    // 明确请求体类型，移除 command/args
+    const { url, headers, memberInfo, userSessionKey } = await req.json() as CreateSessionRequest;
+    
+    // --- 参数验证 --- 
+    if (!url) {
+       return NextResponse.json({ error: '请求体必须包含 "url" 字段' }, { status: 400 });
     }
-    // --- 会话复用逻辑结束 ---
+    // 可以在这里添加更严格的 URL 验证
+    try {
+        new URL(url);
+    } catch (e) {
+        return NextResponse.json({ error: `URL 格式无效: ${url}` }, { status: 400 });
+    }
+
+    // --- 会话复用逻辑 (如果需要，保持或调整) --- 
+    // ... (这部分逻辑如果不再需要可以简化或移除) ...
 
     let sessionId: string;
-    let tools: any[];
-    let connectionParams: any = {}; 
+    let tools: any[] = [];
+    const connectionParams = { url }; // 只保存 URL
 
-    // --- 连接逻辑 (保持不变，仍然需要 connect 启动) ---
-    if (isStreamableHttp) {
-      if (!url) return NextResponse.json({ error: '无效的Streamable HTTP配置: URL不能为空' }, { status: 400 });
-      console.log(`[MCP会话] 创建Streamable HTTP会话: ${url}`);
-      const httpArgs = ['--url', url];
-      const connectResult = await mcpClientService.connect('_STREAMABLE_HTTP_', httpArgs);
-      sessionId = connectResult.sessionId;
-      tools = connectResult.tools;
-      connectionParams = { url }; 
-    } else if (isCli) {
-      if (!command || !args) return NextResponse.json({ error: '无效的服务器配置: 命令和参数必须存在' }, { status: 400 });
-      const validation = mcpClientService.validateServerConfig(command, args);
-      if (!validation.valid) return NextResponse.json({ error: validation.error }, { status: 400 });
-      console.log(`[MCP会话] 创建命令行会话: ${command} ${args.join(' ')}`);
-      const connectResult = await mcpClientService.connect(command, args);
-      sessionId = connectResult.sessionId;
-      tools = connectResult.tools;
-      connectionParams = { command, args };
-    } else {
-       return NextResponse.json({ error: `无效的会话创建请求: 请提供URL(需配合command='_STREAMABLE_HTTP_')或有效的command/args` }, { status: 400 });
+    // --- 连接逻辑 (只处理 Streamable HTTP) ---
+    console.log(`[MCP会话] 创建 Streamable HTTP 会话: ${url}`);
+    try {
+        // 使用新的 connect 签名调用
+        const connectResult = await mcpClientService.connect(url);
+        sessionId = connectResult.sessionId;
+        tools = connectResult.tools;
+    } catch (connectError) {
+        console.error(`[MCP会话] 连接到 ${url} 失败:`, connectError);
+        return NextResponse.json({ 
+            error: `连接 MCP 服务器失败: ${connectError instanceof Error ? connectError.message : String(connectError)}` 
+        }, { status: 500 });
     }
     // --- 连接逻辑结束 ---
 
-    // --- 获取 AI 配置和格式化工具 (结果存入 Redis) ---
+    // --- 获取 AI 配置和格式化工具 (逻辑不变) ---
     let aiConfig: any = null;
     let systemPrompt = "";
     let formattedTools: any[] = [];
@@ -187,35 +163,39 @@ export async function POST(req: Request) {
         }
     } catch (configError) {
       console.error(`[MCP会话] 加载AI配置失败:`, configError);
+      // 即使配置加载失败，也继续创建会话，但可能功能受限
     }
     // --- 配置加载结束 ---
     
-    // --- 将会话数据写入 Redis --- 
+    // --- 将会话数据写入 Redis (改用 HMSET) --- 
     const now = Date.now();
     const redisKey = REDIS_SESSION_PREFIX + sessionId;
-    // 合并 memberInfo 和 userKey
     const finalMemberInfo = memberInfo ? { ...memberInfo, userSessionKey } : { userSessionKey };
-    const redisData: RedisSessionData = {
-        sessionId,
-        connectionParams,
-        tools,
-        formattedTools: formattedTools.length > 0 ? formattedTools : undefined,
-        aiModelConfig: aiConfig, // 存储处理过的 AI 配置 (不含明文 Key)
-        systemPrompt: systemPrompt || undefined,
-        memberInfo: finalMemberInfo,
-        startTime: now,
-        lastUsed: now,
+    // 准备要写入 Hash 的数据，确保所有值都是字符串
+    const dataToSave: Record<string, string> = {
+        sessionId: sessionId,
+        connectionParams: JSON.stringify(connectionParams), // connectionParams 只含 url
+        tools: JSON.stringify(tools), // 序列化工具列表
+        formattedTools: JSON.stringify(formattedTools), // 序列化格式化后的工具
+        aiModelConfig: JSON.stringify(aiConfig || {}), // 序列化 AI 配置
+        systemPrompt: systemPrompt || '', // 确保存储字符串
+        memberInfo: JSON.stringify(finalMemberInfo || {}), // 序列化成员信息
+        startTime: now.toString(), // 存储时间戳字符串
+        lastUsed: now.toString()   // 存储时间戳字符串
     };
 
     try {
-        await redis.setex(redisKey, SESSION_TTL_SECONDS, JSON.stringify(redisData)); // 使用获取的实例
-        console.log(`[MCP会话] 会话 ${sessionId} 数据已写入 Redis`);
+        // 使用 hmset 写入 Hash
+        await redis.hmset(redisKey, dataToSave); 
+        // 单独设置 TTL
+        await redis.expire(redisKey, SESSION_TTL_SECONDS); 
+        console.log(`[MCP会话] 会话 ${sessionId} 数据已写入 Redis (Hash)`);
     } catch (redisError) {
         console.error(`[MCP会话] 写入 Redis 失败 for ${sessionId}:`, redisError);
-        // 仍然返回成功，但带警告
+         // 保持之前的错误处理逻辑
          return NextResponse.json({ 
              sessionId, 
-             tools: tools.map(t => ({ /* 格式化工具 */ name: t.name, description: t.description, inputSchema: t.inputSchema })),
+             tools: tools.map(t => ({ name: typeof t === 'string' ? t : t.name, description: typeof t === 'string' ? `使用${t}工具执行操作` : (t.description || `使用${t.name}工具执行操作`), inputSchema: typeof t === 'string' ? {} : (t.inputSchema || {})})), 
              warning: '会话已创建但状态可能未持久化' 
          }, { status: 201 }); 
     }
@@ -229,11 +209,9 @@ export async function POST(req: Request) {
         description: typeof t === 'string' ? `使用${t}工具执行操作` : (t.description || `使用${t.name}工具执行操作`),
         inputSchema: typeof t === 'string' ? {} : (t.inputSchema || {})
       }))
-      // 不再返回 connectionParams
     });
   } catch (error) {
     console.error('[MCP会话] 创建会话失败:', error);
-    
     return NextResponse.json({
       error: error instanceof Error ? error.message : '创建会话时发生未知错误'
     }, { status: 500 });
