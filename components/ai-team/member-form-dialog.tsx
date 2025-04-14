@@ -454,7 +454,7 @@ export function MemberFormDialog({
                                   const mcpStreamableHttpConfig = {
                                     mcpServers: {
                                       "heroku-mcp-server": {
-                                        url: "https://mcpframework-http-server-94494a527897.herokuapp.com//mcp"
+                                        url: "https://mcpframework-http-server-94494a527897.herokuapp.com/mcp"
                                       }
                                     }
                                   };
