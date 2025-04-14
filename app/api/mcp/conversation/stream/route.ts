@@ -1175,14 +1175,16 @@ export async function POST(req: Request) {
                     if (effectiveSessionId) {
                        try {
                            const redisKey = REDIS_SESSION_PREFIX + effectiveSessionId;
-                           const currentSessionDataJson = await redis.get(redisKey);
-                           if (currentSessionDataJson) {
-                               const currentSessionData = JSON.parse(currentSessionDataJson);
-                               currentSessionData.lastUsed = Date.now();
-                               await redis.setex(redisKey, SESSION_TTL_SECONDS, JSON.stringify(currentSessionData));
+                           // 使用hgetall替代get，因为Redis中存储的是哈希结构
+                           const currentSessionDataHash = await redis.hgetall(redisKey);
+                           if (currentSessionDataHash && Object.keys(currentSessionDataHash).length > 0) {
+                               // 更新lastUsed字段
+                               await redis.hset(redisKey, 'lastUsed', Date.now().toString());
+                               // 刷新TTL
+                               await redis.expire(redisKey, SESSION_TTL_SECONDS);
                                console.log(`[流式对话] 成功更新会话 ${effectiveSessionId} 的 Redis TTL`);
                            } else {
-                               console.warn(`[流式对话] 更新 TTL 时未在 Redis 中找到会话 ${effectiveSessionId}`);
+                               console.warn(`[流式对话] 更新 TTL 时未在 Redis 中找到会话 ${effectiveSessionId} 或哈希为空`);
                            }
                        } catch (redisError) {
                            console.error(`[流式对话] 更新会话 ${effectiveSessionId} 的 Redis TTL 失败:`, redisError);
