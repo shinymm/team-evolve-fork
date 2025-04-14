@@ -1044,26 +1044,78 @@ export async function POST(req: Request) {
                     // 消息验证与修复
                     for (let i = 0; i < updatedMessages.length; i++) {
                         const msg = updatedMessages[i];
-                        // 检查是否有消息缺少content字段
-                        if (msg.role === 'tool' && (msg.content === undefined || msg.content === null)) {
-                            console.warn(`[流式对话] 修复第${i}条消息(tool): 添加空字符串content`);
-                            updatedMessages[i] = {...msg, content: ""};
+                        // 修复 tool 消息，确保 content 字段存在且为字符串
+                        if (msg.role === 'tool') {
+                            if (msg.content === undefined || msg.content === null) {
+                                console.warn(`[流式对话] 修复第${i}条消息(tool): 添加空字符串content`);
+                                updatedMessages[i] = {...msg, content: ""};
+                            } else if (typeof msg.content !== 'string') {
+                                // 如果content不是字符串，转换为字符串
+                                try {
+                                    const contentStr = JSON.stringify(msg.content);
+                                    console.warn(`[流式对话] 修复第${i}条消息(tool): 将非字符串content转换为JSON字符串`);
+                                    updatedMessages[i] = {...msg, content: contentStr};
+                                } catch (e) {
+                                    console.warn(`[流式对话] 修复第${i}条消息(tool): 非字符串content转换失败，设为空字符串`);
+                                    updatedMessages[i] = {...msg, content: ""};
+                                }
+                            }
                         }
-                        // assistant消息可以没有content,但如果同时没有tool_calls也要修复
-                        if (msg.role === 'assistant' && msg.content === null && (!msg.tool_calls || msg.tool_calls.length === 0)) {
-                            console.warn(`[流式对话] 修复第${i}条消息(assistant): 添加空字符串content`);
+                        // 针对 assistant 消息，如果没有tool_calls或tool_calls为空，确保content有值
+                        if (msg.role === 'assistant') {
+                            const hasCalls = Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0;
+                            if (!hasCalls && (msg.content === null || msg.content === undefined)) {
+                                console.warn(`[流式对话] 修复第${i}条消息(assistant): 添加空字符串content`);
+                                updatedMessages[i] = {...msg, content: ""};
+                            }
+                        }
+                        
+                        // 处理system和user消息
+                        if ((msg.role === 'system' || msg.role === 'user') && 
+                            (msg.content === null || msg.content === undefined)) {
+                            console.warn(`[流式对话] 修复第${i}条消息(${msg.role}): 添加空字符串content`);
                             updatedMessages[i] = {...msg, content: ""};
                         }
                     }
                     
+                    // 单独处理每条消息，确保完全符合API要求
+                    const finalMessages = updatedMessages.map((msg, idx) => {
+                        const result: any = { role: msg.role };
+                        
+                        // 根据消息类型设置必需字段
+                        if (msg.role === 'assistant') {
+                            // assistant消息可以有content和tool_calls，但至少有一个
+                            if (Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) {
+                                result.tool_calls = msg.tool_calls;
+                                // 如果有tool_calls但没有content，需要显式设置为null
+                                result.content = msg.content !== undefined ? msg.content : null;
+                            } else {
+                                // 如果没有tool_calls，content必须有值
+                                result.content = msg.content || "";
+                            }
+                        } else if (msg.role === 'tool') {
+                            // tool消息必须有tool_call_id、name和content
+                            result.tool_call_id = msg.tool_call_id;
+                            result.name = msg.name;
+                            result.content = typeof msg.content === 'string' ? msg.content : "";
+                        } else {
+                            // system和user消息必须有content
+                            result.content = msg.content || "";
+                        }
+                        
+                        return result;
+                    });
+                    
                     // 检查消息结构
-                    const messagesDebug = updatedMessages.map((msg, idx) => ({
+                    const messagesDebug = finalMessages.map((msg, idx) => ({
                         index: idx,
                         role: msg.role,
-                        hasContent: msg.content !== undefined && msg.content !== null,
+                        hasContent: msg.content !== undefined,
+                        contentType: msg.content !== undefined ? typeof msg.content : 'undefined',
+                        contentNull: msg.content === null,
                         hasTool: !!msg.tool_calls || !!msg.tool_call_id
                     }));
-                    console.log(`[流式对话] 消息结构检查: ${JSON.stringify(messagesDebug)}`);
+                    console.log(`[流式对话] 最终消息结构检查: ${JSON.stringify(messagesDebug)}`);
                     
                     // 最终LLM调用
                     const finalResponse = await fetch(endpoint, {
@@ -1071,7 +1123,7 @@ export async function POST(req: Request) {
                         headers,
                         body: JSON.stringify({
                             model: apiConfig.model,
-                            messages: updatedMessages,
+                            messages: finalMessages, // 使用修复后的消息列表
                             temperature: apiConfig.temperature || 0.7,
                             max_tokens: 1000,
                             stream: true
@@ -1258,13 +1310,22 @@ function sendToolStateEvent(controller: ReadableStreamDefaultController, toolCal
     if (toolCalls.length === 1) {
       const toolCall = toolCalls[0];
       
-      // 安全处理结果，确保它是一个有效的字符串
-      let safeResult = toolCall.result;
-      if (toolCall.result && typeof toolCall.result !== 'string') {
+      // 安全处理结果，确保它是一个有效的字符串，并截断过长内容
+      let safeResult = "";
+      if (toolCall.result !== undefined && toolCall.result !== null) {
         try {
-          safeResult = JSON.stringify(toolCall.result);
+          if (typeof toolCall.result !== 'string') {
+            safeResult = JSON.stringify(toolCall.result);
+          } else {
+            safeResult = toolCall.result;
+          }
+          // 截断太长的结果，避免JSON解析错误
+          if (safeResult && safeResult.length > 4000) {
+            console.log(`[流式对话] 工具 ${toolCall.name} 结果太长 (${safeResult.length}字符)，截断到4000字符`);
+            safeResult = safeResult.substring(0, 4000) + "...（结果已截断）";
+          }
         } catch (e) {
-          safeResult = String(toolCall.result);
+          safeResult = String(toolCall.result).substring(0, 1000) + "...（结果已截断）";
         }
       }
       
@@ -1283,19 +1344,28 @@ function sendToolStateEvent(controller: ReadableStreamDefaultController, toolCal
       const serialized = JSON.stringify(payload);
       controller.enqueue(encoder.encode(`data: ${serialized}\n\n`));
       
-      console.log(`[流式对话] 发送单个工具 ${toolCall.name} 的状态: ${toolCall.executed ? 'success' : 'running'}`);
+      console.log(`[流式对话] 发送单个工具 ${toolCall.name} 的状态: ${toolCall.executed ? 'success' : 'running'}, 结果长度: ${safeResult.length}`);
       return;
     }
     
     // 多个工具调用的情况，使用states数组
     const states = toolCalls.map(toolCall => {
-      // 安全处理每个工具的结果
-      let safeResult = toolCall.result;
-      if (toolCall.result && typeof toolCall.result !== 'string') {
+      // 安全处理每个工具的结果，并截断过长内容
+      let safeResult = "";
+      if (toolCall.result !== undefined && toolCall.result !== null) {
         try {
-          safeResult = JSON.stringify(toolCall.result);
+          if (typeof toolCall.result !== 'string') {
+            safeResult = JSON.stringify(toolCall.result);
+          } else {
+            safeResult = toolCall.result;
+          }
+          // 截断太长的结果，避免JSON解析错误
+          if (safeResult && safeResult.length > 4000) {
+            console.log(`[流式对话] 工具 ${toolCall.name} 结果太长 (${safeResult.length}字符)，截断到4000字符`);
+            safeResult = safeResult.substring(0, 4000) + "...（结果已截断）";
+          }
         } catch (e) {
-          safeResult = String(toolCall.result);
+          safeResult = String(toolCall.result).substring(0, 1000) + "...（结果已截断）";
         }
       }
       
@@ -1321,14 +1391,22 @@ function sendToolStateEvent(controller: ReadableStreamDefaultController, toolCal
     console.log(`[流式对话] 发送 ${states.length} 个工具的状态更新, 序列化数据长度: ${serialized.length}`);
   } catch (error) {
     console.error('[流式对话] 发送工具状态事件失败:', error);
-    // 发生错误时尝试逐个发送工具状态
+    // 发生错误时尝试逐个发送工具状态，并且极度简化内容
     if (Array.isArray(toolCalls) && toolCalls.length > 1) {
-      console.log('[流式对话] 尝试逐个发送工具状态...');
+      console.log('[流式对话] 尝试逐个发送极度简化的工具状态...');
       for (const tool of toolCalls) {
         try {
-          sendToolStateEvent(controller, tool);
+          // 创建极度简化版本的工具调用对象
+          const simplifiedTool = {
+            id: tool.id,
+            name: tool.name,
+            args: {},
+            executed: tool.executed,
+            result: tool.executed ? "执行成功（结果已简化）" : ""
+          };
+          sendToolStateEvent(controller, simplifiedTool);
         } catch (e) {
-          console.error(`[流式对话] 发送工具 ${tool.name} 状态失败:`, e);
+          console.error(`[流式对话] 发送简化工具 ${tool.name} 状态失败:`, e);
         }
       }
     }
