@@ -1041,6 +1041,30 @@ export async function POST(req: Request) {
                     // <-- 日志：准备最终 LLM 调用
                     console.log(`[流式对话] 准备进行最终 LLM 调用以生成回复 (消息数量: ${updatedMessages.length})`);
                     
+                    // 消息验证与修复
+                    for (let i = 0; i < updatedMessages.length; i++) {
+                        const msg = updatedMessages[i];
+                        // 检查是否有消息缺少content字段
+                        if (msg.role === 'tool' && (msg.content === undefined || msg.content === null)) {
+                            console.warn(`[流式对话] 修复第${i}条消息(tool): 添加空字符串content`);
+                            updatedMessages[i] = {...msg, content: ""};
+                        }
+                        // assistant消息可以没有content,但如果同时没有tool_calls也要修复
+                        if (msg.role === 'assistant' && msg.content === null && (!msg.tool_calls || msg.tool_calls.length === 0)) {
+                            console.warn(`[流式对话] 修复第${i}条消息(assistant): 添加空字符串content`);
+                            updatedMessages[i] = {...msg, content: ""};
+                        }
+                    }
+                    
+                    // 检查消息结构
+                    const messagesDebug = updatedMessages.map((msg, idx) => ({
+                        index: idx,
+                        role: msg.role,
+                        hasContent: msg.content !== undefined && msg.content !== null,
+                        hasTool: !!msg.tool_calls || !!msg.tool_call_id
+                    }));
+                    console.log(`[流式对话] 消息结构检查: ${JSON.stringify(messagesDebug)}`);
+                    
                     // 最终LLM调用
                     const finalResponse = await fetch(endpoint, {
                         method: "POST",
@@ -1229,42 +1253,86 @@ function sendToolStateEvent(controller: ReadableStreamDefaultController, toolCal
     return;
   }
   
-  // 如果只有一个工具调用，使用传统格式发送
-  if (toolCalls.length === 1) {
-    const toolCall = toolCalls[0];
+  try {
+    // 如果只有一个工具调用，使用传统格式发送
+    if (toolCalls.length === 1) {
+      const toolCall = toolCalls[0];
+      
+      // 安全处理结果，确保它是一个有效的字符串
+      let safeResult = toolCall.result;
+      if (toolCall.result && typeof toolCall.result !== 'string') {
+        try {
+          safeResult = JSON.stringify(toolCall.result);
+        } catch (e) {
+          safeResult = String(toolCall.result);
+        }
+      }
+      
+      const payload = {
+        type: 'tool_state',
+        state: {
+          id: toolCall.id,
+          type: 'function',
+          name: toolCall.name,
+          arguments: toolCall.args,
+          status: toolCall.executed ? 'success' : 'running',
+          result: safeResult
+        }
+      };
+      
+      const serialized = JSON.stringify(payload);
+      controller.enqueue(encoder.encode(`data: ${serialized}\n\n`));
+      
+      console.log(`[流式对话] 发送单个工具 ${toolCall.name} 的状态: ${toolCall.executed ? 'success' : 'running'}`);
+      return;
+    }
     
-    controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-      type: 'tool_state',
-      state: {
+    // 多个工具调用的情况，使用states数组
+    const states = toolCalls.map(toolCall => {
+      // 安全处理每个工具的结果
+      let safeResult = toolCall.result;
+      if (toolCall.result && typeof toolCall.result !== 'string') {
+        try {
+          safeResult = JSON.stringify(toolCall.result);
+        } catch (e) {
+          safeResult = String(toolCall.result);
+        }
+      }
+      
+      return {
         id: toolCall.id,
         type: 'function',
         name: toolCall.name,
         arguments: toolCall.args,
         status: toolCall.executed ? 'success' : 'running',
-        result: toolCall.result
-      }
-    })}\n\n`));
+        result: safeResult
+      };
+    });
     
-    console.log(`[流式对话] 发送单个工具 ${toolCall.name} 的状态: ${toolCall.executed ? 'success' : 'running'}`);
-    return;
+    // 安全序列化完整载荷
+    const payload = {
+      type: 'tool_state',
+      states: states
+    };
+    
+    const serialized = JSON.stringify(payload);
+    controller.enqueue(encoder.encode(`data: ${serialized}\n\n`));
+    
+    console.log(`[流式对话] 发送 ${states.length} 个工具的状态更新, 序列化数据长度: ${serialized.length}`);
+  } catch (error) {
+    console.error('[流式对话] 发送工具状态事件失败:', error);
+    // 发生错误时尝试逐个发送工具状态
+    if (Array.isArray(toolCalls) && toolCalls.length > 1) {
+      console.log('[流式对话] 尝试逐个发送工具状态...');
+      for (const tool of toolCalls) {
+        try {
+          sendToolStateEvent(controller, tool);
+        } catch (e) {
+          console.error(`[流式对话] 发送工具 ${tool.name} 状态失败:`, e);
+        }
+      }
+    }
   }
-  
-  // 多个工具调用的情况，使用states数组
-  const states = toolCalls.map(toolCall => ({
-    id: toolCall.id,
-    type: 'function',
-    name: toolCall.name,
-    arguments: toolCall.args,
-    status: toolCall.executed ? 'success' : 'running',
-    result: toolCall.result
-  }));
-  
-  controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-    type: 'tool_state',
-    states: states
-  })}\n\n`));
-  
-  console.log(`[流式对话] 发送 ${states.length} 个工具的状态更新`);
 }
 
 // 检查JSON字符串是否完整（括号和引号配对）
