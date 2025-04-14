@@ -867,60 +867,34 @@ export async function POST(req: Request) {
                             // 获取工具结果文本
                             let resultText = '';
                             try {
-                              // 通用结果处理逻辑，不依赖特定工具名称
+                              // 简化的工具结果处理逻辑，不尝试递归解析JSON
                               if (typeof toolResult === 'string') {
                                 resultText = toolResult;
                               } else if (toolResult === null || toolResult === undefined) {
                                 resultText = '工具未返回结果';
                               } else if (typeof toolResult === 'object') {
-                                const possibleContentFields = ['content', 'text', 'message', 'result', 'data', 'thought'];
-                                let foundContent = false;
-                                
-                                for (const field of possibleContentFields) {
-                                  if (toolResult[field] !== undefined) {
-                                    // 1. Check if the field itself is a string
-                                    if (typeof toolResult[field] === 'string') {
-                                      resultText = toolResult[field]; // Assign directly
-                                      foundContent = true;
-                                      console.log(`[流式对话] 工具结果提取方式1: Directly using field ${field}`);
-                                      break;
-                                    }
-                                    // 2. Check if field is object with .content string
-                                    else if (toolResult[field] && typeof toolResult[field] === 'object' && typeof toolResult[field].content === 'string') {
-                                      resultText = toolResult[field].content; // Assign directly
-                                      foundContent = true;
-                                      console.log(`[流式对话] 工具结果提取方式2: Using field ${field}.content`);
-                                      break;
-                                    }
-                                    // 3. Check if field is an array
-                                    else if (Array.isArray(toolResult[field])) {
-                                        for (const item of toolResult[field]) {
-                                            if (item && typeof item === 'object' && item.type === 'text' && typeof item.text === 'string') {
-                                                resultText = item.text; // Assign directly
-                                                foundContent = true;
-                                                console.log(`[流式对话] 工具结果提取方式3: Found type: 'text' in field ${field} array`);
-                                                break;
-                                            }
-                                        }
-                                        if (foundContent) {
-                                            break;
-                                        }
-                                    }
+                                // 基础提取，尝试从常见字段获取结果
+                                if (typeof toolResult.content === 'string') {
+                                  resultText = toolResult.content;
+                                } else if (typeof toolResult.text === 'string') {
+                                  resultText = toolResult.text;
+                                } else if (typeof toolResult.message?.content === 'string') {
+                                  resultText = toolResult.message.content;
+                                } else if (typeof toolResult.result === 'string') {
+                                  resultText = toolResult.result;
+                                } else if (Array.isArray(toolResult.content)) {
+                                  // 简单处理content数组，不递归处理
+                                  const textItem = toolResult.content.find((item: any) => item?.type === 'text' && typeof item.text === 'string');
+                                  if (textItem) {
+                                    resultText = textItem.text;
                                   }
-                                }
-                                
-                                if (toolResult.thoughtNumber && toolResult.totalThoughts) {
-                                  resultText = `${resultText ? resultText : ''}${resultText ? '\n' : ''}(进度: ${toolResult.thoughtNumber}/${toolResult.totalThoughts})`;
-                                }
-                                
-                                // 如果无法提取内容，使用整个对象的JSON
-                                if (!foundContent) {
-                                    console.log(`[流式对话] 未能从特定字段提取工具结果，将 Stringify 整个对象`);
-                                    try {
-                                        resultText = JSON.stringify(toolResult, null, 2);
-                                    } catch (stringifyError) {
-                                        resultText = "无法序列化工具结果对象";
-                                    }
+                                } else {
+                                  // 对象类型直接转JSON字符串
+                                  try {
+                                    resultText = JSON.stringify(toolResult);
+                                  } catch (stringifyError) {
+                                    resultText = "无法序列化工具结果对象";
+                                  }
                                 }
                               } else {
                                 // 其他类型直接转字符串
@@ -934,6 +908,7 @@ export async function POST(req: Request) {
                                     toolState: { name: toolName, state: toolResult }
                                   });
                                   if (toolResult.thoughtNumber && toolResult.totalThoughts) {
+                                    resultText += `\n(进度: ${toolResult.thoughtNumber}/${toolResult.totalThoughts})`;
                                     sendStatusEvent(controller, `这是思考过程 ${toolResult.thoughtNumber}/${toolResult.totalThoughts}，请继续对话以完成思考`);
                                   }
                               }
@@ -941,15 +916,19 @@ export async function POST(req: Request) {
                               resultText = `工具执行成功，但结果格式无法处理: ${e instanceof Error ? e.message : '未知错误'}`;
                             }
                             
-                            // 确保结果是字符串
+                            // 确保结果是字符串并截断过长内容
                             resultText = String(resultText);
+                            const maxContentLength = 2000; // 减小展示给用户的内容长度
+                            const contentForDisplay = resultText.length > maxContentLength 
+                              ? resultText.substring(0, maxContentLength) + `...\n(完整结果太长，已截断显示前${maxContentLength}字符)`
+                              : resultText;
                             
                             // 标记工具为已执行并保存结果
                             queuedTool.executed = true;
-                            queuedTool.result = resultText;
+                            queuedTool.result = resultText; // 保存完整结果，但在传输时会截断
                             
                             // 向用户发送当前工具的执行结果
-                            sendContentEvent(controller, `\n⚙️ 工具 ${toolName} 执行结果:\n${resultText.substring(0, 1000)}${resultText.length > 1000 ? '...' : ''}`);
+                            sendContentEvent(controller, `\n⚙️ 工具 ${toolName} 执行结果:\n${contentForDisplay}`);
                             
                             // 发送工具状态更新
                             sendToolStateEvent(controller, queuedTool);
@@ -1310,7 +1289,7 @@ function sendToolStateEvent(controller: ReadableStreamDefaultController, toolCal
     if (toolCalls.length === 1) {
       const toolCall = toolCalls[0];
       
-      // 安全处理结果，确保它是一个有效的字符串，并截断过长内容
+      // 安全处理结果，确保它是一个有效的字符串，但不再截断
       let safeResult = "";
       if (toolCall.result !== undefined && toolCall.result !== null) {
         try {
@@ -1319,13 +1298,9 @@ function sendToolStateEvent(controller: ReadableStreamDefaultController, toolCal
           } else {
             safeResult = toolCall.result;
           }
-          // 截断太长的结果，避免JSON解析错误
-          if (safeResult && safeResult.length > 4000) {
-            console.log(`[流式对话] 工具 ${toolCall.name} 结果太长 (${safeResult.length}字符)，截断到4000字符`);
-            safeResult = safeResult.substring(0, 4000) + "...（结果已截断）";
-          }
+          // 移除截断代码，保留完整结果
         } catch (e) {
-          safeResult = String(toolCall.result).substring(0, 1000) + "...（结果已截断）";
+          safeResult = String(toolCall.result);
         }
       }
       
@@ -1350,7 +1325,7 @@ function sendToolStateEvent(controller: ReadableStreamDefaultController, toolCal
     
     // 多个工具调用的情况，使用states数组
     const states = toolCalls.map(toolCall => {
-      // 安全处理每个工具的结果，并截断过长内容
+      // 安全处理每个工具的结果，但不截断
       let safeResult = "";
       if (toolCall.result !== undefined && toolCall.result !== null) {
         try {
@@ -1359,13 +1334,9 @@ function sendToolStateEvent(controller: ReadableStreamDefaultController, toolCal
           } else {
             safeResult = toolCall.result;
           }
-          // 截断太长的结果，避免JSON解析错误
-          if (safeResult && safeResult.length > 4000) {
-            console.log(`[流式对话] 工具 ${toolCall.name} 结果太长 (${safeResult.length}字符)，截断到4000字符`);
-            safeResult = safeResult.substring(0, 4000) + "...（结果已截断）";
-          }
+          // 移除截断代码，保留完整结果
         } catch (e) {
-          safeResult = String(toolCall.result).substring(0, 1000) + "...（结果已截断）";
+          safeResult = String(toolCall.result);
         }
       }
       
