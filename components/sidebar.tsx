@@ -87,7 +87,7 @@ export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const { data: session } = useSession()
-  const [openMenus, setOpenMenus] = useState<string[]>(mainMenuItems.map(item => item.title))
+  const [openMenus, setOpenMenus] = useState<string[]>(["AI能力胶囊"])
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [navigating, setNavigating] = useState<string | null>(null)
 
@@ -152,7 +152,7 @@ export function Sidebar() {
     return (
       <div key={item.title} className="mb-0">
         <div
-          className="w-full flex items-center justify-between px-1.5 py-1 text-[11px] text-gray-600 font-medium bg-gray-100/80 rounded-md cursor-default select-none"
+          className="w-full flex items-center justify-between px-1.5 py-1 text-[12px] text-gray-600 font-medium bg-gray-100/80 rounded-md cursor-default select-none"
         >
           <div className="flex items-center gap-1">
             {item.icon}
@@ -173,7 +173,7 @@ export function Sidebar() {
                 <button
                   key={subitem.href}
                   onClick={() => handleNavigate(subitem.href)}
-                  className={`w-full text-left pl-6 pr-1 py-1 text-[10px] relative block
+                  className={`w-full text-left pl-6 pr-1 py-1 text-[12px] relative block
                     ${!isAccessible ? 'opacity-50 cursor-not-allowed' : 'hover:bg-orange-100 hover:text-orange-700'}
                     ${pathname === subitem.href ? "bg-orange-50 text-orange-700 font-medium" : "text-gray-700"}
                     ${navigating === subitem.href ? "opacity-70" : ""}`}
