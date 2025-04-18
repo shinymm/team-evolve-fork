@@ -40,7 +40,7 @@ export async function recordRequirementAction(action: Omit<RequirementActionReco
 export async function getUnprocessedActions() {
   const actions = getStoredActions()
   return actions
-    .filter(action => !action.processed)
+    .filter(action => !action.processed && action.type === 'edit')
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 }
 

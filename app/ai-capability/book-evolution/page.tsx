@@ -154,8 +154,8 @@ export default function RequirementAnalysis() {
     const editDuration = editStartTime ? (editEndTime - editStartTime) / 1000 : 0
     const contentDiff = editedAnalysis.length - originalContent.current.length
 
-    // 只有当编辑时间超过30秒且内容变化超过20字时才记录
-    if (editDuration > 30 && Math.abs(contentDiff) > 20) {
+    // 只有当编辑时间超过15秒且内容变化超过20字时才记录
+    if (editDuration > 15 && Math.abs(contentDiff) > 20) {
       try {
         await recordRequirementAction({
           type: 'edit',
