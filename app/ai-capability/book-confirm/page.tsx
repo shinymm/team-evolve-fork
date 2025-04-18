@@ -278,9 +278,9 @@ export default function BookConfirmPage() {
           <Button 
             onClick={handleUpdateKnowledge} 
             className="bg-blue-500 hover:bg-blue-600"
-            disabled={isUpdating}
+            disabled={true}
           >
-            {isUpdating ? '正在更新...' : '更新产品相关知识'}
+            更新产品相关知识（重构中）
           </Button>
         </div>
       </div>
