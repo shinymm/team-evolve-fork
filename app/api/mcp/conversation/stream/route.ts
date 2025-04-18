@@ -1291,21 +1291,31 @@ function sendToolStateEvent(controller: ReadableStreamDefaultController, toolCal
     if (toolCalls.length === 1) {
       const toolCall = toolCalls[0];
       
-      // 安全处理结果，确保它是一个有效的字符串，但不再截断
+      // 限制工具结果的最大长度，防止过大的JSON导致解析错误
       let safeResult = "";
+      const MAX_RESULT_LENGTH = 5000; // 限制工具结果最大5000字符
+      
       if (toolCall.result !== undefined && toolCall.result !== null) {
         try {
           if (typeof toolCall.result !== 'string') {
+            // 对象结果转为字符串并限制长度
             safeResult = JSON.stringify(toolCall.result);
+            if (safeResult.length > MAX_RESULT_LENGTH) {
+              safeResult = safeResult.substring(0, MAX_RESULT_LENGTH) + "...(结果过长已截断)";
+            }
           } else {
+            // 字符串结果直接使用，但同样限制长度
             safeResult = toolCall.result;
+            if (safeResult.length > MAX_RESULT_LENGTH) {
+              safeResult = safeResult.substring(0, MAX_RESULT_LENGTH) + "...(结果过长已截断)";
+            }
           }
-          // 移除截断代码，保留完整结果
         } catch (e) {
-          safeResult = String(toolCall.result);
+          safeResult = `处理工具结果失败: ${e instanceof Error ? e.message : String(e)}`;
         }
       }
       
+      // 构建精简的工具状态对象
       const payload = {
         type: 'tool_state',
         state: {
@@ -1318,27 +1328,54 @@ function sendToolStateEvent(controller: ReadableStreamDefaultController, toolCal
         }
       };
       
-      const serialized = JSON.stringify(payload);
-      controller.enqueue(encoder.encode(`data: ${serialized}\n\n`));
+      // 安全序列化
+      try {
+        const serialized = JSON.stringify(payload);
+        controller.enqueue(encoder.encode(`data: ${serialized}\n\n`));
+        console.log(`[流式对话] 发送单个工具 ${toolCall.name} 的状态: ${toolCall.executed ? 'success' : 'running'}, 结果长度: ${safeResult.length}`);
+      } catch (serializeError) {
+        console.error(`[流式对话] 序列化工具 ${toolCall.name} 状态失败:`, serializeError);
+        // 发送极简版本
+        const simplePayload = {
+          type: 'tool_state',
+          state: {
+            id: toolCall.id,
+            type: 'function',
+            name: toolCall.name,
+            arguments: {},
+            status: toolCall.executed ? 'success' : 'running',
+            result: toolCall.executed ? "执行成功（结果序列化失败）" : ""
+          }
+        };
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(simplePayload)}\n\n`));
+      }
       
-      console.log(`[流式对话] 发送单个工具 ${toolCall.name} 的状态: ${toolCall.executed ? 'success' : 'running'}, 结果长度: ${safeResult.length}`);
       return;
     }
     
     // 多个工具调用的情况，使用states数组
     const states = toolCalls.map(toolCall => {
-      // 安全处理每个工具的结果，但不截断
+      // 限制工具结果的最大长度，防止过大的JSON导致解析错误
       let safeResult = "";
+      const MAX_RESULT_LENGTH = 3000; // 对于多工具，每个限制更短
+      
       if (toolCall.result !== undefined && toolCall.result !== null) {
         try {
           if (typeof toolCall.result !== 'string') {
+            // 对象结果转为字符串并限制长度
             safeResult = JSON.stringify(toolCall.result);
+            if (safeResult.length > MAX_RESULT_LENGTH) {
+              safeResult = safeResult.substring(0, MAX_RESULT_LENGTH) + "...(结果过长已截断)";
+            }
           } else {
+            // 字符串结果直接使用，但同样限制长度
             safeResult = toolCall.result;
+            if (safeResult.length > MAX_RESULT_LENGTH) {
+              safeResult = safeResult.substring(0, MAX_RESULT_LENGTH) + "...(结果过长已截断)";
+            }
           }
-          // 移除截断代码，保留完整结果
         } catch (e) {
-          safeResult = String(toolCall.result);
+          safeResult = `处理工具结果失败: ${e instanceof Error ? e.message : String(e)}`;
         }
       }
       
@@ -1353,35 +1390,58 @@ function sendToolStateEvent(controller: ReadableStreamDefaultController, toolCal
     });
     
     // 安全序列化完整载荷
-    const payload = {
-      type: 'tool_state',
-      states: states
-    };
-    
-    const serialized = JSON.stringify(payload);
-    controller.enqueue(encoder.encode(`data: ${serialized}\n\n`));
-    
-    console.log(`[流式对话] 发送 ${states.length} 个工具的状态更新, 序列化数据长度: ${serialized.length}`);
+    try {
+      const payload = {
+        type: 'tool_state',
+        states: states
+      };
+      
+      const serialized = JSON.stringify(payload);
+      controller.enqueue(encoder.encode(`data: ${serialized}\n\n`));
+      console.log(`[流式对话] 发送 ${states.length} 个工具的状态更新, 序列化数据长度: ${serialized.length}`);
+    } catch (serializeError) {
+      console.error('[流式对话] 序列化多个工具状态失败:', serializeError);
+      // 尝试逐个发送简化版本的工具状态
+      sendToolsIndividually(controller, toolCalls);
+    }
   } catch (error) {
     console.error('[流式对话] 发送工具状态事件失败:', error);
-    // 发生错误时尝试逐个发送工具状态，并且极度简化内容
-    if (Array.isArray(toolCalls) && toolCalls.length > 1) {
-      console.log('[流式对话] 尝试逐个发送极度简化的工具状态...');
-      for (const tool of toolCalls) {
-        try {
-          // 创建极度简化版本的工具调用对象
-          const simplifiedTool = {
-            id: tool.id,
-            name: tool.name,
-            args: {},
-            executed: tool.executed,
-            result: tool.executed ? "执行成功（结果已简化）" : ""
-          };
-          sendToolStateEvent(controller, simplifiedTool);
-        } catch (e) {
-          console.error(`[流式对话] 发送简化工具 ${tool.name} 状态失败:`, e);
+    // 发生错误时尝试逐个发送极度简化的工具状态
+    sendToolsIndividually(controller, toolCalls);
+  }
+}
+
+// 辅助函数：逐个发送简化的工具状态
+function sendToolsIndividually(controller: ReadableStreamDefaultController, toolCalls: QueuedToolCall[]) {
+  console.log('[流式对话] 尝试逐个发送极度简化的工具状态...');
+  for (const tool of toolCalls) {
+    try {
+      // 创建极度简化版本的工具调用对象
+      const simplifiedTool = {
+        id: tool.id,
+        name: tool.name,
+        args: {},
+        executed: tool.executed,
+        result: tool.executed ? "执行成功（结果已简化）" : ""
+      };
+      
+      // 直接发送简化版本
+      const payload = {
+        type: 'tool_state',
+        state: {
+          id: simplifiedTool.id,
+          type: 'function',
+          name: simplifiedTool.name,
+          arguments: simplifiedTool.args,
+          status: simplifiedTool.executed ? 'success' : 'running',
+          result: simplifiedTool.result
         }
-      }
+      };
+      
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
+      console.log(`[流式对话] 发送简化的工具 ${tool.name} 状态`);
+    } catch (e) {
+      console.error(`[流式对话] 发送简化工具 ${tool.name} 状态失败:`, e);
     }
   }
 }
