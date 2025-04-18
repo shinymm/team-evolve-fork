@@ -18,6 +18,12 @@ function formatMarkdownTitle(title: string, level: number): string {
   return `${'#'.repeat(level)} ${title}\n\n`
 }
 
+// 清理分隔线的函数
+function cleanSeparators(content: string): string {
+  // 移除文本中的Markdown分隔线
+  return content.replace(/^\s*---\s*$/gm, '');
+}
+
 export class RequirementExportService {
   /**
    * 从优化结果中解析结构化内容
@@ -66,11 +72,11 @@ export class RequirementExportService {
 
     // 添加需求背景
     mdContent += formatMarkdownTitle('需求背景', 2)
-    mdContent += `${content.reqBackground}\n\n`
+    mdContent += `${cleanSeparators(content.reqBackground)}\n\n`
 
     // 添加需求概述
     mdContent += formatMarkdownTitle('需求概述', 2)
-    mdContent += `${content.reqBrief}\n\n`
+    mdContent += `${cleanSeparators(content.reqBrief)}\n\n`
 
     // 添加需求详情
     mdContent += formatMarkdownTitle('需求详情', 2)
@@ -84,19 +90,17 @@ export class RequirementExportService {
 
       try {
         if (sceneState?.optimizeResult) {
-          // 直接使用优化后的内容
-          mdContent += `${sceneState.optimizeResult}\n\n`
+          // 直接使用优化后的内容，并清理分隔线
+          mdContent += `${cleanSeparators(sceneState.optimizeResult)}\n\n`
         } else {
-          // 使用原始内容
-          mdContent += scene.content + '\n\n'
+          // 使用原始内容，并清理分隔线
+          mdContent += cleanSeparators(scene.content) + '\n\n'
         }
       } catch (error) {
         console.error(`Error processing scene ${scene.name}:`, error)
-        // 发生错误时使用原始内容
-        mdContent += scene.content + '\n\n'
+        // 发生错误时使用原始内容，并清理分隔线
+        mdContent += cleanSeparators(scene.content) + '\n\n'
       }
-
-      mdContent += '---\n\n' // 场景之间的分隔线
     })
 
     return mdContent
@@ -109,8 +113,8 @@ export class RequirementExportService {
     console.log('开始生成结构化需求书')
     
     const structuredReq: StructuredRequirement = {
-      reqBackground: content.reqBackground,
-      reqBrief: content.reqBrief,
+      reqBackground: cleanSeparators(content.reqBackground),
+      reqBrief: cleanSeparators(content.reqBrief),
       sceneList: []
     }
 
@@ -118,9 +122,10 @@ export class RequirementExportService {
       console.log(`处理场景: ${scene.name}`)
       
       // 创建场景结构 - 直接使用场景的content，因为优化后的内容已经被保存到那里了
+      // 清理场景内容中的分隔线
       const structuredScene: StructuredScene = {
         sceneName: scene.name,
-        content: scene.content
+        content: cleanSeparators(scene.content)
       }
 
       console.log('最终场景结构:', structuredScene)

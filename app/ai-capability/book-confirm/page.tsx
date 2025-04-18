@@ -11,6 +11,8 @@ import { generateArchitectureSuggestions } from '@/lib/services/architecture-sug
 import { updateTask } from '@/lib/services/task-service'
 import { useSystemStore } from '@/lib/stores/system-store'
 import type { ArchitectureItem } from '@/types/product-info'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 export default function BookConfirmPage() {
   const [requirement, setRequirement] = useState<StructuredRequirement | null>(null)
@@ -22,6 +24,12 @@ export default function BookConfirmPage() {
   const selectedSystemId = useSystemStore(state => state.selectedSystemId)
   const systems = useSystemStore(state => state.systems)
   const currentSystem = systems.find(sys => sys.id === selectedSystemId)
+
+  // 清理分隔线的函数
+  const cleanSeparators = (content: string): string => {
+    // 移除文本中的Markdown分隔线
+    return content.replace(/^\s*---\s*$/gm, '');
+  }
 
   useEffect(() => {
     // 从localStorage加载结构化需求数据
@@ -44,12 +52,14 @@ export default function BookConfirmPage() {
         throw new Error('需求数据结构不完整')
       }
 
-      // 验证场景列表
+      // 验证场景列表并清理分隔线
       parsedReq.sceneList.forEach((scene: any, index: number) => {
         if (!scene.sceneName || !scene.content) {
           console.error(`场景 ${index + 1} 数据不完整:`, scene);
           throw new Error(`场景 ${index + 1} 数据不完整: 缺少必要字段`)
         }
+        // 清理场景内容中的分隔线
+        scene.content = cleanSeparators(scene.content);
       })
 
       setRequirement(parsedReq)
@@ -217,17 +227,18 @@ export default function BookConfirmPage() {
     let md = '# 需求书\n\n'
     
     md += '## 需求背景\n\n'
-    md += req.reqBackground + '\n\n'
+    md += cleanSeparators(req.reqBackground) + '\n\n'
     
     md += '## 需求概述\n\n'
-    md += req.reqBrief + '\n\n'
+    md += cleanSeparators(req.reqBrief) + '\n\n'
     
     md += '## 需求详情\n\n'
     
     req.sceneList.forEach((scene, index) => {
       md += `### ${index + 1}. ${scene.sceneName}\n\n`
-      md += scene.content + '\n\n'
-      md += '---\n\n'
+      // 确保场景内容没有分隔线
+      const cleanContent = cleanSeparators(scene.content);
+      md += cleanContent + '\n\n'
     })
     
     return md
@@ -277,28 +288,77 @@ export default function BookConfirmPage() {
       <Card>
         <CardContent className="space-y-6 pt-6">
           <div>
-            <h3 className="text-base font-semibold mb-2">需求背景</h3>
-            <p className="whitespace-pre-wrap text-xs">{requirement.reqBackground}</p>
+            <h3 className="text-lg font-semibold mb-2">需求背景</h3>
+            <div className="text-sm">
+              <ReactMarkdown 
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  h1: ({children}) => <h1 className="text-xl font-bold mb-2 pb-1 border-b">{children}</h1>,
+                  h2: ({children}) => <h2 className="text-lg font-semibold mb-2 mt-3">{children}</h2>,
+                  h3: ({children}) => <h3 className="text-base font-medium mb-1 mt-2">{children}</h3>,
+                  p: ({children}) => <p className="text-gray-600 my-1 leading-normal text-sm">{children}</p>,
+                  ul: ({children}) => <ul className="list-disc pl-4 my-1 space-y-0.5">{children}</ul>,
+                  ol: ({children}) => <ol className="list-decimal pl-4 my-1 space-y-0.5">{children}</ol>,
+                  li: ({children}) => <li className="text-gray-600 text-sm">{children}</li>,
+                  blockquote: ({children}) => <blockquote className="border-l-4 border-gray-300 pl-3 my-1 italic text-sm">{children}</blockquote>,
+                  code: ({children}) => <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{children}</code>
+                }}
+              >
+                {cleanSeparators(requirement.reqBackground)}
+              </ReactMarkdown>
+            </div>
           </div>
           
           <div>
-            <h3 className="text-base font-semibold mb-2">需求概述</h3>
-            <p className="whitespace-pre-wrap text-xs">{requirement.reqBrief}</p>
+            <h3 className="text-lg font-semibold mb-2">需求概述</h3>
+            <div className="text-sm">
+              <ReactMarkdown 
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  h1: ({children}) => <h1 className="text-xl font-bold mb-2 pb-1 border-b">{children}</h1>,
+                  h2: ({children}) => <h2 className="text-lg font-semibold mb-2 mt-3">{children}</h2>,
+                  h3: ({children}) => <h3 className="text-base font-medium mb-1 mt-2">{children}</h3>,
+                  p: ({children}) => <p className="text-gray-600 my-1 leading-normal text-sm">{children}</p>,
+                  ul: ({children}) => <ul className="list-disc pl-4 my-1 space-y-0.5">{children}</ul>,
+                  ol: ({children}) => <ol className="list-decimal pl-4 my-1 space-y-0.5">{children}</ol>,
+                  li: ({children}) => <li className="text-gray-600 text-sm">{children}</li>,
+                  blockquote: ({children}) => <blockquote className="border-l-4 border-gray-300 pl-3 my-1 italic text-sm">{children}</blockquote>,
+                  code: ({children}) => <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{children}</code>
+                }}
+              >
+                {cleanSeparators(requirement.reqBrief)}
+              </ReactMarkdown>
+            </div>
           </div>
           
           <div>
-            <h3 className="text-base font-semibold mb-4">场景列表</h3>
+            <h3 className="text-lg font-semibold mb-4">场景列表</h3>
             <div className="space-y-6">
               {requirement.sceneList.map((scene, index) => (
                 <Card key={index} className="border-gray-200">
                   <CardHeader>
-                    <CardTitle className="text-sm">
+                    <CardTitle className="text-base">
                       {index + 1}. {scene.sceneName}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-xs whitespace-pre-wrap">
-                      {scene.content}
+                    <div className="text-sm">
+                      <ReactMarkdown 
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          h1: ({children}) => <h1 className="text-xl font-bold mb-2 pb-1 border-b">{children}</h1>,
+                          h2: ({children}) => <h2 className="text-lg font-semibold mb-2 mt-3">{children}</h2>,
+                          h3: ({children}) => <h3 className="text-base font-medium mb-1 mt-2">{children}</h3>,
+                          p: ({children}) => <p className="text-gray-600 my-1 leading-normal text-sm">{children}</p>,
+                          ul: ({children}) => <ul className="list-disc pl-4 my-1 space-y-0.5">{children}</ul>,
+                          ol: ({children}) => <ol className="list-decimal pl-4 my-1 space-y-0.5">{children}</ol>,
+                          li: ({children}) => <li className="text-gray-600 text-sm">{children}</li>,
+                          blockquote: ({children}) => <blockquote className="border-l-4 border-gray-300 pl-3 my-1 italic text-sm">{children}</blockquote>,
+                          code: ({children}) => <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{children}</code>
+                        }}
+                      >
+                        {cleanSeparators(scene.content)}
+                      </ReactMarkdown>
                     </div>
                   </CardContent>
                 </Card>

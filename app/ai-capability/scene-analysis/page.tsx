@@ -16,24 +16,19 @@ import { SceneRequirementService } from '@/lib/services/scene-requirement-servic
 import { RequirementExportService } from '@/lib/services/requirement-export-service'
 import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store'
 import { Scene, RequirementContent } from '@/types/requirement'
-
-interface SceneAnalysisState {
-  taskId?: string
-  tempResult?: string
-  analysisResult?: string  // 存储已确认的分析结果
-  isConfirming?: boolean
-  isCompleted?: boolean
-  isEditing?: boolean  // 新增：是否处于编辑状态
-  isOptimizing?: boolean  // 新增：是否正在优化需求描述
-  optimizeResult?: string  // 新增：优化后的需求描述结果
-  isOptimizeConfirming?: boolean  // 新增：是否在等待确认优化结果
-  isHideOriginal?: boolean  // 新增：是否隐藏原始卡片
-}
+import { SceneAnalysisState } from '@/types/scene'
 
 interface EditingScene {
   name: string;
   content: string;
   analysisResult?: string;
+}
+
+// 清理分隔线的函数
+const cleanSeparators = (content: string): string => {
+  // 移除文本中的Markdown分隔线
+  if (!content) return '';
+  return content.replace(/^\s*---\s*$/gm, '');
 }
 
 export default function SceneAnalysisPage() {
@@ -63,11 +58,22 @@ export default function SceneAnalysisPage() {
         throw new Error('场景列表格式无效')
       }
       
+      // 清理需求背景和需求概述中的分隔线
+      if (parsedContent.reqBackground) {
+        parsedContent.reqBackground = cleanSeparators(parsedContent.reqBackground);
+      }
+      
+      if (parsedContent.reqBrief) {
+        parsedContent.reqBrief = cleanSeparators(parsedContent.reqBrief);
+      }
+      
+      // 清理场景内容中的分隔线
       parsedContent.scenes.forEach((scene: Scene, index: number) => {
         if (!scene.name || !scene.content) {
           console.error(`场景 ${index + 1} 数据不完整:`, scene);
           throw new Error(`场景 ${index + 1} 数据不完整: 缺少必要字段`)
         }
+        scene.content = cleanSeparators(scene.content);
       })
       
       setContent(parsedContent)
@@ -138,21 +144,52 @@ export default function SceneAnalysisPage() {
     }
 
     try {
+      // 解析markdown内容
       const parser = new RequirementParserService()
       const parsedContent = parser.parseRequirement(mdContent)
+
+      if (!parsedContent) {
+        throw new Error('解析需求书失败，请检查格式是否正确')
+      }
+
+      // 清理场景内容中的分隔线
+      if (parsedContent.scenes && Array.isArray(parsedContent.scenes)) {
+        parsedContent.scenes.forEach(scene => {
+          scene.content = cleanSeparators(scene.content);
+        });
+      }
+
+      // 保存解析结果
       setContent(parsedContent)
-      localStorage.setItem('requirement-structured-content', JSON.stringify(parsedContent))
       
+      // 保存到localStorage
+      localStorage.setItem('requirement-structured-content', JSON.stringify(parsedContent))
+
+      // 初始化场景分析状态
+      const initialStates: Record<string, SceneAnalysisState> = {}
+      parsedContent.scenes.forEach(scene => {
+        initialStates[scene.name] = {
+          isConfirming: false,
+          isCompleted: false,
+          isEditing: false,
+          isOptimizing: false,
+          isOptimizeConfirming: false,
+          isHideOriginal: false
+        }
+      })
+      setSceneStates(initialStates)
+      localStorage.setItem('scene-analysis-states', JSON.stringify(initialStates))
+
       toast({
         title: "解析成功",
-        description: "需求书内容已重新解析",
+        description: `已解析 ${parsedContent.scenes.length} 个场景`,
         duration: 3000
       })
     } catch (error) {
       console.error('解析失败:', error)
       toast({
         title: "解析失败",
-        description: error instanceof Error ? error.message : "解析过程中出现错误",
+        description: error instanceof Error ? error.message : "无法解析需求书内容",
         variant: "destructive",
         duration: 3000
       })
@@ -480,11 +517,14 @@ export default function SceneAnalysisPage() {
         status: 'completed'
       })
 
+      // 清理优化后的内容中的分隔线
+      const cleanedContent = cleanSeparators(state.optimizeResult);
+
       // 更新场景内容
       const updatedScenes = [...content.scenes]
       updatedScenes[index] = {
         name: scene.name,
-        content: state.optimizeResult  // 使用优化后的内容替换原始内容
+        content: cleanedContent  // 使用清理后的优化内容替换原始内容
       }
 
       // 更新content并保存到localStorage
@@ -737,7 +777,7 @@ export default function SceneAnalysisPage() {
             <CardTitle className="text-sm font-medium text-gray-500">需求背景</CardTitle>
           </CardHeader>
           <CardContent className="py-0 pb-2">
-            <p className="text-sm text-gray-600">{content.reqBackground}</p>
+            <p className="text-sm text-gray-600">{cleanSeparators(content.reqBackground)}</p>
           </CardContent>
         </Card>
         <Card className="bg-gray-50/50">
@@ -745,7 +785,7 @@ export default function SceneAnalysisPage() {
             <CardTitle className="text-sm font-medium text-gray-500">需求概述</CardTitle>
           </CardHeader>
           <CardContent className="py-0 pb-2">
-            <p className="text-sm text-gray-600">{content.reqBrief}</p>
+            <p className="text-sm text-gray-600">{cleanSeparators(content.reqBrief)}</p>
           </CardContent>
         </Card>
       </div>
