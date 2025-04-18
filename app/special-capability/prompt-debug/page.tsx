@@ -433,7 +433,7 @@ export default function PromptDebugPage() {
   return (
     <div className="mx-auto py-4 w-[90%]">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">提示词调试</h1>
+        <h1 className="text-2xl font-bold">提示词调试（改版中）</h1>
         <div className="flex items-center gap-2">
           <Button
             onClick={handleClear}
