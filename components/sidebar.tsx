@@ -62,7 +62,8 @@ const mainMenuItems: MenuItem[] = [
     icon: <Sparkles className="h-4 w-4" />,
     submenu: [
       { title: "需求分析技能", href: "/inspire/req-analysis-skill", isPro: true },
-      { title: "需求书综合处理", href: "/special-capability/requirement-upload", isPro: true }
+      { title: "需求书综合处理", href: "/special-capability/requirement-upload", isPro: true },
+      { title: "图片综合处理", href: "/special-capability/image-processing", isPro: true }
     ]
   },
   {
@@ -70,6 +71,7 @@ const mainMenuItems: MenuItem[] = [
     icon: <Flame className="h-4 w-4" />,
     submenu: [
       { title: "提示词调试", href: "/special-capability/prompt-debug", isPro: true }
+      
     ]
   }
 ]
