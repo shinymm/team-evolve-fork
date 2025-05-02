@@ -150,4 +150,46 @@ export async function getDefaultAIConfig(): Promise<AIModelConfig | null> {
     console.error('获取默认配置时出错:', error)
     throw error
   }
+}
+
+/**
+ * 获取所有指定类型的AI模型配置
+ * @param type 模型类型
+ * @returns 指定类型的配置数组
+ */
+export async function getAIConfigsByType(type: string = 'language'): Promise<AIModelConfig[]> {
+  try {
+    const response = await fetch(`/api/ai-config?type=${type}`)
+    
+    if (!response.ok) {
+      throw new Error(`获取${type}类型配置列表失败: ${response.status}`)
+    }
+
+    const data = await response.json()
+    return data.configs || []
+  } catch (error) {
+    console.error(`获取${type}类型配置列表时出错:`, error)
+    throw error
+  }
+}
+
+/**
+ * 获取指定类型的默认AI模型配置
+ * @param type 模型类型
+ * @returns 指定类型的默认配置
+ */
+export async function getDefaultAIConfigByType(type: string = 'language'): Promise<AIModelConfig | null> {
+  try {
+    const response = await fetch(`/api/ai-config/default?type=${type}`)
+    
+    if (!response.ok) {
+      throw new Error(`获取${type}类型默认配置失败: ${response.status}`)
+    }
+
+    const data = await response.json()
+    return data.config || null
+  } catch (error) {
+    console.error(`获取${type}类型默认配置时出错:`, error)
+    throw error
+  }
 } 

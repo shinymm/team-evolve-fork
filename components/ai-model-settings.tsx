@@ -14,7 +14,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { AIModelConfig } from '@/lib/services/ai-service'
 import { streamingAICall } from '@/lib/services/ai-service'
-import { addAIConfig, deleteAIConfig, setDefaultAIConfig, getAllAIConfigs } from '@/lib/services/ai-config-service'
+import { 
+  addAIConfig, 
+  deleteAIConfig, 
+  setDefaultAIConfig, 
+  getAllAIConfigs,
+  getAIConfigsByType 
+} from '@/lib/services/ai-config-service'
 
 // 可用的AI模型预设
 const modelPresets = [
@@ -45,24 +51,40 @@ const modelPresets = [
   }
 ]
 
+// 可用的视觉模型预设
+const visionModelPresets = [
+  {
+    name: 'Qwen',
+    baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    models: ['qwen-vl', 'qwen-vl-max', 'qvq-max']
+  }
+]
+
 export function AIModelSettings() {
-  const [configs, setConfigs] = useState<AIModelConfig[]>([])
+  const [languageConfigs, setLanguageConfigs] = useState<AIModelConfig[]>([])
+  const [visionConfigs, setVisionConfigs] = useState<AIModelConfig[]>([])
   const [showAddForm, setShowAddForm] = useState(false)
   const [newConfig, setNewConfig] = useState<Partial<AIModelConfig>>({})
+  const [currentModelType, setCurrentModelType] = useState<'language' | 'vision'>('language')
   const [testingId, setTestingId] = useState<string | null>(null)
   const [testResults, setTestResults] = useState<Record<string, boolean | null>>({})
   const [selectedTab, setSelectedTab] = useState('models')
   const [isLoading, setIsLoading] = useState(false)
   
-  // 加载配置
-  const loadConfigs = useCallback(async () => {
+  // 加载不同类型的配置
+  const loadConfigsByType = useCallback(async (type: 'language' | 'vision') => {
     try {
       setIsLoading(true)
-      const loadedConfigs = await getAllAIConfigs()
-      setConfigs(loadedConfigs)
+      const loadedConfigs = await getAIConfigsByType(type)
+      
+      if (type === 'language') {
+        setLanguageConfigs(loadedConfigs)
+      } else {
+        setVisionConfigs(loadedConfigs)
+      }
     } catch (error) {
       toast({
-        title: '加载失败',
+        title: `加载${type === 'language' ? '语言' : '视觉'}模型配置失败`,
         description: error instanceof Error ? error.message : '加载配置时发生错误',
         variant: 'destructive',
       })
@@ -71,10 +93,16 @@ export function AIModelSettings() {
     }
   }, [])
 
+  // 加载所有配置
+  const loadAllConfigs = useCallback(async () => {
+    await loadConfigsByType('language')
+    await loadConfigsByType('vision')
+  }, [loadConfigsByType])
+
   // 初始加载
   useEffect(() => {
-    loadConfigs()
-  }, [loadConfigs])
+    loadAllConfigs()
+  }, [loadAllConfigs])
 
   // 处理预设选择
   const handlePresetChange = useCallback((preset: string) => {
@@ -82,7 +110,9 @@ export function AIModelSettings() {
     const model = modelParts.join('-')
     
     let baseURL = ''
-    const providerData = modelPresets.find(p => p.name === provider)
+    // 根据当前模型类型选择不同的预设列表
+    const presetList = currentModelType === 'language' ? modelPresets : visionModelPresets
+    const providerData = presetList.find(p => p.name === provider)
     if (providerData) {
       baseURL = providerData.baseURL
     }
@@ -91,9 +121,10 @@ export function AIModelSettings() {
       ...newConfig,
       name: preset,
       model,
-      baseURL
+      baseURL,
+      type: currentModelType
     })
-  }, [newConfig])
+  }, [newConfig, currentModelType])
 
   // 添加新配置
   const handleAddConfig = useCallback(async () => {
@@ -112,11 +143,18 @@ export function AIModelSettings() {
         baseURL: newConfig.baseURL,
         apiKey: newConfig.apiKey,
         model: newConfig.model,
-        temperature: newConfig.temperature || 0.7
+        temperature: newConfig.temperature || 0.7,
+        type: newConfig.type || 'language' // 确保设置类型
       }
       
       await addAIConfig(configToAdd)
-      await loadConfigs()
+      
+      // 根据类型刷新对应的配置列表
+      if (configToAdd.type === 'vision') {
+        await loadConfigsByType('vision')
+      } else {
+        await loadConfigsByType('language')
+      }
       
       // 重置表单
       setNewConfig({})
@@ -133,13 +171,19 @@ export function AIModelSettings() {
         variant: 'destructive',
       })
     }
-  }, [newConfig, loadConfigs])
+  }, [newConfig, loadConfigsByType])
 
   // 删除配置
-  const handleDeleteConfig = useCallback(async (id: string) => {
+  const handleDeleteConfig = useCallback(async (id: string, type: string = 'language') => {
     try {
       await deleteAIConfig(id)
-      await loadConfigs()
+      
+      // 根据类型刷新对应的配置列表
+      if (type === 'vision') {
+        await loadConfigsByType('vision')
+      } else {
+        await loadConfigsByType('language')
+      }
       
       // 清除该配置的测试结果
       setTestResults(prev => {
@@ -159,15 +203,21 @@ export function AIModelSettings() {
         variant: 'destructive',
       })
     }
-  }, [loadConfigs])
+  }, [loadConfigsByType])
 
   // 设置默认配置
-  const handleSetDefault = useCallback(async (id: string) => {
+  const handleSetDefault = useCallback(async (id: string, type: string = 'language') => {
     setIsLoading(true)
     
     try {
       await setDefaultAIConfig(id)
-      await loadConfigs()
+      
+      // 根据类型刷新对应的配置列表
+      if (type === 'vision') {
+        await loadConfigsByType('vision')
+      } else {
+        await loadConfigsByType('language')
+      }
       
       toast({
         title: '已更新默认配置',
@@ -182,7 +232,7 @@ export function AIModelSettings() {
     } finally {
       setIsLoading(false)
     }
-  }, [loadConfigs])
+  }, [loadConfigsByType])
 
   // 测试连接
   const handleTestConfig = useCallback(async (config: AIModelConfig) => {
@@ -233,8 +283,8 @@ export function AIModelSettings() {
     }
   }, [])
 
-  // 使用 useMemo 缓存配置列表渲染
-  const configRows = useMemo(() => {
+  // 生成配置表格行
+  const generateConfigRows = useCallback((configs: AIModelConfig[], type: string = 'language') => {
     // 确保列表始终按名称排序
     const sortedConfigs = [...configs].sort((a, b) => 
       (a.name || '').localeCompare(b.name || '')
@@ -256,7 +306,7 @@ export function AIModelSettings() {
                 "h-3 w-3 rounded-full border border-primary cursor-pointer",
                 config.isDefault && "bg-primary"
               )}
-              onClick={() => handleSetDefault(config.id as string)}
+              onClick={() => handleSetDefault(config.id as string, type)}
             />
           </TableCell>
           <TableCell className="py-2">
@@ -287,7 +337,7 @@ export function AIModelSettings() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => handleDeleteConfig(config.id as string)}
+                onClick={() => handleDeleteConfig(config.id as string, type)}
                 disabled={testingId === config.id}
                 className="h-7 w-7 text-muted-foreground hover:text-destructive"
               >
@@ -298,15 +348,48 @@ export function AIModelSettings() {
         </TableRow>
       );
     }).filter(Boolean)
-  }, [configs, testingId, testResults, handleTestConfig, handleDeleteConfig, handleSetDefault])
+  }, [testingId, testResults, handleTestConfig, handleDeleteConfig, handleSetDefault])
+
+  // 生成语言模型的配置行
+  const languageConfigRows = useMemo(() => {
+    return generateConfigRows(languageConfigs, 'language')
+  }, [languageConfigs, generateConfigRows])
+
+  // 生成视觉模型的配置行
+  const visionConfigRows = useMemo(() => {
+    return generateConfigRows(visionConfigs, 'vision')
+  }, [visionConfigs, generateConfigRows])
 
   // 使用 useMemo 缓存添加表单渲染
   const addForm = useMemo(() => {
     if (!showAddForm) return null
     
+    // 选择当前模型类型对应的预设列表
+    const presetList = currentModelType === 'language' ? modelPresets : visionModelPresets
+    
     return (
       <div className="space-y-3 border p-3 rounded-md bg-slate-50">
-        <h2 className="text-sm font-semibold">添加新配置</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-sm font-semibold">添加新配置</h2>
+          <div className="flex space-x-2">
+            <Button 
+              size="sm" 
+              variant={currentModelType === 'language' ? 'default' : 'outline'}
+              className="h-7 text-xs"
+              onClick={() => setCurrentModelType('language')}
+            >
+              语言模型
+            </Button>
+            <Button 
+              size="sm" 
+              variant={currentModelType === 'vision' ? 'default' : 'outline'}
+              className="h-7 text-xs"
+              onClick={() => setCurrentModelType('vision')}
+            >
+              视觉模型
+            </Button>
+          </div>
+        </div>
         <div className="space-y-2">
           <div className="grid grid-cols-[100px,1fr] items-center gap-3">
             <Label htmlFor="ai-preset" className="text-xs">预设模型</Label>
@@ -315,7 +398,7 @@ export function AIModelSettings() {
                 <SelectValue placeholder="选择预设" />
               </SelectTrigger>
               <SelectContent>
-                {modelPresets.map(provider => (
+                {presetList.map(provider => (
                   <React.Fragment key={provider.name}>
                     {provider.models.map(model => (
                       <SelectItem key={`${provider.name}-${model}`} value={`${provider.name}-${model}`} className="text-sm">
@@ -399,7 +482,7 @@ export function AIModelSettings() {
         </div>
       </div>
     )
-  }, [showAddForm, newConfig, handlePresetChange, handleAddConfig])
+  }, [showAddForm, newConfig, currentModelType, handlePresetChange, handleAddConfig])
 
   return (
     <Tabs
@@ -434,29 +517,61 @@ export function AIModelSettings() {
             <div className="space-y-8">
               {addForm}
               
-              {configs.length > 0 ? (
-                <div className="border rounded-md">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="hover:bg-transparent">
-                        <TableHead className="h-8 text-xs">名称</TableHead>
-                        <TableHead className="h-8 text-xs">模型</TableHead>
-                        <TableHead className="h-8 text-xs">API地址</TableHead>
-                        <TableHead className="h-8 text-xs">温度</TableHead>
-                        <TableHead className="h-8 text-xs">默认</TableHead>
-                        <TableHead className="h-8 text-xs">操作</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {configRows}
-                    </TableBody>
-                  </Table>
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  暂无配置，请添加新的AI模型配置
-                </div>
-              )}
+              {/* 语言模型配置表格 */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">语言模型</h3>
+                {languageConfigs.length > 0 ? (
+                  <div className="border rounded-md">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead className="h-8 text-xs">名称</TableHead>
+                          <TableHead className="h-8 text-xs">模型</TableHead>
+                          <TableHead className="h-8 text-xs">API地址</TableHead>
+                          <TableHead className="h-8 text-xs">温度</TableHead>
+                          <TableHead className="h-8 text-xs">默认</TableHead>
+                          <TableHead className="h-8 text-xs">操作</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {languageConfigRows}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-muted-foreground border rounded-md">
+                    暂无语言模型配置，请添加新的配置
+                  </div>
+                )}
+              </div>
+              
+              {/* 视觉模型配置表格 */}
+              <div className="space-y-4 mt-8">
+                <h3 className="text-lg font-semibold">视觉模型</h3>
+                {visionConfigs.length > 0 ? (
+                  <div className="border rounded-md">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead className="h-8 text-xs">名称</TableHead>
+                          <TableHead className="h-8 text-xs">模型</TableHead>
+                          <TableHead className="h-8 text-xs">API地址</TableHead>
+                          <TableHead className="h-8 text-xs">温度</TableHead>
+                          <TableHead className="h-8 text-xs">默认</TableHead>
+                          <TableHead className="h-8 text-xs">操作</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {visionConfigRows}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-muted-foreground border rounded-md">
+                    暂无视觉模型配置，请添加新的配置
+                  </div>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>

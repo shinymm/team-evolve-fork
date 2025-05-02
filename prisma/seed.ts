@@ -49,6 +49,9 @@ const DEFAULT_INTERFACES: APIInterfaceSeed[] = [
 
 const prisma = new PrismaClient()
 
+/**
+ * 主函数
+ */
 async function main() {
   // 创建QARE系统
   const system = await prisma.system.create({

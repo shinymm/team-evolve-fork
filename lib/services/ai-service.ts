@@ -15,6 +15,7 @@ export interface AIModelConfig {
   description?: string
   temperature?: number
   isDefault?: boolean
+  type?: string // 模型类型："language" 或 "vision"
   createdAt?: string
   updatedAt?: string
 }

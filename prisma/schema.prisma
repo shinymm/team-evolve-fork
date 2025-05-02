@@ -97,6 +97,7 @@ model AIModelConfig {
   temperature Float    @default(0.7)
   isDefault   Boolean  @default(false)
   provider    String?
+  type        String   @default("language") // "language" 或 "vision"
   createdAt   DateTime @default(now())
 }
 

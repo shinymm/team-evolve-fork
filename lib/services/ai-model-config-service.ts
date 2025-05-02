@@ -26,6 +26,7 @@ function convertToAIModelConfig(dbModel: any): AIModelConfig {
     model: dbModel.model,
     temperature: dbModel.temperature,
     isDefault: dbModel.isDefault,
+    type: dbModel.type || 'language', // 添加模型类型
     createdAt: dbModel.createdAt ? dbModel.createdAt.toISOString() : new Date().toISOString(),
     updatedAt: dbModel.updatedAt ? dbModel.updatedAt.toISOString() : new Date().toISOString()
   };
@@ -87,19 +88,73 @@ export const aiModelConfigService = {
   },
 
   /**
-   * 获取默认配置
-   * 返回带加密API密钥的完整配置
+   * 获取所有指定类型的AI模型配置
    */
-  async getDefaultConfig(): Promise<AIModelConfig | null> {
+  async getConfigsByType(type: string = 'language'): Promise<AIModelConfig[]> {
     try {
-      console.log('开始从数据库获取默认配置');
+      // 从数据库获取指定类型的配置
+      const configs = await prisma.aIModelConfig.findMany({
+        where: { 
+          type 
+        },
+        orderBy: {
+          createdAt: 'asc'
+        }
+      });
+
+      // 直接转换配置（保持API密钥加密状态）
+      return configs.map((config: any) => convertToAIModelConfig(config));
+    } catch (error) {
+      console.error(`获取${type}类型配置失败:`, error);
+      return [];
+    }
+  },
+
+  /**
+   * 根据类型获取默认配置
+   */
+  async getDefaultConfigByType(type: string = 'language'): Promise<AIModelConfig | null> {
+    try {
+      console.log(`开始从数据库获取${type}类型的默认配置`);
       
       const config = await prisma.aIModelConfig.findFirst({
-        where: { isDefault: true }
+        where: { 
+          isDefault: true,
+          type: type
+        }
       });
 
       if (!config) {
-        console.log('数据库中未找到默认配置');
+        console.log(`数据库中未找到${type}类型的默认配置`);
+        return null;
+      }
+
+      // 直接转换配置（保持API密钥加密状态）
+      return convertToAIModelConfig(config);
+    } catch (error) {
+      console.error(`获取${type}类型默认配置失败:`, error);
+      return null;
+    }
+  },
+
+  /**
+   * 获取默认配置
+   * 返回带加密API密钥的完整配置
+   * 为兼容现有代码，默认返回语言模型类型的默认配置
+   */
+  async getDefaultConfig(): Promise<AIModelConfig | null> {
+    try {
+      console.log('开始从数据库获取默认语言模型配置');
+      
+      const config = await prisma.aIModelConfig.findFirst({
+        where: { 
+          isDefault: true,
+          type: 'language'  // 指定获取语言模型类型
+        }
+      });
+
+      if (!config) {
+        console.log('数据库中未找到默认语言模型配置');
         return null;
       }
 
@@ -122,7 +177,42 @@ export const aiModelConfigService = {
 
       return convertedConfig;
     } catch (error) {
-      console.error('获取默认配置失败:', error);
+      console.error('获取默认语言模型配置失败:', error);
+      return null;
+    }
+  },
+
+  /**
+   * 获取默认视觉模型配置
+   * 返回带加密API密钥的完整配置
+   */
+  async getDefaultVisionConfig(): Promise<AIModelConfig | null> {
+    try {
+      console.log('开始从数据库获取默认视觉模型配置');
+      
+      const config = await prisma.aIModelConfig.findFirst({
+        where: { 
+          isDefault: true,
+          type: 'vision'  // 指定获取视觉模型类型
+        }
+      });
+
+      if (!config) {
+        console.log('数据库中未找到默认视觉模型配置');
+        return null;
+      }
+
+      console.log('从数据库获取到默认视觉模型配置:', {
+        id: config.id,
+        model: config.model,
+        hasApiKey: !!config.apiKey,
+        apiKeyLength: config.apiKey?.length || 0
+      });
+
+      // 直接转换配置（保持API密钥加密状态）
+      return convertToAIModelConfig(config);
+    } catch (error) {
+      console.error('获取默认视觉模型配置失败:', error);
       return null;
     }
   },
@@ -136,14 +226,22 @@ export const aiModelConfigService = {
       // 加密API密钥
       const encryptedApiKey = await encrypt(config.apiKey);
 
-      // 如果是第一个配置，设置为默认
-      const configCount = await prisma.aIModelConfig.count();
+      // 确定类型
+      const type = config.type || 'language';
+
+      // 检查是否该类型的第一个配置
+      const configCount = await prisma.aIModelConfig.count({
+        where: { type }
+      });
       const isDefault = configCount === 0 ? true : !!config.isDefault;
 
-      // 如果将要添加的配置设置为默认，先取消其他默认配置
+      // 如果将要添加的配置设置为默认，先取消同类型的其他默认配置
       if (isDefault) {
         await prisma.aIModelConfig.updateMany({
-          where: { isDefault: true },
+          where: { 
+            isDefault: true,
+            type: type
+          },
           data: { isDefault: false }
         });
       }
@@ -157,6 +255,7 @@ export const aiModelConfigService = {
           model: config.model,
           temperature: config.temperature ?? 0.7,
           isDefault: isDefault,
+          type: type,
         }
       });
 
@@ -180,6 +279,15 @@ export const aiModelConfigService = {
    */
   async updateConfig(id: string, config: Partial<AIModelConfig>): Promise<AIModelConfig> {
     try {
+      // 获取当前配置以获取类型信息
+      const currentConfig = await prisma.aIModelConfig.findUnique({
+        where: { id }
+      });
+
+      if (!currentConfig) {
+        throw new Error('配置不存在');
+      }
+
       // 准备更新数据
       const updateData: any = { ...config };
       
@@ -193,11 +301,15 @@ export const aiModelConfigService = {
         updateData.apiKey = await encrypt(config.apiKey);
       }
 
-      // 如果设置为默认，先取消其他默认配置
+      // 确定类型
+      const type = config.type || currentConfig.type || 'language';
+
+      // 如果设置为默认，先取消同类型的其他默认配置
       if (config.isDefault) {
         await prisma.aIModelConfig.updateMany({
           where: { 
             isDefault: true,
+            type: type,
             id: { not: id }
           },
           data: { isDefault: false }
@@ -280,9 +392,23 @@ export const aiModelConfigService = {
    */
   async setDefaultConfig(id: string): Promise<AIModelConfig> {
     try {
-      // 先取消所有默认配置
+      // 获取当前配置以获取类型信息
+      const currentConfig = await prisma.aIModelConfig.findUnique({
+        where: { id }
+      });
+
+      if (!currentConfig) {
+        throw new Error('配置不存在');
+      }
+      
+      const type = currentConfig.type || 'language';
+
+      // 先取消同类型的默认配置
       await prisma.aIModelConfig.updateMany({
-        where: { isDefault: true },
+        where: { 
+          isDefault: true,
+          type: type
+        },
         data: { isDefault: false }
       });
 

@@ -2,10 +2,21 @@ import { NextResponse } from 'next/server'
 import { aiModelConfigService } from '@/lib/services/ai-model-config-service'
 
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    // 获取配置，API密钥保持加密状态
-    const configs = await aiModelConfigService.getAllConfigs()
+    // 获取请求中的类型参数
+    const url = new URL(request.url)
+    const type = url.searchParams.get('type')
+    
+    let configs
+    if (type) {
+      // 如果指定了类型，获取该类型的配置
+      configs = await aiModelConfigService.getConfigsByType(type)
+    } else {
+      // 否则获取所有配置
+      configs = await aiModelConfigService.getAllConfigs()
+    }
+    
     // 返回正确的JSON格式
     return NextResponse.json({ configs })
   } catch (error) {

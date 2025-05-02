@@ -11,69 +11,86 @@ export const maxDuration = 60;
  * 视觉模型处理API
  * 支持普通视觉理解模型(VL)和推理型视觉模型(QVQ)
  */
-export async function POST(req: Request): Promise<Response> {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    console.log('✨ [视觉API] 开始处理视觉分析请求...');
-    
-    // 解析表单数据
-    const formData = await req.formData();
-    
-    // 获取图像URL列表
-    const imageUrls = formData.getAll('imageUrls') as string[];
-    if (!imageUrls || imageUrls.length === 0) {
-      return new Response(JSON.stringify({ error: '未提供图像URL' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-    console.log('✨ [视觉API] 接收到图像URL数量:', imageUrls.length);
-    
-    // 获取提示词
-    const prompt = formData.get('prompt') as string;
+    // 解析请求数据
+    const formData = await request.formData();
+    const imageUrls = formData.getAll('imageUrls').map(url => url.toString());
+    const prompt = formData.get('prompt')?.toString() || '';
+    const systemPrompt = formData.get('systemPrompt')?.toString();
+    const modelConfigId = formData.get('modelConfig')?.toString();
+
+    // 验证输入
     if (!prompt) {
-      return new Response(JSON.stringify({ error: '未提供提示词' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return NextResponse.json({ error: '请提供提示词' }, { status: 400 });
     }
-    console.log('✨ [视觉API] 提示词长度:', prompt.length);
-    
-    // 获取可选的系统提示词
-    const systemPrompt = formData.get('systemPrompt') as string || undefined;
-    if (systemPrompt) {
-      console.log('✨ [视觉API] 系统提示词长度:', systemPrompt.length);
+
+    if (imageUrls.length === 0) {
+      return NextResponse.json({ error: '请至少提供一张图片' }, { status: 400 });
     }
-    
+
+    console.log('处理图像分析请求:', {
+      imageCount: imageUrls.length,
+      promptLength: prompt.length,
+      hasSystemPrompt: !!systemPrompt,
+      providedModelId: modelConfigId
+    });
+
     // 获取模型配置
-    const modelConfig = await aiModelConfigService.getDefaultConfig();
-    if (!modelConfig) {
-      return new Response(JSON.stringify({ error: '未找到默认模型配置' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      });
+    let modelConfig;
+    if (modelConfigId) {
+      modelConfig = await aiModelConfigService.getConfigById(modelConfigId);
+      if (!modelConfig) {
+        console.log('未找到指定模型配置，使用默认配置');
+      }
     }
-    
-    console.log('✨ [视觉API] 获取到模型配置, 模型名称:', modelConfig.model);
-    
-    // 根据模型名称判断是否为推理型视觉模型
-    const isQVQModel = modelConfig.model.includes('qvq');
-    console.log(`✨ [视觉API] 使用${isQVQModel ? '推理型' : '普通'}视觉模型`);
-    
-    // 根据模型类型选择对应的处理服务
-    if (isQVQModel) {
-      // 创建QVQ视觉推理服务
+
+    // 如果没有提供特定模型或找不到指定模型，使用默认视觉模型配置
+    if (!modelConfig) {
+      modelConfig = await aiModelConfigService.getDefaultVisionConfig();
+      
+      if (!modelConfig) {
+        console.log('未找到默认视觉模型配置，尝试使用默认语言模型配置');
+        modelConfig = await aiModelConfigService.getDefaultConfig();
+      }
+
+      if (!modelConfig) {
+        return NextResponse.json({ error: '未找到可用的AI模型配置' }, { status: 500 });
+      }
+    }
+
+    console.log('使用模型配置:', {
+      id: modelConfig.id,
+      name: modelConfig.name,
+      model: modelConfig.model
+    });
+
+    // 根据模型类型选择服务
+    if (modelConfig.model.startsWith('qvq')) {
+      // 使用QVQ模型服务（带思考过程）
       const qvqService = new QVQModelService();
-      return await qvqService.analyzeImage(imageUrls, prompt, modelConfig, systemPrompt);
+      const response = await qvqService.analyzeImage(imageUrls, prompt, modelConfig, systemPrompt);
+      // 转换为Response为NextResponse
+      return new NextResponse(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers
+      });
     } else {
-      // 创建普通视觉理解服务
-      const vlService = new QwenVLService();
-      return await vlService.analyzeImages(imageUrls, prompt, modelConfig, systemPrompt);
+      // 默认使用通义千问VL服务
+      const visionService = new QwenVLService();
+      const response = await visionService.analyzeImages(imageUrls, prompt, modelConfig, systemPrompt);
+      // 转换为Response为NextResponse
+      return new NextResponse(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers
+      });
     }
   } catch (error) {
-    console.error('🔴 [视觉API] 处理视觉分析请求出错:', error);
-    return new Response(JSON.stringify({ error: '处理视觉请求失败' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    console.error('视觉API处理错误:', error);
+    return NextResponse.json({ 
+      error: error instanceof Error ? error.message : '处理视觉请求时发生错误' 
+    }, { status: 500 });
   }
 } 

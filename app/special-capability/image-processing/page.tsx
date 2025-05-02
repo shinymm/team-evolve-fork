@@ -202,16 +202,21 @@ export default function ImageProcessing() {
   useEffect(() => {
     const checkModelType = async () => {
       try {
-        const response = await fetch('/api/ai/config/default');
+        // 修改为获取默认视觉模型配置
+        const response = await fetch('/api/ai/config/default?type=vision');
         if (response.ok) {
           const data = await response.json();
-          const modelName = data.model || '';
-          setModelName(modelName);
-          setIsQVQModel(modelName.includes('qvq'));
-          console.log(`当前使用模型: ${modelName}, 是否为推理型: ${modelName.includes('qvq')}`);
+          if (data.config) {
+            const modelName = data.config.model || '';
+            setModelName(modelName);
+            setIsQVQModel(modelName.includes('qvq'));
+            console.log(`当前使用视觉模型: ${modelName}, 是否为推理型: ${modelName.includes('qvq')}`);
+          } else {
+            console.log('未找到默认视觉模型配置');
+          }
         }
       } catch (error) {
-        console.error('获取模型配置失败:', error);
+        console.error('获取视觉模型配置失败:', error);
       }
     };
     
