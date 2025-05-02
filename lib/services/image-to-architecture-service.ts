@@ -1,15 +1,15 @@
-import { imageToProductInfoPrompt } from '@/lib/prompts/image-to-product-info'
+import { imageToArchitecturePrompt } from '@/lib/prompts/image-to-architecture'
 
 /**
- * 处理图片提炼产品基础信息的服务
+ * 处理图片提炼信息架构的服务
  */
-export class ImageToProductInfoService {
+export class ImageToArchitectureService {
   /**
-   * 从图片中提炼产品基础信息
+   * 从图片中提炼信息架构
    * @param fileIds 上传的图片文件ID列表
    * @param onContent 流式返回内容回调
    */
-  async extractProductInfo(
+  async extractArchitecture(
     fileIds: string[],
     onContent: (content: string) => void
   ): Promise<void> {
@@ -31,8 +31,8 @@ export class ImageToProductInfoService {
       imageUrls.forEach(url => {
         formData.append('imageUrls', url);
       });
-      formData.append('prompt', imageToProductInfoPrompt);
-      formData.append('systemPrompt', '你是一个产品分析专家，善于从界面截图中识别产品特征并提炼核心信息。');
+      formData.append('prompt', imageToArchitecturePrompt);
+      formData.append('systemPrompt', '你是一个产品架构分析专家，善于从界面截图中识别产品模块结构并提炼信息架构。');
       
       // 直接调用API
       const response = await fetch('/api/ai/image', {
@@ -102,7 +102,7 @@ export class ImageToProductInfoService {
         throw new Error('未收到任何有效内容');
       }
     } catch (error) {
-      console.error(`提炼产品基础信息失败:`, error)
+      console.error(`提炼信息架构失败:`, error)
       throw error
     }
   }

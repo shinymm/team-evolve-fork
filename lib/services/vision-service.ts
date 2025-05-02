@@ -1,41 +1,45 @@
-import { imageToProductInfoPrompt } from '@/lib/prompts/image-to-product-info'
+/**
+ * 视觉处理服务
+ * 支持VL和QVQ两种模型
+ */
 
 /**
- * 处理图片提炼产品基础信息的服务
+ * 视觉处理服务
  */
-export class ImageToProductInfoService {
+export class VisionService {
   /**
-   * 从图片中提炼产品基础信息
-   * @param fileIds 上传的图片文件ID列表
-   * @param onContent 流式返回内容回调
+   * 处理图像分析请求
+   * @param imageUrls 图片URL列表
+   * @param prompt 提示词
+   * @param onReasoning 接收推理过程的回调
+   * @param onAnswer 接收答案内容的回调
    */
-  async extractProductInfo(
-    fileIds: string[],
-    onContent: (content: string) => void
+  async analyzeImage(
+    imageUrls: string[],
+    prompt: string,
+    onReasoning: (content: string) => void,
+    onAnswer: (content: string) => void,
+    systemPrompt?: string
   ): Promise<void> {
     try {
-      if (fileIds.length === 0) {
-        throw new Error('请至少选择一个图片文件进行分析')
+      if (imageUrls.length === 0) {
+        throw new Error('请至少选择一个图片进行分析');
       }
 
-      // 将文件ID转换为可访问的URL
-      const imageUrls = fileIds.map(fileId => {
-        // 文件ID是OSS的key，直接包含完整路径
-        return `https://team-evolve.oss-ap-southeast-1.aliyuncs.com/${fileId}`
-      })
-
-      console.log('处理图片文件，转换为URL:', imageUrls);
+      console.log('处理图片，图片URL数量:', imageUrls.length);
       
       // 构造FormData
       const formData = new FormData();
       imageUrls.forEach(url => {
         formData.append('imageUrls', url);
       });
-      formData.append('prompt', imageToProductInfoPrompt);
-      formData.append('systemPrompt', '你是一个产品分析专家，善于从界面截图中识别产品特征并提炼核心信息。');
+      formData.append('prompt', prompt);
+      if (systemPrompt) {
+        formData.append('systemPrompt', systemPrompt);
+      }
       
-      // 直接调用API
-      const response = await fetch('/api/ai/image', {
+      // 调用视觉API
+      const response = await fetch('/api/ai/vision', {
         method: 'POST',
         body: formData
       });
@@ -53,7 +57,8 @@ export class ImageToProductInfoService {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
-      let accumulatedContent = '';
+      let accumulatedReasoningContent = '';
+      let accumulatedAnswerContent = '';
       
       while (true) {
         const { done, value } = await reader.read();
@@ -67,7 +72,7 @@ export class ImageToProductInfoService {
         buffer += chunk;
         
         // 处理完整的消息
-        const lines = buffer.split('\n');
+        const lines = buffer.split('\n\n');
         buffer = lines.pop() || ''; // 保留最后一个不完整的行
         
         for (const line of lines) {
@@ -85,10 +90,25 @@ export class ImageToProductInfoService {
                 throw new Error(data.error);
               }
               
+              // 处理推理型模型的推理内容
+              if (data.type === 'reasoning' && data.content) {
+                accumulatedReasoningContent += data.content;
+                onReasoning(accumulatedReasoningContent);
+                continue;
+              }
+              
+              // 处理推理型模型的答案内容
+              if (data.type === 'answer' && data.content) {
+                accumulatedAnswerContent += data.content;
+                onAnswer(accumulatedAnswerContent);
+                continue;
+              }
+              
+              // 处理普通VL模型的内容
               if (data.choices?.[0]?.delta?.content) {
                 const content = data.choices[0].delta.content;
-                accumulatedContent += content;
-                onContent(accumulatedContent);
+                accumulatedAnswerContent += content;
+                onAnswer(accumulatedAnswerContent);
               }
             } catch (e) {
               console.warn('解析消息失败:', e);
@@ -98,12 +118,12 @@ export class ImageToProductInfoService {
       }
       
       // 如果没有累积到任何内容，抛出错误
-      if (!accumulatedContent) {
+      if (!accumulatedAnswerContent && !accumulatedReasoningContent) {
         throw new Error('未收到任何有效内容');
       }
     } catch (error) {
-      console.error(`提炼产品基础信息失败:`, error)
-      throw error
+      console.error(`图像分析失败:`, error);
+      throw error;
     }
   }
 } 

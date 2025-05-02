@@ -12,6 +12,7 @@ export interface AIModelConfig {
   baseURL: string
   apiKey: string
   model: string
+  description?: string
   temperature?: number
   isDefault?: boolean
   createdAt?: string
