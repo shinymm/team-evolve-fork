@@ -17,6 +17,8 @@ import { Pencil, Loader2, AlertCircle, CheckCircle, PlugZap, Code, ExternalLink,
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { parseMcpConfig, testMcpConnection, McpStreamableHttpConfig } from '@/lib/mcp/client'
+import { encrypt, decrypt } from '@/lib/utils/encryption-utils'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 export interface MemberFormData {
   id?: string
@@ -27,6 +29,10 @@ export interface MemberFormData {
   greeting?: string | null
   category?: string | null
   mcpConfigJson?: string | null
+  aiModelName?: string | null
+  aiModelBaseUrl?: string | null
+  aiModelApiKey?: string | null
+  aiModelTemperature?: number | null
 }
 
 interface ParsedMcpServer {
@@ -58,6 +64,35 @@ const isConfigTestable = (config: McpStreamableHttpConfig) => {
   }
 };
 
+// 可用的AI模型预设
+const modelPresets = [
+  {
+    name: 'OpenAI',
+    baseURL: 'https://api.openai.com/v1',
+    models: ['gpt-4', 'gpt-4o','gpt-4o-mini','gpt-3.5-turbo']
+  },
+  {
+    name: '智谱AI',
+    baseURL: 'https://open.bigmodel.cn/api/paas/v4',
+    models: ['glm-4-long', 'glm-4-flash', 'glm-4-plus', 'GLM-Zero-Preview']
+  },
+  {
+    name: 'Qwen',
+    baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    models: ['qwen-long']
+  },
+  {
+    name: 'Deepseek',
+    baseURL: 'https://api.deepseek.com',
+    models: ['deepseek-chat']
+  },
+  {
+    name: 'Gemini',
+    baseURL: 'https://generativelanguage.googleapis.com/v1beta',
+    models: ['gemini-2.0-flash-lite','gemini-2.0-flash-thinking-exp-01-21']
+  }
+]
+
 export function MemberFormDialog({
   open,
   onOpenChange,
@@ -72,7 +107,11 @@ export function MemberFormDialog({
     responsibilities: '',
     greeting: '',
     category: '',
-    mcpConfigJson: ''
+    mcpConfigJson: '',
+    aiModelName: '',
+    aiModelBaseUrl: '',
+    aiModelApiKey: '',
+    aiModelTemperature: 0.2
   })
 
   const [mcpJsonStringInternal, setMcpJsonStringInternal] = useState('');
@@ -81,6 +120,13 @@ export function MemberFormDialog({
   const [isEditingJson, setIsEditingJson] = useState(true);
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('info');
+
+  // 新增模型相关状态
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(null)
+  const [selectedModel, setSelectedModel] = useState<string | null>(null)
+  const [decryptedApiKey, setDecryptedApiKey] = useState('')
+  const [isDecrypting, setIsDecrypting] = useState(false)
+  const [decryptError, setDecryptError] = useState<string | null>(null)
 
   useEffect(() => {
     if (open) {
@@ -91,13 +137,21 @@ export function MemberFormDialog({
         responsibilities: '',
         greeting: '',
         category: '',
-        mcpConfigJson: ''
+        mcpConfigJson: '',
+        aiModelName: '',
+        aiModelBaseUrl: '',
+        aiModelApiKey: '',
+        aiModelTemperature: 0.2
       };
       setFormData({
         ...initialData,
         greeting: initialData.greeting || '',
         category: initialData.category || '',
-        mcpConfigJson: initialData.mcpConfigJson || ''
+        mcpConfigJson: initialData.mcpConfigJson || '',
+        aiModelName: initialData.aiModelName || '',
+        aiModelBaseUrl: initialData.aiModelBaseUrl || '',
+        aiModelApiKey: initialData.aiModelApiKey || '',
+        aiModelTemperature: initialData.aiModelTemperature || 0.2,
       });
 
       const initialJson = initialData.mcpConfigJson || '';
@@ -111,14 +165,58 @@ export function MemberFormDialog({
         setIsEditingJson(true);
         setJsonError(null);
       }
+
+      // 如果有API Key，尝试解密
+      if (initialData.aiModelApiKey) {
+        handleDecryptApiKey(initialData.aiModelApiKey);
+      } else {
+        setDecryptedApiKey('');
+      }
+
+      // 尝试匹配预设提供商
+      if (initialData.aiModelBaseUrl) {
+        const provider = modelPresets.find(p => p.baseURL === initialData.aiModelBaseUrl);
+        if (provider) {
+          setSelectedProvider(provider.name);
+          // 如果当前模型名称存在于选中的提供商的模型列表中，设置为选中
+          if (initialData.aiModelName && provider.models.includes(initialData.aiModelName)) {
+            setSelectedModel(initialData.aiModelName);
+          } else {
+            setSelectedModel(null);
+          }
+        } else {
+          setSelectedProvider(null);
+          setSelectedModel(null);
+        }
+      } else {
+        setSelectedProvider(null);
+        setSelectedModel(null);
+      }
+
       setActiveTab('info');
     } else {
-      setFormData({ name: '', introduction: '', role: '', responsibilities: '', greeting: '', category: '', mcpConfigJson: '' });
+      setFormData({ 
+        name: '', 
+        introduction: '', 
+        role: '', 
+        responsibilities: '', 
+        greeting: '', 
+        category: '', 
+        mcpConfigJson: '',
+        aiModelName: '',
+        aiModelBaseUrl: '',
+        aiModelApiKey: '',
+        aiModelTemperature: 0.2
+      });
       setMcpJsonStringInternal('');
       setParsedServers([]);
       setServerStatusMap({});
       setIsEditingJson(true);
       setJsonError(null);
+      setDecryptedApiKey('');
+      setSelectedProvider(null);
+      setSelectedModel(null);
+      setDecryptError(null);
     }
   }, [open, editingMember]);
 
@@ -237,6 +335,19 @@ export function MemberFormDialog({
         isJsonValid = true;
     }
 
+    // 处理API密钥的加密
+    let encryptedApiKey: string | null = null;
+    if (decryptedApiKey.trim()) {
+      try {
+        encryptedApiKey = await encrypt(decryptedApiKey.trim());
+      } catch (error) {
+        console.error('加密API Key失败:', error);
+        setActiveTab('model');
+        setDecryptError('无法加密API密钥，请稍后重试');
+        return;
+      }
+    }
+
     const dataToSubmit: MemberFormData = {
         id: formData.id,
         name: formData.name,
@@ -246,6 +357,10 @@ export function MemberFormDialog({
         greeting: (formData.greeting || '').trim() || null,
         category: (formData.category || '').trim() || null,
         mcpConfigJson: finalMcpJson,
+        aiModelName: formData.aiModelName || null,
+        aiModelBaseUrl: formData.aiModelBaseUrl || null,
+        aiModelApiKey: encryptedApiKey,
+        aiModelTemperature: formData.aiModelTemperature
     };
 
     console.log('Submitting final validated data:', dataToSubmit);
@@ -280,6 +395,66 @@ export function MemberFormDialog({
     }
   };
 
+  // 处理模型提供商选择
+  const handleProviderChange = (value: string) => {
+    setSelectedProvider(value);
+    const provider = modelPresets.find(p => p.name === value);
+    if (provider) {
+      setFormData(prev => ({
+        ...prev,
+        aiModelBaseUrl: provider.baseURL,
+        aiModelName: ''
+      }));
+      setSelectedModel(null);
+    }
+  }
+
+  // 处理模型选择
+  const handleModelChange = (value: string) => {
+    setSelectedModel(value);
+    setFormData(prev => ({
+      ...prev,
+      aiModelName: value
+    }));
+  }
+
+  // 温度滑块变化
+  const handleTemperatureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value);
+    setFormData(prev => ({
+      ...prev,
+      aiModelTemperature: value
+    }));
+  }
+
+  // API Key变化时的处理
+  const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setDecryptedApiKey(value);
+  }
+
+  // 尝试解密API Key
+  const handleDecryptApiKey = async (encryptedKey: string) => {
+    if (!encryptedKey) {
+      setDecryptedApiKey('');
+      return;
+    }
+
+    setIsDecrypting(true);
+    setDecryptError(null);
+    
+    try {
+      const decrypted = await decrypt(encryptedKey);
+      setDecryptedApiKey(decrypted);
+    } catch (error) {
+      console.error('解密API Key失败:', error);
+      setDecryptError('无法解密API Key，请重新输入');
+      setDecryptedApiKey('');
+    } finally {
+      setIsDecrypting(false);
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[60rem] w-[90%] h-[90vh] flex flex-col">
@@ -288,7 +463,7 @@ export function MemberFormDialog({
         </DialogHeader>
         <div className="flex-grow overflow-hidden pt-2">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-              <TabsList className="grid w-full grid-cols-3 flex-shrink-0">
+              <TabsList className="grid w-full grid-cols-4 flex-shrink-0">
                 <TabsTrigger 
                   value="info"
                   className="data-[state=active]:bg-orange-500 data-[state=active]:text-white"
@@ -300,6 +475,12 @@ export function MemberFormDialog({
                   className="data-[state=active]:bg-orange-500 data-[state=active]:text-white"
                 >
                   技能设定
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="model"
+                  className="data-[state=active]:bg-orange-500 data-[state=active]:text-white"
+                >
+                  大模型配置
                 </TabsTrigger>
                 <TabsTrigger 
                   value="mcp"
@@ -403,7 +584,136 @@ export function MemberFormDialog({
                   </div>
                 </TabsContent>
 
-                 <TabsContent value="mcp" className="space-y-4 mt-4 h-full p-1">
+                 <TabsContent value="model" className="overflow-y-auto flex-grow pt-4">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-medium">大模型配置</h3>
+                      <p className="text-sm text-gray-500">
+                        设置AI团队成员使用的大语言模型，完成后点击"保存"按钮
+                      </p>
+                    </div>
+
+                    <div className="space-y-4 pt-2">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="modelProvider">模型提供商</Label>
+                          <Select 
+                            value={selectedProvider || ''} 
+                            onValueChange={handleProviderChange}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="选择模型提供商" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {modelPresets.map((provider) => (
+                                <SelectItem key={provider.name} value={provider.name}>
+                                  {provider.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="baseUrl">API基础URL</Label>
+                          <Input
+                            id="baseUrl"
+                            name="aiModelBaseUrl"
+                            value={formData.aiModelBaseUrl || ''}
+                            onChange={handleInputChange}
+                            placeholder="https://api.example.com/v1"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="modelName">模型名称</Label>
+                          {selectedProvider ? (
+                            <Select 
+                              value={selectedModel || ''} 
+                              onValueChange={handleModelChange}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="选择模型" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {modelPresets
+                                  .find(p => p.name === selectedProvider)
+                                  ?.models.map((model) => (
+                                    <SelectItem key={model} value={model}>
+                                      {model}
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Input
+                              id="modelName"
+                              name="aiModelName"
+                              value={formData.aiModelName || ''}
+                              onChange={handleInputChange}
+                              placeholder="模型名称"
+                            />
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="apiKey">API密钥</Label>
+                          <div className="relative">
+                            <Input
+                              id="apiKey"
+                              type="password"
+                              value={decryptedApiKey}
+                              onChange={handleApiKeyChange}
+                              placeholder="sk-xxxx..."
+                              disabled={isDecrypting}
+                            />
+                            {isDecrypting && (
+                              <div className="absolute right-3 top-2">
+                                <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                              </div>
+                            )}
+                          </div>
+                          {decryptError && (
+                            <p className="text-sm text-red-500">{decryptError}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <Label htmlFor="temperature">温度 ({formData.aiModelTemperature || 0.2})</Label>
+                          <span className="text-sm text-gray-500">值越低，回答越确定</span>
+                        </div>
+                        <Input
+                          id="temperature"
+                          name="aiModelTemperature"
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.1"
+                          value={formData.aiModelTemperature || 0.2}
+                          onChange={handleTemperatureChange}
+                        />
+                        <div className="flex justify-between text-xs text-gray-500">
+                          <span>精确 (0.0)</span>
+                          <span>创造 (1.0)</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>注意</AlertTitle>
+                      <AlertDescription>
+                        API密钥会被加密保存，只有在需要发送请求时才会解密使用。
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="mcp" className="space-y-4 mt-4 h-full p-1">
                     <div className="flex justify-between items-center">
                       <h3 className="text-lg font-medium">MCP 服务器配置 (仅支持 HTTP URL)</h3>
                       <div className="flex gap-2">

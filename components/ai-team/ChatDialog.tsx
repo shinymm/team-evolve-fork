@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { v4 as uuidv4 } from 'uuid'
 import { MessageList } from './message-list'
@@ -16,6 +16,10 @@ interface AITeamMember {
   greeting?: string | null
   category?: string | null
   mcpConfigJson?: string | null
+  aiModelName?: string | null
+  aiModelBaseUrl?: string | null
+  aiModelApiKey?: string | null
+  aiModelTemperature?: number | null
 }
 
 interface ChatDialogProps {
@@ -38,6 +42,14 @@ export function ChatDialog({ open, onOpenChange, member }: ChatDialogProps) {
       handleInitializeChat()
     }
   }, [open, member])
+
+  // 当对话框关闭时，关闭会话
+  useEffect(() => {
+    console.log('对话框状态变更:', open)
+    if (!open && sessionId) {
+      handleCloseChat()
+    }
+  }, [open])
 
   // 初始化聊天会话
   const handleInitializeChat = async () => {
@@ -163,9 +175,6 @@ export function ChatDialog({ open, onOpenChange, member }: ChatDialogProps) {
   const handleCloseChat = async () => {
     console.log('执行handleCloseChat函数')
     
-    // 先将状态更新为关闭，以改善用户体验
-    onOpenChange(false)
-    
     // 只有在有会话ID的情况下才尝试关闭会话
     if (sessionId) {
       console.log('正在关闭MCP会话:', sessionId)
@@ -241,6 +250,7 @@ export function ChatDialog({ open, onOpenChange, member }: ChatDialogProps) {
         member: member?.name
       })
 
+      // 更新requestData对象，添加所有必要信息
       const requestData: any = {
         userMessage: userMessage.content,
         memberInfo: {
@@ -250,217 +260,269 @@ export function ChatDialog({ open, onOpenChange, member }: ChatDialogProps) {
         }
       }
 
+      // 添加MCP配置信息(如果有)
+      if (member.mcpConfigJson) {
+        requestData.memberInfo.mcpConfigJson = member.mcpConfigJson;
+      }
+
+      // 添加模型配置信息(必须有)
+      if (member.aiModelName || member.aiModelBaseUrl || member.aiModelApiKey || member.aiModelTemperature !== null) {
+        requestData.modelConfig = {
+          model: member.aiModelName,
+          baseURL: member.aiModelBaseUrl,
+          apiKey: member.aiModelApiKey,
+          temperature: member.aiModelTemperature !== null ? member.aiModelTemperature : 0.2
+        }
+        console.log('[SendMessage] 使用成员自定义模型配置')
+      }
+
       // 只添加 sessionId
       if (sessionId) {
         requestData.sessionId = sessionId
       }
 
+      // 创建可取消的请求
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 120000)
+      const timeoutId = setTimeout(() => controller.abort(), 120000) // 2分钟超时
 
-      const response = await fetch('/api/mcp/conversation/stream', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestData),
-        signal: controller.signal
-      })
-
-      clearTimeout(timeoutId)
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || '对话请求失败')
+      // 在关闭对话框时取消请求
+      const handleDialogClose = () => {
+        controller.abort()
+        console.log('对话关闭，取消流式请求')
       }
-
-      // 处理流式响应
-      const reader = response.body?.getReader()
-      if (!reader) {
-        throw new Error('无法读取响应流')
+      
+      // 添加对话框关闭事件监听器
+      const dialogCloseListener = () => {
+        if (!open) handleDialogClose()
       }
+      window.addEventListener('dialog-close', dialogCloseListener)
 
-      // 标志：下一条 'content' 是否应开始新消息
-      let startNewMessageNext = false
-      let currentMessageId = assistantMessageId
+      try {
+        const response = await fetch('/api/mcp/conversation/stream', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestData),
+          signal: controller.signal
+        })
 
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
+        clearTimeout(timeoutId)
 
-        const chunk = new TextDecoder().decode(value)
-        const lines = chunk.split('\n').filter(line => line.trim() !== '')
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || '对话请求失败')
+        }
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.substring(6))
+        // 处理流式响应
+        const reader = response.body?.getReader()
+        if (!reader) {
+          throw new Error('无法读取响应流')
+        }
 
-              if (data.type === 'content') {
-                const newContent = data.content || ''
-                
-                // 过滤工具调用相关的内容，不添加到消息中
-                if (newContent.includes('🔧 正在使用工具') || 
-                    newContent.includes('处理中...') ||
-                    newContent.includes('⚙️ 工具') ||
-                    newContent.startsWith('工具调用') ||
-                    newContent.includes('执行结果:')) {
-                  console.log('[Flow] 过滤工具相关内容:', newContent.substring(0, 50));
-                  // 不添加工具相关内容到消息
-                  continue;
-                }
-                
-                // 决定是追加还是创建新消息
-                if (startNewMessageNext) {
-                  // 创建新消息
-                  const newId = uuidv4()
-                  setMessages(prevMessages => [
-                    ...prevMessages,
-                    { id: newId, role: 'assistant', content: newContent }
-                  ])
-                  currentMessageId = newId
-                  startNewMessageNext = false
-                } else {
-                  // 追加到最后一条消息
-                  setMessages(prevMessages => {
-                    const newMessages = [...prevMessages]
-                    const lastMessageIndex = newMessages.length - 1
-                    if (lastMessageIndex >= 0 && newMessages[lastMessageIndex].role === 'assistant') {
-                      const updatedLastMessage = {
-                        ...newMessages[lastMessageIndex],
-                        content: newMessages[lastMessageIndex].content + newContent
-                      }
-                      newMessages[lastMessageIndex] = updatedLastMessage
-                      return newMessages
-                    } else {
-                      console.warn('[Flow] 尝试追加内容，但最后一条消息不是助手的。创建新消息。')
-                      const newId = uuidv4()
-                      newMessages.push({ id: newId, role: 'assistant', content: newContent })
-                      currentMessageId = newId
-                      return newMessages
-                    }
-                  })
-                }
-              } else if (data.type === 'new_turn') {
-                console.log('[Flow] 收到 new_turn 信号')
-                startNewMessageNext = true
-              } else if (data.type === 'error') {
-                console.error('[Flow] 收到错误:', data.content)
-                setMessages(prevMessages => {
-                    const newMessages = [...prevMessages]
-                    newMessages.push({ id: uuidv4(), role: 'assistant', content: `错误: ${data.content}` })
-                    return newMessages
-                })
-                startNewMessageNext = false
-              } else if (data.type === 'tool_state') {
-                // 使用新的parseToolCallsFromStreamData解析多工具状态
-                const toolCalls = parseToolCallsFromStreamData(data)
-                if (toolCalls && toolCalls.length > 0) {
-                  console.log(`[工具调用] 收到${toolCalls.length}个工具状态更新`)
+        // 标志：下一条 'content' 是否应开始新消息
+        let startNewMessageNext = false
+        let currentMessageId = assistantMessageId
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          const chunk = new TextDecoder().decode(value)
+          const lines = chunk.split('\n').filter(line => line.trim() !== '')
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.substring(6))
+
+                if (data.type === 'content') {
+                  const newContent = data.content || ''
                   
-                  // 对每个工具打印更详细的日志
-                  toolCalls.forEach(toolCall => {
-                    const toolStatus = toolCall.status || 'unknown';
-                    
-                    // 记录工具调用详细信息
-                    console.log(`[工具调用状态] 名称:${toolCall.name}, ID:${toolCall.id}, 状态:${toolStatus}`, 
-                      toolCall.arguments ? `参数:${JSON.stringify(toolCall.arguments).substring(0, 50)}...` : '无参数',
-                      toolCall.result ? `结果长度:${typeof toolCall.result === 'string' ? toolCall.result.length : 'N/A'}` : '无结果'
-                    );
-                  })
+                  // 过滤工具调用相关的内容，不添加到消息中
+                  if (newContent.includes('🔧 正在使用工具') || 
+                      newContent.includes('处理中...') ||
+                      newContent.includes('⚙️ 工具') ||
+                      newContent.startsWith('工具调用') ||
+                      newContent.includes('执行结果:')) {
+                    console.log('[Flow] 过滤工具相关内容:', newContent.substring(0, 50));
+                    // 不添加工具相关内容到消息
+                    continue;
+                  }
                   
-                  // 使用新的批量更新函数并确保进行状态合并
-                  setMessages(prevMessages => {
-                    // 先找到当前消息
-                    const currentMessage = prevMessages.find(m => m.id === currentMessageId);
-                    if (!currentMessage) {
-                      console.warn('[工具调用] 未找到当前消息:', currentMessageId);
-                      return updateMessageWithMultipleToolCalls(prevMessages, currentMessageId, toolCalls);
-                    }
-                    
-                    // 获取现有工具调用
-                    const existingToolCalls = currentMessage.toolCalls || [];
-                    
-                    // 将新工具调用与现有调用合并，确保相同工具不会显示为多个
-                    let updatedToolCalls = [...existingToolCalls];
-                    
-                    for (const newTool of toolCalls) {
-                      // 尝试查找匹配的现有工具调用
-                      const existingIndex = updatedToolCalls.findIndex(tc => 
-                        tc.id === newTool.id || // 首先按ID匹配
-                        (tc.name === newTool.name && // 然后按名称+参数匹配
-                          (
-                            // 如果newTool有参数，进行完整比较
-                            (newTool.arguments && 
-                              JSON.stringify(tc.arguments || {}) === JSON.stringify(newTool.arguments || {})) ||
-                            // 如果newTool没有参数但现有工具有，则视为同一工具的状态更新
-                            (!newTool.arguments && tc.arguments)
-                          )
-                        )
-                      );
-                      
-                      // 如果找到了匹配的工具，或者新工具是成功/失败状态，进行处理
-                      if (existingIndex >= 0) {
-                        // 更新现有工具状态
-                        const existingTool = updatedToolCalls[existingIndex];
-                        
-                        // 如果现有工具是running状态，而新工具是success/error状态，优先使用新状态
-                        if (existingTool.status === 'running' && 
-                            (newTool.status === 'success' || newTool.status === 'error')) {
-                          // 完全替换，保留ID
-                          updatedToolCalls[existingIndex] = { 
-                            ...newTool,
-                            id: existingTool.id // 保持ID一致
-                          };
-                          console.log(`[工具合并] 工具 ${newTool.name} 从执行中更新为 ${newTool.status}`);
-                        } else if (newTool.status === 'running' && 
-                                 (existingTool.status === 'success' || existingTool.status === 'error')) {
-                          // 如果新工具是执行中状态，但现有工具已经是成功/失败状态，保留现有工具状态
-                          console.log(`[工具合并] 忽略工具 ${newTool.name} 的执行中状态更新，保留已有的 ${existingTool.status} 状态`);
-                          // 不做任何更改
-                        } else {
-                          // 其他情况，合并属性但优先保留成功/失败状态
-                          updatedToolCalls[existingIndex] = { 
-                            ...existingTool, 
-                            ...newTool,
-                            // 保留原始ID
-                            id: existingTool.id,
-                            // 如果新工具没有提供结果但现有工具有，保留现有结果
-                            result: newTool.result || existingTool.result,
-                            // 如果现有工具已有成功/失败状态，优先保留该状态
-                            status: (existingTool.status === 'success' || existingTool.status === 'error') 
-                              ? existingTool.status 
-                              : newTool.status
-                          };
-                          console.log(`[工具合并] 合并工具 ${newTool.name} 状态和结果`);
+                  // 决定是追加还是创建新消息
+                  if (startNewMessageNext) {
+                    // 创建新消息
+                    const newId = uuidv4()
+                    setMessages(prevMessages => [
+                      ...prevMessages,
+                      { id: newId, role: 'assistant', content: newContent }
+                    ])
+                    currentMessageId = newId
+                    startNewMessageNext = false
+                  } else {
+                    // 追加到最后一条消息
+                    setMessages(prevMessages => {
+                      const newMessages = [...prevMessages]
+                      const lastMessageIndex = newMessages.length - 1
+                      if (lastMessageIndex >= 0 && newMessages[lastMessageIndex].role === 'assistant') {
+                        const updatedLastMessage = {
+                          ...newMessages[lastMessageIndex],
+                          content: newMessages[lastMessageIndex].content + newContent
                         }
+                        newMessages[lastMessageIndex] = updatedLastMessage
+                        return newMessages
                       } else {
-                        // 添加新工具调用（只有当它不是执行中状态，或者找不到匹配的工具时）
-                        if (newTool.status !== 'running') {
-                          updatedToolCalls.push(newTool);
-                          console.log(`[工具合并] 添加新的最终状态工具: ${newTool.name} (${newTool.status})`);
+                        console.warn('[Flow] 尝试追加内容，但最后一条消息不是助手的。创建新消息。')
+                        const newId = uuidv4()
+                        newMessages.push({ id: newId, role: 'assistant', content: newContent })
+                        currentMessageId = newId
+                        return newMessages
+                      }
+                    })
+                  }
+                } else if (data.type === 'new_turn') {
+                  console.log('[Flow] 收到 new_turn 信号')
+                  startNewMessageNext = true
+                } else if (data.type === 'error') {
+                  console.error('[Flow] 收到错误:', data.content)
+                  setMessages(prevMessages => {
+                      const newMessages = [...prevMessages]
+                      newMessages.push({ id: uuidv4(), role: 'assistant', content: `错误: ${data.content}` })
+                      return newMessages
+                  })
+                  startNewMessageNext = false
+                } else if (data.type === 'tool_state') {
+                  // 使用新的parseToolCallsFromStreamData解析多工具状态
+                  const toolCalls = parseToolCallsFromStreamData(data)
+                  if (toolCalls && toolCalls.length > 0) {
+                    console.log(`[工具调用] 收到${toolCalls.length}个工具状态更新`)
+                    
+                    // 对每个工具打印更详细的日志
+                    toolCalls.forEach(toolCall => {
+                      const toolStatus = toolCall.status || 'unknown';
+                      
+                      // 记录工具调用详细信息
+                      console.log(`[工具调用状态] 名称:${toolCall.name}, ID:${toolCall.id}, 状态:${toolStatus}`, 
+                        toolCall.arguments ? `参数:${JSON.stringify(toolCall.arguments).substring(0, 50)}...` : '无参数',
+                        toolCall.result ? `结果长度:${typeof toolCall.result === 'string' ? toolCall.result.length : 'N/A'}` : '无结果'
+                      );
+                    })
+                    
+                    // 使用新的批量更新函数并确保进行状态合并
+                    setMessages(prevMessages => {
+                      // 先找到当前消息
+                      const currentMessage = prevMessages.find(m => m.id === currentMessageId);
+                      if (!currentMessage) {
+                        console.warn('[工具调用] 未找到当前消息:', currentMessageId);
+                        return updateMessageWithMultipleToolCalls(prevMessages, currentMessageId, toolCalls);
+                      }
+                      
+                      // 获取现有工具调用
+                      const existingToolCalls = currentMessage.toolCalls || [];
+                      
+                      // 将新工具调用与现有调用合并，确保相同工具不会显示为多个
+                      let updatedToolCalls = [...existingToolCalls];
+                      
+                      for (const newTool of toolCalls) {
+                        // 尝试查找匹配的现有工具调用
+                        const existingIndex = updatedToolCalls.findIndex(tc => 
+                          tc.id === newTool.id || // 首先按ID匹配
+                          (tc.name === newTool.name && // 然后按名称+参数匹配
+                            (
+                              // 如果newTool有参数，进行完整比较
+                              (newTool.arguments && 
+                                JSON.stringify(tc.arguments || {}) === JSON.stringify(newTool.arguments || {})) ||
+                              // 如果newTool没有参数但现有工具有，则视为同一工具的状态更新
+                              (!newTool.arguments && tc.arguments)
+                            )
+                          )
+                        );
+                        
+                        // 如果找到了匹配的工具，或者新工具是成功/失败状态，进行处理
+                        if (existingIndex >= 0) {
+                          // 更新现有工具状态
+                          const existingTool = updatedToolCalls[existingIndex];
+                          
+                          // 如果现有工具是running状态，而新工具是success/error状态，优先使用新状态
+                          if (existingTool.status === 'running' && 
+                              (newTool.status === 'success' || newTool.status === 'error')) {
+                            // 完全替换，保留ID
+                            updatedToolCalls[existingIndex] = { 
+                              ...newTool,
+                              id: existingTool.id // 保持ID一致
+                            };
+                            console.log(`[工具合并] 工具 ${newTool.name} 从执行中更新为 ${newTool.status}`);
+                          } else if (newTool.status === 'running' && 
+                                   (existingTool.status === 'success' || existingTool.status === 'error')) {
+                            // 如果新工具是执行中状态，但现有工具已经是成功/失败状态，保留现有工具状态
+                            console.log(`[工具合并] 忽略工具 ${newTool.name} 的执行中状态更新，保留已有的 ${existingTool.status} 状态`);
+                            // 不做任何更改
+                          } else {
+                            // 其他情况，合并属性但优先保留成功/失败状态
+                            updatedToolCalls[existingIndex] = { 
+                              ...existingTool, 
+                              ...newTool,
+                              // 保留原始ID
+                              id: existingTool.id,
+                              // 如果新工具没有提供结果但现有工具有，保留现有结果
+                              result: newTool.result || existingTool.result,
+                              // 如果现有工具已有成功/失败状态，优先保留该状态
+                              status: (existingTool.status === 'success' || existingTool.status === 'error') 
+                                ? existingTool.status 
+                                : newTool.status
+                            };
+                            console.log(`[工具合并] 合并工具 ${newTool.name} 状态和结果`);
+                          }
                         } else {
-                          // 对于执行中状态的新工具，直接添加
-                          updatedToolCalls.push(newTool);
-                          console.log(`[工具合并] 添加新的执行中工具: ${newTool.name}`);
+                          // 添加新工具调用（只有当它不是执行中状态，或者找不到匹配的工具时）
+                          if (newTool.status !== 'running') {
+                            updatedToolCalls.push(newTool);
+                            console.log(`[工具合并] 添加新的最终状态工具: ${newTool.name} (${newTool.status})`);
+                          } else {
+                            // 对于执行中状态的新工具，直接添加
+                            updatedToolCalls.push(newTool);
+                            console.log(`[工具合并] 添加新的执行中工具: ${newTool.name}`);
+                          }
                         }
                       }
-                    }
-                    
-                    // 替换当前消息中的工具调用
-                    return prevMessages.map(msg => 
-                      msg.id === currentMessageId 
-                        ? { ...msg, toolCalls: updatedToolCalls } 
-                        : msg
-                    );
-                  });
+                      
+                      // 替换当前消息中的工具调用
+                      return prevMessages.map(msg => 
+                        msg.id === currentMessageId 
+                          ? { ...msg, toolCalls: updatedToolCalls } 
+                          : msg
+                      );
+                    });
+                  }
                 }
+              } catch (error) {
+                console.error('解析流数据出错:', error, line)
               }
-            } catch (error) {
-              console.error('解析流数据出错:', error, line)
             }
           }
         }
+      } catch (error: any) {
+        if (error.name === 'AbortError') {
+          console.log('请求被取消:', error.message)
+        } else {
+          console.error('对话错误:', error)
+          setMessages(prevMessages => {
+            const newMessages = [...prevMessages]
+            const errorText = `对话出错: ${error instanceof Error ? error.message : '未知错误'}`
+            newMessages.push({ id: uuidv4(), role: 'assistant', content: errorText })
+            return newMessages
+          })
+          toast({
+            title: '错误',
+            description: '对话处理出错，请稍后再试',
+            variant: 'destructive',
+          })
+        }
+      } finally {
+        window.removeEventListener('dialog-close', dialogCloseListener)
+        clearTimeout(timeoutId)
+        setIsLoading(false)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('对话错误:', error)
       setMessages(prevMessages => {
         const newMessages = [...prevMessages]
@@ -473,7 +535,6 @@ export function ChatDialog({ open, onOpenChange, member }: ChatDialogProps) {
         description: '对话处理出错，请稍后再试',
         variant: 'destructive',
       })
-    } finally {
       setIsLoading(false)
     }
   }
@@ -499,60 +560,36 @@ export function ChatDialog({ open, onOpenChange, member }: ChatDialogProps) {
     
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload)
-      
-      if (sessionId) {
-        console.log('组件卸载时关闭会话:', sessionId)
-        fetch(`/api/mcp/session?sessionId=${sessionId}`, { method: 'DELETE' })
-          .catch(err => console.error('组件卸载时关闭会话失败:', err))
-      }
     }
   }, [sessionId])
 
   return (
-    <Dialog 
-      open={open} 
-      onOpenChange={(open) => {
-        console.log('对话框状态变更:', open)
-        if (!open) {
-          handleCloseChat()
-        } else {
-          onOpenChange(open)
-        }
-      }}
-    >
-      <DialogContent className="sm:max-w-[75%] w-[75%] h-[80vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-orange-600 flex items-center justify-center text-white">
-              {member?.name.charAt(0) || '?'}
-            </div>
-            <span>{member?.name || '团队成员'}</span>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="min-h-[80dvh] max-w-[1000px] flex flex-col space-y-4 p-4">
+        <DialogHeader className="p-2">
+          <DialogTitle className="text-xl font-bold">
+            {member?.name || 'AI助手'}
           </DialogTitle>
+          <DialogDescription>
+            {member?.introduction || '与AI团队成员进行对话'}
+          </DialogDescription>
         </DialogHeader>
-        
-        {/* 使用提取的消息列表组件 */}
+
         <MessageList 
           messages={messages} 
-          memberName={member?.name} 
-          memberInitial={member?.name.charAt(0)}
+          memberName={member?.name}
+          memberInitial={member?.name?.charAt(0).toUpperCase()}
         />
-        
-        {/* 使用提取的聊天输入组件 */}
-        <ChatInput 
-          value={inputValue}
-          onChange={setInputValue}
-          onSend={handleSendMessage}
-          disabled={isLoading || !isSessionReady}
-          loading={isLoading}
-          placeholder={isSessionReady ? "输入消息..." : "正在准备会话环境..."}
-        />
-        
-        {!isSessionReady && (
-          <div className="mt-2 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-            <span>正在初始化会话...</span>
-          </div>
-        )}
+
+        <div className="flex-shrink-0 bg-background">
+          <ChatInput
+            value={inputValue}
+            onChange={setInputValue}
+            onSend={handleSendMessage}
+            loading={isLoading}
+            disabled={!isSessionReady}
+          />
+        </div>
       </DialogContent>
     </Dialog>
   )

@@ -126,6 +126,10 @@ model AiTeamMember {
   greeting        String?  @db.Text
   category        String?  @db.Text
   mcpConfigJson   String?  @db.Text
+  aiModelName     String?  @db.VarChar(100)
+  aiModelBaseUrl  String?  @db.Text
+  aiModelApiKey   String?  @db.Text
+  aiModelTemperature Float? @default(0.2)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   createdBy       String

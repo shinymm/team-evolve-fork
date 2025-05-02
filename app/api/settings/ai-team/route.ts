@@ -91,7 +91,19 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const { name, introduction, role, responsibilities, greeting, category, mcpConfigJson } = body
+    const { 
+      name, 
+      introduction, 
+      role, 
+      responsibilities, 
+      greeting, 
+      category, 
+      mcpConfigJson,
+      aiModelName,
+      aiModelBaseUrl,
+      aiModelApiKey,
+      aiModelTemperature
+    } = body
 
     if (!name || !introduction || !role || !responsibilities) {
       return new NextResponse('Missing required fields', { status: 400 })
@@ -128,6 +140,12 @@ export async function POST(req: Request) {
         greeting: greeting?.trim() || null,
         category: category?.trim() || null,
         mcpConfigJson: validatedMcpConfigJson,
+        aiModelName: aiModelName || null,
+        aiModelBaseUrl: aiModelBaseUrl || null,
+        aiModelApiKey: aiModelApiKey || null,
+        aiModelTemperature: aiModelTemperature !== undefined && aiModelTemperature !== null 
+          ? parseFloat(aiModelTemperature.toString()) 
+          : 0.2,
         createdBy: session.user.email
       }
     })
@@ -181,7 +199,19 @@ export async function PATCH(req: Request) {
     }
 
     const body = await req.json()
-    const { name, introduction, role, responsibilities, greeting, category, mcpConfigJson } = body
+    const { 
+      name, 
+      introduction, 
+      role, 
+      responsibilities, 
+      greeting, 
+      category, 
+      mcpConfigJson,
+      aiModelName,
+      aiModelBaseUrl,
+      aiModelApiKey,
+      aiModelTemperature
+    } = body
 
     if (!name || !introduction || !role || !responsibilities) {
       console.error('Missing required fields:', { name, introduction, role, responsibilities })
@@ -210,7 +240,7 @@ export async function PATCH(req: Request) {
       }
     }
 
-    console.log('Updating member with data (including MCP config):', {
+    console.log('Updating member with data:', {
       id,
       name,
       introduction,
@@ -218,7 +248,11 @@ export async function PATCH(req: Request) {
       responsibilities,
       greeting,
       category,
-      mcpConfigJson: validatedMcpConfigJson ? '(valid JSON)' : null
+      mcpConfigJson: validatedMcpConfigJson ? '(valid JSON)' : null,
+      aiModelName,
+      aiModelBaseUrl,
+      aiModelApiKey: aiModelApiKey ? '(encrypted)' : null,
+      aiModelTemperature,
     })
 
     const member = await prisma.aiTeamMember.update({
@@ -231,6 +265,12 @@ export async function PATCH(req: Request) {
         greeting: greeting?.trim() || null,
         category: category?.trim() || null,
         mcpConfigJson: validatedMcpConfigJson,
+        aiModelName: aiModelName || null,
+        aiModelBaseUrl: aiModelBaseUrl || null,
+        aiModelApiKey: aiModelApiKey || null,
+        aiModelTemperature: aiModelTemperature !== undefined && aiModelTemperature !== null 
+          ? parseFloat(aiModelTemperature.toString()) 
+          : 0.2,
       }
     })
 
