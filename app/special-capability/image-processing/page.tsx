@@ -5,6 +5,8 @@ import { useToast } from "@/components/ui/use-toast"
 import { ImageToProductInfoService } from '@/lib/services/image-to-product-info-service'
 import { ImageToArchitectureService } from '@/lib/services/image-to-architecture-service'
 import { VisionService } from '@/lib/services/vision-service'
+import { imageToProductInfoPrompt } from '@/lib/prompts/image-to-product-info'
+import { imageToArchitecturePrompt } from '@/lib/prompts/image-to-architecture'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -469,6 +471,13 @@ export default function ImageProcessing() {
     // 切换到产品信息tab
     setActiveTab('product-info')
     
+    // 重置上一次的内容
+    setReasoning('')
+    setContents(prev => ({
+      ...prev,
+      'product-info': ''
+    }))
+    
     // 更新处理状态
     setProcessingStates(prev => ({
       ...prev,
@@ -491,18 +500,27 @@ export default function ImageProcessing() {
     document.body.appendChild(indicator)
 
     try {
-      const fileIds = selectedFiles.map(file => file.id)
+      // 获取图片URL列表
+      const imageUrls = selectedFiles.map(file => file.url || `https://team-evolve.oss-ap-southeast-1.aliyuncs.com/${file.id}`)
       
-      // 调用服务提取产品信息
-      const service = new ImageToProductInfoService()
-      await service.extractProductInfo(fileIds, (content: string) => {
-        console.log(`收到产品信息内容:`, content.length, '字符')
-        setContents(prev => ({
-          ...prev,
-          'product-info': content
-        }))
-      })
-
+      // 调用视觉服务
+      const service = new VisionService()
+      await service.analyzeImage(
+        imageUrls, 
+        imageToProductInfoPrompt,
+        (reasoningContent: string) => {
+          console.log(`收到产品信息推理过程内容:`, reasoningContent.length, '字符')
+          setReasoning(reasoningContent)
+        },
+        (answerContent: string) => {
+          console.log(`收到产品信息内容:`, answerContent.length, '字符')
+          setContents(prev => ({
+            ...prev,
+            'product-info': answerContent
+          }))
+        },
+        '你是一个产品分析专家，善于从界面截图中识别产品特征并提炼核心信息。'
+      )
     } catch (error) {
       console.error(`提取产品信息失败:`, error)
       toast({
@@ -554,6 +572,13 @@ export default function ImageProcessing() {
     // 切换到信息架构tab
     setActiveTab('architecture')
     
+    // 重置上一次的内容
+    setReasoning('')
+    setContents(prev => ({
+      ...prev,
+      'architecture': ''
+    }))
+    
     // 更新处理状态
     setProcessingStates(prev => ({
       ...prev,
@@ -576,18 +601,27 @@ export default function ImageProcessing() {
     document.body.appendChild(indicator)
 
     try {
-      const fileIds = selectedFiles.map(file => file.id)
+      // 获取图片URL列表
+      const imageUrls = selectedFiles.map(file => file.url || `https://team-evolve.oss-ap-southeast-1.aliyuncs.com/${file.id}`)
       
-      // 调用服务提取信息架构
-      const service = new ImageToArchitectureService()
-      await service.extractArchitecture(fileIds, (content: string) => {
-        console.log(`收到信息架构内容:`, content.length, '字符')
-        setContents(prev => ({
-          ...prev,
-          'architecture': content
-        }))
-      })
-
+      // 调用视觉服务
+      const service = new VisionService()
+      await service.analyzeImage(
+        imageUrls, 
+        imageToArchitecturePrompt,
+        (reasoningContent: string) => {
+          console.log(`收到信息架构推理过程内容:`, reasoningContent.length, '字符')
+          setReasoning(reasoningContent)
+        },
+        (answerContent: string) => {
+          console.log(`收到信息架构内容:`, answerContent.length, '字符')
+          setContents(prev => ({
+            ...prev,
+            'architecture': answerContent
+          }))
+        },
+        '你是一个产品架构分析专家，善于从界面截图中识别产品模块结构并提炼信息架构。'
+      )
     } catch (error) {
       console.error(`提取信息架构失败:`, error)
       toast({
@@ -914,15 +948,15 @@ export default function ImageProcessing() {
                     </TooltipTrigger>
                     <TooltipContent className="max-w-md p-4 bg-white shadow-lg rounded-lg border border-gray-200">
                       <div className="text-sm">
-                        <p className="font-bold text-gray-900 mb-1">重要提示</p>
-                        <p className="text-gray-700">请上传系统截图等图片，我们将帮助您提炼产品基础信息和用户画像。</p>
+                        <p className="font-bold text-gray-900 mb-1">功能说明</p>
+                        <p className="text-gray-700">通过视觉AI分析功能，提取产品信息、构建信息架构和进行自定义视觉分析。{isQVQModel ? '当前使用推理型视觉模型，可查看AI思考过程。' : '当前使用标准视觉模型。'}</p>
                       </div>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </div>
               <p className="text-muted-foreground text-xs mt-1">
-                请上传产品界面截图，我们将智能分析提炼产品核心信息和目标用户特征。
+                上传产品界面截图，智能分析提炼产品核心信息、构建信息架构或进行自定义视觉分析。{isQVQModel && '（当前支持查看AI推理过程）'}
               </p>
             </div>
           </div>
@@ -1113,16 +1147,47 @@ export default function ImageProcessing() {
               {activeTab === 'product-info' && (
                 <div>
                   <div className="flex justify-between items-center mb-2">
-                    <h2 className="text-base font-semibold">产品基础信息</h2>
-                    <Button 
-                      onClick={handleDownload}
-                      disabled={!contents['product-info']}
-                      className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1 px-3 py-1 h-8 text-xs"
-                    >
-                      <Download className="h-3 w-3" />
-                      下载信息
-                    </Button>
+                    <div className="flex items-center">
+                      <h2 className="text-base font-semibold">产品基础信息</h2>
+                      {isQVQModel && (
+                        <div className="ml-2 bg-orange-100 text-orange-800 text-xs px-2 py-0.5 rounded">
+                          推理型模型: {modelName}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      {isQVQModel && reasoning && activeTab === 'product-info' && (
+                        <Button 
+                          onClick={handleDownloadReasoning}
+                          className="bg-gray-100 hover:bg-gray-200 text-gray-700 flex items-center gap-1 px-3 py-1 h-8 text-xs"
+                        >
+                          <Download className="h-3 w-3" />
+                          下载推理过程
+                        </Button>
+                      )}
+                      <Button 
+                        onClick={handleDownload}
+                        disabled={!contents['product-info']}
+                        className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1 px-3 py-1 h-8 text-xs"
+                      >
+                        <Download className="h-3 w-3" />
+                        下载信息
+                      </Button>
+                    </div>
                   </div>
+                  
+                  {/* 如果是推理型模型且有推理内容，显示推理过程 */}
+                  {isQVQModel && reasoning && activeTab === 'product-info' && (
+                    <div className="mb-4">
+                      <div className="flex justify-between items-center mb-1">
+                        <h3 className="text-sm font-medium">推理过程</h3>
+                      </div>
+                      <div className="border rounded p-3 bg-gray-50 max-h-[250px] overflow-auto w-full">
+                        <ContentDisplay content={reasoning} />
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="border rounded p-3 bg-gray-50 min-h-[600px] max-h-[1200px] overflow-auto w-full" ref={contentRef}>
                     <ContentDisplay content={contents['product-info']} />
                   </div>
@@ -1133,16 +1198,47 @@ export default function ImageProcessing() {
               {activeTab === 'architecture' && (
                 <div>
                   <div className="flex justify-between items-center mb-2">
-                    <h2 className="text-base font-semibold">信息架构</h2>
-                    <Button 
-                      onClick={handleDownloadArchitecture}
-                      disabled={!contents['architecture']}
-                      className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1 px-3 py-1 h-8 text-xs"
-                    >
-                      <Download className="h-3 w-3" />
-                      下载架构
-                    </Button>
+                    <div className="flex items-center">
+                      <h2 className="text-base font-semibold">信息架构</h2>
+                      {isQVQModel && (
+                        <div className="ml-2 bg-orange-100 text-orange-800 text-xs px-2 py-0.5 rounded">
+                          推理型模型: {modelName}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      {isQVQModel && reasoning && activeTab === 'architecture' && (
+                        <Button 
+                          onClick={handleDownloadReasoning}
+                          className="bg-gray-100 hover:bg-gray-200 text-gray-700 flex items-center gap-1 px-3 py-1 h-8 text-xs"
+                        >
+                          <Download className="h-3 w-3" />
+                          下载推理过程
+                        </Button>
+                      )}
+                      <Button 
+                        onClick={handleDownloadArchitecture}
+                        disabled={!contents['architecture']}
+                        className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1 px-3 py-1 h-8 text-xs"
+                      >
+                        <Download className="h-3 w-3" />
+                        下载架构
+                      </Button>
+                    </div>
                   </div>
+                  
+                  {/* 如果是推理型模型且有推理内容，显示推理过程 */}
+                  {isQVQModel && reasoning && activeTab === 'architecture' && (
+                    <div className="mb-4">
+                      <div className="flex justify-between items-center mb-1">
+                        <h3 className="text-sm font-medium">推理过程</h3>
+                      </div>
+                      <div className="border rounded p-3 bg-gray-50 max-h-[250px] overflow-auto w-full">
+                        <ContentDisplay content={reasoning} />
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="border rounded p-3 bg-gray-50 min-h-[600px] max-h-[1200px] overflow-auto w-full">
                     <pre className="whitespace-pre-wrap text-xs font-mono">
                       {contents['architecture'] ? 
