@@ -54,6 +54,7 @@ const mainMenuItems: MenuItem[] = [
       { title: "产品开放API", href: "/knowledge/api-interfaces" },
       { title: "术语管理", href: "/knowledge/glossary" },
       { title: "需求摘要管理", href: "/knowledge/requirement-summaries" },
+      { title: "需求书模版", href: "/knowledge/requirement-templates" },
       { title: "边界识别知识", href: "/knowledge/boundary", isPro: true },
     ]
   },

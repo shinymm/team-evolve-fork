@@ -164,6 +164,7 @@ model System {
   productInfo     ProductInfo?
   architecture    Architecture?
   apiInterfaces   APIInterface[]
+  requirementTemplate RequirementTemplate?
 
   @@index([status])
 }
@@ -214,4 +215,16 @@ model APIInterface {
   system          System   @relation(fields: [systemId], references: [id], onDelete: Cascade)
 
   @@index([systemId])
+}
+
+// 需求书模板模型
+model RequirementTemplate {
+  id            String   @id @default(cuid())
+  systemId      String   @unique
+  content       String   @db.Text  // 存储需求书模板内容
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // 关联
+  system        System   @relation(fields: [systemId], references: [id], onDelete: Cascade)
 }
