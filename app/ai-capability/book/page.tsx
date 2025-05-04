@@ -21,6 +21,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { RequirementParseResult } from '@/lib/services/requirement-parser-service'
 import { RequirementData } from '@/lib/services/task-control'
 import { Scene } from '@/types/requirement'
+import { useSystemStore } from '@/lib/stores/system-store'
+import { RequirementBookService } from '@/lib/services/requirement-book-service'
 
 export default function RequirementBook() {
   const [originalRequirement, setOriginalRequirement] = useState('')
@@ -31,6 +33,9 @@ export default function RequirementBook() {
   const [editTarget, setEditTarget] = useState<'main' | 'pinned'>('main')
   const { toast } = useToast()
   const router = useRouter()
+  
+  // 获取当前系统信息
+  const { selectedSystemId } = useSystemStore()
   
   // 从store中获取需求书相关状态和方法
   const { 
@@ -94,30 +99,19 @@ export default function RequirementBook() {
   const handleSubmit = async () => {
     // 立即设置 loading 状态
     setIsGenerating(true)
+    setRequirementBook('')
     
     try {
-      if (!originalRequirement.trim()) {
-        throw new Error('需求内容不能为空')
-      }
-
-      setRequirementBook('')
       console.log('开始生成需求书...')
-
-      const prompt = requirementBookPrompt(originalRequirement)
-      let accumulatedContent = ''
       
-      await streamingAICall(
-        prompt,
-        (content: string) => {
-          accumulatedContent += content
-          setRequirementBook(accumulatedContent)
-        },
-        (error: string) => {
-          throw new Error(`需求书衍化失败: ${error}`)
-        }
+      // 使用RequirementBookService生成需求书
+      await RequirementBookService.generateRequirementBook(
+        originalRequirement,
+        selectedSystemId as string,
+        (content) => setRequirementBook(content)
       )
       
-      console.log('需求书生成完成，最终内容:', accumulatedContent)
+      console.log('需求书生成完成')
     } catch (error) {
       console.error('生成失败:', error)
       toast({
@@ -221,15 +215,6 @@ export default function RequirementBook() {
     }
   }
 
-  // 添加适配器函数
-  function adaptToRequirementData(parsedRequirement: RequirementParseResult): RequirementData {
-    return {
-      reqBackground: parsedRequirement.reqBackground,
-      reqBrief: parsedRequirement.reqBrief,
-      scenes: parsedRequirement.scenes
-    }
-  }
-
   const handleConfirm = async () => {
     try {
       // 获取活跃的需求书内容（优先使用固定的内容）
@@ -247,41 +232,8 @@ export default function RequirementBook() {
       // 保存需求书MD内容到store
       useRequirementAnalysisStore.getState().setRequirementBook(activeBook)
       
-      // 1. 更新需求书任务状态为完成
-      console.log('更新需求书任务状态...')
-      await updateTask('requirement-book', {
-        status: 'completed'
-      })
-      
-      // 2. 创建需求书结构化任务
-      console.log('创建需求书结构化任务...')
-      const structureTask = await createRequirementStructureTask(activeBook)
-      
-      // 3. 解析需求书内容
-      console.log('解析需求书内容...')
-      const parser = new RequirementParserService()
-      const parsedRequirement = parser.parseRequirement(activeBook)
-      
-      // 4. 标记结构化任务完成
-      console.log('更新结构化任务状态...')
-      await updateTask(structureTask.id, {
-        status: 'completed'
-      })
-
-      // 5. 清空之前的分析结果
-      console.log('清空之前的分析结果...')
-      localStorage.removeItem('scene-analysis-states')
-      localStorage.removeItem('requirement-structured-content')
-      
-      // 6. 保存新的结构化内容
-      console.log('保存新的结构化内容...')
-      localStorage.setItem('requirement-structured-content', JSON.stringify(parsedRequirement))
-      
-      // 7. 创建场景边界分析任务
-      console.log('创建场景边界分析任务...')
-      await createSceneAnalysisTask(adaptToRequirementData(parsedRequirement))
-      
-      console.log('所有任务状态更新完成')
+      // 使用RequirementBookService处理确认逻辑
+      await RequirementBookService.processConfirmation(activeBook)
       
       toast({
         title: "需求初稿衍化与结构化已完成",
@@ -356,7 +308,7 @@ export default function RequirementBook() {
             <h1 className="text-2xl font-bold tracking-tight">需求初稿衍化</h1>
             <div className="flex items-center justify-between mt-2">
               <p className="text-muted-foreground text-sm">
-                请输入原始需求分析结果，我们将帮助您生成一份结构化的需求书初稿。
+                请输入原始需求分析结果，我们将帮助您生成一份结构化的需求书初稿。系统将使用当前选择系统的需求书模版进行生成。
               </p>
               <div className="flex gap-1 ml-4">
                 <Button
@@ -410,13 +362,15 @@ export default function RequirementBook() {
             <Button 
               onClick={handleSubmit} 
               className="w-full bg-orange-500 hover:bg-orange-600"
-              disabled={isGenerating}
+              disabled={isGenerating || !selectedSystemId}
             >
               {isGenerating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   正在生成...
                 </>
+              ) : !selectedSystemId ? (
+                '请先选择一个系统'
               ) : (
                 '需求书衍化'
               )}
