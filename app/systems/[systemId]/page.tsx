@@ -4,13 +4,17 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Image from 'next/image'
 import { useSystemStore, type System } from '@/lib/stores/system-store'
+import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store'
 import heroIllustration from '@/public/hero-illustration.jpg'
+import { toast } from '@/components/ui/use-toast'
 
 export default function SystemPage() {
   const params = useParams()
   const systemId = params.systemId as string
   const { systems, selectedSystemId, setSelectedSystem, fetchSystems } = useSystemStore()
+  const { currentSystemId, setCurrentSystem } = useRequirementAnalysisStore()
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingCache, setIsLoadingCache] = useState(false)
   
   useEffect(() => {
     async function loadSystem() {
@@ -29,6 +33,24 @@ export default function SystemPage() {
             setSelectedSystem(systemToSelect)
           }
         }
+        
+        // 加载系统缓存数据
+        if (currentSystemId !== systemId) {
+          setIsLoadingCache(true)
+          try {
+            await setCurrentSystem(systemId)
+            console.log(`已加载系统 ${systemId} 的缓存数据`)
+          } catch (error) {
+            console.error('加载系统缓存数据失败:', error)
+            toast({
+              title: '加载缓存失败',
+              description: '无法加载系统缓存数据，部分功能可能受影响',
+              variant: 'destructive'
+            })
+          } finally {
+            setIsLoadingCache(false)
+          }
+        }
       } catch (error) {
         console.error('加载系统信息失败:', error)
       } finally {
@@ -37,16 +59,18 @@ export default function SystemPage() {
     }
     
     loadSystem()
-  }, [systemId, systems, selectedSystemId, setSelectedSystem, fetchSystems])
+  }, [systemId, systems, selectedSystemId, setSelectedSystem, fetchSystems, currentSystemId, setCurrentSystem])
   
   // 找到当前系统
   const currentSystem = systems.find(s => s.id === systemId)
   
-  if (isLoading) {
+  if (isLoading || isLoadingCache) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-14rem)]">
         <div className="text-center">
-          <div className="text-gray-400">加载系统信息中...</div>
+          <div className="text-gray-400">
+            {isLoading ? '加载系统信息中...' : '加载系统缓存数据中...'}
+          </div>
         </div>
       </div>
     )

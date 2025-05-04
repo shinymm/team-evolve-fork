@@ -1,10 +1,33 @@
 import { productElevatorPitch } from '../product-info'
 
-export const requirementAnalysisPrompt = (requirement: string) => {
+export interface RequirementAnalysisTemplateData {
+  productOverview: string;
+  userPersonas: string;
+}
+
+/**
+ * 生成需求分析提示词
+ * @param requirement 用户输入的需求文本
+ * @param templateData 模板数据（系统概述、用户画像）
+ * @returns 完整的提示词
+ */
+export const requirementAnalysisPrompt = (
+  requirement: string, 
+  templateData?: RequirementAnalysisTemplateData
+) => {
+  // 使用传入的系统概述，如果未提供则使用默认值
+  const productOverview = templateData?.productOverview || productElevatorPitch;
+  
+  // 构建用户画像部分
+  const userPersonas = templateData?.userPersonas || 
+    `   - 主要用户群体1及其特征和需求特点
+   - 主要用户群体2及其特征和需求特点
+   - 主要用户群体3及其特征和需求特点`;
+
   return `作为一个专业的需求分析师，请对以下需求进行深入分析。
 
 产品背景：
-${productElevatorPitch}
+${productOverview}
 
 用户需求：
 ${requirement}
@@ -21,17 +44,13 @@ ${requirement}
    - 可能带来的其他附加价值
 
 3. 目标用户群体分析：
-   - 渠道问答用户群体画像（如对接机器人开放API进行问答的渠道系统），他们的群体的特征和需求特点
-   - 运营配置团队群体画像（如使用运营后台进行机器人/知识/剧本等功能配置运营的一线运营人员），他们的群体的特征和需求特点
-   - 客户经营与数据分析用户群体画像（如客户经营管理者、数据分析师），他们的群体的特征和需求特点
-   - 会话质检群体画像（如会话数据分析等功能的运营质检员），群体的特征和需求特点
+${userPersonas}
 
 4. 核心场景分析：
- [核心场景列表，需要充分考虑不同目标用户群体的场景，包括并不限于：运营后台的功能开关与配置、数据看板展示、数据标注与模型训练调优功能、提供API给渠道进行问答对接（API所需要提供的能力）、等]
- [请采用“角色+动作+目标”的结构进行场景描述]
-   - 场景1
-   - 场景2
-   ...
+  [核心场景列表，需要充分考虑不同目标用户群体的场景，请采用"角色+动作+目标"的结构进行场景描述]
+    - 场景1
+    - 场景2
+    ...
 
 5. 用户旅程分析：
    针对每个核心场景的详细用户旅程：

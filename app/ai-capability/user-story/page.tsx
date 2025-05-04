@@ -14,6 +14,8 @@ import { UserStoryCard, UserStory } from '@/components/user-story-card'
 import { parseUserStoryYaml, Feature } from '@/lib/utils/yaml-parser'
 import { Copy, Trash2 } from 'lucide-react'
 import { toast } from "@/components/ui/use-toast"
+import { useSystemStore } from '@/lib/stores/system-store'
+import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store'
 
 export default function UserStoryPage() {
   const [requirementText, setRequirementText] = useState('')
@@ -31,15 +33,62 @@ export default function UserStoryPage() {
   const [editingStory, setEditingStory] = useState<UserStory | null>(null)
   const [editingFeatureIndex, setEditingFeatureIndex] = useState<number>(-1)
   const [editingStoryIndex, setEditingStoryIndex] = useState<number>(-1)
+  
+  // 从store获取系统信息
+  const { selectedSystemId } = useSystemStore()
+  const { 
+    currentSystemId,
+    setCurrentSystem
+  } = useRequirementAnalysisStore()
+  
+  // 确保已设置当前系统
+  useEffect(() => {
+    if (selectedSystemId && selectedSystemId !== currentSystemId) {
+      console.log('设置当前系统:', selectedSystemId)
+      setCurrentSystem(selectedSystemId)
+    }
+  }, [selectedSystemId, currentSystemId, setCurrentSystem])
 
   useEffect(() => {
-    // 从localStorage获取结构化需求
-    const storedRequirement = localStorage.getItem('structuredRequirement')
-    if (storedRequirement) {
-      const requirement = JSON.parse(storedRequirement)
-      setScenes(requirement.sceneList || [])
+    // 根据当前系统ID从localStorage获取结构化需求
+    if (!selectedSystemId) {
+      console.log('未选择系统，无法加载数据')
+      return
     }
-  }, [])
+    
+    const storageKey = `structuredRequirement_${selectedSystemId}`
+    const storedRequirement = localStorage.getItem(storageKey)
+    
+    if (storedRequirement) {
+      try {
+        const requirement = JSON.parse(storedRequirement)
+        setScenes(requirement.sceneList || [])
+        console.log(`已加载系统 ${selectedSystemId} 的场景数据，共 ${requirement.sceneList?.length || 0} 个场景`)
+      } catch (error) {
+        console.error('解析需求数据失败:', error)
+        toast({
+          title: "加载失败",
+          description: "无法解析需求数据",
+          variant: "destructive",
+          duration: 3000
+        })
+      }
+    } else {
+      console.log(`未找到系统 ${selectedSystemId} 的需求数据`)
+      
+      // 向后兼容：尝试加载无系统ID的数据
+      const legacyStoredRequirement = localStorage.getItem('structuredRequirement')
+      if (legacyStoredRequirement) {
+        try {
+          const requirement = JSON.parse(legacyStoredRequirement)
+          setScenes(requirement.sceneList || [])
+          console.log(`已加载旧版格式的场景数据，共 ${requirement.sceneList?.length || 0} 个场景`)
+        } catch (error) {
+          console.error('解析旧版需求数据失败:', error)
+        }
+      }
+    }
+  }, [selectedSystemId])
 
   // 当分析结果更新时，尝试解析YAML
   useEffect(() => {

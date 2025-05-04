@@ -9,6 +9,8 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { useSystemStore, type System } from '@/lib/stores/system-store'
 import { CreateSystemDialog } from '@/components/create-system-dialog'
 import { EditSystemDialog } from '@/components/edit-system-dialog'
+import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store'
+import { toast } from '@/components/ui/use-toast'
 
 export default function HomePage() {
   const router = useRouter()
@@ -16,6 +18,13 @@ export default function HomePage() {
   const { systems, isLoading, error, fetchSystems, setSelectedSystem, clearSystems } = useSystemStore()
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [editingSystem, setEditingSystem] = useState<System | null>(null)
+  const [isCacheLoading, setIsCacheLoading] = useState(false)
+  
+  // 获取需求分析Store
+  const { 
+    setCurrentSystem, 
+    cleanupCacheData 
+  } = useRequirementAnalysisStore()
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -27,9 +36,34 @@ export default function HomePage() {
     }
   }, [fetchSystems, clearSystems, status])
 
-  const handleSystemSelect = (system: System) => {
+  const handleSystemSelect = async (system: System) => {
+    if (!system.id) return
+    
+    // 1. 在系统store中设置选中的系统
     setSelectedSystem(system)
-    router.push(`/systems/${system.id}`)
+    
+    try {
+      // 2. 在需求分析store中设置当前系统（这会触发从Redis加载数据）
+      setIsCacheLoading(true)
+      setCurrentSystem(system.id)
+      
+      // 3. 清理非活跃系统的缓存数据（保留最近3个）
+      cleanupCacheData(3)
+      
+      // 4. 导航到系统页面
+      router.push(`/systems/${system.id}`)
+    } catch (error) {
+      console.error('加载系统缓存数据失败:', error)
+      toast({
+        title: '加载缓存失败',
+        description: '无法加载系统缓存数据，但您仍可以继续使用',
+        variant: 'destructive'
+      })
+      // 继续导航，即使缓存加载失败
+      router.push(`/systems/${system.id}`)
+    } finally {
+      setIsCacheLoading(false)
+    }
   }
 
   const handleEditClick = (e: React.MouseEvent, system: System) => {
@@ -63,9 +97,10 @@ export default function HomePage() {
           )}
         </div>
 
-        {status === 'loading' ? (
+        {status === 'loading' || isCacheLoading ? (
           <div className="flex justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+            {isCacheLoading && <span className="ml-2 text-orange-500">正在加载系统数据...</span>}
           </div>
         ) : !session?.user ? (
           <div className="text-center">

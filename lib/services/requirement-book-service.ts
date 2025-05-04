@@ -158,9 +158,10 @@ export class RequirementBookService {
    * 处理需求书确认
    * 创建需求结构化任务和场景边界分析任务
    * @param requirementBook 需求书内容
+   * @param systemId 系统ID（可选）
    * @returns 解析的需求内容
    */
-  public static async processConfirmation(requirementBook: string): Promise<RequirementParseResult> {
+  public static async processConfirmation(requirementBook: string, systemId?: string): Promise<RequirementParseResult> {
     try {
       // 1. 更新需求书任务状态为完成
       console.log('更新需求书任务状态...')
@@ -186,11 +187,18 @@ export class RequirementBookService {
       // 5. 清空之前的分析结果
       console.log('清空之前的分析结果...')
       localStorage.removeItem('scene-analysis-states')
-      localStorage.removeItem('requirement-structured-content')
       
       // 6. 保存新的结构化内容
       console.log('保存新的结构化内容...')
+      // 同时保存到全局键（向后兼容）和系统特定键
       localStorage.setItem('requirement-structured-content', JSON.stringify(parsedRequirement))
+      
+      // 如果提供了系统ID，则按系统ID保存
+      if (systemId) {
+        console.log(`按系统ID(${systemId})保存结构化内容...`)
+        const systemSpecificKey = `structuredRequirement_${systemId}`
+        localStorage.setItem(systemSpecificKey, JSON.stringify(parsedRequirement))
+      }
       
       // 7. 创建场景边界分析任务
       console.log('创建场景边界分析任务...')

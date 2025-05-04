@@ -10,6 +10,7 @@ import { createArchitectureSuggestionTask, createArchitectureConfirmTask } from 
 import { generateArchitectureSuggestions } from '@/lib/services/architecture-suggestion-service'
 import { updateTask } from '@/lib/services/task-service'
 import { useSystemStore } from '@/lib/stores/system-store'
+import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store'
 import type { ArchitectureItem } from '@/types/product-info'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -21,22 +22,46 @@ export default function BookConfirmPage() {
   const [currentArchitecture, setCurrentArchitecture] = useState<ArchitectureItem[]>([])
   
   // 从 store 获取系统信息
-  const selectedSystemId = useSystemStore(state => state.selectedSystemId)
+  const { selectedSystemId } = useSystemStore()
   const systems = useSystemStore(state => state.systems)
   const currentSystem = systems.find(sys => sys.id === selectedSystemId)
+  
+  // 从 store 获取需求分析信息
+  const { 
+    currentSystemId,
+    systemRequirements,
+    setCurrentSystem,
+    getActiveRequirementBook,
+  } = useRequirementAnalysisStore()
+  
+  // 确保已设置当前系统
+  useEffect(() => {
+    if (selectedSystemId && selectedSystemId !== currentSystemId) {
+      console.log('设置当前系统:', selectedSystemId)
+      setCurrentSystem(selectedSystemId)
+    }
+  }, [selectedSystemId, currentSystemId, setCurrentSystem])
 
   // 清理分隔线的函数
   const cleanSeparators = (content: string): string => {
     // 移除文本中的Markdown分隔线
+    if (!content) return '';
     return content.replace(/^\s*---\s*$/gm, '');
   }
 
   useEffect(() => {
-    // 从localStorage加载结构化需求数据
+    // 根据当前系统ID从localStorage加载结构化需求数据
     try {
-      const storedReq = localStorage.getItem('structuredRequirement')
+      if (!selectedSystemId) {
+        console.log('未选择系统，无法加载数据')
+        return
+      }
+      
+      const storageKey = `structuredRequirement_${selectedSystemId}`
+      const storedReq = localStorage.getItem(storageKey)
+      
       if (!storedReq) {
-        console.log('未找到存储的需求数据')
+        console.log(`未找到系统 ${selectedSystemId} 的存储需求数据`)
         return
       }
 
@@ -63,14 +88,10 @@ export default function BookConfirmPage() {
       })
 
       setRequirement(parsedReq)
-      console.log('需求数据加载成功:', {
+      console.log(`系统 ${selectedSystemId} 需求数据加载成功:`, {
         reqBackgroundLength: parsedReq.reqBackground.length,
         reqBriefLength: parsedReq.reqBrief.length,
-        sceneCount: parsedReq.sceneList.length,
-        scenes: parsedReq.sceneList.map((scene: StructuredScene) => ({
-          name: scene.sceneName,
-          contentLength: scene.content.length
-        }))
+        sceneCount: parsedReq.sceneList.length
       })
     } catch (e) {
       console.error('加载需求数据失败:', e)
@@ -81,7 +102,7 @@ export default function BookConfirmPage() {
         duration: 3000
       })
     }
-  }, [])
+  }, [selectedSystemId])
 
   // 加载当前系统的信息架构
   useEffect(() => {
@@ -120,7 +141,7 @@ export default function BookConfirmPage() {
   }, [selectedSystemId])
 
   const handleExport = () => {
-    if (!requirement) return
+    if (!requirement || !selectedSystemId) return
 
     // 生成Markdown格式的需求书
     const mdContent = generateMarkdown(requirement)
@@ -132,7 +153,9 @@ export default function BookConfirmPage() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = '需求书.md'
+    // 添加系统名称到文件名
+    const systemName = currentSystem?.name || selectedSystemId
+    a.download = `需求书_${systemName}.md`
     
     // 触发下载
     document.body.appendChild(a)
@@ -144,7 +167,7 @@ export default function BookConfirmPage() {
 
     toast({
       title: "导出成功",
-      description: "需求书已导出",
+      description: `系统"${systemName}"的需求书已导出`,
       duration: 3000
     })
   }

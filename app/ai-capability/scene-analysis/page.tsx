@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils'
 import { SceneRequirementService } from '@/lib/services/scene-requirement-service'
 import { RequirementExportService } from '@/lib/services/requirement-export-service'
 import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store'
+import { useSystemStore } from '@/lib/stores/system-store'
 import { Scene, RequirementContent } from '@/types/requirement'
 import { SceneAnalysisState } from '@/types/scene'
 
@@ -43,6 +44,22 @@ export default function SceneAnalysisPage() {
   const [optimizeResult, setOptimizeResult] = useState<string>('')
   const [isOptimizing, setIsOptimizing] = useState(false)
   const { toast } = useToast()
+  
+  // 获取当前系统
+  const { selectedSystemId } = useSystemStore()
+  const { 
+    currentSystemId,
+    systemRequirements, 
+    setCurrentSystem,
+    getActiveRequirementBook 
+  } = useRequirementAnalysisStore()
+  
+  // 确保已设置当前系统
+  useEffect(() => {
+    if (selectedSystemId && selectedSystemId !== currentSystemId) {
+      setCurrentSystem(selectedSystemId)
+    }
+  }, [selectedSystemId, currentSystemId, setCurrentSystem])
   
   // 使用 useEffect 在客户端加载数据
   useEffect(() => {
@@ -78,10 +95,21 @@ export default function SceneAnalysisPage() {
       
       setContent(parsedContent)
       
-      // 加载需求书内容
-      const storedMdContent = useRequirementAnalysisStore.getState().requirementBook
-      if (storedMdContent) {
-        setMdContent(storedMdContent)
+      // 加载需求书内容 - 修改为获取当前系统的数据
+      if (selectedSystemId) {
+        const systemData = systemRequirements[selectedSystemId]
+        if (systemData) {
+          // 优先使用固定的需求书内容，其次是普通需求书内容
+          const systemRequirementBook = systemData.isRequirementBookPinned 
+            ? systemData.pinnedRequirementBook 
+            : systemData.requirementBook;
+          
+          if (systemRequirementBook) {
+            setMdContent(systemRequirementBook)
+          } else {
+            console.log('当前系统没有需求书内容')
+          }
+        }
       }
 
       // 加载场景状态
@@ -115,7 +143,7 @@ export default function SceneAnalysisPage() {
         duration: 3000
       })
     }
-  }, []) // 确保依赖数组为空，只在组件挂载时执行一次
+  }, [selectedSystemId, systemRequirements]) // 添加依赖项，当系统ID或系统数据变化时重新加载
 
   // 当场景状态改变时保存到 localStorage，使用 useCallback 避免重复创建函数
   const saveSceneStates = useCallback((states: Record<string, SceneAnalysisState>) => {
@@ -604,10 +632,10 @@ export default function SceneAnalysisPage() {
   }
 
   const handleExport = () => {
-    RequirementExportService.saveStructuredRequirementToStorage(content!, sceneStates)
+    RequirementExportService.saveStructuredRequirementToStorage(content!, sceneStates, selectedSystemId || undefined)
     toast({
       title: "导出成功",
-      description: "需求书内容已导出",
+      description: "需求书内容已导出" + (selectedSystemId ? `，系统ID: ${selectedSystemId}` : ''),
       duration: 3000
     })
   }
@@ -624,8 +652,8 @@ export default function SceneAnalysisPage() {
     }
 
     try {
-      // 保存结构化数据到localStorage
-      RequirementExportService.saveStructuredRequirementToStorage(content, sceneStates)
+      // 保存结构化数据到localStorage - 传递系统ID
+      RequirementExportService.saveStructuredRequirementToStorage(content, sceneStates, selectedSystemId || undefined)
 
       // 更新场景边界分析任务状态为已完成
       // await updateTask('scene-analysis', {
@@ -689,7 +717,14 @@ export default function SceneAnalysisPage() {
                   value={mdContent}
                   onChange={(e) => {
                     setMdContent(e.target.value)
-                    useRequirementAnalysisStore.getState().setRequirementBook(e.target.value)
+                    // 更新当前系统的需求书数据，不传额外参数
+                    if (selectedSystemId) {
+                      // 确保当前系统已设置
+                      if (selectedSystemId !== currentSystemId) {
+                        useRequirementAnalysisStore.getState().setCurrentSystem(selectedSystemId)
+                      }
+                      useRequirementAnalysisStore.getState().setRequirementBook(e.target.value)
+                    }
                   }}
                   placeholder="请在此输入需求书内容..."
                 />
@@ -743,7 +778,14 @@ export default function SceneAnalysisPage() {
                   value={mdContent}
                   onChange={(e) => {
                     setMdContent(e.target.value)
-                    useRequirementAnalysisStore.getState().setRequirementBook(e.target.value)
+                    // 更新当前系统的需求书数据，不传额外参数
+                    if (selectedSystemId) {
+                      // 确保当前系统已设置
+                      if (selectedSystemId !== currentSystemId) {
+                        useRequirementAnalysisStore.getState().setCurrentSystem(selectedSystemId)
+                      }
+                      useRequirementAnalysisStore.getState().setRequirementBook(e.target.value)
+                    }
                   }}
                   placeholder="请在此输入需求书内容..."
                 />

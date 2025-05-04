@@ -14,7 +14,7 @@ ${systemOverview || '未提供系统概述。'}
 
 ${architectureText ? architectureText : '未提供系统信息架构。'}
 
-请严格按照以下<需求模版>格式输出需求书（使用Markdown格式,使用清晰的标题层级和列表结构）：
+请严格按照以下<需求模版>格式输出需求书（使用Markdown格式（但不要用代码块包裹内容）,使用清晰的标题层级和列表结构）：
 
 <需求模版>
 ${reqTemplate}

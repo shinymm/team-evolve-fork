@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
@@ -15,18 +15,50 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { recordRequirementAction } from '@/lib/services/requirement-action-service'
 import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store'
+import { useSystemStore, type System } from '@/lib/stores/system-store'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { SystemInfoService } from '@/lib/services/system-info-service'
 
 export default function RequirementAnalysis() {
+  // 获取当前选中的系统
+  const { systems, selectedSystemId } = useSystemStore()
+  const selectedSystem = systems.find(s => s.id === selectedSystemId) || null
+  
   const { 
-    requirement, 
-    pinnedAnalysis, 
-    isPinned,
+    currentSystemId,
+    systemRequirements,
+    setCurrentSystem,
     setRequirement, 
     pinAnalysis, 
     unpinAnalysis,
-    getActiveAnalysis
+    getActiveAnalysis,
+    saveSystemDataToRedis
   } = useRequirementAnalysisStore()
+
+  // 确保已设置当前系统
+  useEffect(() => {
+    if (selectedSystem?.id && selectedSystem.id !== currentSystemId) {
+      console.log('设置当前系统:', selectedSystem.id)
+      setCurrentSystem(selectedSystem.id)
+    }
+  }, [selectedSystem, currentSystemId, setCurrentSystem])
+  
+  // 从当前系统状态中获取数据
+  const currentSystemData = selectedSystem?.id 
+    ? (systemRequirements[selectedSystem.id] || { 
+        requirement: '', 
+        pinnedAnalysis: null, 
+        isPinned: false 
+      }) 
+    : { 
+        requirement: '', 
+        pinnedAnalysis: null, 
+        isPinned: false 
+      }
+  
+  const requirement = currentSystemData.requirement || ''
+  const pinnedAnalysis = currentSystemData.pinnedAnalysis
+  const isPinned = currentSystemData.isPinned || false
   
   // 使用本地state管理当前分析结果
   const [analysis, setAnalysis] = useState<string>('')
@@ -39,12 +71,34 @@ export default function RequirementAnalysis() {
   const { toast } = useToast()
   const router = useRouter()
 
+  // 页面卸载时保存数据到Redis
+  useEffect(() => {
+    return () => {
+      if (selectedSystem?.id) {
+        saveSystemDataToRedis(selectedSystem.id)
+          .catch(err => console.error('保存到Redis失败:', err))
+      }
+    }
+  }, [selectedSystem, saveSystemDataToRedis])
+
   // 当需求内容变化时，保存到 store
   const handleRequirementChange = (value: string) => {
-    setRequirement(value)
+    if (selectedSystem?.id) {
+      setRequirement(value)
+    }
   }
 
   const handleSubmit = async () => {
+    if (!selectedSystem?.id) {
+      toast({
+        title: "请先选择系统",
+        description: "需要先选择一个系统才能进行分析",
+        variant: "destructive",
+        duration: 3000
+      })
+      return
+    }
+
     if (!requirement.trim()) {
       toast({
         title: "请输入需求",
@@ -59,7 +113,14 @@ export default function RequirementAnalysis() {
     setAnalysis('')
 
     try {
-      const prompt = requirementAnalysisPrompt(requirement)
+      // 获取系统特定的模板数据
+      console.log(`正在获取系统 ${selectedSystem.id} 的模板数据...`)
+      const templateData = await SystemInfoService.prepareRequirementAnalysisTemplateData(selectedSystem.id)
+      
+      // 生成提示词 - 传递系统特定的模板数据
+      console.log('正在生成提示词...')
+      const prompt = requirementAnalysisPrompt(requirement, templateData)
+      
       let currentAnalysis = '';
       await streamingAICall(
         prompt,
@@ -77,6 +138,7 @@ export default function RequirementAnalysis() {
         }
       )
     } catch (error) {
+      console.error('需求分析失败:', error)
       toast({
         title: "分析失败",
         description: error instanceof Error ? error.message : "请稍后重试",
@@ -150,6 +212,8 @@ export default function RequirementAnalysis() {
   }
 
   const handleSave = async () => {
+    if (!selectedSystem?.id) return
+
     const editEndTime = Date.now()
     const editDuration = editStartTime ? (editEndTime - editStartTime) / 1000 : 0
     const contentDiff = editedAnalysis.length - originalContent.current.length
@@ -186,6 +250,8 @@ export default function RequirementAnalysis() {
   }
 
   const handleTogglePin = () => {
+    if (!selectedSystem?.id) return
+    
     if (isPinned) {
       // 取消固定时，如果当前没有analysis内容，将pinnedAnalysis的内容移到analysis中
       // 这样内容不会因为取消pin而消失
@@ -208,21 +274,28 @@ export default function RequirementAnalysis() {
         duration: 3000
       })
     }
+
+    // 自动保存到Redis
+    if (selectedSystem?.id) {
+      saveSystemDataToRedis(selectedSystem.id)
+        .catch(err => console.error('保存到Redis失败:', err))
+    }
   }
 
   const handleConfirm = async () => {
+    if (!selectedSystem?.id) return
+    
     try {
       // 获取活跃的分析内容（优先使用固定的内容）
       const activeAnalysis = getActiveAnalysis() || analysis
       
-      // 如果内容没有被pin，则自动pin到store中，但不改变当前UI状态
+      // 如果内容没有被pin，则自动pin到store中
       if (!isPinned && analysis) {
-        // 只在store中保存，不改变当前UI状态
-        useRequirementAnalysisStore.setState({ 
-          pinnedAnalysis: analysis,
-          isPinned: true
-        })
+        pinAnalysis(analysis)
       }
+      
+      // 保存到Redis
+      await saveSystemDataToRedis(selectedSystem.id)
       
       // 记录需求分析完成的动作
       await recordRequirementAction({
@@ -252,6 +325,8 @@ export default function RequirementAnalysis() {
 
   // 确认对话框
   const handleConfirmWithDialog = async () => {
+    if (!selectedSystem?.id) return
+
     if (isPinned && pinnedAnalysis && analysis) {
       // 如果有固定的内容和新的内容，弹窗确认使用哪个
       if (confirm('您有固定的分析内容和新的分析内容，是否使用固定的内容继续？点击"确定"使用固定内容，点击"取消"使用新内容。')) {
@@ -259,11 +334,7 @@ export default function RequirementAnalysis() {
         await handleConfirm()
       } else {
         // 使用新内容，先更新活跃内容
-        // 只在store中更新，不改变当前UI状态
-        useRequirementAnalysisStore.setState({ 
-          pinnedAnalysis: analysis,
-          isPinned: true
-        })
+        pinAnalysis(analysis)
         await handleConfirm()
       }
     } else {

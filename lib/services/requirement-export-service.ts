@@ -138,8 +138,15 @@ export class RequirementExportService {
 
   /**
    * 保存结构化需求书到 localStorage
+   * @param content 需求内容
+   * @param sceneStates 场景状态
+   * @param systemId 系统ID
    */
-  static saveStructuredRequirementToStorage(content: RequirementContent, sceneStates: Record<string, SceneAnalysisState>): void {
+  static saveStructuredRequirementToStorage(
+    content: RequirementContent, 
+    sceneStates: Record<string, SceneAnalysisState>,
+    systemId?: string
+  ): void {
     try {
       // 验证输入参数
       if (!content || !sceneStates) {
@@ -185,10 +192,20 @@ export class RequirementExportService {
         throw new Error('序列化后的数据格式无效')
       }
 
+      // 确定存储键名
+      const storageKey = systemId 
+        ? `structuredRequirement_${systemId}` 
+        : 'structuredRequirement';
+
       // 保存到 localStorage
-      localStorage.setItem('structuredRequirement', jsonString)
+      localStorage.setItem(storageKey, jsonString)
       
-      console.log('结构化需求保存成功:', {
+      // 向后兼容，对于旧版本，始终保存一个无系统ID的副本
+      if (systemId) {
+        localStorage.setItem('structuredRequirement', jsonString)
+      }
+      
+      console.log(`结构化需求保存成功${systemId ? ` (系统ID: ${systemId})` : ''}:`, {
         reqBackgroundLength: structuredReq.reqBackground.length,
         reqBriefLength: structuredReq.reqBrief.length,
         sceneCount: structuredReq.sceneList.length,

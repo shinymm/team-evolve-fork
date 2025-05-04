@@ -35,16 +35,52 @@ export default function RequirementBook() {
   const router = useRouter()
   
   // 获取当前系统信息
-  const { selectedSystemId } = useSystemStore()
+  const { systems, selectedSystemId } = useSystemStore()
+  const selectedSystem = systems.find(s => s.id === selectedSystemId) || null
   
-  // 从store中获取需求书相关状态和方法
+  // 从store中获取状态和方法
   const { 
-    pinnedRequirementBook, 
-    isRequirementBookPinned,
+    currentSystemId,
+    systemRequirements,
+    setCurrentSystem,
+    setRequirement,
+    pinAnalysis,
     pinRequirementBook, 
     unpinRequirementBook,
-    getActiveRequirementBook
+    getActiveRequirementBook,
+    saveSystemDataToRedis
   } = useRequirementAnalysisStore()
+
+  // 确保已设置当前系统
+  useEffect(() => {
+    if (selectedSystem?.id && selectedSystem.id !== currentSystemId) {
+      console.log('设置当前系统:', selectedSystem.id)
+      setCurrentSystem(selectedSystem.id)
+    }
+  }, [selectedSystem, currentSystemId, setCurrentSystem])
+  
+  // 从当前系统状态中获取数据
+  const currentSystemData = selectedSystem?.id 
+    ? (systemRequirements[selectedSystem.id] || { 
+        requirement: '', 
+        pinnedAnalysis: null,
+        requirementBook: null,
+        pinnedRequirementBook: null, 
+        isPinned: false,
+        isRequirementBookPinned: false
+      }) 
+    : { 
+        requirement: '', 
+        pinnedAnalysis: null,
+        requirementBook: null,
+        pinnedRequirementBook: null, 
+        isPinned: false,
+        isRequirementBookPinned: false 
+      }
+
+  const pinnedRequirementBook = currentSystemData.pinnedRequirementBook
+  const isRequirementBookPinned = currentSystemData.isRequirementBookPinned || false
+  const pinnedAnalysis = currentSystemData.pinnedAnalysis
   
   // 添加 AI 配置缓存
   const [cachedAIConfig, setCachedAIConfig] = useState<any>(null)
@@ -80,23 +116,48 @@ export default function RequirementBook() {
         const requirementAnalysisTask = allTasks.find(t => t.id === 'requirement-analysis')
         
         // 只有当原始需求分析任务完成时，才加载历史数据
-        if (requirementAnalysisTask?.status === 'completed') {
-          // 从store中获取pinnedAnalysis
-          const { pinnedAnalysis } = useRequirementAnalysisStore.getState()
-          if (pinnedAnalysis) {
-            setOriginalRequirement(pinnedAnalysis)
+        if (requirementAnalysisTask?.status === 'completed' && selectedSystem?.id) {
+          // 从当前系统数据中获取pinnedAnalysis
+          const systemData = systemRequirements[selectedSystem.id]
+          if (systemData?.pinnedAnalysis) {
+            setOriginalRequirement(systemData.pinnedAnalysis)
+            console.log('已加载系统分析数据')
+          } else {
+            console.log('该系统没有分析数据')
           }
         } 
       } catch (error) {
-        console.error('Error checking task status:', error)
+        console.error('检查任务状态失败:', error)
       }
     }
 
-    checkPreviousTaskAndLoadData()
-  }, [])
+    if (selectedSystem?.id) {
+      checkPreviousTaskAndLoadData()
+    }
+  }, [selectedSystem, systemRequirements])
+
+  // 页面卸载时保存数据到Redis
+  useEffect(() => {
+    return () => {
+      if (selectedSystem?.id) {
+        saveSystemDataToRedis(selectedSystem.id)
+          .catch(err => console.error('保存到Redis失败:', err))
+      }
+    }
+  }, [selectedSystem, saveSystemDataToRedis])
 
   // 修改 handleSubmit 函数
   const handleSubmit = async () => {
+    if (!selectedSystem?.id) {
+      toast({
+        title: "请先选择系统",
+        description: "需要先选择一个系统才能生成需求书",
+        variant: "destructive",
+        duration: 3000
+      })
+      return
+    }
+
     // 立即设置 loading 状态
     setIsGenerating(true)
     setRequirementBook('')
@@ -107,7 +168,7 @@ export default function RequirementBook() {
       // 使用RequirementBookService生成需求书
       await RequirementBookService.generateRequirementBook(
         originalRequirement,
-        selectedSystemId as string,
+        selectedSystem.id,
         (content) => setRequirementBook(content)
       )
       
@@ -178,6 +239,8 @@ export default function RequirementBook() {
   }
 
   const handleSave = () => {
+    if (!selectedSystem?.id) return
+
     if (editTarget === 'main') {
       setRequirementBook(editedBook)
     } else {
@@ -192,6 +255,8 @@ export default function RequirementBook() {
   }
 
   const handleTogglePin = () => {
+    if (!selectedSystem?.id) return
+
     if (isRequirementBookPinned) {
       // 取消固定时，如果当前没有requirementBook内容，将pinnedRequirementBook的内容移到requirementBook中
       if (!requirementBook && pinnedRequirementBook) {
@@ -216,24 +281,22 @@ export default function RequirementBook() {
   }
 
   const handleConfirm = async () => {
+    if (!selectedSystem?.id) return
+
     try {
       // 获取活跃的需求书内容（优先使用固定的内容）
       const activeBook = getActiveRequirementBook() || requirementBook
       
-      // 如果内容没有被pin，则自动pin到store中，但不改变当前UI状态
+      // 如果内容没有被pin，则自动pin到store中
       if (!isRequirementBookPinned && requirementBook) {
-        // 只在store中保存，不改变当前UI状态
-        useRequirementAnalysisStore.setState({ 
-          pinnedRequirementBook: requirementBook,
-          isRequirementBookPinned: true
-        })
+        pinRequirementBook(requirementBook)
       }
       
-      // 保存需求书MD内容到store
-      useRequirementAnalysisStore.getState().setRequirementBook(activeBook)
+      // 保存到Redis
+      await saveSystemDataToRedis(selectedSystem.id)
       
-      // 使用RequirementBookService处理确认逻辑
-      await RequirementBookService.processConfirmation(activeBook)
+      // 使用RequirementBookService处理确认逻辑，传递系统ID
+      await RequirementBookService.processConfirmation(activeBook, selectedSystem.id)
       
       toast({
         title: "需求初稿衍化与结构化已完成",
@@ -256,6 +319,8 @@ export default function RequirementBook() {
 
   // 确认对话框
   const handleConfirmWithDialog = async () => {
+    if (!selectedSystem?.id) return
+
     if (isRequirementBookPinned && pinnedRequirementBook && requirementBook) {
       // 如果有固定的内容和新的内容，弹窗确认使用哪个
       if (confirm('您有固定的需求书内容和新的需求书内容，是否使用固定的内容继续？点击"确定"使用固定内容，点击"取消"使用新内容。')) {
@@ -263,11 +328,7 @@ export default function RequirementBook() {
         await handleConfirm()
       } else {
         // 使用新内容，先更新活跃内容
-        // 只在store中更新，不改变当前UI状态
-        useRequirementAnalysisStore.setState({ 
-          pinnedRequirementBook: requirementBook,
-          isRequirementBookPinned: true
-        })
+        pinRequirementBook(requirementBook)
         await handleConfirm()
       }
     } else {
@@ -324,19 +385,28 @@ export default function RequirementBook() {
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    // 从store中获取pinnedAnalysis
-                    const { pinnedAnalysis } = useRequirementAnalysisStore.getState()
-                    if (pinnedAnalysis) {
-                      setOriginalRequirement(pinnedAnalysis)
-                      toast({
-                        title: "加载成功",
-                        description: "已重新加载需求分析内容",
-                        duration: 3000
-                      })
+                    if (selectedSystem?.id) {
+                      // 从当前系统数据中获取pinnedAnalysis
+                      const systemData = systemRequirements[selectedSystem.id]
+                      if (systemData?.pinnedAnalysis) {
+                        setOriginalRequirement(systemData.pinnedAnalysis)
+                        toast({
+                          title: "加载成功",
+                          description: "已重新加载需求分析内容",
+                          duration: 3000
+                        })
+                      } else {
+                        toast({
+                          title: "加载失败",
+                          description: "未找到需求分析内容",
+                          variant: "destructive",
+                          duration: 3000
+                        })
+                      }
                     } else {
                       toast({
                         title: "加载失败",
-                        description: "未找到需求分析内容",
+                        description: "请先选择一个系统",
                         variant: "destructive",
                         duration: 3000
                       })
