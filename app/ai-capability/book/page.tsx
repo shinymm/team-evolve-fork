@@ -482,6 +482,12 @@ export default function RequirementBook() {
                               li: ({children}) => <li className="text-gray-600 text-sm">{children}</li>,
                               blockquote: ({children}) => <blockquote className="border-l-4 border-gray-300 pl-3 my-1 italic text-sm">{children}</blockquote>,
                               code: ({children}) => <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{children}</code>,
+                              table: ({children}) => <div className="overflow-x-auto my-4"><table className="min-w-full divide-y divide-gray-200 border border-gray-300 text-sm">{children}</table></div>,
+                              thead: ({children}) => <thead className="bg-gray-50">{children}</thead>,
+                              tbody: ({children}) => <tbody className="divide-y divide-gray-200">{children}</tbody>,
+                              tr: ({children}) => <tr>{children}</tr>,
+                              th: ({children}) => <th className="px-3 py-2 text-left font-medium text-gray-700 border-r border-gray-300 last:border-r-0">{children}</th>,
+                              td: ({children}) => <td className="px-3 py-2 text-gray-600 border-r border-gray-300 last:border-r-0">{children}</td>,
                               pre: ({children}) => (
                                 <div className="relative">
                                   <pre className="bg-gray-50 rounded-lg p-3 my-2 overflow-auto text-sm">{children}</pre>
@@ -540,6 +546,12 @@ export default function RequirementBook() {
                               li: ({children}) => <li className="text-gray-600 text-sm">{children}</li>,
                               blockquote: ({children}) => <blockquote className="border-l-4 border-gray-300 pl-3 my-1 italic text-sm">{children}</blockquote>,
                               code: ({children}) => <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{children}</code>,
+                              table: ({children}) => <div className="overflow-x-auto my-4"><table className="min-w-full divide-y divide-gray-200 border border-gray-300 text-sm">{children}</table></div>,
+                              thead: ({children}) => <thead className="bg-gray-50">{children}</thead>,
+                              tbody: ({children}) => <tbody className="divide-y divide-gray-200">{children}</tbody>,
+                              tr: ({children}) => <tr>{children}</tr>,
+                              th: ({children}) => <th className="px-3 py-2 text-left font-medium text-gray-700 border-r border-gray-300 last:border-r-0">{children}</th>,
+                              td: ({children}) => <td className="px-3 py-2 text-gray-600 border-r border-gray-300 last:border-r-0">{children}</td>,
                               pre: ({children}) => (
                                 <div className="relative">
                                   <pre className="bg-gray-50 rounded-lg p-3 my-2 overflow-auto text-sm">{children}</pre>
@@ -621,6 +633,12 @@ export default function RequirementBook() {
                             li: ({children}) => <li className="text-gray-600 text-sm">{children}</li>,
                             blockquote: ({children}) => <blockquote className="border-l-4 border-gray-300 pl-3 my-1 italic text-sm">{children}</blockquote>,
                             code: ({children}) => <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{children}</code>,
+                            table: ({children}) => <div className="overflow-x-auto my-4"><table className="min-w-full divide-y divide-gray-200 border border-gray-300 text-sm">{children}</table></div>,
+                            thead: ({children}) => <thead className="bg-gray-50">{children}</thead>,
+                            tbody: ({children}) => <tbody className="divide-y divide-gray-200">{children}</tbody>,
+                            tr: ({children}) => <tr>{children}</tr>,
+                            th: ({children}) => <th className="px-3 py-2 text-left font-medium text-gray-700 border-r border-gray-300 last:border-r-0">{children}</th>,
+                            td: ({children}) => <td className="px-3 py-2 text-gray-600 border-r border-gray-300 last:border-r-0">{children}</td>,
                             pre: ({children}) => (
                               <div className="relative">
                                 <pre className="bg-gray-50 rounded-lg p-3 my-2 overflow-auto text-sm">{children}</pre>
