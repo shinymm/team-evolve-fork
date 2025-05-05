@@ -23,7 +23,7 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-gray-900">
-      <div className="flex h-14 items-center px-4">
+      <div className="flex h-14 items-center px-4 justify-between">
         <div className="w-1/4">
           <Link href="/" className="text-xl hover:opacity-80">
             <span className="font-bold tracking-tight text-white">

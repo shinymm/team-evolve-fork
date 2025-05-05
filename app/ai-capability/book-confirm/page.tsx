@@ -53,7 +53,6 @@ export default function BookConfirmPage() {
     // 根据当前系统ID从localStorage加载结构化需求数据
     try {
       if (!selectedSystemId) {
-        console.log('未选择系统，无法加载数据')
         return
       }
       
@@ -88,9 +87,10 @@ export default function BookConfirmPage() {
       })
 
       setRequirement(parsedReq)
+      // 更新 console.log 以使用正确的字段名
       console.log(`系统 ${selectedSystemId} 需求数据加载成功:`, {
-        reqBackgroundLength: parsedReq.reqBackground.length,
-        reqBriefLength: parsedReq.reqBrief.length,
+        contentBeforeScenesLength: parsedReq.contentBeforeScenes?.length ?? 0,
+        contentAfterScenesLength: parsedReq.contentAfterScenes?.length ?? 0,
         sceneCount: parsedReq.sceneList.length
       })
     } catch (e) {
@@ -315,122 +315,70 @@ export default function BookConfirmPage() {
 
   // 生成Markdown格式的需求书
   const generateMarkdown = (req: StructuredRequirement): string => {
-    console.log('开始生成需求书，保留原始结构');
-    
-    // 步骤1: 分析contentBeforeScenes内容中的场景标题格式
     const contentBeforeScenes = req.contentBeforeScenes || '';
     const contentAfterScenes = req.contentAfterScenes || '';
     
-    // 步骤2: 从contentBeforeScenes中查找标题格式
-    // 尝试找出章节标题的层级（通常是##）
     const headingMatch = contentBeforeScenes.match(/^(#+)\s+(?:[一二三四五六七八九十]+\.?|[0-9]+\.?|[IVXivx]+\.?)?[\s\S]*?$/m);
-    const baseHeadingLevel = headingMatch ? headingMatch[1].length : 2; // 默认使用## 
+    const baseHeadingLevel = headingMatch ? headingMatch[1].length : 2;
     
-    // 从现有章节标题中分析编号格式
     const chapterTitles = contentBeforeScenes.match(/^#{2,3}\s+(?:([一二三四五六七八九十]+)\.?|([0-9]+)\.?|([IVXivx]+)\.?)\s+.+$/gm) || [];
     
-    // 确定需求详述章节的编号
     let chapterNumber = '';
     if (chapterTitles.length > 0) {
-      // 查找最后一个章节标题，尝试提取其中的编号格式
       const lastChapterTitle = chapterTitles[chapterTitles.length - 1];
-      
-      // 检查使用的是哪种编号格式
       const chineseNumberMatch = lastChapterTitle.match(/^#{2,3}\s+([一二三四五六七八九十]+)\.?\s+/);
       const arabicNumberMatch = lastChapterTitle.match(/^#{2,3}\s+([0-9]+)\.?\s+/);
       const romanNumberMatch = lastChapterTitle.match(/^#{2,3}\s+([IVXivx]+)\.?\s+/);
       
       if (chineseNumberMatch) {
-        // 使用中文数字编号
         const chineseNumbers = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
         const lastNumber = chineseNumbers.indexOf(chineseNumberMatch[1]);
-        if (lastNumber !== -1 && lastNumber < chineseNumbers.length - 1) {
-          chapterNumber = chineseNumbers[lastNumber + 1];
-        } else {
-          chapterNumber = '三'; // 默认
-        }
+        chapterNumber = (lastNumber !== -1 && lastNumber < chineseNumbers.length - 1) ? chineseNumbers[lastNumber + 1] : '三';
       } else if (arabicNumberMatch) {
-        // 使用阿拉伯数字编号
-        const nextNumber = parseInt(arabicNumberMatch[1], 10) + 1;
-        chapterNumber = nextNumber.toString();
+        chapterNumber = (parseInt(arabicNumberMatch[1], 10) + 1).toString();
       } else if (romanNumberMatch) {
-        // 使用罗马数字编号
         const romanNumbers = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x'];
         const upperRomanNumbers = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
-        
-        // 检查是大写还是小写罗马数字
         const isUpperCase = /[IVX]/.test(romanNumberMatch[1]);
         const romanList = isUpperCase ? upperRomanNumbers : romanNumbers;
-        
         const lastNumber = romanList.indexOf(romanNumberMatch[1]);
-        if (lastNumber !== -1 && lastNumber < romanList.length - 1) {
-          chapterNumber = romanList[lastNumber + 1];
-        } else {
-          chapterNumber = isUpperCase ? 'III' : 'iii'; // 默认
-        }
+        chapterNumber = (lastNumber !== -1 && lastNumber < romanList.length - 1) ? romanList[lastNumber + 1] : (isUpperCase ? 'III' : 'iii');
       } else {
-        chapterNumber = '三'; // 默认使用中文数字
+        chapterNumber = '三';
       }
     } else {
-      chapterNumber = '三'; // 默认使用中文数字
+      chapterNumber = '三';
     }
     
-    // 假设场景标题应该比章节标题多一级
     const sceneHeadingLevel = baseHeadingLevel + 1;
-    
-    // 步骤3: 从contentBeforeScenes中查找场景标题样式
-    // 查找场景标题的格式，例如 "### 1. 场景名称" 或 "### 场景1：XXX"
     const scenePattern = new RegExp(`^${'^#'.repeat(sceneHeadingLevel)}\\s+(?:\\d+\\.?\\s+)?.*$`, 'gm');
     const sceneTitles = contentBeforeScenes.match(scenePattern) || [];
-    
-    // 提取场景标题的格式模板
     let sceneTitleTemplate = '';
     
     if (sceneTitles.length > 0) {
-      // 从第一个场景标题中提取格式 - 确保非空
       const firstSceneTitle: string = sceneTitles[0] || '';
-      
-      // 检查标题中是否包含数字编号
       if (firstSceneTitle && /\d+/.test(firstSceneTitle)) {
-        // 替换数字和场景名称，保留格式
         sceneTitleTemplate = firstSceneTitle.replace(/\d+(?:\.?\s+|\.\s*|：|:)/, '{index}. ')
           .replace(/(?:：|:).*$|(?<=\s)(?!$).+$/, '{name}');
       } else {
-        // 如果没有数字编号，使用默认格式
         sceneTitleTemplate = '#'.repeat(sceneHeadingLevel) + ' {index}. {name}';
       }
-      console.log('已从文档提取场景标题模板:', sceneTitleTemplate);
     } else {
-      // 默认场景标题格式
       sceneTitleTemplate = '#'.repeat(sceneHeadingLevel) + ' {index}. {name}';
-      console.log('使用默认场景标题模板:', sceneTitleTemplate);
     }
     
-    // 步骤4: 生成新的场景内容
     let scenesContent = '';
-    
     req.sceneList.forEach((scene, index) => {
-      // 根据模板格式化场景标题
-      // 确保移除场景名称中可能存在的编号前缀
       const cleanSceneName = scene.sceneName.replace(/^\d+\.?\s+/, '');
       const formattedTitle = sceneTitleTemplate
         .replace('{index}', String(index + 1))
         .replace('{name}', cleanSceneName);
-      
-      // 清理场景内容
       const cleanedSceneContent = cleanSceneContentForDisplay(scene.sceneName, scene.content);
-      
-      // 添加场景标题和清理后的内容
       scenesContent += `${formattedTitle}\n\n${cleanedSceneContent}\n\n`;
     });
     
-    // 步骤5: 构建需求详述章节标题
     const needDetailChapter = `${'#'.repeat(baseHeadingLevel)} ${chapterNumber}. 需求详述\n\n`;
-    
-    // 步骤6: 按正确顺序拼接各部分内容
     const resultMd = contentBeforeScenes + '\n\n' + needDetailChapter + scenesContent + contentAfterScenes;
-    
-    console.log('需求书生成完成，总长度:', resultMd.length);
     
     return resultMd;
   }
@@ -486,14 +434,13 @@ export default function BookConfirmPage() {
                 h2: ({node, ...props}) => <h2 className="text-lg font-semibold mb-2 mt-4" {...props} />,
                 h3: ({node, ...props}) => <h3 className="text-base font-medium mb-1 mt-3" {...props} />,
                 p: ({node, ...props}) => <p className="text-gray-700 my-2 leading-relaxed text-sm" {...props} />,
-                ul: ({node, ...props}) => <ul className="list-disc pl-5 my-2 space-y-1" {...props} />,
-                ol: ({node, ...props}) => <ol className="list-decimal pl-5 my-2 space-y-1" {...props} />,
-                li: ({node, ...props}) => <li className="text-gray-700 text-sm" {...props} />,
+                ul: ({node, ordered, ...props}) => <ul className="list-disc pl-5 my-2 space-y-1" {...props} />,
+                ol: ({node, ordered, ...props}) => <ol className="list-decimal pl-5 my-2 space-y-1" {...props} />,
+                li: ({node, ordered, ...props}) => <li className="text-gray-700 text-sm" {...props} />,
                 blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-gray-300 pl-4 my-2 italic text-sm text-gray-600" {...props} />,
                 code: ({node, inline, className, children, ...props}) => {
                   const match = /language-(\w+)/.exec(className || '')
                   return !inline ? (
-                    // Proper code block styling needed here if you expect code blocks
                     <pre className={`${className} bg-gray-100 rounded p-2 text-sm overflow-x-auto`} {...props}>
                       <code>{children}</code>
                     </pre>
@@ -503,10 +450,9 @@ export default function BookConfirmPage() {
                     </code>
                   )
                 },
-                // Add other elements like table, strong, em etc. if needed
               }}
             >
-              {generateMarkdown(requirement)} 
+              {requirement && generateMarkdown(requirement)} 
             </ReactMarkdown>
           </div>
         </CardContent>
