@@ -23,6 +23,7 @@ import { RequirementData } from '@/lib/services/task-control'
 import { Scene } from '@/types/requirement'
 import { useSystemStore } from '@/lib/stores/system-store'
 import { RequirementBookService } from '@/lib/services/requirement-book-service'
+import { SceneAnalysisState } from '@/types/scene'
 
 export default function RequirementBook() {
   const [originalRequirement, setOriginalRequirement] = useState('')
@@ -297,6 +298,45 @@ export default function RequirementBook() {
       
       // 使用RequirementBookService处理确认逻辑，传递系统ID
       await RequirementBookService.processConfirmation(activeBook, selectedSystem.id)
+      
+      // 同步structuredRequirement数据到requirement-structured-content中
+      // 这确保场景分析页面使用正确的数据
+      const structuredReqKey = `structuredRequirement_${selectedSystem.id}`
+      const newStructuredKey = `requirement-structured-content-${selectedSystem.id}`
+      
+      try {
+        const structuredData = localStorage.getItem(structuredReqKey)
+        if (structuredData) {
+          console.log(`同步数据从 ${structuredReqKey} 到 ${newStructuredKey}`)
+          localStorage.setItem(newStructuredKey, structuredData)
+          
+          // 初始化场景状态
+          const parsedData = JSON.parse(structuredData)
+          if (parsedData && parsedData.scenes && Array.isArray(parsedData.scenes)) {
+            const initialStates: Record<string, SceneAnalysisState> = {}
+            parsedData.scenes.forEach((scene: { name?: string }) => {
+              if (scene.name) {
+                initialStates[scene.name] = {
+                  isConfirming: false,
+                  isCompleted: false,
+                  isEditing: false,
+                  isOptimizing: false,
+                  isOptimizeConfirming: false,
+                  isHideOriginal: false
+                }
+              }
+            })
+            
+            // 保存初始场景状态
+            if (Object.keys(initialStates).length > 0) {
+              const sceneStatesKey = `scene-analysis-states-${selectedSystem.id}`
+              localStorage.setItem(sceneStatesKey, JSON.stringify(initialStates))
+            }
+          }
+        }
+      } catch (syncError) {
+        console.error('数据同步失败:', syncError)
+      }
       
       toast({
         title: "需求初稿衍化与结构化已完成",

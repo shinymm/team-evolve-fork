@@ -4,7 +4,7 @@ export interface Scene {
 }
 
 export interface RequirementContent {
-  reqBackground: string;
-  reqBrief: string;
+  contentBeforeScenes: string;
   scenes: Scene[];
+  contentAfterScenes: string;
 } 

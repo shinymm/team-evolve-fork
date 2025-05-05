@@ -9,8 +9,8 @@ export type StructuredScene = {
 
 // 定义完整的结构化需求书对象
 export type StructuredRequirement = {
-  reqBackground: string
-  reqBrief: string
+  contentBeforeScenes: string
+  contentAfterScenes: string
   sceneList: StructuredScene[]
 }
 
@@ -67,19 +67,8 @@ export class RequirementExportService {
   static generateOptimizedBook(content: RequirementContent, sceneStates: Record<string, SceneAnalysisState>): string {
     let mdContent = ''
 
-    // 添加标题
-    mdContent += formatMarkdownTitle('需求书', 1)
-
-    // 添加需求背景
-    mdContent += formatMarkdownTitle('需求背景', 2)
-    mdContent += `${cleanSeparators(content.reqBackground)}\n\n`
-
-    // 添加需求概述
-    mdContent += formatMarkdownTitle('需求概述', 2)
-    mdContent += `${cleanSeparators(content.reqBrief)}\n\n`
-
-    // 添加需求详情
-    mdContent += formatMarkdownTitle('需求详情', 2)
+    // 添加标题和需求前半部分内容
+    mdContent += cleanSeparators(content.contentBeforeScenes) + '\n\n'
 
     // 添加场景详情
     content.scenes.forEach((scene, index) => {
@@ -102,6 +91,9 @@ export class RequirementExportService {
         mdContent += cleanSeparators(scene.content) + '\n\n'
       }
     })
+    
+    // 添加需求后半部分内容
+    mdContent += cleanSeparators(content.contentAfterScenes)
 
     return mdContent
   }
@@ -113,8 +105,8 @@ export class RequirementExportService {
     console.log('开始生成结构化需求书')
     
     const structuredReq: StructuredRequirement = {
-      reqBackground: cleanSeparators(content.reqBackground),
-      reqBrief: cleanSeparators(content.reqBrief),
+      contentBeforeScenes: cleanSeparators(content.contentBeforeScenes),
+      contentAfterScenes: cleanSeparators(content.contentAfterScenes),
       sceneList: []
     }
 
@@ -169,7 +161,7 @@ export class RequirementExportService {
       const structuredReq = this.generateStructuredRequirement(content, sceneStates)
 
       // 验证生成的结构化需求
-      if (!structuredReq.reqBackground || !structuredReq.reqBrief || !Array.isArray(structuredReq.sceneList)) {
+      if (!structuredReq.contentBeforeScenes || !structuredReq.contentAfterScenes || !Array.isArray(structuredReq.sceneList)) {
         console.error('生成的结构化需求格式无效:', structuredReq)
         throw new Error('生成的结构化需求格式无效')
       }
@@ -188,7 +180,7 @@ export class RequirementExportService {
       const parsedReq = JSON.parse(jsonString)
 
       // 再次验证解析后的数据
-      if (!parsedReq.reqBackground || !parsedReq.reqBrief || !Array.isArray(parsedReq.sceneList)) {
+      if (!parsedReq.contentBeforeScenes || !parsedReq.contentAfterScenes || !Array.isArray(parsedReq.sceneList)) {
         throw new Error('序列化后的数据格式无效')
       }
 
@@ -206,8 +198,8 @@ export class RequirementExportService {
       }
       
       console.log(`结构化需求保存成功${systemId ? ` (系统ID: ${systemId})` : ''}:`, {
-        reqBackgroundLength: structuredReq.reqBackground.length,
-        reqBriefLength: structuredReq.reqBrief.length,
+        contentBeforeScenesLength: structuredReq.contentBeforeScenes.length,
+        contentAfterScenesLength: structuredReq.contentAfterScenes.length,
         sceneCount: structuredReq.sceneList.length,
         scenes: structuredReq.sceneList.map(scene => ({
           name: scene.sceneName,

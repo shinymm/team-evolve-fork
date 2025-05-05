@@ -73,7 +73,7 @@ export default function BookConfirmPage() {
         throw new Error('需求数据格式无效')
       }
 
-      if (!parsedReq.reqBackground || !parsedReq.reqBrief || !Array.isArray(parsedReq.sceneList)) {
+      if (!parsedReq.contentBeforeScenes || !parsedReq.contentAfterScenes || !Array.isArray(parsedReq.sceneList)) {
         throw new Error('需求数据结构不完整')
       }
 
@@ -245,26 +245,194 @@ export default function BookConfirmPage() {
     }
   }
 
+  // 清理场景内容开头的冗余标题和分隔线
+  const cleanSceneContentForDisplay = (sceneName: string, content: string): string => {
+    let cleanedContent = cleanSeparators(content);
+    const lines = cleanedContent.split('\n');
+    let linesToRemove = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) { // Skip empty lines
+          linesToRemove++;
+          continue;
+      }
+
+      // Check 1: Line starting with # and very similar to sceneName
+      if (line.startsWith('#')) {
+          const headingText = line.replace(/^#+\s*/, '').trim();
+           // Also check for number prefix like "1. sceneName"
+          const headingTextWithoutNumber = headingText.replace(/^\d+\.?\s*/, '').trim();
+
+          // Escape sceneName for regex safety, just in case (though includes check is safer)
+          const escapedSceneName = sceneName.replace(/[.*+?^${}()|[\\]]/g, '\\$&');
+
+          if (headingText.includes(sceneName) || sceneName.includes(headingText) || 
+              headingTextWithoutNumber.includes(sceneName) || sceneName.includes(headingTextWithoutNumber)) {
+              linesToRemove++;
+              continue; // Move to next line
+          }
+      }
+
+      // Check 2: Line starting with # or number, looks like a sub-heading/module description
+      // e.g., "3.1 功能模块：...", "## 场景概述"
+      if (line.match(/^#*\s*(\d+(\.\d+)*\.?|场景概述|功能模块[:：])/i)) {
+         linesToRemove++;
+         continue; // Move to next line
+      }
+
+      // Check 3: First *non-empty* content line is very similar to sceneName (and not too long)
+       if (i === linesToRemove && line.length < 80 && !line.startsWith('#')) { // Only check the first actual content line, ensure it's not a heading already checked
+          const titleWords = sceneName.split(/[\s（）()]+/); // Split by space or brackets
+          // Check if most words from the title are present in the line
+          let matchCount = 0;
+          if (titleWords.length > 1) {
+             titleWords.forEach(word => {
+                if (word && line.includes(word)) {
+                   matchCount++;
+                }
+             });
+             // Consider it a match if > 50% of title words are present
+             if (matchCount / titleWords.length > 0.5) {
+               linesToRemove++;
+               continue; // Move to next line
+             }
+          }
+      }
+
+      // If none of the above conditions met for the current line (which is the first non-empty, non-header line), stop checking
+      // We only want to remove initial redundant headers/lines.
+       if(i >= linesToRemove) {
+           break;
+       }
+    }
+
+    // Join the remaining lines
+    cleanedContent = lines.slice(linesToRemove).join('\n').trim();
+
+    return cleanedContent;
+  };
+
   // 生成Markdown格式的需求书
   const generateMarkdown = (req: StructuredRequirement): string => {
-    let md = '# 需求书\n\n'
+    console.log('开始生成需求书，保留原始结构');
     
-    md += '## 需求背景\n\n'
-    md += cleanSeparators(req.reqBackground) + '\n\n'
+    // 步骤1: 分析contentBeforeScenes内容中的场景标题格式
+    const contentBeforeScenes = req.contentBeforeScenes || '';
+    const contentAfterScenes = req.contentAfterScenes || '';
     
-    md += '## 需求概述\n\n'
-    md += cleanSeparators(req.reqBrief) + '\n\n'
+    // 步骤2: 从contentBeforeScenes中查找标题格式
+    // 尝试找出章节标题的层级（通常是##）
+    const headingMatch = contentBeforeScenes.match(/^(#+)\s+(?:[一二三四五六七八九十]+\.?|[0-9]+\.?|[IVXivx]+\.?)?[\s\S]*?$/m);
+    const baseHeadingLevel = headingMatch ? headingMatch[1].length : 2; // 默认使用## 
     
-    md += '## 需求详情\n\n'
+    // 从现有章节标题中分析编号格式
+    const chapterTitles = contentBeforeScenes.match(/^#{2,3}\s+(?:([一二三四五六七八九十]+)\.?|([0-9]+)\.?|([IVXivx]+)\.?)\s+.+$/gm) || [];
+    
+    // 确定需求详述章节的编号
+    let chapterNumber = '';
+    if (chapterTitles.length > 0) {
+      // 查找最后一个章节标题，尝试提取其中的编号格式
+      const lastChapterTitle = chapterTitles[chapterTitles.length - 1];
+      
+      // 检查使用的是哪种编号格式
+      const chineseNumberMatch = lastChapterTitle.match(/^#{2,3}\s+([一二三四五六七八九十]+)\.?\s+/);
+      const arabicNumberMatch = lastChapterTitle.match(/^#{2,3}\s+([0-9]+)\.?\s+/);
+      const romanNumberMatch = lastChapterTitle.match(/^#{2,3}\s+([IVXivx]+)\.?\s+/);
+      
+      if (chineseNumberMatch) {
+        // 使用中文数字编号
+        const chineseNumbers = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
+        const lastNumber = chineseNumbers.indexOf(chineseNumberMatch[1]);
+        if (lastNumber !== -1 && lastNumber < chineseNumbers.length - 1) {
+          chapterNumber = chineseNumbers[lastNumber + 1];
+        } else {
+          chapterNumber = '三'; // 默认
+        }
+      } else if (arabicNumberMatch) {
+        // 使用阿拉伯数字编号
+        const nextNumber = parseInt(arabicNumberMatch[1], 10) + 1;
+        chapterNumber = nextNumber.toString();
+      } else if (romanNumberMatch) {
+        // 使用罗马数字编号
+        const romanNumbers = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x'];
+        const upperRomanNumbers = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+        
+        // 检查是大写还是小写罗马数字
+        const isUpperCase = /[IVX]/.test(romanNumberMatch[1]);
+        const romanList = isUpperCase ? upperRomanNumbers : romanNumbers;
+        
+        const lastNumber = romanList.indexOf(romanNumberMatch[1]);
+        if (lastNumber !== -1 && lastNumber < romanList.length - 1) {
+          chapterNumber = romanList[lastNumber + 1];
+        } else {
+          chapterNumber = isUpperCase ? 'III' : 'iii'; // 默认
+        }
+      } else {
+        chapterNumber = '三'; // 默认使用中文数字
+      }
+    } else {
+      chapterNumber = '三'; // 默认使用中文数字
+    }
+    
+    // 假设场景标题应该比章节标题多一级
+    const sceneHeadingLevel = baseHeadingLevel + 1;
+    
+    // 步骤3: 从contentBeforeScenes中查找场景标题样式
+    // 查找场景标题的格式，例如 "### 1. 场景名称" 或 "### 场景1：XXX"
+    const scenePattern = new RegExp(`^${'^#'.repeat(sceneHeadingLevel)}\\s+(?:\\d+\\.?\\s+)?.*$`, 'gm');
+    const sceneTitles = contentBeforeScenes.match(scenePattern) || [];
+    
+    // 提取场景标题的格式模板
+    let sceneTitleTemplate = '';
+    
+    if (sceneTitles.length > 0) {
+      // 从第一个场景标题中提取格式 - 确保非空
+      const firstSceneTitle: string = sceneTitles[0] || '';
+      
+      // 检查标题中是否包含数字编号
+      if (firstSceneTitle && /\d+/.test(firstSceneTitle)) {
+        // 替换数字和场景名称，保留格式
+        sceneTitleTemplate = firstSceneTitle.replace(/\d+(?:\.?\s+|\.\s*|：|:)/, '{index}. ')
+          .replace(/(?:：|:).*$|(?<=\s)(?!$).+$/, '{name}');
+      } else {
+        // 如果没有数字编号，使用默认格式
+        sceneTitleTemplate = '#'.repeat(sceneHeadingLevel) + ' {index}. {name}';
+      }
+      console.log('已从文档提取场景标题模板:', sceneTitleTemplate);
+    } else {
+      // 默认场景标题格式
+      sceneTitleTemplate = '#'.repeat(sceneHeadingLevel) + ' {index}. {name}';
+      console.log('使用默认场景标题模板:', sceneTitleTemplate);
+    }
+    
+    // 步骤4: 生成新的场景内容
+    let scenesContent = '';
     
     req.sceneList.forEach((scene, index) => {
-      md += `### ${index + 1}. ${scene.sceneName}\n\n`
-      // 确保场景内容没有分隔线
-      const cleanContent = cleanSeparators(scene.content);
-      md += cleanContent + '\n\n'
-    })
+      // 根据模板格式化场景标题
+      // 确保移除场景名称中可能存在的编号前缀
+      const cleanSceneName = scene.sceneName.replace(/^\d+\.?\s+/, '');
+      const formattedTitle = sceneTitleTemplate
+        .replace('{index}', String(index + 1))
+        .replace('{name}', cleanSceneName);
+      
+      // 清理场景内容
+      const cleanedSceneContent = cleanSceneContentForDisplay(scene.sceneName, scene.content);
+      
+      // 添加场景标题和清理后的内容
+      scenesContent += `${formattedTitle}\n\n${cleanedSceneContent}\n\n`;
+    });
     
-    return md
+    // 步骤5: 构建需求详述章节标题
+    const needDetailChapter = `${'#'.repeat(baseHeadingLevel)} ${chapterNumber}. 需求详述\n\n`;
+    
+    // 步骤6: 按正确顺序拼接各部分内容
+    const resultMd = contentBeforeScenes + '\n\n' + needDetailChapter + scenesContent + contentAfterScenes;
+    
+    console.log('需求书生成完成，总长度:', resultMd.length);
+    
+    return resultMd;
   }
 
   if (!requirement) {
@@ -310,83 +478,36 @@ export default function BookConfirmPage() {
 
       <Card>
         <CardContent className="space-y-6 pt-6">
-          <div>
-            <h3 className="text-lg font-semibold mb-2">需求背景</h3>
-            <div className="text-sm">
-              <ReactMarkdown 
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  h1: ({children}) => <h1 className="text-xl font-bold mb-2 pb-1 border-b">{children}</h1>,
-                  h2: ({children}) => <h2 className="text-lg font-semibold mb-2 mt-3">{children}</h2>,
-                  h3: ({children}) => <h3 className="text-base font-medium mb-1 mt-2">{children}</h3>,
-                  p: ({children}) => <p className="text-gray-600 my-1 leading-normal text-sm">{children}</p>,
-                  ul: ({children}) => <ul className="list-disc pl-4 my-1 space-y-0.5">{children}</ul>,
-                  ol: ({children}) => <ol className="list-decimal pl-4 my-1 space-y-0.5">{children}</ol>,
-                  li: ({children}) => <li className="text-gray-600 text-sm">{children}</li>,
-                  blockquote: ({children}) => <blockquote className="border-l-4 border-gray-300 pl-3 my-1 italic text-sm">{children}</blockquote>,
-                  code: ({children}) => <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{children}</code>
-                }}
-              >
-                {cleanSeparators(requirement.reqBackground)}
-              </ReactMarkdown>
-            </div>
-          </div>
-          
-          <div>
-            <h3 className="text-lg font-semibold mb-2">需求概述</h3>
-            <div className="text-sm">
-              <ReactMarkdown 
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  h1: ({children}) => <h1 className="text-xl font-bold mb-2 pb-1 border-b">{children}</h1>,
-                  h2: ({children}) => <h2 className="text-lg font-semibold mb-2 mt-3">{children}</h2>,
-                  h3: ({children}) => <h3 className="text-base font-medium mb-1 mt-2">{children}</h3>,
-                  p: ({children}) => <p className="text-gray-600 my-1 leading-normal text-sm">{children}</p>,
-                  ul: ({children}) => <ul className="list-disc pl-4 my-1 space-y-0.5">{children}</ul>,
-                  ol: ({children}) => <ol className="list-decimal pl-4 my-1 space-y-0.5">{children}</ol>,
-                  li: ({children}) => <li className="text-gray-600 text-sm">{children}</li>,
-                  blockquote: ({children}) => <blockquote className="border-l-4 border-gray-300 pl-3 my-1 italic text-sm">{children}</blockquote>,
-                  code: ({children}) => <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{children}</code>
-                }}
-              >
-                {cleanSeparators(requirement.reqBrief)}
-              </ReactMarkdown>
-            </div>
-          </div>
-          
-          <div>
-            <h3 className="text-lg font-semibold mb-4">场景列表</h3>
-            <div className="space-y-6">
-              {requirement.sceneList.map((scene, index) => (
-                <Card key={index} className="border-gray-200">
-                  <CardHeader>
-                    <CardTitle className="text-base">
-                      {index + 1}. {scene.sceneName}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-sm">
-                      <ReactMarkdown 
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          h1: ({children}) => <h1 className="text-xl font-bold mb-2 pb-1 border-b">{children}</h1>,
-                          h2: ({children}) => <h2 className="text-lg font-semibold mb-2 mt-3">{children}</h2>,
-                          h3: ({children}) => <h3 className="text-base font-medium mb-1 mt-2">{children}</h3>,
-                          p: ({children}) => <p className="text-gray-600 my-1 leading-normal text-sm">{children}</p>,
-                          ul: ({children}) => <ul className="list-disc pl-4 my-1 space-y-0.5">{children}</ul>,
-                          ol: ({children}) => <ol className="list-decimal pl-4 my-1 space-y-0.5">{children}</ol>,
-                          li: ({children}) => <li className="text-gray-600 text-sm">{children}</li>,
-                          blockquote: ({children}) => <blockquote className="border-l-4 border-gray-300 pl-3 my-1 italic text-sm">{children}</blockquote>,
-                          code: ({children}) => <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{children}</code>
-                        }}
-                      >
-                        {cleanSeparators(scene.content)}
-                      </ReactMarkdown>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+          <div className="prose max-w-none">
+            <ReactMarkdown 
+              remarkPlugins={[remarkGfm]}
+              components={{
+                h1: ({node, ...props}) => <h1 className="text-xl font-bold mb-3 pb-1 border-b" {...props} />,
+                h2: ({node, ...props}) => <h2 className="text-lg font-semibold mb-2 mt-4" {...props} />,
+                h3: ({node, ...props}) => <h3 className="text-base font-medium mb-1 mt-3" {...props} />,
+                p: ({node, ...props}) => <p className="text-gray-700 my-2 leading-relaxed text-sm" {...props} />,
+                ul: ({node, ...props}) => <ul className="list-disc pl-5 my-2 space-y-1" {...props} />,
+                ol: ({node, ...props}) => <ol className="list-decimal pl-5 my-2 space-y-1" {...props} />,
+                li: ({node, ...props}) => <li className="text-gray-700 text-sm" {...props} />,
+                blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-gray-300 pl-4 my-2 italic text-sm text-gray-600" {...props} />,
+                code: ({node, inline, className, children, ...props}) => {
+                  const match = /language-(\w+)/.exec(className || '')
+                  return !inline ? (
+                    // Proper code block styling needed here if you expect code blocks
+                    <pre className={`${className} bg-gray-100 rounded p-2 text-sm overflow-x-auto`} {...props}>
+                      <code>{children}</code>
+                    </pre>
+                  ) : (
+                    <code className={`${className} bg-gray-100 rounded px-1 py-0.5 text-xs font-mono`} {...props}>
+                      {children}
+                    </code>
+                  )
+                },
+                // Add other elements like table, strong, em etc. if needed
+              }}
+            >
+              {generateMarkdown(requirement)} 
+            </ReactMarkdown>
           </div>
         </CardContent>
       </Card>

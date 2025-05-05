@@ -220,8 +220,8 @@ export class RequirementBookService {
    */
   private static adaptToRequirementData(parsedRequirement: RequirementParseResult): RequirementData {
     return {
-      reqBackground: parsedRequirement.reqBackground,
-      reqBrief: parsedRequirement.reqBrief,
+      reqBackground: parsedRequirement.contentBeforeScenes,
+      reqBrief: parsedRequirement.contentAfterScenes,
       scenes: parsedRequirement.scenes
     }
   }
