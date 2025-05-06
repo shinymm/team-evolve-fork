@@ -45,6 +45,7 @@ export default function BookWritingPage() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isEditorReady, setIsEditorReady] = useState(false);
   const [isAiProcessing, setIsAiProcessing] = useState(false); // AI 处理状态
+  const [isTemplateLoading, setIsTemplateLoading] = useState(false); // 新增：模板加载状态
 
   // Get data from Zustand stores
   const { selectedSystemId } = useSystemStore();
@@ -238,7 +239,43 @@ export default function BookWritingPage() {
     toast({ title: "下载开始", description: `正在下载 ${a.download}` });
 
   }, [markdownContent, selectedSystemId, currentSystem, toast]);
-  // --- End New Handlers ---
+
+  // 新增：加载模板的处理函数
+  const handleLoadTemplate = useCallback(async () => {
+    if (!selectedSystemId) {
+      toast({ title: "无法加载", description: "请先选择一个系统。", variant: "destructive" });
+      return;
+    }
+    setIsTemplateLoading(true);
+    try {
+      const response = await fetch(`/api/requirement-templates?systemId=${selectedSystemId}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `API Error: ${response.status}`);
+      }
+      const { template } = await response.json();
+
+      if (template && template.content) {
+        setMarkdownContent(template.content);
+        if (editor && !editor.isDestroyed) {
+          const htmlContent = md.render(template.content);
+          // 使用setContent并触发更新，以便同步状态
+          editor.commands.setContent(htmlContent, true); 
+        }
+        toast({ title: "加载成功", description: "已加载需求书模板。" });
+      } else {
+        toast({ title: "提示", description: "未找到该系统的需求书模板。", variant: "default" });
+        // 可选：如果未找到模板，是否清空内容？目前不清空
+        // setMarkdownContent("");
+        // editor?.commands.clearContent(true);
+      }
+    } catch (error: any) {
+      console.error("Failed to load requirement template:", error);
+      toast({ title: "加载失败", description: error.message || "获取需求书模板时发生错误。", variant: "destructive" });
+    } finally {
+      setIsTemplateLoading(false);
+    }
+  }, [selectedSystemId, toast, editor]); // 添加 editor 依赖
 
   return (
     <div className="mx-auto py-6 w-[90%] space-y-6 flex flex-col h-[calc(100vh-3.5rem)]">
@@ -250,7 +287,18 @@ export default function BookWritingPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={handleLoadInitialDraft} variant="outline" disabled={isAiProcessing || !selectedSystemId}>
+          <Button 
+             onClick={handleLoadTemplate} 
+             variant="outline" 
+             disabled={isAiProcessing || isTemplateLoading || !selectedSystemId}
+           >
+            {isTemplateLoading ? "加载中..." : "加载需求模板"}
+          </Button>
+          <Button 
+             onClick={handleLoadInitialDraft} 
+             variant="outline" 
+             disabled={isAiProcessing || isTemplateLoading || !selectedSystemId} // 也禁用此按钮在模板加载时
+          >
             加载需求初稿
           </Button>
           <Button 

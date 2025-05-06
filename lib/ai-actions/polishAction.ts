@@ -1,5 +1,5 @@
 import { Editor } from '@tiptap/react';
-import { PromptAction, FacetType, OutputForm } from '@studio-b3/web-core';
+import { PromptAction, FacetType, OutputForm, ChangeForm } from '@studio-b3/web-core';
 
 // 类型定义，用于 toast 函数参数
 type ToastFunction = (options: {
@@ -70,9 +70,10 @@ export const polishBubbleAction = (
   setMarkdownContent: (content: string) => void,
   toast: ToastFunction
 ): PromptAction => ({
-  name: "润色",
+  name: "润色（new）",
   i18Name: false,
   template: '',
+  changeForm: ChangeForm.INSERT,
   facetType: FacetType.BUBBLE_MENU,
   outputForm: OutputForm.TEXT,
   // 使用 as any 绕过 action 函数参数的类型检查
