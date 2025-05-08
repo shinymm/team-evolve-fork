@@ -99,3 +99,54 @@
   font-style: normal;
   font-display: swap;
 }
+
+/* AutoDev Editor 自定义样式 */
+.bb-editor-inner .ProseMirror .bb-selected-mark,
+.bb-editor-inner .ProseMirror mark.bb-selected-mark {
+  background-color: rgba(255, 166, 77, 0.2) !important;
+  color: inherit !important;
+}
+
+/* 修改按钮样式 */
+.bb-advice-view .advice-item .advice-header .advice-action-btns button.reject-btn,
+[class*="reject-btn"] {
+  background-color: #000000 !important;
+  color: white !important;
+  border: none !important;
+}
+
+.bb-advice-view .advice-item .advice-header .advice-action-btns button.accept-btn,
+[class*="accept-btn"] {
+  background-color: #FF8C00 !important;
+  color: white !important;
+  border: none !important;
+}
+
+/* 更通用的选择器，增加覆盖几率 */
+button[class*="reject"] {
+  background-color: #000000 !important;
+  color: white !important;
+}
+
+button[class*="accept"] {
+  background-color: #FF8C00 !important;
+  color: white !important;
+}
+
+/* 最高优先级的样式覆盖 */
+:where(html) [class*="reject"] {
+  background-color: #000000 !important;
+  color: white !important;
+}
+
+:where(html) [class*="accept"] {
+  background-color: #FF8C00 !important;
+  color: white !important;
+}
+
+/* 针对选中文本的额外尝试 */
+.ProseMirror mark,
+.ProseMirror .selected-text,
+.ProseMirror *[data-selected="true"] {
+  background-color: rgba(255, 166, 77, 0.2) !important;
+}

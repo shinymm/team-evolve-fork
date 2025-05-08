@@ -1,366 +1,362 @@
-'use client'
+"use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import React, { useState, useEffect } from "react";
+import { ArticlePrompts, setupExtensions, PromptsManager, MenuBubble, AiActionExecutor, ToolbarMenu, AdviceView, OutputForm, ChangeForm, FacetType, PromptAction } from "@studio-b3/web-core";
+import { Editor, EditorContent, useEditor } from "@tiptap/react";
+import MarkdownIt from "markdown-it";
+import { useDebounce } from "use-debounce";
+import { Theme } from "@radix-ui/themes";
+import { DOMSerializer } from "prosemirror-model";
+import TurndownService from "turndown";
+import { Markdown } from "tiptap-markdown";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-// import { Textarea } from "@/components/ui/textarea"; // 将被 Tiptap 替代
 import { useToast } from "@/components/ui/use-toast";
-import { Toaster } from "@/components/ui/toaster";
+import { useSearchParams } from "next/navigation";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
-// 1. 导入 Tiptap 和 Studio B3 相关依赖
-import { useEditor, EditorContent, Editor } from '@tiptap/react';
-import { Markdown } from 'tiptap-markdown';
-import MarkdownIt from 'markdown-it';
-import {
-  AiActionExecutor,
-  PromptsManager,
-  setupExtensions,
-  ToolbarMenu,
-  MenuBubble,
-  AdviceView,
-  // 导入可能需要的类型，根据实际使用情况调整
-  PromptAction,
-  FacetType,
-  OutputForm,
-} from '@studio-b3/web-core';
+const md = new MarkdownIt();
 
-// 假设 Studio B3 的 CSS 需要导入 (如果它提供了单独的 CSS 文件)
-// import '@studio-b3/web-core/styles.css';
+interface CustomEditorAction {
+  name: string;
+  action?: (editor: Editor) => Promise<void>;
+}
 
-const md = new MarkdownIt({ html: true });
+// 自定义样式覆盖 - 只针对关键样式
+const customStyles = `
+  /* 浅橙色高亮 - 针对my-advice和其他可能的高亮元素 */
+  .my-advice,
+  mark.my-advice,
+  mark[class*="advice"],
+  mark {
+    background-color: rgba(255, 166, 77, 0.2) !important;
+    color: inherit !important;
+  }
 
-// 不再需要自定义接口，使用 PromptAction
-// interface CustomBubbleAction { ... }
+  /* 基于文本内容的高特异性选择器 */
+  .flex button:has(text="Reject") {
+    background-color: #000000 !important;
+  }
 
-// Zustand stores
-import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store';
-import { useSystemStore } from '@/lib/stores/system-store';
-
-// 1. 导入新的 Action 文件
-import { polishBubbleAction } from '@/lib/ai-actions/polishAction';
+  .flex button:has(text="Accept") {
+    background-color: #FF8C00 !important;
+  }
+`;
 
 export default function BookWritingPage() {
+  const [markdownContent, setMarkdownContent] = useState<string>("");
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [templateContent, setTemplateContent] = useState("");
   const { toast } = useToast();
-  const [markdownContent, setMarkdownContent] = useState<string>("## 需求书\n\n请选中一段文字试试 **润色** 功能。");
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isEditorReady, setIsEditorReady] = useState(false);
-  const [isAiProcessing, setIsAiProcessing] = useState(false);
-  const [isTemplateLoading, setIsTemplateLoading] = useState(false);
+  const searchParams = useSearchParams();
+  
+  // 获取当前系统ID，从URL参数中获取
+  const systemId = searchParams.get('systemId') || "";
 
-  // Get data from Zustand stores
-  const { selectedSystemId } = useSystemStore();
-  const systems = useSystemStore(state => state.systems);
-  const currentSystem = systems.find(sys => sys.id === selectedSystemId);
-  const { 
-    systemRequirements,
-    currentSystemId, // Needed for comparison in scene-analysis, maybe useful here?
-    setCurrentSystem // Maybe useful if system changes
-  } = useRequirementAnalysisStore();
+  const actionExecutor: AiActionExecutor = new AiActionExecutor();
+  actionExecutor.setEndpointUrl("/api/ai-editor-action/chat");
 
-  // 2. 实例化 Studio B3 核心组件
-  const actionExecutor = useMemo(() => new AiActionExecutor(), []);
-  const promptsManager = useMemo(() => PromptsManager.getInstance(), []);
-
-  // 设置 AI 后端接口为新的通用端点
-  useEffect(() => {
-    actionExecutor.setEndpointUrl("/api/ai-editor-action/chat"); 
-  }, [actionExecutor]);
-
-  // 注册自定义动作到 PromptsManager
-  useEffect(() => {
-    // 假设 PromptsManager 有 addAction 方法
-    // 如果没有，需要查找正确的注册方法，例如 updateActionsMap
-    try {
-      // 检查方法是否存在避免运行时错误
-      if (typeof (promptsManager as any).addAction === 'function') {
-         (promptsManager as any).addAction(polishBubbleAction);
-         console.log("Polish action registered with PromptsManager via addAction.");
-      } else {
-         console.warn("PromptsManager does not have addAction method. Action might not be fully registered for variable processing.");
-         // 备选方案：尝试使用 updateActionsMap (但这通常用于替换整个集合)
-         // const existingActions = promptsManager.getActions("bubble") || []; // 假设有 getActions
-         // promptsManager.updateActionsMap("bubble", [...existingActions, polishBubbleAction]);
+  const instance = PromptsManager.getInstance();
+  
+  // 添加一些适合需求书撰写的自定义动作
+  const customSlashActions: CustomEditorAction[] = [
+    {
+      name: "添加需求描述",
+      action: async (editor: Editor) => {
+        editor.chain().focus().insertContent("## 需求描述\n\n请在此处描述需求的详细信息。\n\n").run();
       }
-    } catch (e) {
-       console.error("Error registering action with PromptsManager:", e); 
+    },
+    {
+      name: "添加用户故事",
+      action: async (editor: Editor) => {
+        editor.chain().focus().insertContent("## 用户故事\n\n作为一个[角色]，我想要[功能]，以便[价值]。\n\n").run();
+      }
+    },
+    {
+      name: "添加验收标准",
+      action: async (editor: Editor) => {
+        editor.chain().focus().insertContent("## 验收标准\n\n- [ ] 标准1\n- [ ] 标准2\n- [ ] 标准3\n\n").run();
+      }
     }
+  ];
 
-  }, [promptsManager]); // 仅在 promptsManager 实例创建时运行
+  // 将自定义操作转换为PromptAction格式
+  const customActionsMap: PromptAction[] = customSlashActions.map((action) => {
+    return {
+      name: action.name,
+      i18Name: false,
+      template: ``,
+      facetType: FacetType.SLASH_COMMAND,
+      outputForm: OutputForm.TEXT,
+      action: action.action
+    };
+  });
 
-  // 3. 初始化 Tiptap 编辑器实例，集成 Studio B3
+  instance.updateActionsMap("article", [...ArticlePrompts, ...customActionsMap]);
+
+  // 简单的CSS注入函数
+  const injectCustomStyles = () => {
+    let styleEl = document.getElementById("autodev-editor-custom-styles");
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.id = "autodev-editor-custom-styles";
+      styleEl.innerHTML = customStyles;
+      document.head.appendChild(styleEl);
+    }
+  };
+
   const editor = useEditor({
-    extensions: [
-      // 使用 setupExtensions 替代 StarterKit
-      ...setupExtensions(promptsManager, actionExecutor),
-      // 添加 Markdown 支持
+    extensions: setupExtensions(instance, actionExecutor).concat([
       Markdown.configure({
-        html: true, // Tiptap Markdown 扩展是否处理 HTML 标签
-        tightLists: true,
-        tightListClass: 'tight',
-        bulletListMarker: '-',
-        linkify: true,
-        breaks: true, // 解析换行符
-        // transformPastedText: true, // 示例中有，可以按需启用
-        // transformCopiedText: true, // 示例中有，可以按需启用
+        transformPastedText: true,
+        transformCopiedText: false,
       }),
-    ],
-    // 使用 markdown-it 渲染初始内容
-    content: '', // 初始设为空，在 useEffect 中设置
+    ]),
+    content: md.render("# 需求书\n\n开始编写您的需求书..."),
+    immediatelyRender: false,
     editorProps: {
       attributes: {
-        // 应用 Tailwind typography 或自定义样式
-        class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none focus:outline-none',
+        class: "prose lg:prose-xl bb-editor-inner p-4",
       },
     },
     onUpdate: ({ editor }) => {
-      // 4. 当编辑器内容更新时，尝试获取 Markdown 并更新状态
+      const schema = editor.state.schema;
       try {
-        const markdown = editor.storage.markdown.getMarkdown();
+        const serializer = DOMSerializer.fromSchema(schema);
+        const serialized = serializer.serializeFragment(editor.state.doc.content);
+
+        const html: string = Array.from(serialized.childNodes)
+          .map((node: ChildNode) => (node as HTMLElement).outerHTML)
+          .join("");
+
+        const turndownService = new TurndownService();
+        const markdown = turndownService.turndown(html);
         setMarkdownContent(markdown);
-        console.log("Editor Updated (Markdown):", markdown);
-      } catch (error) {
-        console.error("Error getting markdown from editor:", error);
-        // 备选：如果 getMarkdown 失败，可以尝试获取 HTML
-        // const html = editor.getHTML();
-        // console.log("Editor Updated (HTML fallback):", html);
-        // TODO: 如果需要，这里需要 HTML -> Markdown 的转换逻辑
+      } catch (e) {
+        console.error(e);
       }
     },
-    onCreate: ({ editor }) => {
-       // 从 onCreate 移除 setEditor 调用
-       // actionExecutor.setEditor(editor as any);
-       setIsEditorReady(true);
-       console.log("Editor created.");
-    }
   });
 
-  // 新增 useEffect：当 editor 实例准备好后，设置给 actionExecutor
-  useEffect(() => {
-    if (editor && !editor.isDestroyed && isEditorReady) {
-      // 确保 editor 存在、未销毁且已准备好
-      actionExecutor.setEditor(editor as any);
-      console.log("AiActionExecutor editor has been set.");
-    } 
-    // 添加清理函数，虽然 AiActionExecutor 可能没有明确的 unsetEditor 方法
-    // return () => {
-    //   console.log("Cleaning up editor reference in AiActionExecutor?");
-    //   // 如果 AiActionExecutor 有清理方法，可以在这里调用
-    // };
-  }, [editor, isEditorReady, actionExecutor]); // 依赖 editor, isEditorReady 和 actionExecutor 实例
-
-  // 处理初始内容加载和外部 markdownContent 变化
-  useEffect(() => {
-    if (editor && isEditorReady && !editor.isDestroyed && markdownContent !== editor.storage.markdown.getMarkdown()) {
-        if (!editor.isFocused) { // 仅在编辑器未聚焦时更新
-            console.log("Setting editor content from state...")
-            // 使用 markdown-it 渲染 Markdown 为 HTML 设置给编辑器
-            // 注意：这可能会覆盖 Studio B3 的内部状态，需要测试
-            const htmlContent = md.render(markdownContent);
-            editor.commands.setContent(htmlContent, false); // false 表示不触发 onUpdate
-        }
+  // 加载需求模版函数
+  const loadRequirementTemplate = async () => {
+    if (!systemId) {
+      toast({
+        title: "错误",
+        description: "未找到系统ID，无法加载模版",
+        variant: "destructive",
+      });
+      return;
     }
-  }, [markdownContent, editor, isEditorReady]);
 
-  // 组件卸载时销毁编辑器实例
+    try {
+      const response = await fetch(`/api/requirement-templates?systemId=${systemId}`);
+      
+      if (!response.ok) {
+        throw new Error(`获取模版失败: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.template && data.template.content) {
+        // 存储模版内容并显示确认弹窗
+        setTemplateContent(data.template.content);
+        setShowConfirmDialog(true);
+      } else {
+        toast({
+          title: "提示",
+          description: "未找到该系统的需求模版",
+        });
+      }
+    } catch (error) {
+      console.error("加载需求模版失败:", error);
+      toast({
+        title: "错误",
+        description: "加载需求模版失败，请重试",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // 确认加载模版到编辑器
+  const confirmLoadTemplate = () => {
+    if (editor && templateContent) {
+      editor.commands.setContent(md.render(templateContent));
+      toast({
+        title: "成功",
+        description: "已加载需求模版",
+      });
+    }
+    setShowConfirmDialog(false);
+  };
+
+  const [debouncedEditor] = useDebounce(editor?.state.doc.content, 5000);
+
+  // 在组件挂载后注入样式
   useEffect(() => {
+    // 注入CSS样式
+    injectCustomStyles();
+    
     return () => {
-      editor?.destroy();
+      // 清理：可选
+      const styleEl = document.getElementById("autodev-editor-custom-styles");
+      if (styleEl) {
+        styleEl.remove();
+      }
     };
+  }, []);
+
+  React.useEffect(() => {
+    if (debouncedEditor) {
+      try {
+        localStorage.setItem("requirement-editor", JSON.stringify(editor?.getJSON()));
+        console.info("需求书已保存到本地存储");
+      } catch (e) {
+        console.error("保存到本地存储时出错:", e);
+      }
+    }
+  }, [debouncedEditor, editor]);
+
+  React.useEffect(() => {
+    if (editor) {
+      actionExecutor.setEditor(editor);
+    }
+
+    // 从本地存储恢复内容
+    const content = localStorage.getItem("requirement-editor");
+    if (content && editor) {
+      try {
+        const parsed = JSON.parse(content);
+        editor.commands.setContent(parsed);
+      } catch (e) {
+        console.error(e);
+      }
+    }
   }, [editor]);
 
-  // 3. 更新 customBubbleActions 的 useMemo
-  const customBubbleActions: PromptAction[] = useMemo(() => [
-    // 直接使用导入的 polishBubbleAction 对象
-    polishBubbleAction, 
-    // 未来可以添加更多从其他文件导入的 Action 对象
-    // import { summarizeBubbleAction } from '@/lib/ai-actions/summarizeAction';
-    // summarizeBubbleAction,
-  ], []); // 移除 toast 等依赖
+  // 自定义气泡菜单操作
+  const customBubbleActions: CustomEditorAction[] = [
+    {
+      name: "优化表述",
+      action: async (editor: Editor) => {
+        const { from, to } = editor.state.selection;
+        const selectedText = editor.state.doc.textBetween(from, to);
+        if (!selectedText) return;
 
-  const handleImport = () => {
-    // TODO: 实现导入逻辑，更新 markdownContent 状态
-    const importedMd = `# 示例文本\n\n这是**一段**需要润色的示例文本，你可以选中它，然后在弹出的菜单中选择"润色"来测试这个功能。
-
-人工智能（AI）正在改变世界。它的应用范围从自动驾驶汽车到个性化医疗，无所不包。我们必须理解它的潜力与风险。`;
-    // 直接命令编辑器更新内容，而不是通过状态，避免冲突
-    if(editor && !editor.isDestroyed) {
-      const htmlContent = md.render(importedMd);
-      editor.commands.setContent(htmlContent, true); // true 触发 onUpdate 同步状态
-      setMarkdownContent(importedMd); // 也更新状态
-    }
-    toast({
-      title: "内容已导入 (示例)",
-      description: "编辑器内容已更新为导入的示例 Markdown。",
-      duration: 3000
-    });
-  };
-
-  const handleSave = () => {
-    setIsLoading(true);
-    // 直接使用当前的 markdownContent 状态保存
-    console.log("准备保存的内容 (Markdown):", markdownContent);
-    toast({
-      title: "保存中...",
-      description: "正在保存需求书内容（功能待实现）。",
-      duration: 2000
-    });
-    setTimeout(() => {
-      console.log("保存的内容:", markdownContent);
-      setIsLoading(false);
-      toast({
-        title: "保存成功",
-        description: "需求书内容已模拟保存（Markdown格式）。",
-        duration: 3000
-      });
-    }, 1500);
-  };
-
-  // --- New Handlers --- 
-  const handleLoadInitialDraft = useCallback(() => {
-    if (!selectedSystemId) {
-      toast({ title: "无法加载", description: "请先选择一个系统。", variant: "destructive" });
-      return;
-    }
-    const systemData = systemRequirements[selectedSystemId];
-    if (!systemData) {
-      toast({ title: "无法加载", description: "未找到所选系统的需求数据。", variant: "destructive" });
-      return;
-    }
-    
-    const draftContent = systemData.isRequirementBookPinned 
-                         ? systemData.pinnedRequirementBook 
-                         : systemData.requirementBook;
-
-    if (!draftContent) {
-      toast({ title: "提示", description: "未找到该系统的需求初稿内容。", variant: "default" });
-      setMarkdownContent(""); // Clear content if no draft found
-    } else {
-      setMarkdownContent(draftContent);
-      toast({ title: "加载成功", description: "已加载需求初稿内容。" });
-    }
-  }, [selectedSystemId, systemRequirements, toast]);
-
-  const handleClearContent = useCallback(() => {
-    setMarkdownContent("");
-    if (editor) {
-        // Also clear the editor directly in case state update is slow
-        editor.commands.clearContent(true); 
-    }
-    toast({ title: "已清空", description: "编辑器内容已清空。" });
-  }, [toast, editor]);
-
-  const handleDownload = useCallback(() => {
-    if (!markdownContent.trim()) {
-      toast({ title: "无法下载", description: "编辑器内容为空。", variant: "destructive" });
-      return;
-    }
-
-    const blob = new Blob([markdownContent], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const systemName = currentSystem?.name || selectedSystemId || '未知系统';
-    a.download = `需求书编辑稿_${systemName}.md`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    toast({ title: "下载开始", description: `正在下载 ${a.download}` });
-
-  }, [markdownContent, selectedSystemId, currentSystem, toast]);
-
-  // 新增：加载模板的处理函数
-  const handleLoadTemplate = useCallback(async () => {
-    if (!selectedSystemId) {
-      toast({ title: "无法加载", description: "请先选择一个系统。", variant: "destructive" });
-      return;
-    }
-    setIsTemplateLoading(true);
-    try {
-      const response = await fetch(`/api/requirement-templates?systemId=${selectedSystemId}`);
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `API Error: ${response.status}`);
-      }
-      const { template } = await response.json();
-
-      if (template && template.content) {
-        setMarkdownContent(template.content);
-        if (editor && !editor.isDestroyed) {
-          const htmlContent = md.render(template.content);
-          // 使用setContent并触发更新，以便同步状态
-          editor.commands.setContent(htmlContent, true); 
+        try {
+          const response = await fetch("/api/ai-editor-action/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prompt: `优化以下需求表述，使其更清晰、准确、无歧义。直接返回优化后的文本，不要添加解释或JSON格式：\n\n${selectedText}`
+            }),
+          });
+          
+          if (!response.ok) throw new Error("请求失败");
+          
+          const data = await response.json();
+          if (data.result) {
+            // 直接替换选中的内容而不是插入新内容
+            editor.chain().focus().deleteSelection().insertContent(data.result).run();
+          }
+        } catch (error) {
+          console.error("优化表述失败:", error);
         }
-        toast({ title: "加载成功", description: "已加载需求书模板。" });
-      } else {
-        toast({ title: "提示", description: "未找到该系统的需求书模板。", variant: "default" });
-        // 可选：如果未找到模板，是否清空内容？目前不清空
-        // setMarkdownContent("");
-        // editor?.commands.clearContent(true);
       }
-    } catch (error: any) {
-      console.error("Failed to load requirement template:", error);
-      toast({ title: "加载失败", description: error.message || "获取需求书模板时发生错误。", variant: "destructive" });
-    } finally {
-      setIsTemplateLoading(false);
+    },
+    {
+      name: "生成示例",
+      action: async (editor: Editor) => {
+        const { from, to } = editor.state.selection;
+        const selectedText = editor.state.doc.textBetween(from, to);
+        if (!selectedText) return;
+
+        try {
+          const response = await fetch("/api/ai-editor-action/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prompt: `为以下需求生成一个具体的实例或示例。直接返回示例文本，不要添加解释或JSON格式：\n\n${selectedText}`
+            }),
+          });
+          
+          if (!response.ok) throw new Error("请求失败");
+          
+          const data = await response.json();
+          if (data.result) {
+            // 插入内容到选中文本之后
+            editor.chain().focus().setTextSelection({ from: to, to }).insertContent(`\n\n**示例：**\n${data.result}`).run();
+          }
+        } catch (error) {
+          console.error("生成示例失败:", error);
+        }
+      }
     }
-  }, [selectedSystemId, toast, editor]); // 添加 editor 依赖
+  ];
+
+  // 使用any类型暂时解决类型不匹配问题
+  const getCustomBubbleActions = () => customBubbleActions.map((action) => {
+    return {
+      name: action.name,
+      template: "",
+      facetType: FacetType.BUBBLE_MENU,
+      changeForm: ChangeForm.REPLACE, // 使用REPLACE替代DIFF来避免JSON显示
+      outputForm: OutputForm.TEXT, // 使用TEXT而不是STREAMING可能有助于避免JSON格式
+      action: action.action
+    } as any;
+  });
 
   return (
-    <div className="mx-auto py-6 w-[90%] space-y-6 flex flex-col h-[calc(100vh-3.5rem)]">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">需求书撰写 (PRO) - Studio B3</h1>
-          <p className="text-xs text-muted-foreground mt-1">
-            使用 Studio B3 AI 增强编辑器自由撰写和修改需求书。
-          </p>
-        </div>
-        <div className="flex gap-2">
+    <div className="container mx-auto py-6">
+      {/* 注入自定义样式 */}
+      <style dangerouslySetInnerHTML={{ __html: customStyles }} />
+      
+      <Card className="w-full">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>需求书撰写</CardTitle>
+            <CardDescription>使用AutoDev Editor辅助撰写需求文档</CardDescription>
+          </div>
           <Button 
-             onClick={handleLoadTemplate} 
-             variant="outline" 
-             disabled={isAiProcessing || isTemplateLoading || !selectedSystemId || !editor?.isEditable}
-           >
-            {isTemplateLoading ? "加载中..." : "加载需求模板"}
-          </Button>
-          <Button 
-             onClick={handleLoadInitialDraft} 
-             variant="outline" 
-             disabled={isAiProcessing || isTemplateLoading || !selectedSystemId || !editor?.isEditable}
+            onClick={loadRequirementTemplate}
+            disabled={!systemId}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
           >
-            加载需求初稿
+            加载需求模版
           </Button>
-          <Button 
-            onClick={handleClearContent} 
-            className="bg-orange-500 hover:bg-orange-600"
-            disabled={isAiProcessing || !markdownContent || !editor?.isEditable}
-          >
-            清空内容
-          </Button>
-          <Button onClick={handleDownload} disabled={isLoading || isAiProcessing || !editor || !isEditorReady || !markdownContent || !editor?.isEditable}>
-            下载内容
-          </Button>
-        </div>
-      </div>
-
-      {/* 5. 渲染 Studio B3 编辑器及相关 UI 组件 */}
-      <Card className="flex-1 flex flex-col overflow-hidden border border-gray-300 rounded-lg shadow-sm">
-        {/* 工具栏 */} 
-        {editor && <ToolbarMenu editor={editor as any} className="p-2 border-b bg-gray-50" />}
-
-        {/* 编辑器内容区域 */} 
-        <CardContent className="flex-1 overflow-y-auto p-0 relative">
-            <EditorContent editor={editor} className={`h-full p-4 ${isAiProcessing ? 'opacity-50 cursor-wait' : ''}`}/>
-            {/* 传递 customActions */} 
-            {editor && <MenuBubble editor={editor as any} customActions={customBubbleActions} />} 
+        </CardHeader>
+        <CardContent>
+          <Theme className="w-full flex editor-block">
+            <div className="w-full editor-section">
+              <div className="editor-main bg-white border rounded-md">
+                {editor && <ToolbarMenu className="toolbar-menu" editor={editor as any} />}
+                <EditorContent editor={editor} />
+                <div>{editor && <MenuBubble editor={editor as any} customActions={getCustomBubbleActions()} />}</div>
+              </div>
+            </div>
+            <div className="h-auto">
+              {editor && <AdviceView editor={editor as any} />}
+            </div>
+          </Theme>
         </CardContent>
-
-        {/* AI 建议视图 (如果需要) */} 
-        {/* {editor && <AdviceView editor={editor} />} */} 
       </Card>
-
-      <Toaster />
+      
+      {/* 确认覆盖内容的对话框 */}
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认加载模版</AlertDialogTitle>
+            <AlertDialogDescription>
+              加载模版将覆盖当前编辑器中的所有内容，确定要继续吗？
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmLoadTemplate}>确认</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
-} 
+}
+

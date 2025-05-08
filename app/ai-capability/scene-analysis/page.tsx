@@ -1097,14 +1097,9 @@ export default function SceneAnalysisPage() {
 
   const handleAcceptOptimize = async (scene: Scene, index: number) => {
     const state = sceneStates[scene.name]
-    if (!state?.taskId || !content || !state.optimizeResult) return
+    if (!state || !content || !state.optimizeResult) return
 
     try {
-      // 更新任务状态
-      await updateTask(state.taskId, {
-        status: 'completed'
-      })
-
       // 清理优化后的内容中的分隔线
       const cleanedContent = cleanSeparators(state.optimizeResult);
 
@@ -1130,17 +1125,17 @@ export default function SceneAnalysisPage() {
         localStorage.setItem('requirement-structured-content', JSON.stringify(updatedContent))
       }
 
-      // 重置场景状态
+      // Restore state reset logic as per user clarification
       const updatedStates = {
         ...sceneStates,
         [scene.name]: {
-          taskId: state.taskId,
+          taskId: state.taskId, // Preserve the taskId from the optimization initiation
           isOptimizing: false,
           isOptimizeConfirming: false,
-          optimizeResult: undefined,  // 清空优化结果
-          isHideOriginal: false,  // 重置隐藏原始内容的标志
-          analysisResult: undefined,  // 清空边界分析结果
-          isCompleted: false  // 重置完成状态
+          optimizeResult: undefined,  // Clear optimizeResult as it's now in scene.content
+          isHideOriginal: false,      // Reset hide original flag
+          analysisResult: undefined,  // Clear boundary analysis result
+          isCompleted: false          // Reset boundary analysis completion state
         }
       }
       setSceneStates(updatedStates)
@@ -1237,7 +1232,7 @@ export default function SceneAnalysisPage() {
     const contentToExport: RequirementContent = {
       contentBeforeScenes: content.contentBeforeScenes || '',
       contentAfterScenes: content.contentAfterScenes || '',
-      scenes: content.scenes
+      scenes: content.scenes // Reverted to scenes
     }
     RequirementExportService.saveStructuredRequirementToStorage(contentToExport, sceneStates, selectedSystemId)
     toast({
@@ -1272,7 +1267,7 @@ export default function SceneAnalysisPage() {
       // Convert RequirementParseResult back to expected RequirementContent for the service
       const contentToExport: RequirementContent = {
         contentBeforeScenes: content.contentBeforeScenes || '',
-        scenes: content.scenes,
+        scenes: content.scenes, // Reverted to scenes
         contentAfterScenes: content.contentAfterScenes || ''
       }
       
