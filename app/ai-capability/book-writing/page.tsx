@@ -44,8 +44,8 @@ export default function BookWritingPage() {
   const [markdownContent, setMarkdownContent] = useState<string>("## 需求书\n\n请选中一段文字试试 **润色** 功能。");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isEditorReady, setIsEditorReady] = useState(false);
-  const [isAiProcessing, setIsAiProcessing] = useState(false); // AI 处理状态
-  const [isTemplateLoading, setIsTemplateLoading] = useState(false); // 新增：模板加载状态
+  const [isAiProcessing, setIsAiProcessing] = useState(false);
+  const [isTemplateLoading, setIsTemplateLoading] = useState(false);
 
   // Get data from Zustand stores
   const { selectedSystemId } = useSystemStore();
@@ -61,15 +61,31 @@ export default function BookWritingPage() {
   const actionExecutor = useMemo(() => new AiActionExecutor(), []);
   const promptsManager = useMemo(() => PromptsManager.getInstance(), []);
 
-  // 设置 AI 后端接口
+  // 设置 AI 后端接口为新的通用端点
   useEffect(() => {
-    actionExecutor.setEndpointUrl("/api/chat"); // TODO: 确认实际的 API 端点
+    actionExecutor.setEndpointUrl("/api/ai-editor-action/chat"); 
   }, [actionExecutor]);
 
-  // 可以根据需要配置 PromptsManager，例如添加自定义动作
-  // useEffect(() => {
-  //   promptsManager.updateActionsMap('custom', [...]);
-  // }, [promptsManager]);
+  // 注册自定义动作到 PromptsManager
+  useEffect(() => {
+    // 假设 PromptsManager 有 addAction 方法
+    // 如果没有，需要查找正确的注册方法，例如 updateActionsMap
+    try {
+      // 检查方法是否存在避免运行时错误
+      if (typeof (promptsManager as any).addAction === 'function') {
+         (promptsManager as any).addAction(polishBubbleAction);
+         console.log("Polish action registered with PromptsManager via addAction.");
+      } else {
+         console.warn("PromptsManager does not have addAction method. Action might not be fully registered for variable processing.");
+         // 备选方案：尝试使用 updateActionsMap (但这通常用于替换整个集合)
+         // const existingActions = promptsManager.getActions("bubble") || []; // 假设有 getActions
+         // promptsManager.updateActionsMap("bubble", [...existingActions, polishBubbleAction]);
+      }
+    } catch (e) {
+       console.error("Error registering action with PromptsManager:", e); 
+    }
+
+  }, [promptsManager]); // 仅在 promptsManager 实例创建时运行
 
   // 3. 初始化 Tiptap 编辑器实例，集成 Studio B3
   const editor = useEditor({
@@ -97,7 +113,6 @@ export default function BookWritingPage() {
       },
     },
     onUpdate: ({ editor }) => {
-      if (isAiProcessing) return; // AI 处理时不更新状态，防止覆盖
       // 4. 当编辑器内容更新时，尝试获取 Markdown 并更新状态
       try {
         const markdown = editor.storage.markdown.getMarkdown();
@@ -112,16 +127,31 @@ export default function BookWritingPage() {
       }
     },
     onCreate: ({ editor }) => {
-       // 使用 as any 绕过类型检查
-       actionExecutor.setEditor(editor as any);
+       // 从 onCreate 移除 setEditor 调用
+       // actionExecutor.setEditor(editor as any);
        setIsEditorReady(true);
+       console.log("Editor created.");
     }
   });
+
+  // 新增 useEffect：当 editor 实例准备好后，设置给 actionExecutor
+  useEffect(() => {
+    if (editor && !editor.isDestroyed && isEditorReady) {
+      // 确保 editor 存在、未销毁且已准备好
+      actionExecutor.setEditor(editor as any);
+      console.log("AiActionExecutor editor has been set.");
+    } 
+    // 添加清理函数，虽然 AiActionExecutor 可能没有明确的 unsetEditor 方法
+    // return () => {
+    //   console.log("Cleaning up editor reference in AiActionExecutor?");
+    //   // 如果 AiActionExecutor 有清理方法，可以在这里调用
+    // };
+  }, [editor, isEditorReady, actionExecutor]); // 依赖 editor, isEditorReady 和 actionExecutor 实例
 
   // 处理初始内容加载和外部 markdownContent 变化
   useEffect(() => {
     if (editor && isEditorReady && !editor.isDestroyed && markdownContent !== editor.storage.markdown.getMarkdown()) {
-        if (!editor.isFocused && !isAiProcessing) { // 仅在编辑器未聚焦且 AI 未处理时更新
+        if (!editor.isFocused) { // 仅在编辑器未聚焦时更新
             console.log("Setting editor content from state...")
             // 使用 markdown-it 渲染 Markdown 为 HTML 设置给编辑器
             // 注意：这可能会覆盖 Studio B3 的内部状态，需要测试
@@ -129,7 +159,7 @@ export default function BookWritingPage() {
             editor.commands.setContent(htmlContent, false); // false 表示不触发 onUpdate
         }
     }
-  }, [markdownContent, editor, isEditorReady, isAiProcessing]);
+  }, [markdownContent, editor, isEditorReady]);
 
   // 组件卸载时销毁编辑器实例
   useEffect(() => {
@@ -140,12 +170,12 @@ export default function BookWritingPage() {
 
   // 3. 更新 customBubbleActions 的 useMemo
   const customBubbleActions: PromptAction[] = useMemo(() => [
-    // 调用导入的函数并传入状态设置器和 toast
-    polishBubbleAction(setIsAiProcessing, setMarkdownContent, toast),
+    // 直接使用导入的 polishBubbleAction 对象
+    polishBubbleAction, 
     // 未来可以添加更多从其他文件导入的 Action 对象
     // import { summarizeBubbleAction } from '@/lib/ai-actions/summarizeAction';
-    // summarizeBubbleAction(setIsAiProcessing, toast),
-  ], [toast]); // 依赖项现在是 toast (因为它在组件外定义，setIsAiProcessing/setMarkdownContent 由 React 保证引用稳定)
+    // summarizeBubbleAction,
+  ], []); // 移除 toast 等依赖
 
   const handleImport = () => {
     // TODO: 实现导入逻辑，更新 markdownContent 状态
@@ -290,25 +320,25 @@ export default function BookWritingPage() {
           <Button 
              onClick={handleLoadTemplate} 
              variant="outline" 
-             disabled={isAiProcessing || isTemplateLoading || !selectedSystemId}
+             disabled={isAiProcessing || isTemplateLoading || !selectedSystemId || !editor?.isEditable}
            >
             {isTemplateLoading ? "加载中..." : "加载需求模板"}
           </Button>
           <Button 
              onClick={handleLoadInitialDraft} 
              variant="outline" 
-             disabled={isAiProcessing || isTemplateLoading || !selectedSystemId} // 也禁用此按钮在模板加载时
+             disabled={isAiProcessing || isTemplateLoading || !selectedSystemId || !editor?.isEditable}
           >
             加载需求初稿
           </Button>
           <Button 
             onClick={handleClearContent} 
             className="bg-orange-500 hover:bg-orange-600"
-            disabled={isAiProcessing || !markdownContent}
+            disabled={isAiProcessing || !markdownContent || !editor?.isEditable}
           >
             清空内容
           </Button>
-          <Button onClick={handleDownload} disabled={isLoading || !editor || !isEditorReady || isAiProcessing || !markdownContent}>
+          <Button onClick={handleDownload} disabled={isLoading || isAiProcessing || !editor || !isEditorReady || !markdownContent || !editor?.isEditable}>
             下载内容
           </Button>
         </div>
@@ -321,7 +351,6 @@ export default function BookWritingPage() {
 
         {/* 编辑器内容区域 */} 
         <CardContent className="flex-1 overflow-y-auto p-0 relative">
-            {/* 应用 isAiProcessing 状态 */} 
             <EditorContent editor={editor} className={`h-full p-4 ${isAiProcessing ? 'opacity-50 cursor-wait' : ''}`}/>
             {/* 传递 customActions */} 
             {editor && <MenuBubble editor={editor as any} customActions={customBubbleActions} />} 
