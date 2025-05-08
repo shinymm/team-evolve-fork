@@ -1235,8 +1235,8 @@ export default function SceneAnalysisPage() {
     
     // Convert RequirementParseResult back to expected RequirementContent for the service
     const contentToExport: RequirementContent = {
-      contentBeforeScenes: content.contentBeforeScenes,
-      contentAfterScenes: content.contentAfterScenes,
+      contentBeforeScenes: content.contentBeforeScenes || '',
+      contentAfterScenes: content.contentAfterScenes || '',
       scenes: content.scenes
     }
     RequirementExportService.saveStructuredRequirementToStorage(contentToExport, sceneStates, selectedSystemId)
@@ -1271,9 +1271,9 @@ export default function SceneAnalysisPage() {
     try {
       // Convert RequirementParseResult back to expected RequirementContent for the service
       const contentToExport: RequirementContent = {
-        contentBeforeScenes: content.contentBeforeScenes,
+        contentBeforeScenes: content.contentBeforeScenes || '',
         scenes: content.scenes,
-        contentAfterScenes: content.contentAfterScenes
+        contentAfterScenes: content.contentAfterScenes || ''
       }
       
       // 保存结构化数据到localStorage - 传递系统ID (For Export Service)
