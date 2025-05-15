@@ -218,15 +218,32 @@ export default function RequirementAnalysis() {
     const editDuration = editStartTime ? (editEndTime - editStartTime) / 1000 : 0
     const contentDiff = editedAnalysis.length - originalContent.current.length
 
-    // 只有当编辑时间超过15秒且内容变化超过20字时才记录
-    if (editDuration > 15 && Math.abs(contentDiff) > 20) {
+    // 确保内容不为空或未定义
+    const originalText = originalContent.current || '';
+    const editedText = editedAnalysis || '';
+    
+    console.log('当前编辑内容信息', {
+      originalLength: originalText.length,
+      editedLength: editedText.length,
+      diff: contentDiff,
+      duration: editDuration,
+      systemId: selectedSystem.id
+    });
+    
+    // 降低条件阈值以方便测试，以后可以改回正常值
+    if (editDuration > 5 && Math.abs(contentDiff) > 5) {
       try {
-        await recordRequirementAction({
-          type: 'edit',
-          duration: editDuration,
-          contentBefore: originalContent.current,
-          contentAfter: editedAnalysis,
-        })
+        // 显式传递内容，确保非空
+        const result = await recordRequirementAction(
+          selectedSystem.id,
+          {
+            type: 'edit',
+            duration: editDuration,
+            contentBefore: originalText,
+            contentAfter: editedText,
+          }
+        )
+        console.log('编辑记录结果', result);
       } catch (error) {
         console.error('记录编辑动作失败:', error)
       }
@@ -298,11 +315,14 @@ export default function RequirementAnalysis() {
       await saveSystemDataToRedis(selectedSystem.id)
       
       // 记录需求分析完成的动作
-      await recordRequirementAction({
-        type: 'analyze',
-        duration: 0,  // 这里的持续时间不重要
-        contentAfter: activeAnalysis,  // 最终的分析结果
-      });
+      await recordRequirementAction(
+        selectedSystem.id,
+        {
+          type: 'analyze',
+          duration: 0,  // 这里的持续时间不重要
+          contentAfter: activeAnalysis,  // 最终的分析结果
+        }
+      );
       
       await updateTask('requirement-analysis', {
         status: 'completed'

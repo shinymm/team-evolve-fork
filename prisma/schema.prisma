@@ -165,6 +165,7 @@ model System {
   architecture    Architecture?
   apiInterfaces   APIInterface[]
   requirementTemplate RequirementTemplate?
+  requirementActions RequirementAction[]
 
   @@index([status])
 }
@@ -227,4 +228,23 @@ model RequirementTemplate {
 
   // 关联
   system        System   @relation(fields: [systemId], references: [id], onDelete: Cascade)
+}
+
+// 需求编辑动作记录模型
+model RequirementAction {
+  id            String    @id @default(cuid())
+  systemId      String
+  type          String    // 'edit', 'analyze', 'other'
+  duration      Float     // 持续时间（秒）
+  contentBefore String?   @db.Text
+  contentAfter  String?   @db.Text
+  timestamp     DateTime  @default(now())
+  processed     Boolean   @default(false)
+  
+  // 关联系统
+  system        System    @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  
+  @@index([systemId])
+  @@index([processed])
+  @@index([type])
 }
