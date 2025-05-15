@@ -60,7 +60,7 @@ const visionModelPresets = [
   }
 ]
 
-export function AIModelSettings() {
+export function AIModelSettings({ onStatusChange }: { onStatusChange?: (loading: boolean) => void }) {
   const [languageConfigs, setLanguageConfigs] = useState<AIModelConfig[]>([])
   const [visionConfigs, setVisionConfigs] = useState<AIModelConfig[]>([])
   const [showAddForm, setShowAddForm] = useState(false)
@@ -70,6 +70,11 @@ export function AIModelSettings() {
   const [testResults, setTestResults] = useState<Record<string, boolean | null>>({})
   const [selectedTab, setSelectedTab] = useState('models')
   const [isLoading, setIsLoading] = useState(false)
+  
+  // 更新父组件的加载状态
+  useEffect(() => {
+    onStatusChange?.(isLoading)
+  }, [isLoading, onStatusChange])
   
   // 加载不同类型的配置
   const loadConfigsByType = useCallback(async (type: 'language' | 'vision') => {
@@ -578,7 +583,7 @@ export function AIModelSettings() {
       </TabsContent>
       
       <TabsContent value="vector">
-        <VectorSettings />
+        <VectorSettings onStatusChange={onStatusChange} />
       </TabsContent>
     </Tabs>
   )

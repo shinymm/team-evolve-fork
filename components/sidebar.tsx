@@ -69,10 +69,10 @@ const mainMenuItems: MenuItem[] = [
     ]
   },
   {
-    title: "特殊能力胶囊",
+    title: "AI能力生态",
     icon: <Flame className="h-4 w-4" />,
     submenu: [
-      { title: "提示词调试", href: "/special-capability/prompt-debug", isPro: true }
+      { title: "AI团队工厂", href: "/settings/ai-team" }
       
     ]
   }
@@ -83,7 +83,7 @@ const settingsMenu: MenuItem = {
   icon: <Settings className="h-4 w-4" />,
   submenu: [
     { title: "大模型设置", href: "/settings/ai-models" },
-    { title: "AI团队工厂", href: "/settings/ai-team" }
+    { title: "提示词调试", href: "/special-capability/prompt-debug", isPro: true }
   ]
 }
 

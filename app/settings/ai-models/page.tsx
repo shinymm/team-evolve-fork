@@ -3,31 +3,28 @@
 import { useState, useEffect } from 'react'
 import { Skeleton } from "@/components/ui/skeleton"
 import { AIModelSettings } from '@/components/ai-model-settings'
+import { Loader2 } from 'lucide-react'
 
 export default function AIModelsPage() {
   const [isLoading, setIsLoading] = useState(true)
   
-  // 使用 setTimeout 模拟加载过程，避免页面闪烁
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false)
-    }, 50)
-    
-    return () => clearTimeout(timer)
-  }, [])
+  // 处理加载状态变化
+  const handleStatusChange = (loading: boolean) => {
+    setIsLoading(loading)
+  }
   
   return (
     <div className="w-[90%] mx-auto">
-      {isLoading ? (
-        <div className="space-y-4">
-          <Skeleton className="h-8 w-64" />
-          <Skeleton className="h-[400px]" />
-        </div>
-      ) : (
-        <div className="space-y-12">
-          <AIModelSettings />
+      {isLoading && (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 className="h-6 w-6 animate-spin text-orange-500 mr-2" />
+          <span className="text-sm text-orange-500">正在加载模型配置，请稍候...</span>
         </div>
       )}
+      
+      <div className="space-y-12">
+        <AIModelSettings onStatusChange={handleStatusChange} />
+      </div>
     </div>
   )
 }

@@ -47,7 +47,7 @@ const vectorModelPresets = [
   }
 ]
 
-export default function VectorSettings() {
+export default function VectorSettings({ onStatusChange }: { onStatusChange?: (loading: boolean) => void }) {
   // 使用 Zustand store 获取配置
   const { defaultConfig, setDefaultConfig, clearDefaultConfig } = useVectorConfigStore()
   
@@ -58,11 +58,18 @@ export default function VectorSettings() {
   const [testingId, setTestingId] = useState<string | null>(null)
   const [testResults, setTestResults] = useState<Record<string, boolean>>({})
   const [isDefault, setIsDefault] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+
+  // 更新父组件加载状态
+  useEffect(() => {
+    onStatusChange?.(isLoading)
+  }, [isLoading, onStatusChange])
 
   // 加载所有配置
   useEffect(() => {
     const loadConfigs = async () => {
       try {
+        setIsLoading(true)
         const allConfigs = await getAllVectorConfigs()
         setConfigs(allConfigs)
       } catch (error) {
@@ -72,6 +79,8 @@ export default function VectorSettings() {
           description: '无法加载向量模型配置',
           variant: 'destructive',
         })
+      } finally {
+        setIsLoading(false)
       }
     }
     loadConfigs()
@@ -139,6 +148,7 @@ export default function VectorSettings() {
     }
     
     try {
+      setIsLoading(true)
       // 添加到数据库
       const savedConfig = await addVectorConfig(configToAdd)
       
@@ -168,6 +178,8 @@ export default function VectorSettings() {
         description: '无法添加向量模型配置',
         variant: 'destructive',
       })
+    } finally {
+      setIsLoading(false)
     }
   }, [newConfig, isDefault, setDefaultConfig])
 
@@ -176,6 +188,7 @@ export default function VectorSettings() {
     if (!confirm('确定要删除这个配置吗？')) return
     
     try {
+      setIsLoading(true)
       const configToDelete = configs.find(c => c.id === id)
       await deleteVectorConfig(id)
       
@@ -214,12 +227,15 @@ export default function VectorSettings() {
         description: '无法删除向量模型配置',
         variant: 'destructive',
       })
+    } finally {
+      setIsLoading(false)
     }
   }, [configs, setDefaultConfig, clearDefaultConfig])
 
   // 设置默认配置
   const handleSetDefault = useCallback(async (id: string) => {
     try {
+      setIsLoading(true)
       const configToSetDefault = configs.find(c => c.id === id)
       if (!configToSetDefault) return
       
@@ -241,6 +257,8 @@ export default function VectorSettings() {
         description: '无法设置默认向量模型配置',
         variant: 'destructive',
       })
+    } finally {
+      setIsLoading(false)
     }
   }, [configs, setDefaultConfig])
 
