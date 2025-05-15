@@ -14,10 +14,11 @@ import { streamingAICall } from '@/lib/services/ai-service'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Search, Download } from 'lucide-react'
+import { Search, Download, Plus, Trash2, Edit, CheckCircle2 } from 'lucide-react'
 
 interface Parameter {
   name: string
@@ -38,6 +39,7 @@ interface AIModel {
   apiKey: string
   temperature: number
   isDefault: boolean
+  _encrypted?: boolean
 }
 
 interface PromptTest {
@@ -62,24 +64,64 @@ export default function PromptDebugPage() {
   const [modelTemps, setModelTemps] = useState<Record<string, number>>({})
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false)
   const [description, setDescription] = useState('')
+  
+  // 新增状态
+  const [isModelDialogOpen, setIsModelDialogOpen] = useState(false)
+  const [newModel, setNewModel] = useState<AIModel>({
+    id: '',
+    name: '',
+    model: '',
+    baseURL: '',
+    apiKey: '',
+    temperature: 0.7,
+    isDefault: false
+  })
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [modelPresets, setModelPresets] = useState([
+    {
+      name: 'OpenAI',
+      baseURL: 'https://api.openai.com/v1',
+      models: ['gpt-4', 'gpt-4o','gpt-4o-mini','gpt-3.5-turbo']
+    },
+    {
+      name: '智谱AI',
+      baseURL: 'https://open.bigmodel.cn/api/paas/v4',
+      models: ['glm-4-long', 'glm-4-flash']
+    },
+    {
+      name: 'Qwen',
+      baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+      models: ['qwen-long']
+    },
+    {
+      name: 'Deepseek',
+      baseURL: 'https://api.deepseek.com',
+      models: ['deepseek-chat']
+    },
+    {
+      name: 'Gemini',
+      baseURL: 'https://generativelanguage.googleapis.com/v1beta',
+      models: ['gemini-2.0-flash-lite','gemini-2.0-flash-thinking-exp-01-21']
+    }
+  ])
+  const [selectedPreset, setSelectedPreset] = useState<string>('')
+  const [selectedPresetModel, setSelectedPresetModel] = useState<string>('')
 
   // 获取可用的模型列表
   useEffect(() => {
     const fetchModels = async () => {
       try {
-        const response = await fetch('/api/ai-config/models')
+        // 使用新的专用API端点
+        const response = await fetch('/api/prompt-debug-models')
         const data = await response.json()
         if (data.error) {
           throw new Error(data.error)
         }
-        setAvailableModels(data.models)
+        setAvailableModels(data.models || [])
       } catch (error) {
-        toast({
-          title: "获取模型列表失败",
-          description: error instanceof Error ? error.message : "请稍后重试",
-          variant: "destructive",
-          duration: 3000
-        })
+        console.error("获取模型列表失败", error)
+        // 失败时不显示错误提示，静默处理
+        setAvailableModels([])
       }
     }
 
@@ -202,51 +244,63 @@ export default function PromptDebugPage() {
           throw new Error(`未找到模型配置: ${modelId}`)
         }
 
-        // 使用自定义温度覆盖原始配置
-        const finalConfig = {
-          ...modelConfig,
-          temperature: modelId in modelTemps ? modelTemps[modelId] : (modelConfig.temperature || 0.7)
+        // 使用新的流式API
+        const response = await fetch('/api/prompt-debug-models/stream', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            prompt: finalPrompt,
+            modelId: modelId,
+            temperature: modelId in modelTemps ? modelTemps[modelId] : (modelConfig.temperature || 0.7)
+          })
+        })
+
+        if (!response.ok) {
+          let errorMessage = `HTTP错误 ${response.status}`;
+          try {
+            const errorData = await response.json();
+            if (errorData.error) {
+              errorMessage = errorData.error;
+            }
+          } catch (e) {
+            // 解析错误时使用默认错误信息
+          }
+          throw new Error(errorMessage);
         }
 
-        // 使用 finalConfig 调用 streamingAICall
-        await streamingAICall(
-          finalPrompt,
-          (content: string) => {
-            // 更新对应模型的输出内容
-            setOutputs(prev => 
-              prev.map(output => 
-                output.modelId === modelId
-                  ? { 
-                      ...output, 
-                      content: output.content + content,
-                      loading: false 
-                    }
-                  : output
-              )
+        // 确保是流式响应
+        if (!response.body) {
+          throw new Error("无法获取响应流");
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        // 读取流式响应
+        let responseText = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          // 解码并处理返回的文本块
+          const text = decoder.decode(value);
+          responseText += text;
+
+          // 更新对应模型的输出内容
+          setOutputs(prev => 
+            prev.map(output => 
+              output.modelId === modelId
+                ? { 
+                    ...output, 
+                    content: responseText,
+                    loading: false 
+                  }
+                : output
             )
-          },
-          (error) => {
-            // 处理错误情况
-            setOutputs(prev => 
-              prev.map(output => 
-                output.modelId === modelId
-                  ? { 
-                      ...output, 
-                      content: `错误: ${error}`,
-                      loading: false 
-                    }
-                  : output
-              )
-            )
-            
-            toast({
-              title: `模型 ${modelConfig.name} 调用失败`,
-              description: error,
-              variant: "destructive",
-              duration: 3000
-            })
-          }
-        )
+          )
+        }
       } catch (error) {
         // 处理整体调用错误
         setOutputs(prev => 
@@ -430,6 +484,183 @@ export default function PromptDebugPage() {
     })
   }
 
+  // 处理模型预设选择
+  const handlePresetChange = (presetName: string) => {
+    setSelectedPreset(presetName)
+    setSelectedPresetModel('')
+    
+    const preset = modelPresets.find(p => p.name === presetName)
+    if (preset) {
+      setNewModel(prev => ({
+        ...prev,
+        baseURL: preset.baseURL
+      }))
+    }
+  }
+
+  // 处理模型类型选择
+  const handleModelTypeChange = (modelType: string) => {
+    setSelectedPresetModel(modelType)
+    setNewModel(prev => ({
+      ...prev,
+      model: modelType,
+      name: `${selectedPreset} - ${modelType}` // 自动生成名称
+    }))
+  }
+
+  // 打开新增模型对话框
+  const openAddModelDialog = () => {
+    setNewModel({
+      id: '',
+      name: '',
+      model: '',
+      baseURL: '',
+      apiKey: '',
+      temperature: 0.7,
+      isDefault: false
+    })
+    setSelectedPreset('')
+    setSelectedPresetModel('')
+    setIsEditMode(false)
+    setIsModelDialogOpen(true)
+  }
+
+  // 打开编辑模型对话框
+  const openEditModelDialog = (model: AIModel) => {
+    setNewModel({...model})
+    setIsEditMode(true)
+    setIsModelDialogOpen(true)
+    
+    // 尝试匹配预设
+    const preset = modelPresets.find(p => p.baseURL === model.baseURL)
+    if (preset) {
+      setSelectedPreset(preset.name)
+      if (preset.models.includes(model.model)) {
+        setSelectedPresetModel(model.model)
+      } else {
+        setSelectedPresetModel('')
+      }
+    } else {
+      setSelectedPreset('')
+      setSelectedPresetModel('')
+    }
+  }
+
+  // 保存模型配置
+  const saveModelConfig = async () => {
+    // 基本验证
+    if (!newModel.name || !newModel.model || !newModel.baseURL || !newModel.apiKey) {
+      toast({
+        title: "输入不完整",
+        description: "请填写所有必填字段",
+        variant: "destructive",
+        duration: 3000
+      })
+      return
+    }
+
+    try {
+      const modelToSave = {
+        ...newModel,
+        id: newModel.id || `model_${Date.now()}`
+      }
+
+      // 使用新的专用API端点
+      const response = await fetch('/api/prompt-debug-models', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ model: modelToSave })
+      })
+
+      const data = await response.json()
+      if (data.error) {
+        throw new Error(data.error)
+      }
+
+      // 更新本地状态
+      if (isEditMode) {
+        setAvailableModels(prev => 
+          prev.map(m => m.id === modelToSave.id ? modelToSave : m)
+        )
+      } else {
+        setAvailableModels(prev => [...prev, modelToSave])
+      }
+
+      setIsModelDialogOpen(false)
+      
+      toast({
+        title: isEditMode ? "更新成功" : "添加成功",
+        description: `模型 "${modelToSave.name}" ${isEditMode ? "已更新" : "已添加"}`,
+        duration: 3000
+      })
+    } catch (error) {
+      toast({
+        title: "保存失败",
+        description: error instanceof Error ? error.message : "请稍后重试",
+        variant: "destructive",
+        duration: 3000
+      })
+    }
+  }
+
+  // 删除模型配置
+  const deleteModelConfig = async (modelId: string) => {
+    try {
+      // 使用新的专用API端点
+      const response = await fetch('/api/prompt-debug-models/delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ id: modelId })
+      })
+
+      const data = await response.json()
+      if (data.error) {
+        throw new Error(data.error)
+      }
+
+      // 更新本地状态
+      setAvailableModels(prev => prev.filter(m => m.id !== modelId))
+      
+      // 如果被删除的模型在已选列表中，也移除
+      setSelectedModels(prev => prev.filter(id => id !== modelId))
+
+      toast({
+        title: "删除成功",
+        description: "模型配置已删除",
+        duration: 3000
+      })
+    } catch (error) {
+      toast({
+        title: "删除失败",
+        description: error instanceof Error ? error.message : "请稍后重试",
+        variant: "destructive",
+        duration: 3000
+      })
+    }
+  }
+
+  // 自动填充测试API密钥（仅用于测试模型配置）
+  const autoFillTestApiKey = () => {
+    const presetApiKeys: Record<string, string> = {
+      'OpenAI': 'sk-...',
+      '智谱AI': 'Bearer ...',
+      'Qwen': 'sk-...',
+      'Deepseek': 'sk-...',
+      'Gemini': 'API_KEY ...'
+    }
+
+    if (selectedPreset && presetApiKeys[selectedPreset]) {
+      setNewModel(prev => ({
+        ...prev,
+        apiKey: prev.apiKey || presetApiKeys[selectedPreset]
+      }))
+    }
+  }
+
   return (
     <div className="mx-auto py-4 w-[90%]">
       <div className="flex items-center justify-between mb-4">
@@ -593,6 +824,146 @@ export default function PromptDebugPage() {
         </DialogContent>
       </Dialog>
 
+      {/* 模型配置对话框 */}
+      <Dialog open={isModelDialogOpen} onOpenChange={setIsModelDialogOpen}>
+        <DialogContent className="w-[600px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base">{isEditMode ? '编辑模型' : '添加新模型'}</DialogTitle>
+            <DialogDescription className="text-sm text-gray-500">
+              配置用于提示词调试的大语言模型
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-4 mb-2">
+              {modelPresets.map(preset => (
+                <Button
+                  key={preset.name}
+                  type="button"
+                  variant={selectedPreset === preset.name ? "secondary" : "outline"}
+                  className="text-xs h-8"
+                  onClick={() => handlePresetChange(preset.name)}
+                >
+                  {preset.name}
+                </Button>
+              ))}
+            </div>
+
+            {selectedPreset && (
+              <div className="space-y-2">
+                <Label className="text-sm">选择模型类型</Label>
+                <div className="flex flex-wrap gap-2">
+                  {modelPresets.find(p => p.name === selectedPreset)?.models.map(model => (
+                    <Button
+                      key={model}
+                      type="button"
+                      variant={selectedPresetModel === model ? "secondary" : "outline"}
+                      className="text-xs h-8"
+                      onClick={() => handleModelTypeChange(model)}
+                    >
+                      {model}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="model-name" className="text-sm">模型名称</Label>
+              <Input
+                id="model-name"
+                value={newModel.name}
+                onChange={(e) => setNewModel(prev => ({...prev, name: e.target.value}))}
+                placeholder="例如：我的GPT-4"
+                className="w-full text-sm"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="model-type" className="text-sm">模型类型</Label>
+              <Input
+                id="model-type"
+                value={newModel.model}
+                onChange={(e) => setNewModel(prev => ({...prev, model: e.target.value}))}
+                placeholder="例如：gpt-4"
+                className="w-full text-sm"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="base-url" className="text-sm">API基础URL</Label>
+              <Input
+                id="base-url"
+                value={newModel.baseURL}
+                onChange={(e) => setNewModel(prev => ({...prev, baseURL: e.target.value}))}
+                placeholder="例如：https://api.openai.com/v1"
+                className="w-full text-sm"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="api-key" className="text-sm">API密钥</Label>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-xs h-6 px-2"
+                  onClick={autoFillTestApiKey}
+                >
+                  自动填充测试密钥
+                </Button>
+              </div>
+              <div className="relative">
+                <Input
+                  id="api-key"
+                  type="password"
+                  value={newModel.apiKey}
+                  onChange={(e) => setNewModel(prev => ({...prev, apiKey: e.target.value}))}
+                  placeholder="输入API密钥"
+                  className="w-full text-sm pr-10"
+                />
+                <div className="absolute right-3 top-2 text-xs text-gray-400">
+                  已加密
+                </div>
+              </div>
+              <p className="text-xs text-gray-500">API密钥将会以加密形式存储</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="temperature" className="text-sm">默认温度</Label>
+              <div className="flex items-center gap-3">
+                <Input
+                  id="temperature"
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={newModel.temperature}
+                  onChange={(e) => setNewModel(prev => ({...prev, temperature: parseFloat(e.target.value)}))}
+                  className="w-24 text-sm"
+                />
+                <span className="text-xs text-gray-500">值范围: 0-1</span>
+              </div>
+            </div>
+
+            <div className="pt-4 flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setIsModelDialogOpen(false)}
+                className="text-sm"
+              >
+                取消
+              </Button>
+              <Button
+                onClick={saveModelConfig}
+                className="text-sm"
+              >
+                保存
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="grid grid-cols-12 gap-4">
         {/* 左侧输入区域 */}
         <div className="col-span-4 space-y-4">
@@ -644,47 +1015,95 @@ export default function PromptDebugPage() {
 
           {/* 模型选择区 */}
           <Card className="p-3 bg-slate-50">
-            <h2 className="text-sm font-semibold mb-2">选择模型（最多3个）</h2>
-            <div className="space-y-2">
-              {availableModels.map((model) => (
-                <div
-                  key={model.id}
-                  className={`p-2 rounded-lg border ${
-                    selectedModels.includes(model.id)
-                      ? 'border-slate-300 bg-white'
-                      : 'hover:border-slate-300 bg-white'
-                  } transition-colors`}
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-sm font-semibold">选择模型（最多3个）</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0"
+                onClick={openAddModelDialog}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            {availableModels.length === 0 ? (
+              <div className="text-center py-6 border border-dashed rounded-lg">
+                <p className="text-sm text-gray-500">暂无模型配置</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={openAddModelDialog}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id={model.id}
-                        checked={selectedModels.includes(model.id)}
-                        onCheckedChange={() => handleModelSelect(model.id)}
-                        disabled={!selectedModels.includes(model.id) && selectedModels.length >= 3}
-                        className="h-3 w-3"
-                      />
-                      <Label htmlFor={model.id} className="text-xs">{model.name}</Label>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] text-gray-500 whitespace-nowrap">
-                        温度: {model.temperature || 0.7}
-                      </span>
-                      <Input
-                        type="number"
-                        min="0"
-                        max="1"
-                        step="0.1"
-                        value={model.id in modelTemps ? modelTemps[model.id] : (model.temperature || 0.7)}
-                        onChange={(e) => handleTempChange(model.id, e.target.value)}
-                        className="w-16 h-5 text-[11px] px-1"
-                        placeholder="0-1"
-                      />
+                  添加模型
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {availableModels.map((model) => (
+                  <div
+                    key={model.id}
+                    className={`p-2 rounded-lg border ${
+                      selectedModels.includes(model.id)
+                        ? 'border-slate-300 bg-white'
+                        : 'hover:border-slate-300 bg-white'
+                    } transition-colors`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id={model.id}
+                          checked={selectedModels.includes(model.id)}
+                          onCheckedChange={() => handleModelSelect(model.id)}
+                          disabled={!selectedModels.includes(model.id) && selectedModels.length >= 3}
+                          className="h-3 w-3"
+                        />
+                        <Label htmlFor={model.id} className="text-xs">
+                          {model.name}
+                          <span className="ml-1 text-[10px] text-gray-500">({model.model})</span>
+                        </Label>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="flex items-center space-x-1">
+                          <span className="text-[11px] text-gray-500 whitespace-nowrap">
+                            温度: {model.temperature || 0.7}
+                          </span>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="1"
+                            step="0.1"
+                            value={model.id in modelTemps ? modelTemps[model.id] : (model.temperature || 0.7)}
+                            onChange={(e) => handleTempChange(model.id, e.target.value)}
+                            className="w-16 h-5 text-[11px] px-1"
+                            placeholder="0-1"
+                          />
+                        </div>
+                        <div className="flex space-x-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 w-5 p-0"
+                            onClick={() => openEditModelDialog(model)}
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 w-5 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => deleteModelConfig(model.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </Card>
         </div>
 
