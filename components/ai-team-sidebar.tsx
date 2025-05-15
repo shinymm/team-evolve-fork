@@ -4,7 +4,7 @@ import { Bot, Plus, Clock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useState } from "react"
 import { ChatDialog } from "./chat-dialog"
-import { AgentNestDialog } from "./agent-nest-dialog"
+import { useRouter } from "next/navigation"
 
 export interface Assistant {
   id: string
@@ -32,8 +32,8 @@ const defaultAssistants: Assistant[] = [
 ]
 
 export function AiTeamSidebar() {
+  const router = useRouter()
   const [activeAssistant, setActiveAssistant] = useState<Assistant | null>(null)
-  const [showAgentNest, setShowAgentNest] = useState(false)
   const [myAssistants, setMyAssistants] = useState<Assistant[]>(defaultAssistants)
   const [hoveredAssistant, setHoveredAssistant] = useState<Assistant | null>(null)
 
@@ -52,7 +52,6 @@ export function AiTeamSidebar() {
     if (!myAssistants.find(a => a.id === agent.id)) {
       setMyAssistants([...myAssistants, agent])
     }
-    setShowAgentNest(false)
   }
 
   return (
@@ -89,7 +88,7 @@ export function AiTeamSidebar() {
         >
           <button
             className="w-10 h-10 rounded-full bg-zinc-200 hover:bg-zinc-300 flex items-center justify-center transition-all hover:scale-110 hover:shadow-lg"
-            onClick={() => setShowAgentNest(true)}
+            onClick={() => router.push('/settings/ai-team')}
           >
             <Plus className="w-5 h-5 text-zinc-700" />
           </button>
@@ -107,12 +106,6 @@ export function AiTeamSidebar() {
           onClose={() => setActiveAssistant(null)}
         />
       )}
-
-      <AgentNestDialog
-        open={showAgentNest}
-        onOpenChange={setShowAgentNest}
-        onSelectAgent={handleAddAgent}
-      />
     </>
   )
 } 
