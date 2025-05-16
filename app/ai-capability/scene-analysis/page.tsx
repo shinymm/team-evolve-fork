@@ -1730,9 +1730,37 @@ export default function SceneAnalysisPage() {
                             <CardContent className="py-0 pb-3">
                               <div className="text-sm text-gray-600">
                                 {sceneStates[scene.name]?.isOptimizing ? (
-                                  <div className="flex items-center justify-center py-8">
-                                    <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-                                    <span className="ml-3 text-blue-600">正在优化场景描述...</span>
+                                  <div className="markdown-container min-h-[200px]">
+                                    {sceneStates[scene.name]?.optimizeResult ? (
+                                      <>
+                                        <ReactMarkdown 
+                                          remarkPlugins={[remarkGfm]}
+                                          components={{
+                                            h1: ({children}) => <h1 className="text-xl font-bold mb-2 pb-1 border-b">{children}</h1>,
+                                            h2: ({children}) => <h2 className="text-lg font-semibold mb-2 mt-3">{children}</h2>,
+                                            h3: ({children}) => <h3 className="text-base font-medium mb-1 mt-2">{children}</h3>,
+                                            p: ({children}) => <p className="text-gray-600 my-1 leading-normal text-sm">{children}</p>,
+                                            ul: ({children}) => <ul className="list-disc pl-4 my-1 space-y-0.5">{children}</ul>,
+                                            ol: ({children}) => <ol className="list-decimal pl-4 my-1 space-y-0.5">{children}</ol>,
+                                            li: ({children}) => <li className="text-gray-600 text-sm">{children}</li>,
+                                            blockquote: ({children}) => <blockquote className="border-l-4 border-gray-300 pl-3 my-1 italic text-sm">{children}</blockquote>,
+                                            code: ({children}) => <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{children}</code>,
+                                            pre: ({children}) => <pre className="bg-gray-50 rounded-lg p-3 my-2 overflow-auto text-sm">{children}</pre>
+                                          }}
+                                        >
+                                          {sceneStates[scene.name]?.optimizeResult}
+                                        </ReactMarkdown>
+                                        <div className="flex items-center justify-center py-4 mt-2 bg-gray-50 rounded-md">
+                                          <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+                                          <span className="ml-2 text-blue-600 text-sm">正在继续优化...</span>
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <div className="flex items-center justify-center py-8">
+                                        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                                        <span className="ml-3 text-blue-600">正在优化场景描述...</span>
+                                      </div>
+                                    )}
                                   </div>
                                 ) : (
                                   <div className="markdown-container min-h-[200px]">
@@ -1748,24 +1776,7 @@ export default function SceneAnalysisPage() {
                                         li: ({children}) => <li className="text-gray-600 text-sm">{children}</li>,
                                         blockquote: ({children}) => <blockquote className="border-l-4 border-gray-300 pl-3 my-1 italic text-sm">{children}</blockquote>,
                                         code: ({children}) => <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{children}</code>,
-                                        pre: ({children}) => (
-                                          <div className="relative">
-                                            <pre className="bg-gray-50 rounded-lg p-3 my-2 overflow-auto text-sm">{children}</pre>
-                                            <div className="absolute top-0 right-0 p-1">
-                                              <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-6 px-1.5 text-gray-500 hover:text-gray-700"
-                                                onClick={() => {
-                                                  const codeContent = children?.toString() || '';
-                                                  navigator.clipboard.writeText(codeContent);
-                                                }}
-                                              >
-                                                <Copy className="h-3 w-3" />
-                                              </Button>
-                                            </div>
-                                          </div>
-                                        )
+                                        pre: ({children}) => <pre className="bg-gray-50 rounded-lg p-3 my-2 overflow-auto text-sm">{children}</pre>
                                       }}
                                     >
                                       {(() => {
