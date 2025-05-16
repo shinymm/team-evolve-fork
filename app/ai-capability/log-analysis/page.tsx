@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Upload, ChevronDown, ChevronRight, ArrowUpDown, X, Brain } from 'lucide-react'
+import { Upload, ChevronDown, ChevronRight, ArrowUpDown, X, Brain, FileText, Trash2 } from 'lucide-react'
 import * as yaml from 'js-yaml'
 import {
   Table,
@@ -135,7 +135,7 @@ export default function LogAnalysis() {
     formData.append('file', file)
 
     try {
-      const response = await fetch('/api/analyze-logs', {
+      const response = await fetch('/api/logs/analyze', {
         method: 'POST',
         body: formData,
       })
@@ -151,6 +151,37 @@ export default function LogAnalysis() {
     } catch (error) {
       console.error('Error:', error)
       alert('分析过程中出现错误')
+    } finally {
+      setAnalyzing(false)
+    }
+  }
+
+  const loadExampleFile = async () => {
+    setAnalyzing(true)
+    
+    try {
+      const response = await fetch('/api/logs/load-example')
+      
+      if (!response.ok) {
+        throw new Error('加载示例文件失败')
+      }
+
+      const data = await response.text()
+      const parsedData = yaml.load(data) as Exception[]
+      setExceptions(parsedData)
+      setExpandedRows([]) // 重置展开状态
+      
+      toast({
+        title: '示例加载成功',
+        description: '已成功加载示例日志文件',
+      })
+    } catch (error) {
+      console.error('Error:', error)
+      toast({
+        title: '加载失败',
+        description: '加载示例日志文件时出现错误',
+        variant: 'destructive',
+      })
     } finally {
       setAnalyzing(false)
     }
@@ -202,6 +233,17 @@ export default function LogAnalysis() {
     }
   }
 
+  const handleClear = () => {
+    setExceptions([]);
+    setExpandedRows([]);
+    setSelectedPath(null);
+    setSelectedError(null);
+    setShowAnalysis(false);
+    setAnalysisResult('');
+    setSelectedException(null);
+    setAnalyzing(false);
+  }
+
   return (
     <div className="h-full w-full">
       <div className="max-w-[calc(100vw-14rem)] mx-auto">
@@ -232,6 +274,29 @@ export default function LogAnalysis() {
                   className="hidden"
                 />
               </label>
+              
+              <Button 
+                variant="outline" 
+                className="flex items-center gap-2"
+                onClick={loadExampleFile}
+                disabled={analyzing}
+              >
+                <FileText className="w-4 h-4" />
+                <span>加载示例日志</span>
+              </Button>
+              
+              {exceptions.length > 0 && (
+                <Button 
+                  variant="outline" 
+                  className="flex items-center gap-2 border-red-300 text-red-600 hover:bg-red-50"
+                  onClick={handleClear}
+                  disabled={analyzing}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>清除结果</span>
+                </Button>
+              )}
+              
               {analyzing && <span className="text-gray-600">分析中...</span>}
             </div>
           </div>
@@ -449,7 +514,12 @@ export default function LogAnalysis() {
         </div>
       </div>
 
-      <Dialog open={showAnalysis} onOpenChange={setShowAnalysis}>
+      <Dialog open={showAnalysis} onOpenChange={(open) => {
+        setShowAnalysis(open);
+        if (!open) {
+          setAnalyzing(false); // 关闭对话框时重置分析状态
+        }
+      }}>
         <DialogContent className="w-[80vw] h-[85vh] p-0">
           <div className="h-full flex flex-col">
             {/* 头部区域 */}
@@ -460,7 +530,10 @@ export default function LogAnalysis() {
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
-                  onClick={() => setShowAnalysis(false)}
+                  onClick={() => {
+                    setShowAnalysis(false);
+                    setAnalyzing(false); // 点击关闭按钮时也重置分析状态
+                  }}
                 >
                   <X className="h-4 w-4" />
                 </Button>

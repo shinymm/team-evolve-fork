@@ -31,3 +31,67 @@ DO UPDATE SET
   password = EXCLUDED.password,
   role = EXCLUDED.role,
   "updatedAt" = CURRENT_TIMESTAMP; 
+
+INSERT INTO "User" (id, email, name, password, role, "createdAt", "updatedAt")
+VALUES (
+  gen_random_uuid(),
+  'jxzhong@thoughtworks.com',
+  'jxzhong',
+  'IUjFeVv_bBdLDRIfL5LF4kNoe2j1xrEyGhHDpY6na3zgd7b7zU8',
+  'ADMIN',
+  CURRENT_TIMESTAMP,
+  CURRENT_TIMESTAMP
+)
+ON CONFLICT (email) 
+DO UPDATE SET 
+  password = EXCLUDED.password,
+  role = EXCLUDED.role,
+  "updatedAt" = CURRENT_TIMESTAMP; 
+
+INSERT INTO "User" (id, email, name, password, role, "createdAt", "updatedAt")
+VALUES (
+  gen_random_uuid(),
+  'zwliu@thoughtworks.com',
+  'zwliu',
+  'IUjFeVv_bBdLDRIfL5LF4kNoe2j1xrEyGhHDpY6na3zgd7b7zU8',
+  'ADMIN',
+  CURRENT_TIMESTAMP,
+  CURRENT_TIMESTAMP
+)
+ON CONFLICT (email) 
+DO UPDATE SET 
+  password = EXCLUDED.password,
+  role = EXCLUDED.role,
+  "updatedAt" = CURRENT_TIMESTAMP; 
+
+INSERT INTO "User" (id, email, name, password, role, "createdAt", "updatedAt")
+VALUES (
+  gen_random_uuid(),
+  'zzzhao@thoughtworks.com',
+  'zzzhao',
+  'IUjFeVv_bBdLDRIfL5LF4kNoe2j1xrEyGhHDpY6na3zgd7b7zU8',
+  'ADMIN',
+  CURRENT_TIMESTAMP,
+  CURRENT_TIMESTAMP
+)
+ON CONFLICT (email) 
+DO UPDATE SET 
+  password = EXCLUDED.password,
+  role = EXCLUDED.role,
+  "updatedAt" = CURRENT_TIMESTAMP; 
+
+INSERT INTO "User" (id, email, name, password, role, "createdAt", "updatedAt")
+VALUES (
+  gen_random_uuid(),
+  'fdhuang@thoughtworks.com',
+  'fdhuang',
+  'IUjFeVv_bBdLDRIfL5LF4kNoe2j1xrEyGhHDpY6na3zgd7b7zU8',
+  'ADMIN',
+  CURRENT_TIMESTAMP,
+  CURRENT_TIMESTAMP
+)
+ON CONFLICT (email) 
+DO UPDATE SET 
+  password = EXCLUDED.password,
+  role = EXCLUDED.role,
+  "updatedAt" = CURRENT_TIMESTAMP; 
