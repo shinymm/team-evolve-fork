@@ -83,7 +83,7 @@ const settingsMenu: MenuItem = {
   icon: <Settings className="h-4 w-4" />,
   submenu: [
     { title: "大模型设置", href: "/settings/ai-models" },
-    { title: "提示词调试", href: "/special-capability/prompt-debug", isPro: true }
+    { title: "提示词调试", href: "/special-capability/prompt-debug"}
   ]
 }
 

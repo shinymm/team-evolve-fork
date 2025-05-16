@@ -29,6 +29,7 @@ export const pagePermissions: Record<string, Permission> = {
   "/knowledge/system-architecture": { requiresAuth: true, allowedRoles: ["USER", "ADMIN"] },
   "/knowledge/api-interfaces": { requiresAuth: true, allowedRoles: ["USER", "ADMIN"] },
   "/knowledge/boundary": { requiresAuth: true, allowedRoles: ["USER", "ADMIN"] },
+  "/knowledge/requirement-templates": { requiresAuth: true, allowedRoles: ["USER", "ADMIN"] },
 
     // 特殊能力胶囊 - 全部需要登录   
     "/special-capability/prompt-debug": { requiresAuth: true, allowedRoles: ["ADMIN"] },
@@ -36,6 +37,7 @@ export const pagePermissions: Record<string, Permission> = {
   // 灵犀阁
   "/inspire/req-analysis-skill": { requiresAuth: true, allowedRoles: ["USER", "ADMIN"] },
   "/special-capability/requirement-upload": { requiresAuth: true, allowedRoles: ["USER", "ADMIN"] },
+  "/special-capability/image-processing": { requiresAuth: true, allowedRoles: ["USER", "ADMIN"] },
 
   // 设置页面 - 仅管理员可访问
   "/settings/ai-models": { requiresAuth: true, allowedRoles: ["ADMIN"] },
