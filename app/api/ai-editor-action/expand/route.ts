@@ -8,6 +8,8 @@ import {
   isGeminiModel,
   getApiEndpointAndHeaders,
 } from '@/lib/services/ai-service';
+// 导入系统知识服务
+import { SystemKnowledgeService } from '@/lib/services/system-knowledge';
 
 // 创建一个编码器用于流式响应
 const encoder = new TextEncoder();
@@ -84,10 +86,29 @@ async function handleOpenAIStream(
 
 export async function POST(req: NextRequest) {
   try {
-    const { text } = await req.json();
+    const { text, fullText, systemId } = await req.json();
 
     if (!text || typeof text !== 'string') {
       return NextResponse.json({ error: 'Invalid input: text is required' }, { status: 400 });
+    }
+
+    // 获取系统产品知识
+    let productKnowledge = {
+      productOverview: '',
+      userPersonas: '',
+      architectureInfo: ''
+    };
+    
+    if (systemId) {
+      try {
+        productKnowledge = await SystemKnowledgeService.getSystemKnowledge(systemId);
+        console.log('成功获取系统产品知识');
+      } catch (knowledgeError) {
+        console.error('获取系统产品知识失败:', knowledgeError);
+        // 失败时继续使用默认空值
+      }
+    } else {
+      console.log('未提供systemId，使用空的产品知识');
     }
 
     // 使用 aiModelConfigService 获取默认配置
@@ -127,7 +148,13 @@ export async function POST(req: NextRequest) {
     };
 
     const isGemini = isGeminiModel(finalConfig.model);
-    const prompt = EXPAND_PROMPT.replace('{text}', text);
+    
+    // 替换产品知识到prompt中
+    const prompt = EXPAND_PROMPT
+      .replace('{text}', text)
+      .replace('{productOverview}', productKnowledge.productOverview)
+      .replace('{userPersonas}', productKnowledge.userPersonas)
+      .replace('{architectureInfo}', productKnowledge.architectureInfo);
 
     console.log(`Expand request using model: ${finalConfig.model} (Is Gemini: ${isGemini})`);
 

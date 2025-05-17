@@ -15,6 +15,7 @@ import {
   RefreshCw,
   Send
 } from 'lucide-react';
+import { useSystemStore } from '@/lib/stores/system-store';
 
 interface BubbleMenuProps {
   editor: Editor;
@@ -33,6 +34,8 @@ interface ResultState {
 }
 
 export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
+  const { selectedSystemId } = useSystemStore();
+  
   const [result, setResult] = useState<ResultState>({
     loading: false,
     content: '',
@@ -139,13 +142,14 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
     });
 
     try {
-      // 调用API进行文本润色
+      // 调用API进行文本润色，传递系统ID
       const response = await fetch('/api/ai-editor-action/polish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           text: selectedText,
-          fullText: fullText
+          fullText: fullText,
+          systemId: selectedSystemId
         })
       });
 
@@ -246,13 +250,14 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
     });
 
     try {
-      // 调用API进行文本扩写
+      // 调用API进行文本扩写，传递系统ID
       const response = await fetch('/api/ai-editor-action/expand', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           text: selectedText,
-          fullText: fullText
+          fullText: fullText,
+          systemId: selectedSystemId
         })
       });
 
@@ -381,11 +386,14 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
       // 准备发送到API的数据
       const prompt = `用户指令: ${result.instruction}\n\n选中的文本内容:\n${result.selectedText}`;
 
-      // 调用API进行聊天
+      // 调用API进行聊天，传递系统ID
       const response = await fetch('/api/ai-editor-action/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt })
+        body: JSON.stringify({ 
+          prompt,
+          systemId: selectedSystemId
+        })
       });
 
       if (!response.ok) {
@@ -471,7 +479,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
     
     navigator.clipboard.writeText(result.content)
       .then(() => {
-        // 显示复制成功提示
+        // 1. 显示屏幕中间的复制成功提示
         const copyTip = document.createElement('div');
         copyTip.className = 'copy-success-tip';
         copyTip.textContent = '复制成功';
@@ -483,9 +491,47 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
             document.body.removeChild(copyTip);
           }, 300);
         }, 1500);
+        
+        // 2. 在按钮上显示临时状态变化
+        const copyButton = document.querySelector('.polish-actions .copy') as HTMLButtonElement;
+        if (copyButton) {
+          // 保存原始内容
+          const originalHTML = copyButton.innerHTML;
+          const originalTitle = copyButton.title;
+          
+          // 修改为成功状态
+          copyButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg><span>已复制</span>';
+          copyButton.title = '已复制到剪贴板';
+          copyButton.style.backgroundColor = 'rgba(16, 185, 129, 0.2)';
+          copyButton.style.color = 'rgb(16, 185, 129)';
+          copyButton.style.borderColor = 'rgb(16, 185, 129)';
+          
+          // 恢复原始状态
+          setTimeout(() => {
+            copyButton.innerHTML = originalHTML;
+            copyButton.title = originalTitle;
+            copyButton.style.backgroundColor = '';
+            copyButton.style.color = '';
+            copyButton.style.borderColor = '';
+          }, 2000);
+        }
       })
       .catch(err => {
         console.error('复制失败:', err);
+        
+        // 显示失败提示
+        const copyErrorTip = document.createElement('div');
+        copyErrorTip.className = 'copy-success-tip';
+        copyErrorTip.textContent = '复制失败';
+        copyErrorTip.style.backgroundColor = 'rgba(239, 68, 68, 0.9)';
+        document.body.appendChild(copyErrorTip);
+        
+        setTimeout(() => {
+          copyErrorTip.classList.add('fade-out');
+          setTimeout(() => {
+            document.body.removeChild(copyErrorTip);
+          }, 300);
+        }, 1500);
       });
   };
 
@@ -639,7 +685,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
             title="与AI对话"
           >
             <MessageSquare size={16} />
-            <span>ChatWithAI</span>
+            <span>Chat With LLM</span>
           </button>
         </div>
       </TiptapBubbleMenu>

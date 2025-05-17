@@ -8,6 +8,9 @@ import {
     isGeminiModel,
     getApiEndpointAndHeaders,
 } from '@/lib/services/ai-service';
+// 导入系统知识服务和Chat提示模板
+import { SystemKnowledgeService } from '@/lib/services/system-knowledge';
+import { CHAT_PROMPT } from '@/lib/prompts/chat';
 
 // 创建一个编码器用于流式响应
 const encoder = new TextEncoder();
@@ -62,8 +65,8 @@ async function handleOpenAIStream(
 
 export async function POST(req: NextRequest) {
     try {
-        // 从请求中获取提示词
-        const { prompt } = await req.json();
+        // 从请求中获取提示词和系统ID
+        const { prompt, systemId } = await req.json();
         console.log('AI编辑器动作收到请求，提示词前10个字符:', prompt?.substring(0, 10) + '...');
 
         if (!prompt || typeof prompt !== 'string') {
@@ -72,6 +75,32 @@ export async function POST(req: NextRequest) {
                 status: 400,
                 headers: { 'Content-Type': 'application/json' }
             });
+        }
+
+        // 解析原始提示词，提取指令和选中的文本
+        const instructionMatch = prompt.match(/用户指令:[\s]*(.*?)(?:\n\n|$)/);
+        const selectedTextMatch = prompt.match(/选中的文本内容:[\s]*([\s\S]*?)(?:\n\n|$)/);
+        
+        const instruction = instructionMatch ? instructionMatch[1].trim() : '';
+        const selectedText = selectedTextMatch ? selectedTextMatch[1].trim() : '';
+
+        // 获取系统产品知识
+        let productKnowledge = {
+          productOverview: '',
+          userPersonas: '',
+          architectureInfo: ''
+        };
+        
+        if (systemId) {
+          try {
+            productKnowledge = await SystemKnowledgeService.getSystemKnowledge(systemId);
+            console.log('成功获取系统产品知识');
+          } catch (knowledgeError) {
+            console.error('获取系统产品知识失败:', knowledgeError);
+            // 失败时继续使用默认空值
+          }
+        } else {
+          console.log('未提供systemId，使用空的产品知识');
         }
 
         // 1. 获取默认AI配置
@@ -108,6 +137,14 @@ export async function POST(req: NextRequest) {
             apiKey: decryptedApiKey,
         };
 
+        // 组装Chat提示词
+        const finalPrompt = CHAT_PROMPT
+          .replace('{instruction}', instruction)
+          .replace('{selectedText}', selectedText)
+          .replace('{productOverview}', productKnowledge.productOverview)
+          .replace('{userPersonas}', productKnowledge.userPersonas)
+          .replace('{architectureInfo}', productKnowledge.architectureInfo);
+
         // 3. 根据配置类型调用相应的AI服务 - 使用流式响应
         const isGemini = isGeminiModel(finalConfig.model);
         console.log(`AI编辑器动作请求使用模型: ${finalConfig.model} (是Gemini: ${isGemini})`);
@@ -127,7 +164,7 @@ export async function POST(req: NextRequest) {
                                 }
                             });
                             
-                            const result = await model.generateContentStream(prompt);
+                            const result = await model.generateContentStream(finalPrompt);
                             const textStream = result.stream;
                             
                             // 处理流
@@ -157,7 +194,7 @@ export async function POST(req: NextRequest) {
                                 headers: headers,
                                 body: JSON.stringify({
                                     model: finalConfig.model,
-                                    messages: [{ role: 'user', content: prompt }],
+                                    messages: [{ role: 'user', content: finalPrompt }],
                                     temperature: finalConfig.temperature || 0.7,
                                     stream: true, // 启用流式输出
                                 }),

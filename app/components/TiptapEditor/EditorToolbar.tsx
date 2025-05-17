@@ -199,6 +199,197 @@ export function loadDraft(editor: Editor, getActiveRequirementBook: () => string
   }
 }
 
+// 导出HTML为Word文档
+export function exportToWord(editor: Editor, filename: string = '需求文档') {
+  try {
+    // 获取HTML内容
+    const html = editor.getHTML();
+    
+    // 构建完整的Word文档HTML
+    const wordContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>${filename}</title>
+        <style>
+          body { font-family: 'Microsoft YaHei', Arial, sans-serif; line-height: 1.6; }
+          h1 { font-size: 24pt; color: #333; }
+          h2 { font-size: 18pt; color: #444; }
+          h3 { font-size: 14pt; color: #555; }
+          p { font-size: 12pt; }
+          table { border-collapse: collapse; width: 100%; }
+          th, td { border: 1px solid #ddd; padding: 8px; }
+          th { background-color: #f2f2f2; }
+        </style>
+      </head>
+      <body>
+        ${html}
+      </body>
+      </html>
+    `;
+    
+    // 创建Blob对象
+    const blob = new Blob([wordContent], { type: 'application/msword' });
+    
+    // 创建下载链接
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${filename}.doc`;
+    
+    // 触发下载
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showToast('Word文档导出成功');
+    return true;
+  } catch (error) {
+    console.error('导出Word文档失败:', error);
+    showToast('导出Word文档失败', 'error');
+    return false;
+  }
+}
+
+// HTML转Markdown
+function htmlToMarkdown(html: string): string {
+  let markdown = html;
+  
+  // 移除HTML注释
+  markdown = markdown.replace(/<!--[\s\S]*?-->/g, '');
+  
+  // 替换标题
+  markdown = markdown
+    .replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, '# $1\n\n')
+    .replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, '## $1\n\n')
+    .replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, '### $1\n\n');
+  
+  // 替换段落
+  markdown = markdown.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, '$1\n\n');
+  
+  // 替换列表
+  markdown = markdown
+    .replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, function(match, content) {
+      // 替换列表项
+      return content.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, '- $1\n') + '\n';
+    })
+    .replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, function(match, content) {
+      // 替换有序列表项，使用计数器
+      let counter = 1;
+      return content.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, function() {
+        return counter++ + '. ' + arguments[1] + '\n';
+      }) + '\n';
+    });
+  
+  // 替换粗体和斜体
+  markdown = markdown
+    .replace(/<strong[^>]*>([\s\S]*?)<\/strong>/gi, '**$1**')
+    .replace(/<b[^>]*>([\s\S]*?)<\/b>/gi, '**$1**')
+    .replace(/<em[^>]*>([\s\S]*?)<\/em>/gi, '*$1*')
+    .replace(/<i[^>]*>([\s\S]*?)<\/i>/gi, '*$1*');
+  
+  // 替换删除线
+  markdown = markdown.replace(/<del[^>]*>([\s\S]*?)<\/del>/gi, '~~$1~~');
+  
+  // 替换代码块
+  markdown = markdown.replace(/<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, '```\n$1\n```\n\n');
+  
+  // 替换行内代码
+  markdown = markdown.replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, '`$1`');
+  
+  // 替换引用
+  markdown = markdown.replace(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, function(match, content) {
+    // 将引用内容的每一行都加上 >
+    return content.split('\n').map((line: string) => '> ' + line).join('\n') + '\n\n';
+  });
+  
+  // 替换链接
+  markdown = markdown.replace(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, '[$2]($1)');
+  
+  // 替换图片
+  markdown = markdown.replace(/<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*>/gi, '![$2]($1)');
+  
+  // 替换分隔线
+  markdown = markdown.replace(/<hr[^>]*>/gi, '---\n\n');
+  
+  // 替换表格
+  markdown = markdown.replace(/<table[^>]*>([\s\S]*?)<\/table>/gi, function(match, tableContent) {
+    let result = '';
+    
+    // 处理表头
+    const headerMatch = tableContent.match(/<thead[^>]*>([\s\S]*?)<\/thead>/i);
+    if (headerMatch) {
+      const headerContent = headerMatch[1];
+      const headerCells = headerContent.match(/<th[^>]*>([\s\S]*?)<\/th>/gi) || [];
+      
+      if (headerCells.length) {
+        // 表格头部
+        result += '| ' + headerCells.map((cell: string) => {
+          return cell.replace(/<th[^>]*>([\s\S]*?)<\/th>/i, '$1').trim();
+        }).join(' | ') + ' |\n';
+        
+        // 分隔线
+        result += '| ' + headerCells.map(() => '---').join(' | ') + ' |\n';
+      }
+    }
+    
+    // 处理表格内容
+    const bodyMatch = tableContent.match(/<tbody[^>]*>([\s\S]*?)<\/tbody>/i);
+    if (bodyMatch) {
+      const bodyContent = bodyMatch[1];
+      const rows = bodyContent.match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi) || [];
+      
+      rows.forEach((row: string) => {
+        const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/gi) || [];
+        if (cells.length) {
+          result += '| ' + cells.map((cell: string) => {
+            return cell.replace(/<td[^>]*>([\s\S]*?)<\/td>/i, '$1').trim();
+          }).join(' | ') + ' |\n';
+        }
+      });
+    }
+    
+    return result + '\n';
+  });
+  
+  // 清理HTML标签
+  markdown = markdown.replace(/<[^>]*>/g, '');
+  
+  // 修复空白行
+  markdown = markdown.replace(/(\n\s*){3,}/g, '\n\n');
+  
+  return markdown;
+}
+
+// 导出为Markdown文件
+export function exportToMarkdown(editor: Editor, filename: string = '需求文档') {
+  try {
+    // 获取HTML内容并转换为Markdown
+    const html = editor.getHTML();
+    const markdown = htmlToMarkdown(html);
+    
+    // 创建Blob对象
+    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+    
+    // 创建下载链接
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${filename}.md`;
+    
+    // 触发下载
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showToast('Markdown文件导出成功');
+    return true;
+  } catch (error) {
+    console.error('导出Markdown文件失败:', error);
+    showToast('导出Markdown文件失败', 'error');
+    return false;
+  }
+}
+
 export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
   if (!editor) {
     return null;
