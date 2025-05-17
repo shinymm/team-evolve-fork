@@ -1,362 +1,172 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect } from "react";
-import { ArticlePrompts, setupExtensions, PromptsManager, MenuBubble, AiActionExecutor, ToolbarMenu, AdviceView, OutputForm, ChangeForm, FacetType, PromptAction } from "@studio-b3/web-core";
-import { Editor, EditorContent, useEditor } from "@tiptap/react";
-import MarkdownIt from "markdown-it";
-import { useDebounce } from "use-debounce";
-import { Theme } from "@radix-ui/themes";
-import { DOMSerializer } from "prosemirror-model";
-import TurndownService from "turndown";
-import { Markdown } from "tiptap-markdown";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
-import { useSearchParams } from "next/navigation";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import React, { useState, useRef, useEffect } from 'react';
+import { TiptapEditor } from '@/app/components/TiptapEditor';
+import { 
+  FileUp, 
+  ChevronDown, 
+  Loader2,
+  FileText
+} from 'lucide-react';
+import { useSystemStore } from '@/lib/stores/system-store';
+import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store';
+import { 
+  loadTemplate, 
+  loadDraft, 
+  showToast 
+} from '@/app/components/TiptapEditor/EditorToolbar';
 
-const md = new MarkdownIt();
-
-interface CustomEditorAction {
-  name: string;
-  action?: (editor: Editor) => Promise<void>;
-}
-
-// 自定义样式覆盖 - 只针对关键样式
-const customStyles = `
-  /* 浅橙色高亮 - 针对my-advice和其他可能的高亮元素 */
-  .my-advice,
-  mark.my-advice,
-  mark[class*="advice"],
-  mark {
-    background-color: rgba(255, 166, 77, 0.2) !important;
-    color: inherit !important;
-  }
-
-  /* 基于文本内容的高特异性选择器 */
-  .flex button:has(text="Reject") {
-    background-color: #000000 !important;
-  }
-
-  .flex button:has(text="Accept") {
-    background-color: #FF8C00 !important;
-  }
-`;
+// 导入CSS样式
+import '@/app/components/TiptapEditor/styles.css';
 
 export default function BookWritingPage() {
-  const [markdownContent, setMarkdownContent] = useState<string>("");
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [templateContent, setTemplateContent] = useState("");
-  const { toast } = useToast();
-  const searchParams = useSearchParams();
+  const [content, setContent] = useState('<p>请在此处开始编写您的需求文档...</p>');
   
-  // 获取当前系统ID，从URL参数中获取
-  const systemId = searchParams.get('systemId') || "";
-
-  const actionExecutor: AiActionExecutor = new AiActionExecutor();
-  actionExecutor.setEndpointUrl("/api/ai-editor-action/chat");
-
-  const instance = PromptsManager.getInstance();
+  // 编辑器引用
+  const editorRef = useRef<any>(null);
   
-  // 添加一些适合需求书撰写的自定义动作
-  const customSlashActions: CustomEditorAction[] = [
-    {
-      name: "添加需求描述",
-      action: async (editor: Editor) => {
-        editor.chain().focus().insertContent("## 需求描述\n\n请在此处描述需求的详细信息。\n\n").run();
-      }
-    },
-    {
-      name: "添加用户故事",
-      action: async (editor: Editor) => {
-        editor.chain().focus().insertContent("## 用户故事\n\n作为一个[角色]，我想要[功能]，以便[价值]。\n\n").run();
-      }
-    },
-    {
-      name: "添加验收标准",
-      action: async (editor: Editor) => {
-        editor.chain().focus().insertContent("## 验收标准\n\n- [ ] 标准1\n- [ ] 标准2\n- [ ] 标准3\n\n").run();
-      }
-    }
-  ];
-
-  // 将自定义操作转换为PromptAction格式
-  const customActionsMap: PromptAction[] = customSlashActions.map((action) => {
-    return {
-      name: action.name,
-      i18Name: false,
-      template: ``,
-      facetType: FacetType.SLASH_COMMAND,
-      outputForm: OutputForm.TEXT,
-      action: action.action
-    };
-  });
-
-  instance.updateActionsMap("article", [...ArticlePrompts, ...customActionsMap]);
-
-  // 简单的CSS注入函数
-  const injectCustomStyles = () => {
-    let styleEl = document.getElementById("autodev-editor-custom-styles");
-    if (!styleEl) {
-      styleEl = document.createElement("style");
-      styleEl.id = "autodev-editor-custom-styles";
-      styleEl.innerHTML = customStyles;
-      document.head.appendChild(styleEl);
-    }
-  };
-
-  const editor = useEditor({
-    extensions: setupExtensions(instance, actionExecutor).concat([
-      Markdown.configure({
-        transformPastedText: true,
-        transformCopiedText: false,
-      }),
-    ]),
-    content: md.render("# 需求书\n\n开始编写您的需求书..."),
-    immediatelyRender: false,
-    editorProps: {
-      attributes: {
-        class: "prose lg:prose-xl bb-editor-inner p-4",
-      },
-    },
-    onUpdate: ({ editor }) => {
-      const schema = editor.state.schema;
-      try {
-        const serializer = DOMSerializer.fromSchema(schema);
-        const serialized = serializer.serializeFragment(editor.state.doc.content);
-
-        const html: string = Array.from(serialized.childNodes)
-          .map((node: ChildNode) => (node as HTMLElement).outerHTML)
-          .join("");
-
-        const turndownService = new TurndownService();
-        const markdown = turndownService.turndown(html);
-        setMarkdownContent(markdown);
-      } catch (e) {
-        console.error(e);
-      }
-    },
-  });
-
-  // 加载需求模版函数
-  const loadRequirementTemplate = async () => {
-    if (!systemId) {
-      toast({
-        title: "错误",
-        description: "未找到系统ID，无法加载模版",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/requirement-templates?systemId=${systemId}`);
-      
-      if (!response.ok) {
-        throw new Error(`获取模版失败: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data.template && data.template.content) {
-        // 存储模版内容并显示确认弹窗
-        setTemplateContent(data.template.content);
-        setShowConfirmDialog(true);
-      } else {
-        toast({
-          title: "提示",
-          description: "未找到该系统的需求模版",
-        });
-      }
-    } catch (error) {
-      console.error("加载需求模版失败:", error);
-      toast({
-        title: "错误",
-        description: "加载需求模版失败，请重试",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // 确认加载模版到编辑器
-  const confirmLoadTemplate = () => {
-    if (editor && templateContent) {
-      editor.commands.setContent(md.render(templateContent));
-      toast({
-        title: "成功",
-        description: "已加载需求模版",
-      });
-    }
-    setShowConfirmDialog(false);
-  };
-
-  const [debouncedEditor] = useDebounce(editor?.state.doc.content, 5000);
-
-  // 在组件挂载后注入样式
+  // 下拉菜单状态
+  const [showContentDropdown, setShowContentDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  // 加载状态
+  const [isLoadingTemplate, setIsLoadingTemplate] = useState(false);
+  const [isLoadingDraft, setIsLoadingDraft] = useState(false);
+  
+  // 获取系统和需求分析状态
+  const { selectedSystemId } = useSystemStore();
+  const { getActiveRequirementBook } = useRequirementAnalysisStore();
+  
+  // 点击外部关闭下拉菜单
   useEffect(() => {
-    // 注入CSS样式
-    injectCustomStyles();
-    
-    return () => {
-      // 清理：可选
-      const styleEl = document.getElementById("autodev-editor-custom-styles");
-      if (styleEl) {
-        styleEl.remove();
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowContentDropdown(false);
       }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+  
+  // 保存编辑器实例的引用
+  const handleEditorReady = (editor: any) => {
+    editorRef.current = editor;
+  };
 
-  React.useEffect(() => {
-    if (debouncedEditor) {
-      try {
-        localStorage.setItem("requirement-editor", JSON.stringify(editor?.getJSON()));
-        console.info("需求书已保存到本地存储");
-      } catch (e) {
-        console.error("保存到本地存储时出错:", e);
-      }
+  const handleChange = (html: string) => {
+    setContent(html);
+    // 您可以在这里添加自动保存逻辑，例如保存到localStorage或发送到后端
+  };
+  
+  // 处理加载需求模板
+  const handleLoadTemplate = async () => {
+    if (!editorRef.current) {
+      showToast('编辑器未准备好', 'error');
+      return;
     }
-  }, [debouncedEditor, editor]);
-
-  React.useEffect(() => {
-    if (editor) {
-      actionExecutor.setEditor(editor);
+    
+    setIsLoadingTemplate(true);
+    try {
+      await loadTemplate(editorRef.current, selectedSystemId);
+    } finally {
+      setIsLoadingTemplate(false);
+      setShowContentDropdown(false);
     }
-
-    // 从本地存储恢复内容
-    const content = localStorage.getItem("requirement-editor");
-    if (content && editor) {
-      try {
-        const parsed = JSON.parse(content);
-        editor.commands.setContent(parsed);
-      } catch (e) {
-        console.error(e);
-      }
+  };
+  
+  // 处理加载需求初稿
+  const handleLoadDraft = () => {
+    if (!editorRef.current) {
+      showToast('编辑器未准备好', 'error');
+      return;
     }
-  }, [editor]);
-
-  // 自定义气泡菜单操作
-  const customBubbleActions: CustomEditorAction[] = [
-    {
-      name: "优化表述",
-      action: async (editor: Editor) => {
-        const { from, to } = editor.state.selection;
-        const selectedText = editor.state.doc.textBetween(from, to);
-        if (!selectedText) return;
-
-        try {
-          const response = await fetch("/api/ai-editor-action/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              prompt: `优化以下需求表述，使其更清晰、准确、无歧义。直接返回优化后的文本，不要添加解释或JSON格式：\n\n${selectedText}`
-            }),
-          });
-          
-          if (!response.ok) throw new Error("请求失败");
-          
-          const data = await response.json();
-          if (data.result) {
-            // 直接替换选中的内容而不是插入新内容
-            editor.chain().focus().deleteSelection().insertContent(data.result).run();
-          }
-        } catch (error) {
-          console.error("优化表述失败:", error);
-        }
-      }
-    },
-    {
-      name: "生成示例",
-      action: async (editor: Editor) => {
-        const { from, to } = editor.state.selection;
-        const selectedText = editor.state.doc.textBetween(from, to);
-        if (!selectedText) return;
-
-        try {
-          const response = await fetch("/api/ai-editor-action/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              prompt: `为以下需求生成一个具体的实例或示例。直接返回示例文本，不要添加解释或JSON格式：\n\n${selectedText}`
-            }),
-          });
-          
-          if (!response.ok) throw new Error("请求失败");
-          
-          const data = await response.json();
-          if (data.result) {
-            // 插入内容到选中文本之后
-            editor.chain().focus().setTextSelection({ from: to, to }).insertContent(`\n\n**示例：**\n${data.result}`).run();
-          }
-        } catch (error) {
-          console.error("生成示例失败:", error);
-        }
-      }
+    
+    setIsLoadingDraft(true);
+    try {
+      loadDraft(editorRef.current, getActiveRequirementBook);
+    } finally {
+      setIsLoadingDraft(false);
+      setShowContentDropdown(false);
     }
-  ];
-
-  // 使用any类型暂时解决类型不匹配问题
-  const getCustomBubbleActions = () => customBubbleActions.map((action) => {
-    return {
-      name: action.name,
-      template: "",
-      facetType: FacetType.BUBBLE_MENU,
-      changeForm: ChangeForm.REPLACE, // 使用REPLACE替代DIFF来避免JSON显示
-      outputForm: OutputForm.TEXT, // 使用TEXT而不是STREAMING可能有助于避免JSON格式
-      action: action.action
-    } as any;
-  });
+  };
 
   return (
-    <div className="container mx-auto py-6">
-      {/* 注入自定义样式 */}
-      <style dangerouslySetInnerHTML={{ __html: customStyles }} />
-      
-      <Card className="w-full">
-        <CardHeader className="flex flex-row items-center justify-between">
+    <div className="mx-auto py-6 w-[90%]">
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
           <div>
-            <CardTitle>需求书撰写</CardTitle>
-            <CardDescription>使用AutoDev Editor辅助撰写需求文档</CardDescription>
+            <h1 className="text-2xl font-bold tracking-tight">需求书撰写</h1>
+            <p className="text-muted-foreground text-sm mt-2">
+              使用下方编辑器创建或编辑您的需求文档。提供丰富的文本编辑工具，帮助您精确表达需求内容。
+            </p>
           </div>
-          <Button 
-            onClick={loadRequirementTemplate}
-            disabled={!systemId}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            加载需求模版
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <Theme className="w-full flex editor-block">
-            <div className="w-full editor-section">
-              <div className="editor-main bg-white border rounded-md">
-                {editor && <ToolbarMenu className="toolbar-menu" editor={editor as any} />}
-                <EditorContent editor={editor} />
-                <div>{editor && <MenuBubble editor={editor as any} customActions={getCustomBubbleActions()} />}</div>
+          
+          {/* 内容加载下拉菜单 */}
+          <div className="header-dropdown-container" ref={dropdownRef}>
+            <button
+              onClick={() => setShowContentDropdown(!showContentDropdown)}
+              className="header-dropdown-button"
+              title="内容加载"
+              disabled={isLoadingTemplate || isLoadingDraft}
+            >
+              {(isLoadingTemplate || isLoadingDraft) ? (
+                <Loader2 size={20} className="animate-spin mr-2" />
+              ) : (
+                <FileText size={20} className="mr-2" />
+              )}
+              <span>内容加载</span>
+              <ChevronDown size={14} className="ml-1" />
+            </button>
+            
+            {showContentDropdown && (
+              <div className="header-dropdown-menu">
+                <button 
+                  onClick={handleLoadTemplate} 
+                  className="header-dropdown-item"
+                  disabled={isLoadingTemplate}
+                >
+                  {isLoadingTemplate ? (
+                    <><Loader2 size={14} className="animate-spin mr-2" /> 加载中...</>
+                  ) : (
+                    <>
+                      <FileText size={14} className="mr-2" />
+                      加载需求模板
+                    </>
+                  )}
+                </button>
+                <button 
+                  onClick={handleLoadDraft} 
+                  className="header-dropdown-item"
+                  disabled={isLoadingDraft}
+                >
+                  {isLoadingDraft ? (
+                    <><Loader2 size={14} className="animate-spin mr-2" /> 加载中...</>
+                  ) : (
+                    <>
+                      <FileUp size={14} className="mr-2" />
+                      加载需求初稿
+                    </>
+                  )}
+                </button>
               </div>
-            </div>
-            <div className="h-auto">
-              {editor && <AdviceView editor={editor as any} />}
-            </div>
-          </Theme>
-        </CardContent>
-      </Card>
-      
-      {/* 确认覆盖内容的对话框 */}
-      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认加载模版</AlertDialogTitle>
-            <AlertDialogDescription>
-              加载模版将覆盖当前编辑器中的所有内容，确定要继续吗？
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmLoadTemplate}>确认</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            )}
+          </div>
+        </div>
+        
+        <div className="space-y-4">
+          <div className="min-h-[calc(100vh-200px)]">
+            <TiptapEditor 
+              content={content} 
+              onChange={handleChange}
+              className="h-full"
+              onReady={handleEditorReady}
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
-

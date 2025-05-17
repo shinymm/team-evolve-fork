@@ -1,0 +1,779 @@
+.tiptap-editor {
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.editor-toolbar {
+  padding: 8px;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.editor-toolbar button {
+  width: 36px;
+  height: 36px;
+  padding: 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4b5563;
+  transition: all 0.2s ease;
+}
+
+.editor-toolbar button:hover {
+  background-color: #e9ecef;
+  color: #111827;
+}
+
+.editor-toolbar button.is-active {
+  background-color: #e9ecef;
+  color: #2563eb;
+  border-color: #d1d5db;
+}
+
+.editor-toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background-color: #e9ecef;
+  margin: 0 6px;
+}
+
+.editor-content {
+  padding: 20px;
+  min-height: 650px;
+  flex-grow: 1;
+  overflow-y: auto;
+}
+
+/* TipTap 编辑器内容样式 */
+.ProseMirror {
+  min-height: 650px;
+  height: 100%;
+  outline: none;
+  padding: 10px;
+}
+
+/* 文本高亮样式 */
+.ProseMirror mark[data-color="#FFF3E0"] {
+  background-color: #FFF3E0;
+  border-radius: 2px;
+  padding: 0 2px;
+  box-shadow: 0 0 0 1px rgba(245, 124, 0, 0.2);
+}
+
+/* 当父容器设置高度时，让编辑器充分利用可用空间 */
+.h-full .editor-content,
+.h-full .ProseMirror {
+  height: calc(100vh - 280px);
+  min-height: unset;
+}
+
+.ProseMirror p {
+  margin: 1em 0;
+}
+
+.ProseMirror ul, 
+.ProseMirror ol {
+  padding-left: 2em;
+}
+
+.ProseMirror h1,
+.ProseMirror h2,
+.ProseMirror h3 {
+  line-height: 1.1;
+}
+
+.ProseMirror h1 {
+  font-size: 2em;
+  margin-top: 0.67em;
+  margin-bottom: 0.67em;
+}
+
+.ProseMirror h2 {
+  font-size: 1.5em;
+  margin-top: 0.83em;
+  margin-bottom: 0.83em;
+}
+
+.ProseMirror h3 {
+  font-size: 1.17em;
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+
+.ProseMirror blockquote {
+  border-left: 4px solid #ddd;
+  margin-left: 0;
+  padding-left: 1em;
+  color: #666;
+  font-style: italic;
+}
+
+.ProseMirror code {
+  background-color: #f0f0f0;
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.ProseMirror pre {
+  background-color: #f0f0f0;
+  padding: 0.7em 1em;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+.ProseMirror pre code {
+  background: none;
+  padding: 0;
+}
+
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+.ProseMirror hr {
+  border: none;
+  border-top: 2px solid #ddd;
+  margin: 1em 0;
+}
+
+/* 增强表格样式 */
+.ProseMirror table {
+  border-collapse: collapse;
+  margin: 1.5em 0;
+  overflow: hidden;
+  width: 100%;
+  table-layout: fixed;
+  font-size: 0.95em;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+}
+
+.ProseMirror table td,
+.ProseMirror table th {
+  border: 1px solid #e2e8f0;
+  padding: 10px 14px;
+  position: relative;
+  vertical-align: top;
+  box-sizing: border-box;
+  min-width: 100px;
+}
+
+/* 所有表格内容单元格默认为白色背景 */
+.ProseMirror table td {
+  background-color: #ffffff;
+}
+
+.ProseMirror table th {
+  background-color: #f8fafc;
+  font-weight: 600;
+  text-align: left;
+  color: #334155;
+}
+
+/* 偶数行单元格应用轻微的背景色 */
+.ProseMirror table tr:nth-child(2n) td {
+  background-color: #f9fafb;
+}
+
+.ProseMirror table tr:hover td {
+  background-color: #f1f5f9;
+}
+
+.ProseMirror table p {
+  margin: 0;
+  padding: 0;
+}
+
+/* 可调整大小的表格 */
+.ProseMirror .tableWrapper {
+  overflow-x: auto;
+  max-width: 100%;
+  padding: 0.5em 0;
+}
+
+.ProseMirror table .selectedCell {
+  position: relative;
+}
+
+.ProseMirror table .selectedCell:after {
+  background: rgba(200, 200, 255, 0.3);
+  content: "";
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 2;
+}
+
+.ProseMirror table .column-resize-handle {
+  background-color: #2563eb;
+  bottom: -2px;
+  position: absolute;
+  right: -2px;
+  pointer-events: none;
+  top: 0;
+  width: 4px;
+  z-index: 3;
+}
+
+.ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding: 0;
+}
+
+.ProseMirror ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 0.5em;
+}
+
+.ProseMirror ul[data-type="taskList"] li > label {
+  margin-right: 0.5em;
+  user-select: none;
+}
+
+.ProseMirror ul[data-type="taskList"] li > div {
+  flex: 1;
+}
+
+.ProseMirror p.has-text-align-center {
+  text-align: center;
+}
+
+.ProseMirror p.has-text-align-right {
+  text-align: right;
+}
+
+.ProseMirror p.has-text-align-justify {
+  text-align: justify;
+}
+
+/* 气泡菜单样式 */
+.bubble-menu {
+  display: flex;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 4px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 50;
+  gap: 4px;
+}
+
+.bubble-menu-button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #4b5563;
+  font-size: 12px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.bubble-menu-button:hover {
+  background-color: #f1f5f9;
+  color: #ef6c00;
+}
+
+.bubble-menu-button svg {
+  color: #ef6c00;
+}
+
+/* 分隔线 */
+.bubble-menu-divider {
+  width: 1px;
+  height: 20px;
+  background-color: #e2e8f0;
+  margin: 0 2px;
+}
+
+/* 润色结果容器样式 */
+.polish-result-container {
+  position: absolute;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  width: 90% !important; /* 强制保持宽度 */
+  max-width: 1200px;
+  z-index: 100;
+  border: 1px solid #e2e8f0;
+  resize: both;
+  overflow: hidden !important; /* 确保内容不会超出边界 */
+  min-height: 300px !important; /* 确保最小高度足够 */
+  height: 300px !important; /* 强制初始高度 */
+  max-height: 80vh;
+  min-width: 300px;
+  transition: box-shadow 0.2s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.polish-result-container:hover {
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
+}
+
+/* 添加响应式尺寸 */
+@media (max-width: 768px) {
+  .polish-result-container {
+    width: 95% !important;
+    max-width: 95vw;
+    min-height: 150px;
+    left: 2.5% !important; /* 确保在小屏幕上居中 */
+  }
+  
+  .polish-result-content {
+    padding: 12px;
+  }
+  
+  .polish-text {
+    font-size: 13px;
+  }
+  
+  .polish-action-button {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+}
+
+.result-drag-handle {
+  background-color: #f8fafc;
+  height: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: move;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 8px 0;
+  user-select: none;
+  flex-shrink: 0; /* 防止压缩 */
+}
+
+.drag-handle-icon {
+  width: 40px;
+  height: 4px;
+  background-color: #ef6c00;
+  border-radius: 4px;
+  opacity: 0.6;
+}
+
+.polish-result-content {
+  padding: 16px;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* 确保弹性布局正常工作 */
+  height: calc(100% - 26px); /* 26px是拖动手柄的高度 */
+  overflow: auto !important; /* 使整个内容区可滚动 */
+}
+
+.polish-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 150px;
+  height: 100%;
+  gap: 12px;
+  color: #64748b;
+  flex-grow: 1;
+  padding: 20px;
+}
+
+.polish-loading svg {
+  color: #ef6c00;
+}
+
+.polish-text {
+  padding: 12px;
+  background-color: #f8fafc;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  overflow-y: auto;
+  margin-bottom: 16px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #1e293b;
+  white-space: pre-wrap;
+  flex-grow: 1;
+  min-height: 100px; /* 确保最小高度 */
+  max-height: none !important; /* 移除最大高度限制 */
+}
+
+/* 添加尺寸调整指示器样式 */
+.resize-indicator {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 12px;
+  height: 12px;
+  cursor: se-resize;
+  color: #cbd5e1;
+}
+
+.resize-indicator:hover {
+  color: #ef6c00;
+}
+
+/* 添加一个提示文本，指示可调整大小 */
+.resize-hint {
+  position: absolute;
+  right: 18px;
+  bottom: 5px;
+  font-size: 10px;
+  color: #94a3b8;
+  user-select: none;
+  opacity: 0.8;
+}
+
+.polish-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-shrink: 0; /* 防止压缩 */
+}
+
+.polish-action-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.polish-action-button.reject {
+  color: #64748b;
+  border-color: #e2e8f0;
+  background-color: white;
+}
+
+.polish-action-button.reject:hover {
+  background-color: #f1f5f9;
+}
+
+.polish-action-button.replace {
+  color: white;
+  background-color: #ef6c00;
+  border-color: #ef6c00;
+}
+
+.polish-action-button.replace:hover {
+  background-color: #d65f00;
+}
+
+.polish-action-button.append {
+  color: white;
+  background-color: #ef6c00;
+  border-color: #ef6c00;
+}
+
+.polish-action-button.append:hover {
+  background-color: #d65f00;
+}
+
+.polish-action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 内容加载下拉菜单样式 */
+.dropdown-container {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-button {
+  width: 56px;
+  height: 36px;
+  padding: 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4b5563;
+  transition: all 0.2s ease;
+  gap: 2px;
+}
+
+.dropdown-button:hover {
+  background-color: #e9ecef;
+  color: #111827;
+}
+
+.dropdown-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0; /* 改为右对齐 */
+  z-index: 100;
+  min-width: 200px; /* 增加最小宽度 */
+  width: auto; /* 自动宽度 */
+  padding: 8px;
+  margin-top: 2px;
+  background-color: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 10px 16px;
+  text-align: left;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #4b5563;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  box-sizing: border-box;
+  border-radius: 4px;
+  margin: 2px 0;
+}
+
+.dropdown-item:hover {
+  background-color: #f3f4f6;
+  color: #ef6c00;
+}
+
+.dropdown-item:active {
+  background-color: #f8fafc;
+}
+
+.dropdown-item:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: #f9fafb;
+}
+
+.dropdown-item .mr-2 {
+  margin-right: 8px;
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Toast通知样式 */
+.editor-toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 12px 16px;
+  background-color: #ef6c00;
+  color: white;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  font-size: 14px;
+  opacity: 1;
+  transition: all 0.3s ease;
+  max-width: 300px;
+}
+
+.editor-toast.error {
+  background-color: #ef4444;
+}
+
+.editor-toast.hide {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+/* 页头内容加载下拉菜单样式 */
+.header-dropdown-container {
+  position: relative;
+  display: inline-block;
+}
+
+.header-dropdown-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #4b5563;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.header-dropdown-button:hover {
+  border-color: #ef6c00;
+  color: #ef6c00;
+}
+
+.header-dropdown-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  border-color: #e2e8f0;
+  color: #9ca3af;
+}
+
+.header-dropdown-button .mr-2 {
+  margin-right: 8px;
+}
+
+.header-dropdown-button .ml-1 {
+  margin-left: 4px;
+}
+
+.header-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 100;
+  min-width: 180px;
+  width: auto;
+  padding: 8px;
+  margin-top: 4px;
+  background-color: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.header-dropdown-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 10px 16px;
+  text-align: left;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #4b5563;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  box-sizing: border-box;
+  border-radius: 4px;
+  margin: 2px 0;
+}
+
+.header-dropdown-item:hover {
+  background-color: #f3f4f6;
+  color: #ef6c00;
+}
+
+.header-dropdown-item:active {
+  background-color: #f8fafc;
+}
+
+.header-dropdown-item:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: #f9fafb;
+}
+
+/* ChatWithAI 输入框全宽样式 */
+.chat-instruction-input.full-width {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 15px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  min-height: 120px;
+  max-height: 180px;
+  resize: vertical;
+  border: 1px solid #e2e8f0;
+  background-color: #f8fafc;
+  color: #334155;
+  font-family: inherit;
+  line-height: 1.6;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+
+.chat-instruction-input.full-width:focus {
+  border-color: #ef6c00;
+  box-shadow: 0 0 0 2px rgba(239, 108, 0, 0.2);
+}
+
+.chat-form {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.chat-submit-button {
+  align-self: flex-end;
+  padding: 8px 16px;
+  background-color: #F97316;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.chat-submit-button:hover {
+  background-color: #EA580C;
+}
+
+.chat-submit-button:disabled {
+  background-color: #CBD5E1;
+  cursor: not-allowed;
+} 
