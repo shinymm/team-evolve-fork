@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { TiptapEditor } from '@/app/components/TiptapEditor';
+import { TiptapEditor } from '@/components/TiptapEditor';
 import { 
   FileUp, 
   ChevronDown, 
@@ -17,10 +17,10 @@ import {
   showToast,
   exportToWord,
   exportToMarkdown
-} from '@/app/components/TiptapEditor/EditorToolbar';
+} from '@/components/TiptapEditor/EditorToolbar';
 
 // 导入CSS样式
-import '@/app/components/TiptapEditor/styles.css';
+import '@/components/TiptapEditor/styles.css';
 
 export default function BookWritingPage() {
   const [content, setContent] = useState('<p>请在此处开始编写您的需求文档，也可以先从【内容加载】中选择模板或初稿，开始编写...</p>');
