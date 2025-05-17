@@ -815,14 +815,25 @@ export default function SceneAnalysisPage() {
 
   const handleRejectResult = async (scene: Scene) => {
     const state = sceneStates[scene.name]
-    if (!state?.taskId) return
+    // 移除对taskId的硬性依赖，即使没有taskId也继续执行
+    if (!state) {
+      console.warn('场景状态不存在:', scene.name)
+      return
+    }
 
     try {
+      console.log('拒绝分析结果', scene.name, {
+        hasTaskId: !!state.taskId,
+        isConfirming: state.isConfirming,
+        hasTempResult: !!state.tempResult
+      })
+      
       // 重置场景状态
       const updatedStates = {
         ...sceneStates,
         [scene.name]: {
-          taskId: sceneStates[scene.name]?.taskId,
+          // 如果存在taskId就保留，如果不存在则不使用该字段
+          ...(state.taskId ? { taskId: state.taskId } : {}),
           isConfirming: false,
           isCompleted: false,
           tempResult: undefined,  // 清空临时结果
