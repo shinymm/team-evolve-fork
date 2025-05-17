@@ -15,9 +15,18 @@ import {
   RefreshCw,
   Send,
   AlertTriangle,
-  Scissors
+  Scissors,
+  ClipboardCheck
 } from 'lucide-react';
 import { useSystemStore } from '@/lib/stores/system-store';
+import { markdownToHtml } from './EditorToolbar';
+import { 
+  polishText, 
+  expandText, 
+  analyzeBoundary, 
+  optimizeBoundary, 
+  chatWithAI 
+} from '@/lib/services/editor-action-service';
 
 interface BubbleMenuProps {
   editor: Editor;
@@ -44,7 +53,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
     visible: false,
     position: { x: 0, y: 0 },
     type: null,
-    size: undefined,
+    size: { width: 800, height: 300 },
     instruction: '',
     selectedText: '',
     selectionRange: undefined
@@ -53,6 +62,14 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
   const instructionInputRef = useRef<HTMLTextAreaElement>(null);
   const dragRef = useRef<{ isDragging: boolean, startX: number, startY: number }>({
     isDragging: false,
+    startX: 0,
+    startY: 0
+  });
+  // 添加大小调整的ref
+  const resizeRef = useRef<{ isResizing: boolean, startWidth: number, startHeight: number, startX: number, startY: number }>({
+    isResizing: false,
+    startWidth: 0,
+    startHeight: 0,
     startX: 0,
     startY: 0
   });
@@ -65,35 +82,12 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
       visible: false,
       position: { x: 0, y: 0 },
       type: null,
-      size: undefined,
+      size: { width: 800, height: 300 },
       instruction: '',
       selectedText: '',
       selectionRange: undefined
     });
   };
-
-  // 监听浮窗大小变化
-  useEffect(() => {
-    if (resultRef.current && result.visible) {
-      const resizeObserver = new ResizeObserver((entries) => {
-        for (const entry of entries) {
-          const { width, height } = entry.contentRect;
-          if (width > 0 && height > 0) {
-            setResult(prev => ({
-              ...prev,
-              size: { width, height }
-            }));
-          }
-        }
-      });
-      
-      resizeObserver.observe(resultRef.current);
-      
-      return () => {
-        resizeObserver.disconnect();
-      };
-    }
-  }, [result.visible]);
 
   // 计算结果框的初始位置
   const calculatePosition = () => {
@@ -163,9 +157,6 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
     // 计算结果框的初始位置
     const position = calculatePosition();
     
-    // 设置初始宽度，确保一致性
-    const initialWidth = Math.min(window.innerWidth * 0.9, 1200);
-    
     // 设置状态
     setResult({
       loading: true,
@@ -173,89 +164,36 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
       visible: true,
       position,
       type: 'polish',
-      size: { width: initialWidth, height: 300 },
-      selectedText
+      size: { width: 800, height: 300 },
+      selectedText,
+      selectionRange: { from, to } // 保存选择范围
     });
 
     try {
-      // 调用API进行文本润色，传递系统ID
-      const response = await fetch('/api/ai-editor-action/polish', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          text: selectedText,
-          fullText: fullText,
-          systemId: selectedSystemId
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('润色API调用失败');
-      }
-
-      if (response.body) {
-        // 处理流式响应
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let resultText = '';
-
-        // 读取流
-        const processStream = async () => {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            
-            const chunk = decoder.decode(value, { stream: true });
-            
-            try {
-              // 尝试解析JSON
-              const lines = chunk.split('\n').filter(line => line.trim() !== '');
-              
-              for (const line of lines) {
-                try {
-                  const data = JSON.parse(line);
-                  if (data.polishedText) {
-                    resultText += data.polishedText;
-                    // 实时更新UI
-                    setResult(prev => ({ 
-                      ...prev, 
-                      loading: false,
-                      content: resultText 
-                    }));
-                  } else if (data.error) {
-                    throw new Error(data.error);
-                  }
-                } catch (lineError) {
-                  if (lineError instanceof Error && lineError.message !== "Unexpected end of JSON input") {
-                    console.error('JSON解析错误:', lineError);
-                  }
-                }
-              }
-            } catch (e) {
-              console.error('处理数据块错误:', e);
-              throw e;
-            }
-          }
-        };
-
-        processStream().catch(error => {
-          console.error('处理流失败:', error);
+      // 使用service调用API
+      await polishText(
+        selectedText, 
+        fullText, 
+        selectedSystemId,
+        // 进度回调
+        (content) => {
+          setResult(prev => ({ 
+            ...prev, 
+            loading: false,
+            content
+          }));
+        },
+        // 错误回调
+        (error) => {
           setResult(prev => ({ 
             ...prev, 
             loading: false, 
-            content: '润色过程出现错误，请重试。' 
+            content: `润色过程出现错误，请重试：${error}`
           }));
-        });
-      } else {
-        throw new Error('未收到流式响应');
-      }
+        }
+      );
     } catch (error) {
       console.error('润色请求失败:', error);
-      setResult(prev => ({ 
-        ...prev, 
-        loading: false, 
-        content: `润色请求失败: ${error instanceof Error ? error.message : '未知错误'}` 
-      }));
     }
   };
 
@@ -271,9 +209,6 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
     // 计算结果框的初始位置
     const position = calculatePosition();
     
-    // 设置初始宽度，确保一致性
-    const initialWidth = Math.min(window.innerWidth * 0.9, 1200);
-    
     // 设置状态
     setResult({
       loading: true,
@@ -281,89 +216,36 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
       visible: true,
       position,
       type: 'expand',
-      size: { width: initialWidth, height: 300 },
-      selectedText
+      size: { width: 1000, height: 300 },
+      selectedText,
+      selectionRange: { from, to } // 保存选择范围
     });
 
     try {
-      // 调用API进行文本扩写，传递系统ID
-      const response = await fetch('/api/ai-editor-action/expand', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          text: selectedText,
-          fullText: fullText,
-          systemId: selectedSystemId
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('扩写API调用失败');
-      }
-
-      if (response.body) {
-        // 处理流式响应
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let resultText = '';
-
-        // 读取流
-        const processStream = async () => {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            
-            const chunk = decoder.decode(value, { stream: true });
-            
-            try {
-              // 尝试解析JSON
-              const lines = chunk.split('\n').filter(line => line.trim() !== '');
-              
-              for (const line of lines) {
-                try {
-                  const data = JSON.parse(line);
-                  if (data.expandedText) {
-                    resultText += data.expandedText;
-                    // 实时更新UI
-                    setResult(prev => ({ 
-                      ...prev, 
-                      loading: false,
-                      content: resultText 
-                    }));
-                  } else if (data.error) {
-                    throw new Error(data.error);
-                  }
-                } catch (lineError) {
-                  if (lineError instanceof Error && lineError.message !== "Unexpected end of JSON input") {
-                    console.error('JSON解析错误:', lineError);
-                  }
-                }
-              }
-            } catch (e) {
-              console.error('处理数据块错误:', e);
-              throw e;
-            }
-          }
-        };
-
-        processStream().catch(error => {
-          console.error('处理流失败:', error);
+      // 使用service调用API
+      await expandText(
+        selectedText, 
+        fullText, 
+        selectedSystemId,
+        // 进度回调
+        (content) => {
+          setResult(prev => ({ 
+            ...prev, 
+            loading: false,
+            content
+          }));
+        },
+        // 错误回调
+        (error) => {
           setResult(prev => ({ 
             ...prev, 
             loading: false, 
-            content: '扩写过程出现错误，请重试。' 
+            content: `扩写过程出现错误，请重试：${error}`
           }));
-        });
-      } else {
-        throw new Error('未收到流式响应');
-      }
+        }
+      );
     } catch (error) {
       console.error('扩写请求失败:', error);
-      setResult(prev => ({ 
-        ...prev, 
-        loading: false, 
-        content: `扩写请求失败: ${error instanceof Error ? error.message : '未知错误'}` 
-      }));
     }
   };
 
@@ -378,9 +260,6 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
     // 计算结果框的初始位置
     const position = calculatePosition();
     
-    // 设置初始宽度，确保一致性
-    const initialWidth = Math.min(window.innerWidth * 0.9, 1200);
-    
     // 高亮选中文本
     editor.commands.setTextSelection({ from, to });
     editor.commands.setMark('highlight', { color: '#FFF3E0' });
@@ -392,7 +271,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
       visible: true,
       position,
       type: 'chat',
-      size: { width: initialWidth, height: 300 },
+      size: { width: 800, height: 300 },
       instruction: '',
       selectedText,
       selectionRange: { from, to } // 保存选择范围以便后续清除高亮
@@ -419,93 +298,165 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
     }));
 
     try {
-      // 准备发送到API的数据
-      const prompt = `用户指令: ${result.instruction}\n\n选中的文本内容:\n${result.selectedText}`;
-
-      // 调用API进行聊天，传递系统ID
-      const response = await fetch('/api/ai-editor-action/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          prompt,
-          systemId: selectedSystemId
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('AI对话API调用失败');
-      }
-
-      if (response.body) {
-        // 处理流式响应
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let resultText = '';
-
-        // 读取流
-        const processStream = async () => {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            
-            const chunk = decoder.decode(value, { stream: true });
-            
-            try {
-              // 尝试解析JSON
-              const lines = chunk.split('\n').filter(line => line.trim() !== '');
-              
-              for (const line of lines) {
-                try {
-                  const data = JSON.parse(line);
-                  if (data.result) {
-                    resultText += data.result;
-                    // 实时更新UI
-                    setResult(prev => ({ 
-                      ...prev, 
-                      loading: false,
-                      content: resultText 
-                    }));
-                  } else if (data.error) {
-                    throw new Error(data.error);
-                  }
-                } catch (lineError) {
-                  if (lineError instanceof Error && lineError.message !== "Unexpected end of JSON input") {
-                    console.error('JSON解析错误:', lineError);
-                  }
-                }
-              }
-            } catch (e) {
-              console.error('处理数据块错误:', e);
-              throw e;
-            }
-          }
-        };
-
-        processStream().catch(error => {
-          console.error('处理流失败:', error);
+      // 使用service调用API
+      await chatWithAI(
+        result.instruction,
+        result.selectedText,
+        selectedSystemId,
+        // 进度回调
+        (content) => {
+          setResult(prev => ({ 
+            ...prev, 
+            loading: false,
+            content
+          }));
+        },
+        // 错误回调
+        (error) => {
           setResult(prev => ({ 
             ...prev, 
             loading: false, 
-            content: '对话过程出现错误，请重试。' 
+            content: `对话过程出现错误，请重试：${error}`
           }));
-        });
-      } else {
-        throw new Error('未收到流式响应');
-      }
+        }
+      );
     } catch (error) {
       console.error('AI对话请求失败:', error);
-      setResult(prev => ({ 
-        ...prev, 
-        loading: false, 
-        content: `对话请求失败: ${error instanceof Error ? error.message : '未知错误'}` 
-      }));
+    }
+  };
+
+  // 处理边界分析
+  const handleBoundary = async () => {
+    // 获取选中的文本
+    const { from, to } = editor.state.selection;
+    const selectedText = editor.state.doc.textBetween(from, to, ' ');
+    const fullText = editor.getText();
+    
+    if (!selectedText) return;
+
+    // 计算结果框的初始位置
+    const position = calculatePosition();
+    
+    // 设置状态
+    setResult({
+      loading: true,
+      content: '',
+      visible: true,
+      position,
+      type: 'boundary',
+      size: { width: 800, height: 300 },
+      selectedText,
+      selectionRange: { from, to } // 保存选择范围
+    });
+
+    try {
+      // 使用service调用API
+      await analyzeBoundary(
+        selectedText, 
+        fullText, 
+        selectedSystemId,
+        // 进度回调
+        (content) => {
+          setResult(prev => ({ 
+            ...prev, 
+            loading: false,
+            content
+          }));
+        },
+        // 错误回调
+        (error) => {
+          setResult(prev => ({ 
+            ...prev, 
+            loading: false, 
+            content: `边界分析过程出现错误，请重试：${error}`
+          }));
+        }
+      );
+    } catch (error) {
+      console.error('边界分析请求失败:', error);
+    }
+  };
+
+  // 处理边界优化
+  const handleOptimize = async () => {
+    // 获取选中的文本
+    const { from, to } = editor.state.selection;
+    const selectedText = editor.state.doc.textBetween(from, to, ' ');
+    const fullText = editor.getText();
+    
+    if (!selectedText) return;
+
+    // 计算结果框的初始位置
+    const position = calculatePosition();
+    
+    // 设置状态
+    setResult({
+      loading: true,
+      content: '',
+      visible: true,
+      position,
+      type: 'optimize',
+      size: { width: 800, height: 300 },
+      selectedText,
+      selectionRange: { from, to } // 保存选择范围
+    });
+
+    try {
+      // 使用service调用API
+      await optimizeBoundary(
+        selectedText, 
+        fullText, 
+        selectedSystemId,
+        // 进度回调
+        (content) => {
+          setResult(prev => ({ 
+            ...prev, 
+            loading: false,
+            content
+          }));
+        },
+        // 错误回调
+        (error) => {
+          setResult(prev => ({ 
+            ...prev, 
+            loading: false, 
+            content: `边界优化过程出现错误，请重试：${error}`
+          }));
+        }
+      );
+    } catch (error) {
+      console.error('边界优化请求失败:', error);
     }
   };
 
   // 处理重新执行
   const handleReExecute = () => {
-    if (result.type === 'chat' && result.instruction && result.selectedText) {
-      handleSubmitChat();
+    if (!result.selectedText) return;
+    
+    // 如果有保存的选择范围，恢复选择
+    if (result.selectionRange) {
+      const { from, to } = result.selectionRange;
+      editor.commands.setTextSelection({ from, to });
+    }
+    
+    switch (result.type) {
+      case 'chat':
+        if (result.instruction) {
+          handleSubmitChat();
+        }
+        break;
+      case 'polish':
+        handlePolish();
+        break;
+      case 'expand':
+        handleExpand();
+        break;
+      case 'boundary':
+        handleBoundary();
+        break;
+      case 'optimize':
+        handleOptimize();
+        break;
     }
   };
 
@@ -539,8 +490,8 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
           copyButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg><span>已复制</span>';
           copyButton.title = '已复制到剪贴板';
           copyButton.style.backgroundColor = 'rgba(16, 185, 129, 0.2)';
-          copyButton.style.color = 'rgb(16, 185, 129)';
-          copyButton.style.borderColor = 'rgb(16, 185, 129)';
+          copyButton.style.color = '#10b981';
+          copyButton.style.borderColor = '#10b981';
           
           // 恢复原始状态
           setTimeout(() => {
@@ -575,8 +526,11 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
   const handleReplace = () => {
     if (!result.content) return;
     
+    // 将markdown转换为HTML
+    const htmlContent = markdownToHtml(result.content);
+    
     const { from, to } = editor.state.selection;
-    editor.chain().focus().deleteRange({ from, to }).insertContent(result.content).run();
+    editor.chain().focus().deleteRange({ from, to }).insertContent(htmlContent).run();
     resetResult();
   };
 
@@ -584,8 +538,11 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
   const handleAppend = () => {
     if (!result.content) return;
     
+    // 将markdown转换为HTML
+    const htmlContent = markdownToHtml(result.content);
+    
     const { to } = editor.state.selection;
-    editor.chain().focus().insertContentAt(to, result.content).run();
+    editor.chain().focus().insertContentAt(to, htmlContent).run();
     resetResult();
   };
 
@@ -626,14 +583,84 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
     dragRef.current.isDragging = false;
   };
 
-  // 添加全局鼠标事件监听
+  // 修改handleResizeStart函数
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // 确保size一定有值，使用默认值800/300
+    const currentSize = result.size || { width: 800, height: 300 };
+    
+    // 设置调整大小状态
+    resizeRef.current.isResizing = true;
+    resizeRef.current.startWidth = currentSize.width;
+    resizeRef.current.startHeight = currentSize.height;
+    resizeRef.current.startX = e.clientX;
+    resizeRef.current.startY = e.clientY;
+    
+    // 添加类以显示正在调整大小
+    document.body.style.cursor = 'se-resize';
+    document.body.style.userSelect = 'none'; // 防止拖动时选择文本
+    
+    // 高亮调整大小指示器
+    const resizeIndicator = resultRef.current?.querySelector('.resize-indicator') as HTMLElement;
+    if (resizeIndicator) {
+      resizeIndicator.style.color = '#ef6c00';
+      resizeIndicator.style.backgroundColor = '#f8fafc';
+      resizeIndicator.style.borderColor = '#ef6c00';
+    }
+  };
+  
+  // 修改handleResizeMove函数
+  const handleResizeMove = (e: MouseEvent) => {
+    if (!resizeRef.current.isResizing) return;
+    
+    // 计算新的宽度和高度
+    const deltaWidth = e.clientX - resizeRef.current.startX;
+    const deltaHeight = e.clientY - resizeRef.current.startY;
+    
+    const newWidth = Math.max(300, resizeRef.current.startWidth + deltaWidth); // 最小宽度300px
+    const newHeight = Math.max(200, resizeRef.current.startHeight + deltaHeight); // 最小高度200px
+    
+    // 更新状态
+    setResult(prev => ({
+      ...prev,
+      size: { width: newWidth, height: newHeight }
+    }));
+  };
+  
+  const handleResizeEnd = () => {
+    if (resizeRef.current.isResizing) {
+      resizeRef.current.isResizing = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      
+      // 恢复调整大小指示器的默认样式
+      const resizeIndicator = resultRef.current?.querySelector('.resize-indicator') as HTMLElement;
+      if (resizeIndicator) {
+        resizeIndicator.style.color = '';
+        resizeIndicator.style.backgroundColor = '';
+        resizeIndicator.style.borderColor = '';
+      }
+    }
+  };
+
+  // 在已有的useEffect中添加resize相关的事件监听
   useEffect(() => {
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
     
+    // 添加调整大小相关的事件监听
+    window.addEventListener('mousemove', handleResizeMove);
+    window.addEventListener('mouseup', handleResizeEnd);
+    
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      
+      // 移除调整大小相关的事件监听
+      window.removeEventListener('mousemove', handleResizeMove);
+      window.removeEventListener('mouseup', handleResizeEnd);
     };
   }, []);
 
@@ -687,114 +714,6 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
     }));
   };
 
-  // 处理边界分析
-  const handleBoundary = async () => {
-    // 获取选中的文本
-    const { from, to } = editor.state.selection;
-    const selectedText = editor.state.doc.textBetween(from, to, ' ');
-    const fullText = editor.getText();
-    
-    if (!selectedText) return;
-
-    // 计算结果框的初始位置
-    const position = calculatePosition();
-    
-    // 设置初始宽度，确保一致性
-    const initialWidth = Math.min(window.innerWidth * 0.9, 1200);
-    
-    // 设置状态
-    setResult({
-      loading: true,
-      content: '',
-      visible: true,
-      position,
-      type: 'boundary',
-      size: { width: initialWidth, height: 300 },
-      selectedText
-    });
-
-    try {
-      // 调用API进行边界分析，传递系统ID
-      const response = await fetch('/api/ai-editor-action/boundary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          text: selectedText,
-          fullText: fullText,
-          systemId: selectedSystemId
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('边界分析API调用失败');
-      }
-
-      if (response.body) {
-        // 处理流式响应
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let resultText = '';
-
-        // 读取流
-        const processStream = async () => {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            
-            const chunk = decoder.decode(value, { stream: true });
-            
-            try {
-              // 尝试解析JSON
-              const lines = chunk.split('\n').filter(line => line.trim() !== '');
-              
-              for (const line of lines) {
-                try {
-                  const data = JSON.parse(line);
-                  if (data.boundaryAnalysis) {
-                    resultText += data.boundaryAnalysis;
-                    // 实时更新UI
-                    setResult(prev => ({ 
-                      ...prev, 
-                      loading: false,
-                      content: resultText 
-                    }));
-                  } else if (data.error) {
-                    throw new Error(data.error);
-                  }
-                } catch (lineError) {
-                  if (lineError instanceof Error && lineError.message !== "Unexpected end of JSON input") {
-                    console.error('JSON解析错误:', lineError);
-                  }
-                }
-              }
-            } catch (e) {
-              console.error('处理数据块错误:', e);
-              throw e;
-            }
-          }
-        };
-
-        processStream().catch(error => {
-          console.error('处理流失败:', error);
-          setResult(prev => ({ 
-            ...prev, 
-            loading: false, 
-            content: '边界分析过程出现错误，请重试。' 
-          }));
-        });
-      } else {
-        throw new Error('未收到流式响应');
-      }
-    } catch (error) {
-      console.error('边界分析请求失败:', error);
-      setResult(prev => ({ 
-        ...prev, 
-        loading: false, 
-        content: `边界分析请求失败: ${error instanceof Error ? error.message : '未知错误'}` 
-      }));
-    }
-  };
-
   // 在组件内添加ESC键监听
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
@@ -818,114 +737,6 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
     };
   }, [result.visible, result.type, result.selectionRange]);
 
-  // 处理边界优化
-  const handleOptimize = async () => {
-    // 获取选中的文本
-    const { from, to } = editor.state.selection;
-    const selectedText = editor.state.doc.textBetween(from, to, ' ');
-    const fullText = editor.getText();
-    
-    if (!selectedText) return;
-
-    // 计算结果框的初始位置
-    const position = calculatePosition();
-    
-    // 设置初始宽度，确保一致性
-    const initialWidth = Math.min(window.innerWidth * 0.9, 1200);
-    
-    // 设置状态
-    setResult({
-      loading: true,
-      content: '',
-      visible: true,
-      position,
-      type: 'optimize',
-      size: { width: initialWidth, height: 300 },
-      selectedText
-    });
-
-    try {
-      // 调用API进行边界优化，传递系统ID
-      const response = await fetch('/api/ai-editor-action/optimize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          text: selectedText,
-          fullText: fullText,
-          systemId: selectedSystemId
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('边界优化API调用失败');
-      }
-
-      if (response.body) {
-        // 处理流式响应
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let resultText = '';
-
-        // 读取流
-        const processStream = async () => {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            
-            const chunk = decoder.decode(value, { stream: true });
-            
-            try {
-              // 尝试解析JSON
-              const lines = chunk.split('\n').filter(line => line.trim() !== '');
-              
-              for (const line of lines) {
-                try {
-                  const data = JSON.parse(line);
-                  if (data.optimizedText) {
-                    resultText += data.optimizedText;
-                    // 实时更新UI
-                    setResult(prev => ({ 
-                      ...prev, 
-                      loading: false,
-                      content: resultText 
-                    }));
-                  } else if (data.error) {
-                    throw new Error(data.error);
-                  }
-                } catch (lineError) {
-                  if (lineError instanceof Error && lineError.message !== "Unexpected end of JSON input") {
-                    console.error('JSON解析错误:', lineError);
-                  }
-                }
-              }
-            } catch (e) {
-              console.error('处理数据块错误:', e);
-              throw e;
-            }
-          }
-        };
-
-        processStream().catch(error => {
-          console.error('处理流失败:', error);
-          setResult(prev => ({ 
-            ...prev, 
-            loading: false, 
-            content: '边界优化过程出现错误，请重试。' 
-          }));
-        });
-      } else {
-        throw new Error('未收到流式响应');
-      }
-    } catch (error) {
-      console.error('边界优化请求失败:', error);
-      setResult(prev => ({ 
-        ...prev, 
-        loading: false, 
-        content: `边界优化请求失败: ${error instanceof Error ? error.message : '未知错误'}` 
-      }));
-    }
-  };
-
   return (
     <>
       <TiptapBubbleMenu 
@@ -944,6 +755,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
             onClick={handlePolish}
             className="bubble-menu-button"
             title="润色文本"
+            data-tooltip="使用AI智能润色和优化选中的文本"
           >
             <Wand2 size={16} />
             <span>润色</span>
@@ -953,6 +765,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
             onClick={handleExpand}
             className="bubble-menu-button"
             title="扩写文本"
+            data-tooltip="基于选中内容进行扩展和丰富写作"
           >
             <FileText size={16} />
             <span>扩写</span>
@@ -962,6 +775,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
             onClick={handleBoundary}
             className="bubble-menu-button"
             title="边界分析"
+            data-tooltip="分析选中内容的边界条件和异常情况"
           >
             <AlertTriangle size={16} />
             <span>边界分析</span>
@@ -971,6 +785,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
             onClick={handleOptimize}
             className="bubble-menu-button"
             title="边界优化"
+            data-tooltip="优化选中场景的边界条件和需求描述"
           >
             <Scissors size={16} />
             <span>边界优化</span>
@@ -980,6 +795,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
             onClick={handleChat}
             className="bubble-menu-button"
             title="与AI对话"
+            data-tooltip="基于选中内容与AI进行对话和提问"
           >
             <MessageSquare size={16} />
             <span>Chat With LLM</span>
@@ -994,9 +810,10 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
           style={{ 
             left: `${result.position.x}px`, 
             top: `${result.position.y}px`,
-            width: result.size ? `${result.size.width}px` : undefined,
-            height: '280px', // 固定初始高度
-            position: result.position.useFixed ? 'fixed' : 'absolute' // 使用固定定位或绝对定位
+            width: `${result.size?.width || 800}px`, // 确保width始终有值
+            height: `${result.size?.height || 300}px`, // 确保height始终有值
+            position: result.position.useFixed ? 'fixed' : 'absolute',
+            overflow: 'auto'
           }}
           onMouseDown={handleMouseDown}
         >
@@ -1062,105 +879,59 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
                     <span>关闭</span>
                   </button>
                   
-                  {result.type === 'chat' && (
-                    <>
-                      <button 
-                        onClick={handleCopy}
-                        className="polish-action-button copy"
-                        title="复制内容"
-                        disabled={!result.content}
-                      >
-                        <Copy size={16} />
-                        <span>复制</span>
-                      </button>
-                      <button 
-                        onClick={handleReExecute}
-                        className="polish-action-button re-execute"
-                        title="重新执行"
-                        disabled={!result.instruction || !result.selectedText}
-                      >
-                        <RefreshCw size={16} />
-                        <span>重新执行</span>
-                      </button>
-                    </>
-                  )}
+                  <button 
+                    onClick={handleCopy}
+                    className="polish-action-button copy"
+                    title="复制内容"
+                    disabled={!result.content}
+                  >
+                    <Copy size={16} />
+                    <span>复制</span>
+                  </button>
                   
-                  {(result.type === 'polish' || result.type === 'expand') && (
-                    <>
-                      <button 
-                        onClick={handleReplace}
-                        className="polish-action-button replace"
-                        title="替换"
-                        disabled={!result.content}
-                      >
-                        <Check size={16} />
-                        <span>替换</span>
-                      </button>
-                      <button 
-                        onClick={handleAppend}
-                        className="polish-action-button append"
-                        title="追加"
-                        disabled={!result.content}
-                      >
-                        <Plus size={16} />
-                        <span>追加</span>
-                      </button>
-                    </>
-                  )}
+                  <button 
+                    onClick={handleReplace}
+                    className="polish-action-button replace"
+                    title="替换"
+                    disabled={!result.content}
+                  >
+                    <Check size={16} />
+                    <span>替换</span>
+                  </button>
                   
-                  {result.type === 'boundary' && (
-                    <>
-                      <button 
-                        onClick={handleCopy}
-                        className="polish-action-button copy"
-                        title="复制内容"
-                        disabled={!result.content}
-                      >
-                        <Copy size={16} />
-                        <span>复制</span>
-                      </button>
-                      <button 
-                        onClick={handleAppend}
-                        className="polish-action-button append"
-                        title="插入"
-                        disabled={!result.content}
-                      >
-                        <Plus size={16} />
-                        <span>插入</span>
-                      </button>
-                    </>
-                  )}
+                  <button 
+                    onClick={handleAppend}
+                    className="polish-action-button append"
+                    title="插入"
+                    disabled={!result.content}
+                  >
+                    <Plus size={16} />
+                    <span>插入</span>
+                  </button>
                   
-                  {result.type === 'optimize' && (
-                    <>
-                      <button 
-                        onClick={handleCopy}
-                        className="polish-action-button copy"
-                        title="复制内容"
-                        disabled={!result.content}
-                      >
-                        <Copy size={16} />
-                        <span>复制</span>
-                      </button>
-                      <button 
-                        onClick={handleReplace}
-                        className="polish-action-button replace"
-                        title="替换"
-                        disabled={!result.content}
-                      >
-                        <Check size={16} />
-                        <span>替换</span>
-                      </button>
-                    </>
-                  )}
+                  <button 
+                    onClick={handleReExecute}
+                    className="polish-action-button re-execute"
+                    title="重跑"
+                    disabled={(!result.instruction && result.type === 'chat') || !result.selectedText}
+                  >
+                    <RefreshCw size={16} />
+                    <span>重跑</span>
+                  </button>
                 </div>
               </>
             )}
           </div>
           
-          {/* 尺寸调整提示 */}
+          {/* 增强调整大小的视觉反馈 */}
+          <div 
+            className="resize-indicator"
+            onMouseDown={handleResizeStart}
+            style={{ cursor: 'se-resize', zIndex: 100 }}
+          >
+            <Maximize2 size={16} />
+          </div>
           <div className="resize-hint">可拖动调整大小</div>
-          <Maximize2 size={12} className="resize-indicator" />
         </div>
       )}
     </>

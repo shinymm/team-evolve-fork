@@ -299,6 +299,52 @@
   min-width: auto; /* 移除最小宽度限制，允许按内容自适应 */
   justify-content: center; /* 按钮内容居中对齐 */
   flex: none; /* 取消均匀分布，按内容决定宽度 */
+  position: relative; /* 为tooltip定位 */
+}
+
+/* 添加tooltip样式 */
+.bubble-menu-button::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  pointer-events: none;
+  z-index: 100;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* 添加小三角形指示 */
+.bubble-menu-button::before {
+  content: "";
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 5px;
+  border-style: solid;
+  border-color: rgba(0, 0, 0, 0.8) transparent transparent transparent;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* 悬停时显示tooltip */
+.bubble-menu-button:hover::after,
+.bubble-menu-button:hover::before {
+  opacity: 1;
+  visibility: visible;
 }
 
 /* 针对英文按钮的样式调整 */
@@ -326,23 +372,21 @@
 
 /* 润色结果容器样式 */
 .polish-result-container {
+  width: 800px;
   position: absolute;
+  top: 100px;
+  left: 100px;
   background-color: white;
   border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  width: 90% !important; /* 强制保持宽度 */
-  max-width: 1200px;
-  z-index: 100;
-  border: 1px solid #e2e8f0;
-  resize: both;
-  overflow: hidden !important; /* 确保内容不会超出边界 */
-  min-height: 300px !important; /* 确保最小高度足够 */
-  height: 300px !important; /* 强制初始高度 */
-  max-height: 80vh;
-  min-width: 300px;
-  transition: box-shadow 0.2s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   display: flex;
   flex-direction: column;
+  z-index: 100;
+  border: 1px solid #e2e8f0;
+  min-width: 300px;
+  min-height: 200px;
+  overflow: auto; 
+  transition: box-shadow 0.2s ease;
 }
 
 .polish-result-container:hover {
@@ -373,34 +417,32 @@
 }
 
 .result-drag-handle {
+  width: 100%;
+  height: 24px;
   background-color: #f8fafc;
-  height: 10px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
   cursor: move;
   border-bottom: 1px solid #e2e8f0;
-  padding: 8px 0;
-  user-select: none;
-  flex-shrink: 0; /* 防止压缩 */
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .drag-handle-icon {
   width: 40px;
   height: 4px;
-  background-color: #ef6c00;
   border-radius: 4px;
-  opacity: 0.6;
+  background-color: #cbd5e1;
 }
 
 .polish-result-content {
-  padding: 16px;
-  flex-grow: 1;
+  flex: 1;
   display: flex;
   flex-direction: column;
-  min-height: 0; /* 确保弹性布局正常工作 */
-  height: calc(100% - 26px); /* 26px是拖动手柄的高度 */
-  overflow: auto !important; /* 使整个内容区可滚动 */
+  padding: 16px 20px 32px 20px; /* 增加底部内边距，为resize-indicator留出空间 */
+  overflow-y: auto;
+  position: relative;
+  height: calc(100% - 24px); /* 减去拖动条的高度 */
 }
 
 .polish-loading {
@@ -441,24 +483,43 @@
   position: absolute;
   right: 4px;
   bottom: 4px;
-  width: 12px;
-  height: 12px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: se-resize;
   color: #cbd5e1;
+  z-index: 1000;
+  padding: 4px;
+  background-color: rgba(255, 255, 255, 0.8);
+  border-radius: 4px;
+  border: 1px dashed #e2e8f0;
+  transition: all 0.2s ease;
 }
 
 .resize-indicator:hover {
   color: #ef6c00;
+  background-color: #f8fafc;
+  border-color: #ef6c00;
+  transform: scale(1.05);
 }
 
 /* 添加一个提示文本，指示可调整大小 */
 .resize-hint {
   position: absolute;
-  right: 18px;
+  right: 30px;
   bottom: 5px;
   font-size: 10px;
   color: #94a3b8;
   user-select: none;
+  opacity: 0;
+  z-index: 999;
+  transition: opacity 0.2s ease;
+}
+
+.resize-indicator:hover + .resize-hint,
+.resize-hint:hover {
   opacity: 0.8;
 }
 
@@ -466,7 +527,13 @@
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  flex-shrink: 0; /* 防止压缩 */
+  flex-shrink: 0;
+  margin-top: 12px;
+  padding-bottom: 8px;
+  position: sticky;
+  bottom: 0;
+  background-color: white;
+  z-index: 5;
 }
 
 .polish-action-button {
@@ -492,6 +559,16 @@
   background-color: #f1f5f9;
 }
 
+.polish-action-button.copy {
+  color: white;
+  border-color: #A86523;
+  background-color: #A86523;
+}
+
+.polish-action-button.copy:hover {
+  background-color: #d35400;
+}
+
 .polish-action-button.replace {
   color: white;
   background-color: #ef6c00;
@@ -504,12 +581,22 @@
 
 .polish-action-button.append {
   color: white;
-  background-color: #ef6c00;
-  border-color: #ef6c00;
+  background-color: #FFB22C;
+  border-color: #FFB22C;
 }
 
 .polish-action-button.append:hover {
-  background-color: #d65f00;
+  background-color: #F5A300;
+}
+
+.polish-action-button.re-execute {
+  color: white;
+  background-color: #F3C623;
+  border-color: #F3C623;
+}
+
+.polish-action-button.re-execute:hover {
+  background-color: #E5B800;
 }
 
 .polish-action-button:disabled {
@@ -740,8 +827,8 @@
   font-size: 15px;
   border-radius: 8px;
   margin-bottom: 12px;
-  min-height: 120px;
-  max-height: 180px;
+  min-height: 100px;
+  max-height: 150px;
   resize: vertical;
   border: 1px solid #e2e8f0;
   background-color: #f8fafc;
@@ -750,6 +837,7 @@
   line-height: 1.6;
   transition: border-color 0.2s, box-shadow 0.2s;
   outline: none;
+  flex: 1;
 }
 
 /* 复制成功提示样式 */
@@ -793,6 +881,7 @@
   flex-direction: column;
   width: 100%;
   margin-top: 10px;
+  flex: 1;
 }
 
 .chat-actions {
@@ -855,4 +944,11 @@
     flex: 1;
     min-width: 70px;
   }
+}
+
+.chat-instruction-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  flex: 1;
 } 
