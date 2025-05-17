@@ -274,18 +274,20 @@
   display: flex;
   background-color: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  padding: 4px;
+  border-radius: 5px;
+  padding: 2px 3px; /* 略微增加水平内边距 */
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   z-index: 50;
-  gap: 4px;
+  gap: 2px;
+  min-width: 450px; /* 调整整体最小宽度 */
+  width: auto; /* 允许根据内容自动调整宽度 */
 }
 
 .bubble-menu-button {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 5px 8px;
+  gap: 3px;
+  padding: 5px 9px; /* 调整水平内边距，确保文字周围有足够空间 */
   border-radius: 4px;
   background: transparent;
   border: none;
@@ -294,6 +296,15 @@
   font-size: 12px;
   transition: all 0.2s;
   white-space: nowrap;
+  min-width: auto; /* 移除最小宽度限制，允许按内容自适应 */
+  justify-content: center; /* 按钮内容居中对齐 */
+  flex: none; /* 取消均匀分布，按内容决定宽度 */
+}
+
+/* 针对英文按钮的样式调整 */
+.bubble-menu-button:last-child {
+  padding: 5px 8px; /* 英文按钮可以稍微减少内边距 */
+  font-size: 11px; /* 略微减小字体大小 */
 }
 
 .bubble-menu-button:hover {
@@ -310,7 +321,7 @@
   width: 1px;
   height: 20px;
   background-color: #e2e8f0;
-  margin: 0 2px;
+  margin: 0 1px; /* 减少分隔线的边距 */
 }
 
 /* 润色结果容器样式 */
@@ -784,8 +795,14 @@
   margin-top: 10px;
 }
 
+.chat-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
 .chat-submit-button {
-  align-self: flex-end;
   padding: 8px 16px;
   background-color: #F97316;
   color: white;
@@ -797,7 +814,25 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 4px;
+}
+
+.chat-cancel-button {
+  padding: 8px 16px;
+  background-color: transparent;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-cancel-button:hover {
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
 }
 
 .chat-submit-button:hover {
@@ -807,4 +842,17 @@
 .chat-submit-button:disabled {
   background-color: #CBD5E1;
   cursor: not-allowed;
+}
+
+/* 响应式调整 */
+@media (max-width: 500px) {
+  .bubble-menu {
+    flex-wrap: wrap; /* 在小屏幕上允许换行 */
+    justify-content: center;
+  }
+  
+  .bubble-menu-button {
+    flex: 1;
+    min-width: 70px;
+  }
 } 

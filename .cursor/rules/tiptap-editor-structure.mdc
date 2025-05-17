@@ -1,0 +1,32 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# TiptapEditor 组件结构
+
+TiptapEditor 是一个富文本编辑器组件，用于需求书撰写等功能。该组件位于 `/components/TiptapEditor` 目录下。
+
+## 主要文件
+
+- [TiptapEditor.tsx](mdc:components/TiptapEditor/TiptapEditor.tsx) - 主编辑器组件
+- [BubbleMenu.tsx](mdc:components/TiptapEditor/BubbleMenu.tsx) - 选中文本时出现的气泡菜单，包含多种 AI 辅助功能
+- [EditorToolbar.tsx](mdc:components/TiptapEditor/EditorToolbar.tsx) - 编辑器顶部工具栏
+- [styles.css](mdc:components/TiptapEditor/styles.css) - 编辑器样式文件
+- [index.ts](mdc:components/TiptapEditor/index.ts) - 导出组件的入口文件
+
+## 使用示例
+
+TiptapEditor 主要在需求书撰写页面使用，示例可以在 [book-writing/page.tsx](mdc:app/ai-capability/book-writing/page.tsx) 中找到。
+
+## 主要功能
+
+编辑器支持以下 AI 辅助功能：
+
+1. 文本润色 - 选中文本后点击气泡菜单中的"润色"
+2. 文本扩写 - 选中文本后点击气泡菜单中的"扩写"
+3. 边界分析 - 选中文本后点击气泡菜单中的"边界分析"
+4. 边界优化 - 选中文本后点击气泡菜单中的"边界优化"
+5. AI 对话 - 选中文本后点击气泡菜单中的"Chat With LLM"
+
+所有这些功能都通过 API 端点与大模型交互，返回结果流式显示在浮窗中。

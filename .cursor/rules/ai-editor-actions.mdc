@@ -1,0 +1,39 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# AI 编辑器动作 API
+
+AI 编辑器动作 API 位于 `/app/api/ai-editor-action` 目录下，提供了一系列端点，支持 TiptapEditor 组件中的 AI 辅助功能。
+
+## API 端点结构
+
+- [/api/ai-editor-action/polish](mdc:app/api/ai-editor-action/polish/route.ts) - 文本润色 API
+- [/api/ai-editor-action/expand](mdc:app/api/ai-editor-action/expand/route.ts) - 文本扩写 API
+- [/api/ai-editor-action/boundary](mdc:app/api/ai-editor-action/boundary/route.ts) - 边界分析 API
+- [/api/ai-editor-action/optimize](mdc:app/api/ai-editor-action/optimize/route.ts) - 边界优化 API
+- [/api/ai-editor-action/chat](mdc:app/api/ai-editor-action/chat/route.ts) - AI 对话 API
+
+## 通用工作流程
+
+所有 API 端点遵循相似的工作流程：
+
+1. 接收前端发送的请求，包含选中文本、完整文本上下文和系统 ID
+2. 获取系统产品知识
+3. 获取 AI 模型配置（支持 OpenAI 和 Gemini 模型）
+4. 使用提示词模板构造完整提示词
+5. 调用大模型 API 进行处理
+6. 以流式 (stream) 方式返回处理结果
+
+## 提示词模板
+
+每个 API 端点都有对应的提示词模板，定义在 `lib/prompts` 目录下：
+
+- [polish.ts](mdc:lib/prompts/polish.ts) - 润色提示词
+- [scene-boundary.ts](mdc:lib/prompts/scene-boundary.ts) - 边界分析提示词
+- [scene-optimize.ts](mdc:lib/prompts/scene-optimize.ts) - 边界优化提示词
+
+## API 调用示例
+
+在 [BubbleMenu.tsx](mdc:components/TiptapEditor/BubbleMenu.tsx) 中可以找到对这些 API 的调用示例。

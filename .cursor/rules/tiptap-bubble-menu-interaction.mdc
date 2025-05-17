@@ -1,0 +1,41 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# TiptapEditor 气泡菜单与 API 交互
+
+[BubbleMenu.tsx](mdc:components/TiptapEditor/BubbleMenu.tsx) 是 TiptapEditor 中的关键组件，提供了文本选中时显示的气泡菜单，实现了与 AI 编辑器动作 API 的交互。
+
+## 交互流程
+
+1. 用户在编辑器中选中文本
+2. 气泡菜单自动显示在选中文本上方
+3. 用户点击菜单中的功能按钮（润色、扩写、边界分析、边界优化或 Chat With LLM）
+4. 组件调用相应的 API 端点
+5. 结果以流式方式返回并显示在浮窗中
+6. 用户可以选择接受结果（替换/插入）或拒绝
+
+## 关键功能实现
+
+- `handlePolish()` - 实现润色功能，调用 `/api/ai-editor-action/polish`
+- `handleExpand()` - 实现扩写功能，调用 `/api/ai-editor-action/expand`
+- `handleBoundary()` - 实现边界分析功能，调用 `/api/ai-editor-action/boundary`
+- `handleOptimize()` - 实现边界优化功能，调用 `/api/ai-editor-action/optimize`
+- `handleChat()` - 实现与 AI 对话功能，调用 `/api/ai-editor-action/chat`
+
+## 浮窗交互
+
+- 浮窗位置计算 - `calculatePosition()` 函数计算浮窗的显示位置
+- 拖动功能 - 用户可以拖动浮窗到屏幕任意位置
+- 大小调整 - 浮窗支持调整大小
+- 按钮操作 - 根据功能类型显示不同的操作按钮（替换、插入、复制、关闭等）
+
+## 流式响应处理
+
+所有 AI 功能都使用流式响应处理，核心逻辑位于 `processStream()` 函数中，实现了以下流程：
+
+1. 获取响应流
+2. 解码并解析每个数据块
+3. 提取结果文本
+4. 实时更新 UI 显示
