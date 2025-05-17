@@ -1601,12 +1601,12 @@ export default function SceneAnalysisPage() {
                                   <ReactMarkdown 
                                     remarkPlugins={[remarkGfm]}
                                     components={{
-                                      h3: ({children}) => <h3 className="text-base font-semibold text-gray-900 mb-2">{children}</h3>,
-                                      h4: ({children}) => <h4 className="text-sm font-medium text-gray-700 mb-1.5">{children}</h4>,
-                                      p: ({children}) => <p className="text-sm text-gray-600 mb-2">{children}</p>,
-                                      ul: ({children}) => <ul className="list-disc pl-4 my-1 space-y-0.5">{children}</ul>,
-                                      ol: ({children}) => <ol className="list-decimal pl-4 my-1 space-y-0.5">{children}</ol>,
-                                      li: ({children}) => <li className="text-sm text-gray-600">{children}</li>
+                                      h3: ({children}: {children: React.ReactNode}) => <h3 className="text-base font-semibold text-gray-900 mb-2">{children}</h3>,
+                                      h4: ({children}: {children: React.ReactNode}) => <h4 className="text-sm font-medium text-gray-700 mb-1.5">{children}</h4>,
+                                      p: ({children}: {children: React.ReactNode}) => <p className="text-sm text-gray-600 mb-2">{children}</p>,
+                                      ul: ({children}: {children: React.ReactNode}) => <ul className="list-disc pl-4 my-1 space-y-0.5">{children}</ul>,
+                                      ol: ({children}: {children: React.ReactNode}) => <ol className="list-decimal pl-4 my-1 space-y-0.5">{children}</ol>,
+                                      li: ({children}: {children: React.ReactNode}) => <li className="text-sm text-gray-600">{children}</li>
                                     }}
                                   >
                                     {cleanSceneContentForDisplay(scene.name, scene.content)}
@@ -1652,11 +1652,11 @@ export default function SceneAnalysisPage() {
                                         <ReactMarkdown 
                                           remarkPlugins={[remarkGfm]}
                                           components={{
-                                            h3: ({children}) => <h3 className="text-base font-semibold text-gray-900 mb-2">{children}</h3>,
-                                            h4: ({children}) => <h4 className="text-sm font-medium text-gray-700 mb-1.5">{children}</h4>,
-                                            ul: ({children}) => <ul className="space-y-1 mb-3">{children}</ul>,
-                                            li: ({children}) => <li className="text-sm mb-1 text-orange-700">{children}</li>,
-                                            p: ({children}) => <p className="text-sm mb-2 text-orange-700">{children}</p>
+                                            h3: ({children}: {children: React.ReactNode}) => <h3 className="text-base font-semibold text-gray-900 mb-2">{children}</h3>,
+                                            h4: ({children}: {children: React.ReactNode}) => <h4 className="text-sm font-medium text-gray-700 mb-1.5">{children}</h4>,
+                                            ul: ({children}: {children: React.ReactNode}) => <ul className="space-y-1 mb-3">{children}</ul>,
+                                            li: ({children}: {children: React.ReactNode}) => <li className="text-sm mb-1 text-orange-700">{children}</li>,
+                                            p: ({children}: {children: React.ReactNode}) => <p className="text-sm mb-2 text-orange-700">{children}</p>
                                           }}
                                         >
                                           {sceneState?.analysisResult || (isCurrentlySelected ? analysisResult : '') || sceneState?.tempResult || ''}
@@ -1736,16 +1736,16 @@ export default function SceneAnalysisPage() {
                                         <ReactMarkdown 
                                           remarkPlugins={[remarkGfm]}
                                           components={{
-                                            h1: ({children}) => <h1 className="text-xl font-bold mb-2 pb-1 border-b">{children}</h1>,
-                                            h2: ({children}) => <h2 className="text-lg font-semibold mb-2 mt-3">{children}</h2>,
-                                            h3: ({children}) => <h3 className="text-base font-medium mb-1 mt-2">{children}</h3>,
-                                            p: ({children}) => <p className="text-gray-600 my-1 leading-normal text-sm">{children}</p>,
-                                            ul: ({children}) => <ul className="list-disc pl-4 my-1 space-y-0.5">{children}</ul>,
-                                            ol: ({children}) => <ol className="list-decimal pl-4 my-1 space-y-0.5">{children}</ol>,
-                                            li: ({children}) => <li className="text-gray-600 text-sm">{children}</li>,
-                                            blockquote: ({children}) => <blockquote className="border-l-4 border-gray-300 pl-3 my-1 italic text-sm">{children}</blockquote>,
-                                            code: ({children}) => <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{children}</code>,
-                                            pre: ({children}) => <pre className="bg-gray-50 rounded-lg p-3 my-2 overflow-auto text-sm">{children}</pre>
+                                            h1: ({children}: {children: React.ReactNode}) => <h1 className="text-xl font-bold mb-2 pb-1 border-b">{children}</h1>,
+                                            h2: ({children}: {children: React.ReactNode}) => <h2 className="text-lg font-semibold mb-2 mt-3">{children}</h2>,
+                                            h3: ({children}: {children: React.ReactNode}) => <h3 className="text-base font-medium mb-1 mt-2">{children}</h3>,
+                                            p: ({children}: {children: React.ReactNode}) => <p className="text-gray-600 my-1 leading-normal text-sm">{children}</p>,
+                                            ul: ({children}: {children: React.ReactNode}) => <ul className="list-disc pl-4 my-1 space-y-0.5">{children}</ul>,
+                                            ol: ({children}: {children: React.ReactNode}) => <ol className="list-decimal pl-4 my-1 space-y-0.5">{children}</ol>,
+                                            li: ({children}: {children: React.ReactNode}) => <li className="text-gray-600 text-sm">{children}</li>,
+                                            blockquote: ({children}: {children: React.ReactNode}) => <blockquote className="border-l-4 border-gray-300 pl-3 my-1 italic text-sm">{children}</blockquote>,
+                                            code: ({children}: {children: React.ReactNode}) => <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{children}</code>,
+                                            pre: ({children}: {children: React.ReactNode}) => <pre className="bg-gray-50 rounded-lg p-3 my-2 overflow-auto text-sm">{children}</pre>
                                           }}
                                         >
                                           {sceneStates[scene.name]?.optimizeResult}
@@ -1764,33 +1764,35 @@ export default function SceneAnalysisPage() {
                                   </div>
                                 ) : (
                                   <div className="markdown-container min-h-[200px]">
-                                    <ReactMarkdown 
-                                      remarkPlugins={[remarkGfm]}
-                                      components={{
-                                        h1: ({children}) => <h1 className="text-xl font-bold mb-2 pb-1 border-b">{children}</h1>,
-                                        h2: ({children}) => <h2 className="text-lg font-semibold mb-2 mt-3">{children}</h2>,
-                                        h3: ({children}) => <h3 className="text-base font-medium mb-1 mt-2">{children}</h3>,
-                                        p: ({children}) => <p className="text-gray-600 my-1 leading-normal text-sm">{children}</p>,
-                                        ul: ({children}) => <ul className="list-disc pl-4 my-1 space-y-0.5">{children}</ul>,
-                                        ol: ({children}) => <ol className="list-decimal pl-4 my-1 space-y-0.5">{children}</ol>,
-                                        li: ({children}) => <li className="text-gray-600 text-sm">{children}</li>,
-                                        blockquote: ({children}) => <blockquote className="border-l-4 border-gray-300 pl-3 my-1 italic text-sm">{children}</blockquote>,
-                                        code: ({children}) => <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{children}</code>,
-                                        pre: ({children}) => <pre className="bg-gray-50 rounded-lg p-3 my-2 overflow-auto text-sm">{children}</pre>
-                                      }}
-                                    >
-                                      {(() => {
-                                        // 添加调试信息
-                                        const resultContent = sceneStates[scene.name]?.optimizeResult || optimizeResult || '';
-                                        console.log(`渲染优化结果 [${scene.name}]:`, {
-                                          fromSceneState: !!sceneStates[scene.name]?.optimizeResult,
-                                          fromOptimizeResult: !!optimizeResult,
-                                          contentLength: resultContent.length,
-                                          previewStart: resultContent.substring(0, Math.min(50, resultContent.length))
-                                        });
-                                        return resultContent;
-                                      })()}
-                                    </ReactMarkdown>
+                                    {(() => {
+                                      // 添加调试信息
+                                      const resultContent = sceneStates[scene.name]?.optimizeResult || optimizeResult || '';
+                                      console.log(`渲染优化结果 [${scene.name}]:`, {
+                                        fromSceneState: !!sceneStates[scene.name]?.optimizeResult,
+                                        fromOptimizeResult: !!optimizeResult,
+                                        contentLength: resultContent.length,
+                                        previewStart: resultContent.substring(0, Math.min(50, resultContent.length))
+                                      });
+                                      return (
+                                        <ReactMarkdown 
+                                          remarkPlugins={[remarkGfm]}
+                                          components={{
+                                            h1: ({children}: {children: React.ReactNode}) => <h1 className="text-xl font-bold mb-2 pb-1 border-b">{children}</h1>,
+                                            h2: ({children}: {children: React.ReactNode}) => <h2 className="text-lg font-semibold mb-2 mt-3">{children}</h2>,
+                                            h3: ({children}: {children: React.ReactNode}) => <h3 className="text-base font-medium mb-1 mt-2">{children}</h3>,
+                                            p: ({children}: {children: React.ReactNode}) => <p className="text-gray-600 my-1 leading-normal text-sm">{children}</p>,
+                                            ul: ({children}: {children: React.ReactNode}) => <ul className="list-disc pl-4 my-1 space-y-0.5">{children}</ul>,
+                                            ol: ({children}: {children: React.ReactNode}) => <ol className="list-decimal pl-4 my-1 space-y-0.5">{children}</ol>,
+                                            li: ({children}: {children: React.ReactNode}) => <li className="text-gray-600 text-sm">{children}</li>,
+                                            blockquote: ({children}: {children: React.ReactNode}) => <blockquote className="border-l-4 border-gray-300 pl-3 my-1 italic text-sm">{children}</blockquote>,
+                                            code: ({children}: {children: React.ReactNode}) => <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{children}</code>,
+                                            pre: ({children}: {children: React.ReactNode}) => <pre className="bg-gray-50 rounded-lg p-3 my-2 overflow-auto text-sm">{children}</pre>
+                                          }}
+                                        >
+                                          {resultContent}
+                                        </ReactMarkdown>
+                                      );
+                                    })()}
                                   </div>
                                 )}
                               </div>

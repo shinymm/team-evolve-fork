@@ -430,22 +430,22 @@ export default function BookConfirmPage() {
             <ReactMarkdown 
               remarkPlugins={[remarkGfm]}
               components={{
-                h1: ({node, ...props}) => <h1 className="text-xl font-bold mb-3 pb-1 border-b" {...props} />,
-                h2: ({node, ...props}) => <h2 className="text-lg font-semibold mb-2 mt-4" {...props} />,
-                h3: ({node, ...props}) => <h3 className="text-base font-medium mb-1 mt-3" {...props} />,
-                p: ({node, ...props}) => <p className="text-gray-700 my-2 leading-relaxed text-sm" {...props} />,
-                ul: ({node, ordered, ...props}) => <ul className="list-disc pl-5 my-2 space-y-1" {...props} />,
-                ol: ({node, ordered, ...props}) => <ol className="list-decimal pl-5 my-2 space-y-1" {...props} />,
-                li: ({node, ordered, ...props}) => <li className="text-gray-700 text-sm" {...props} />,
-                blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-gray-300 pl-4 my-2 italic text-sm text-gray-600" {...props} />,
-                code: ({node, inline, className, children, ...props}) => {
+                h1: ({children}: {children: React.ReactNode}) => <h1 className="text-xl font-bold mb-3 pb-1 border-b">{children}</h1>,
+                h2: ({children}: {children: React.ReactNode}) => <h2 className="text-lg font-semibold mb-2 mt-4">{children}</h2>,
+                h3: ({children}: {children: React.ReactNode}) => <h3 className="text-base font-medium mb-1 mt-3">{children}</h3>,
+                p: ({children}: {children: React.ReactNode}) => <p className="text-gray-700 my-2 leading-relaxed text-sm">{children}</p>,
+                ul: ({children}: {children: React.ReactNode}) => <ul className="list-disc pl-5 my-2 space-y-1">{children}</ul>,
+                ol: ({children}: {children: React.ReactNode}) => <ol className="list-decimal pl-5 my-2 space-y-1">{children}</ol>,
+                li: ({children}: {children: React.ReactNode}) => <li className="text-gray-700 text-sm">{children}</li>,
+                blockquote: ({children}: {children: React.ReactNode}) => <blockquote className="border-l-4 border-gray-300 pl-4 my-2 italic text-sm text-gray-600">{children}</blockquote>,
+                code: ({inline, className, children}: {inline?: boolean, className?: string, children: React.ReactNode}) => {
                   const match = /language-(\w+)/.exec(className || '')
                   return !inline ? (
-                    <pre className={`${className} bg-gray-100 rounded p-2 text-sm overflow-x-auto`} {...props}>
+                    <pre className={`${className} bg-gray-100 rounded p-2 text-sm overflow-x-auto`}>
                       <code>{children}</code>
                     </pre>
                   ) : (
-                    <code className={`${className} bg-gray-100 rounded px-1 py-0.5 text-xs font-mono`} {...props}>
+                    <code className={`${className} bg-gray-100 rounded px-1 py-0.5 text-xs font-mono`}>
                       {children}
                     </code>
                   )

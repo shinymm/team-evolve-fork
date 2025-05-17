@@ -213,16 +213,16 @@ export default function RequirementSkillPage() {
                             <ReactMarkdown 
                               remarkPlugins={[remarkGfm]}
                               components={{
-                                h1: ({children}) => <h1 className="text-xl font-bold mb-2 pb-1 border-b">{children}</h1>,
-                                h2: ({children}) => <h2 className="text-lg font-semibold mb-2 mt-3">{children}</h2>,
-                                h3: ({children}) => <h3 className="text-base font-medium mb-1 mt-2">{children}</h3>,
-                                p: ({children}) => <p className="text-gray-600 my-1 leading-normal text-sm">{children}</p>,
-                                ul: ({children}) => <ul className="list-disc pl-4 my-1 space-y-0.5">{children}</ul>,
-                                ol: ({children}) => <ol className="list-decimal pl-4 my-1 space-y-0.5">{children}</ol>,
-                                li: ({children}) => <li className="text-gray-600 text-sm">{children}</li>,
-                                blockquote: ({children}) => <blockquote className="border-l-4 border-gray-300 pl-3 my-1 italic text-sm">{children}</blockquote>,
-                                code: ({children}) => <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{children}</code>,
-                                pre: ({children}) => (
+                                h1: ({children}: {children: React.ReactNode}) => <h1 className="text-xl font-bold mb-2 pb-1 border-b">{children}</h1>,
+                                h2: ({children}: {children: React.ReactNode}) => <h2 className="text-lg font-semibold mb-2 mt-3">{children}</h2>,
+                                h3: ({children}: {children: React.ReactNode}) => <h3 className="text-base font-medium mb-1 mt-2">{children}</h3>,
+                                p: ({children}: {children: React.ReactNode}) => <p className="text-gray-600 my-1 leading-normal text-sm">{children}</p>,
+                                ul: ({children}: {children: React.ReactNode}) => <ul className="list-disc pl-4 my-1 space-y-0.5">{children}</ul>,
+                                ol: ({children}: {children: React.ReactNode}) => <ol className="list-decimal pl-4 my-1 space-y-0.5">{children}</ol>,
+                                li: ({children}: {children: React.ReactNode}) => <li className="text-gray-600 text-sm">{children}</li>,
+                                blockquote: ({children}: {children: React.ReactNode}) => <blockquote className="border-l-4 border-gray-300 pl-3 my-1 italic text-sm">{children}</blockquote>,
+                                code: ({children}: {children: React.ReactNode}) => <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{children}</code>,
+                                pre: ({children}: {children: React.ReactNode}) => (
                                   <div className="relative">
                                     <pre className="bg-gray-50 rounded-lg p-3 my-2 overflow-auto text-sm">{children}</pre>
                                     <div className="absolute top-0 right-0 p-1">

@@ -212,21 +212,16 @@ _描述验收的标准和条件_
               <ReactMarkdown 
                 remarkPlugins={[remarkGfm]}
                 components={{
-                  h1: ({children}) => <h1 className="text-xl font-bold mb-2 pb-1 border-b">{children}</h1>,
-                  h2: ({children}) => <h2 className="text-lg font-semibold mb-2 mt-3">{children}</h2>,
-                  h3: ({children}) => <h3 className="text-base font-medium mb-1 mt-2">{children}</h3>,
-                  p: ({children}) => <p className="text-gray-600 my-1 leading-normal text-sm">{children}</p>,
-                  ul: ({children}) => <ul className="list-disc pl-4 my-1 space-y-0.5">{children}</ul>,
-                  ol: ({children}) => <ol className="list-decimal pl-4 my-1 space-y-0.5">{children}</ol>,
-                  li: ({children}) => <li className="text-gray-600 text-sm">{children}</li>,
-                  blockquote: ({children}) => <blockquote className="border-l-4 border-gray-300 pl-3 my-1 italic text-sm">{children}</blockquote>,
-                  code: ({children}) => <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{children}</code>,
-                  table: ({children}) => <table className="border-collapse w-full my-4 text-sm">{children}</table>,
-                  thead: ({children}) => <thead className="bg-gray-100">{children}</thead>,
-                  tbody: ({children}) => <tbody>{children}</tbody>,
-                  tr: ({children}) => <tr className="border-b border-gray-200">{children}</tr>,
-                  th: ({children}) => <th className="border border-gray-300 px-3 py-2 text-left font-medium">{children}</th>,
-                  td: ({children}) => <td className="border border-gray-300 px-3 py-2">{children}</td>,
+                  h1: ({children}: {children: React.ReactNode}) => <h1 className="text-xl font-bold mb-2 pb-1 border-b">{children}</h1>,
+                  h2: ({children}: {children: React.ReactNode}) => <h2 className="text-lg font-semibold mb-2 mt-3">{children}</h2>,
+                  h3: ({children}: {children: React.ReactNode}) => <h3 className="text-base font-medium mb-1 mt-2">{children}</h3>,
+                  p: ({children}: {children: React.ReactNode}) => <p className="text-gray-600 my-1 leading-normal text-sm">{children}</p>,
+                  ul: ({children}: {children: React.ReactNode}) => <ul className="list-disc pl-4 my-1 space-y-0.5">{children}</ul>,
+                  ol: ({children}: {children: React.ReactNode}) => <ol className="list-decimal pl-4 my-1 space-y-0.5">{children}</ol>,
+                  li: ({children}: {children: React.ReactNode}) => <li className="text-gray-600 text-sm">{children}</li>,
+                  blockquote: ({children}: {children: React.ReactNode}) => <blockquote className="border-l-4 border-gray-300 pl-3 my-1 italic text-sm">{children}</blockquote>,
+                  code: ({children}: {children: React.ReactNode}) => <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{children}</code>,
+                  pre: ({children}: {children: React.ReactNode}) => <pre className="bg-gray-50 rounded-lg p-3 my-2 overflow-auto text-sm">{children}</pre>
                 }}
               >
                 {template}

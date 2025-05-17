@@ -253,7 +253,7 @@ const ContentDisplay = memo(({ content }: { content: string }) => {
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          td: ({ node, children, ...props }) => {
+          td: ({ node, children, ...props }: { node?: any; children?: React.ReactNode; [key: string]: any }) => {
             // 检查是否是领域列（第4列）
             const isColumn4 = node?.position?.start?.column === 4;
             if (isColumn4 && typeof children === 'string') {
@@ -273,14 +273,22 @@ const ContentDisplay = memo(({ content }: { content: string }) => {
             }
             return <td {...props}>{children}</td>;
           },
-          th: ({ node, children, ...props }) => {
+          th: ({ node, children, ...props }: { node?: any; children?: React.ReactNode; [key: string]: any }) => {
             // 检查是否是领域列（第4列）
             const isColumn4 = node?.position?.start?.column === 4;
             if (isColumn4) {
               return <th {...props} style={{ minWidth: '200px', width: '20%' }}>{children}</th>;
             }
             return <th {...props}>{children}</th>;
-          }
+          },
+          h1: ({children}: {children: React.ReactNode}) => <h1 className="text-xl font-bold mb-2 pb-1 border-b">{children}</h1>,
+          h2: ({children}: {children: React.ReactNode}) => <h2 className="text-lg font-semibold mb-2 mt-3">{children}</h2>,
+          h3: ({children}: {children: React.ReactNode}) => <h3 className="text-base font-medium mb-1 mt-2">{children}</h3>,
+          p: ({children}: {children: React.ReactNode}) => <p className="text-gray-600 my-1 leading-normal text-sm">{children}</p>,
+          ul: ({children}: {children: React.ReactNode}) => <ul className="list-disc pl-4 my-1 space-y-0.5">{children}</ul>,
+          ol: ({children}: {children: React.ReactNode}) => <ol className="list-decimal pl-4 my-1 space-y-0.5">{children}</ol>,
+          li: ({children}: {children: React.ReactNode}) => <li className="text-gray-600 text-sm">{children}</li>,
+          blockquote: ({children}: {children: React.ReactNode}) => <blockquote className="border-l-4 border-gray-300 pl-3 my-1 italic text-sm">{children}</blockquote>,
         }}
       >
         {content}
