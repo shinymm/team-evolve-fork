@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Upload, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
+import { Upload, Trash2, ChevronDown, ChevronRight, Loader2 } from 'lucide-react'
 
 export interface UploadedFile {
   id: string;
@@ -22,6 +22,7 @@ interface ImageListProps {
   onDeleteFile: (fileId: string) => void;
   onUploadClick: () => void;
   processing: boolean;
+  imagesLoading?: boolean;
 }
 
 export const ImageList = ({
@@ -31,7 +32,8 @@ export const ImageList = ({
   onSelectFile,
   onDeleteFile,
   onUploadClick,
-  processing
+  processing,
+  imagesLoading = false
 }: ImageListProps) => {
   
   return (
@@ -45,6 +47,12 @@ export const ImageList = ({
           }
           <h2 className="text-sm font-medium flex items-center">
             已上传图片（{uploadedFiles.length}）
+            {imagesLoading && (
+              <span className="ml-2 flex items-center text-gray-500">
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                加载中...
+              </span>
+            )}
             {uploadedFiles.filter(f => f.selected).length > 0 && (
               <span className="text-xs ml-2 text-orange-500 font-medium">
                 已选择 {uploadedFiles.filter(f => f.selected).length} 张
@@ -115,7 +123,12 @@ export const ImageList = ({
             </div>
           )}
           
-          {uploadedFiles.length === 0 ? (
+          {imagesLoading ? (
+            <div className="flex justify-center items-center p-8 text-gray-400">
+              <Loader2 className="h-8 w-8 animate-spin mr-2" />
+              <span>正在加载图片列表...</span>
+            </div>
+          ) : uploadedFiles.length === 0 ? (
             <div className="text-gray-400 text-sm p-4 text-center border border-dashed rounded-lg">
               尚未上传图片文件
             </div>

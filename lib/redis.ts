@@ -150,4 +150,91 @@ export const getRedisValue = async (key: string) => {
   
   const client = getRedisClient();
   return client.get(key);
+};
+
+/**
+ * 缓存键前缀常量，避免不同功能键名冲突
+ */
+export const CACHE_KEYS = {
+  // 图片存储相关缓存前缀
+  IMAGE_LIST: 'img:list:', // 图片列表缓存前缀
+
+  // AI配置相关缓存前缀（复用ai-config-redis.ts中的前缀）
+  AI_CONFIG: 'ai:config:',
+  
+  // 其他缓存前缀可以在这里添加...
+};
+
+/**
+ * 缓存过期时间常量（秒）
+ */
+export const CACHE_EXPIRE = {
+  ONE_MINUTE: 60,
+  FIVE_MINUTES: 60 * 5,
+  TEN_MINUTES: 60 * 10,
+  THIRTY_MINUTES: 60 * 30,
+  ONE_HOUR: 60 * 60,
+  THREE_HOURS: 60 * 60 * 3,
+  SIX_HOURS: 60 * 60 * 6,
+  TWELVE_HOURS: 60 * 60 * 12,
+  ONE_DAY: 60 * 60 * 24,
+  THREE_DAYS: 60 * 60 * 24 * 3,
+  ONE_WEEK: 60 * 60 * 24 * 7,
+};
+
+/**
+ * 设置JSON对象缓存
+ * @param key 缓存键
+ * @param value 缓存值（会被JSON序列化）
+ * @param expiryInSeconds 过期时间(秒)
+ */
+export const setJsonCache = async <T>(key: string, value: T, expiryInSeconds = CACHE_EXPIRE.ONE_HOUR): Promise<string | null> => {
+  if (!isServer) {
+    console.warn('Redis操作仅支持在服务器端执行');
+    return null;
+  }
+  
+  try {
+    const jsonValue = JSON.stringify(value);
+    return setRedisValue(key, jsonValue, expiryInSeconds);
+  } catch (error) {
+    console.error(`序列化对象到Redis失败 (键: ${key}):`, error);
+    return null;
+  }
+};
+
+/**
+ * 获取并解析JSON对象缓存
+ * @param key 缓存键
+ * @returns 解析后的对象或null
+ */
+export const getJsonCache = async <T>(key: string): Promise<T | null> => {
+  if (!isServer) {
+    console.warn('Redis操作仅支持在服务器端执行');
+    return null;
+  }
+  
+  try {
+    const value = await getRedisValue(key);
+    if (!value) return null;
+    
+    return JSON.parse(value) as T;
+  } catch (error) {
+    console.error(`从Redis解析JSON失败 (键: ${key}):`, error);
+    return null;
+  }
+};
+
+/**
+ * 删除缓存
+ * @param key 缓存键
+ */
+export const deleteCache = async (key: string): Promise<number> => {
+  if (!isServer) {
+    console.warn('Redis操作仅支持在服务器端执行');
+    return 0;
+  }
+  
+  const client = getRedisClient();
+  return client.del(key);
 }; 

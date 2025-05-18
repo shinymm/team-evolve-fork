@@ -166,8 +166,29 @@ model System {
   apiInterfaces   APIInterface[]
   requirementTemplate RequirementTemplate?
   requirementActions RequirementAction[]
+  uploadedImages   UploadedImage[]  // 添加上传图片关联
 
   @@index([status])
+}
+
+// 上传图片元数据模型
+model UploadedImage {
+  id          String   @id @default(cuid())
+  systemId    String   // 关联的系统ID
+  name        String   // 原始文件名
+  ossKey      String   @unique // OSS中的唯一标识key
+  url         String   // 图片访问URL
+  provider    String   @default("aliyun-oss") // 存储提供商
+  fileSize    Int?     // 文件大小（字节）
+  fileType    String?  // 文件MIME类型
+  uploadTime  DateTime @default(now()) // 上传时间
+  createdBy   String?  // 上传者
+  
+  // 关联系统
+  system      System   @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  
+  @@index([systemId]) // 索引系统ID以加速查询
+  @@index([ossKey])   // 索引OSS key
 }
 
 // 产品信息模型

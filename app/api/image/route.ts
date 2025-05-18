@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { uploadToOSS, deleteFromOSS } from '@/lib/utils/oss-utils';
-import { v4 as uuidv4 } from 'uuid';
+import { prisma } from '@/lib/prisma';
+import { getJsonCache, setJsonCache, deleteCache, CACHE_KEYS, CACHE_EXPIRE } from '@/lib/redis';
 
 // 确保API路由配置是正确的
 export const dynamic = 'force-dynamic'; // 确保路由不会被缓存
@@ -18,6 +19,87 @@ interface FormDataFile {
   stream(): ReadableStream;
 }
 
+// 定义图片类型接口
+interface UploadedImage {
+  id: string;
+  name: string;
+  url: string;
+  uploadTime: Date | string;
+  selected?: boolean;
+  provider: string;
+  fileSize?: number;
+  fileType?: string;
+}
+
+/**
+ * GET方法用于获取系统的图片列表
+ */
+export async function GET(request: NextRequest) {
+  try {
+    // 从URL查询参数获取系统ID
+    const url = new URL(request.url);
+    const systemId = url.searchParams.get('systemId');
+    
+    if (!systemId) {
+      return NextResponse.json(
+        { error: '缺少必要参数: systemId' },
+        { status: 400 }
+      );
+    }
+
+    console.log(`获取系统[${systemId}]的图片列表`);
+
+    // 尝试从缓存获取
+    const cacheKey = `${CACHE_KEYS.IMAGE_LIST}${systemId}`;
+    const cachedImages = await getJsonCache<UploadedImage[]>(cacheKey);
+    
+    if (cachedImages && cachedImages.length > 0) {
+      console.log(`从缓存获取到 ${cachedImages.length} 张图片`);
+      return NextResponse.json({
+        images: cachedImages
+      });
+    }
+
+    // 缓存未命中，从数据库查询
+    console.log(`缓存未命中，从数据库查询图片列表`);
+    const images = await prisma.$queryRaw<any[]>`
+      SELECT * FROM "UploadedImage" 
+      WHERE "systemId" = ${systemId}
+      ORDER BY "uploadTime" DESC
+    `;
+
+    // 转换为前端需要的格式
+    const formattedImages: UploadedImage[] = images.map((img) => ({
+      id: img.ossKey,
+      name: img.name,
+      url: img.url,
+      uploadTime: img.uploadTime,
+      selected: false,
+      provider: img.provider,
+      fileSize: img.fileSize || undefined,
+      fileType: img.fileType || undefined
+    }));
+
+    // 保存到缓存
+    await setJsonCache(cacheKey, formattedImages, CACHE_EXPIRE.ONE_HOUR);
+    console.log(`已将 ${formattedImages.length} 张图片保存到缓存`);
+
+    // 返回结果
+    return NextResponse.json({
+      images: formattedImages
+    });
+  } catch (error) {
+    console.error('获取图片列表失败:', error);
+    return NextResponse.json(
+      { error: `获取图片列表失败: ${error instanceof Error ? error.message : '未知错误'}` },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * POST方法用于上传图片
+ */
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -90,21 +172,43 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 添加DELETE方法用于删除OSS中的图片
+/**
+ * DELETE方法用于删除OSS中的图片
+ */
 export async function DELETE(request: NextRequest) {
   try {
     // 从URL中获取图片ID (key)
     const url = new URL(request.url);
     const key = url.searchParams.get('key');
+    const systemId = url.searchParams.get('systemId');
     
     if (!key) {
       return NextResponse.json({ error: '未提供图片ID' }, { status: 400 });
     }
     
-    console.log(`准备删除OSS图片: ${key}`);
+    console.log(`准备删除OSS图片: ${key}${systemId ? `, 系统ID: ${systemId}` : ''}`);
     
     // 调用OSS删除方法
     const result = await deleteFromOSS(key);
+    
+    // 如果提供了systemId，同时删除数据库记录
+    if (systemId && result) {
+      try {
+        // 从数据库中删除图片记录
+        const deleteResult = await prisma.$executeRaw`
+          DELETE FROM "UploadedImage" 
+          WHERE "ossKey" = ${key} AND "systemId" = ${systemId}
+        `;
+        
+        // 清除此系统的缓存
+        await deleteCache(`${CACHE_KEYS.IMAGE_LIST}${systemId}`);
+        
+        console.log(`已从数据库删除图片记录: ${key}, 系统ID: ${systemId}`);
+      } catch (dbError) {
+        console.error('从数据库删除图片记录失败:', dbError);
+        // 继续返回成功，因为OSS删除已成功
+      }
+    }
     
     if (result) {
       console.log(`图片删除成功: ${key}`);
