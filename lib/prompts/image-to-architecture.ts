@@ -9,6 +9,15 @@ export const imageToArchitecturePrompt = `你是一位专业的产品分析师�
 5. 必须输出规范的JSON格式
 </Rules>
 
+<SystemInfo>
+系统名称：{{SYSTEM_NAME}}
+系统描述：{{SYSTEM_DESCRIPTION}}
+</SystemInfo>
+
+<UserSupplement>
+{{USER_SUPPLEMENT}}
+</UserSupplement>
+
 <Instructions>
 1. 分析应用的整体结构和导航系统:
    - 底部的主要导航栏通常展示最主要功能模块
@@ -58,4 +67,7 @@ export const imageToArchitecturePrompt = `你是一位专业的产品分析师�
     "children": []
   }
 ]
-</Example>` 
+</Example>`;
+
+// 系统前置信息提示模板
+export const systemRoleTemplate = `你是一个产品架构分析专家，善于从界面截图中识别产品模块结构并提炼信息架构。`; 

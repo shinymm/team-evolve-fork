@@ -7,44 +7,84 @@ export const dynamic = 'force-dynamic'; // 确保路由不会被缓存
 export const runtime = 'nodejs'; // 明确指定使用Node.js运行时
 export const maxDuration = 60; // 设置最大执行时间为60秒
 
+// 定义一个接口来描述服务器端接收的文件对象
+interface FormDataFile {
+  type: string;
+  name: string;
+  size: number;
+  arrayBuffer(): Promise<ArrayBuffer>;
+  text(): Promise<string>;
+  slice(start?: number, end?: number, contentType?: string): FormDataFile;
+  stream(): ReadableStream;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
-    const file = formData.get('file') as File;
+    // 获取上传的文件
+    const file = formData.get('file');
     
     if (!file) {
       return NextResponse.json({ error: '没有提供文件' }, { status: 400 });
     }
     
+    // 检查是否是有效的文件对象
+    if (typeof file !== 'object' || !('type' in file) || !('name' in file) || !('size' in file) || !('arrayBuffer' in file)) {
+      console.error('无效的文件对象:', file);
+      return NextResponse.json({ error: '无效的文件格式' }, { status: 400 });
+    }
+    
+    // 使用类型断言让TypeScript知道我们已经验证了file对象的结构
+    const fileObject = file as FormDataFile;
+    
     // 验证文件类型
-    if (!file.type.startsWith('image/')) {
+    const fileType = String(fileObject.type || '');
+    if (!fileType.startsWith('image/')) {
       return NextResponse.json({ error: '仅支持图片文件' }, { status: 400 });
     }
+    
+    // 确保文件名是字符串类型
+    const fileName = typeof fileObject.name === 'string' ? fileObject.name : `image_${Date.now()}`;
     
     // 从URL查询参数获取系统名称
     const url = new URL(request.url);
     const systemName = url.searchParams.get('systemName');
     
     // 上传到OSS
-    console.log(`开始上传图片到OSS${systemName ? `(系统: ${systemName})`: ''}: ${file.name}, 大小: ${(file.size / 1024).toFixed(2)}KB`);
-    const { url: fileUrl, key } = await uploadToOSS(file, file.name, systemName || undefined);
-    console.log(`图片上传成功: ${fileUrl}`);
+    console.log(`开始上传图片到OSS${systemName ? `(系统: ${systemName})`: ''}: ${fileName}, 类型: ${fileType}, 大小: ${(Number(fileObject.size) / 1024).toFixed(2)}KB`);
     
-    // 返回成功响应
-    return NextResponse.json({
-      file: {
-        id: key,  // 使用OSS的key作为ID
-        name: file.name,
-        url: fileUrl,  // 返回公开访问URL
-        provider: 'aliyun-oss',
-        size: file.size,
-        type: file.type
-      }
-    });
+    try {
+      // 先将文件内容转换为Buffer
+      // FormData中的文件对象有arrayBuffer方法，可以获取文件内容
+      const arrayBuffer = await fileObject.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      
+      // 使用Buffer和文件名调用uploadToOSS函数
+      const { url: fileUrl, key } = await uploadToOSS(buffer, fileName, systemName || undefined);
+      console.log(`图片上传成功: ${fileUrl}`);
+      
+      // 返回成功响应
+      return NextResponse.json({
+        file: {
+          id: key,  // 使用OSS的key作为ID
+          name: fileName,
+          url: fileUrl,  // 返回公开访问URL
+          provider: 'aliyun-oss',
+          size: Number(fileObject.size),
+          type: fileType
+        }
+      });
+    } catch (ossError) {
+      console.error('OSS上传错误:', ossError);
+      return NextResponse.json(
+        { error: `OSS上传失败: ${ossError instanceof Error ? ossError.message : '未知错误'}` },
+        { status: 500 }
+      );
+    }
   } catch (error) {
-    console.error('图片上传错误:', error);
+    console.error('图片上传处理错误:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : '图片上传失败' },
+      { error: `图片上传失败: ${error instanceof Error ? error.message : '未知错误'}` },
       { status: 500 }
     );
   }

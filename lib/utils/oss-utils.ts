@@ -31,16 +31,22 @@ export function getOSSClient() {
   });
 }
 
+// 定义一个接口来描述包含arrayBuffer方法的对象
+interface HasArrayBuffer {
+  arrayBuffer(): Promise<ArrayBuffer>;
+  type?: string;
+}
+
 /**
  * 上传文件到OSS
- * @param file 文件对象（浏览器File对象或Node.js Buffer）
+ * @param file 文件对象（浏览器File对象、FormData中的文件对象、或Node.js Buffer）
  * @param fileName 文件名称
  * @param systemName 系统名称，用于在存储路径中分类
  * @param prefix 存储路径前缀，默认为'images'
  * @returns 上传结果，包含URL和OSS对象Key
  */
 export async function uploadToOSS(
-  file: File | Buffer,
+  file: any,
   fileName: string,
   systemName?: string,
   prefix = 'images'
@@ -60,11 +66,21 @@ export async function uploadToOSS(
     let contentType: string | undefined;
     
     // 处理不同类型的文件输入
-    if (file instanceof File) {
-      buffer = Buffer.from(await file.arrayBuffer());
-      contentType = file.type;
-    } else {
+    if (Buffer.isBuffer(file)) {
+      // 如果是Buffer类型
       buffer = file;
+    } else if (typeof file === 'object' && file !== null) {
+      // 检查是否有arrayBuffer方法（适用于FormData文件对象和File对象）
+      if ('arrayBuffer' in file && typeof file.arrayBuffer === 'function') {
+        // 将具有arrayBuffer方法的对象转换为Buffer
+        buffer = Buffer.from(await (file as HasArrayBuffer).arrayBuffer());
+        contentType = (file as HasArrayBuffer).type;
+      } else {
+        // 如果没有arrayBuffer方法，则尝试直接使用（假设是Buffer兼容对象）
+        buffer = file;
+      }
+    } else {
+      throw new Error('不支持的文件类型');
     }
     
     console.log(`准备上传文件到OSS，路径: ${key}`);

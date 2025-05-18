@@ -8,6 +8,15 @@ export const imageToProductInfoPrompt = `你需要通过分析<图片>内容，�
 5. **输出语言与图片中的主要文字语言保持一致**
 </Rules>
 
+<SystemInfo>
+系统名称：{{SYSTEM_NAME}}
+系统描述：{{SYSTEM_DESCRIPTION}}
+</SystemInfo>
+
+<UserSupplement>
+{{USER_SUPPLEMENT}}
+</UserSupplement>
+
 <Instructions>
 1. 分析图片内容，理解界面功能和业务场景
 2. 提炼核心信息：
@@ -41,7 +50,7 @@ export const imageToProductInfoPrompt = `你需要通过分析<图片>内容，�
    - 负责会话数据分析的质检员，关注服务质量和客户反馈。
    - 需要系统化的数据分析工具来评估服务质量。
 </Example>
+`;
 
-
-
-` 
+// 系统前置信息提示模板
+export const systemRoleTemplate = `你是一个产品分析专家，善于从界面截图中识别产品特征并提炼核心信息。`; 

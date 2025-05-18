@@ -221,7 +221,13 @@ _描述验收的标准和条件_
                   li: ({children}: {children: React.ReactNode}) => <li className="text-gray-600 text-sm">{children}</li>,
                   blockquote: ({children}: {children: React.ReactNode}) => <blockquote className="border-l-4 border-gray-300 pl-3 my-1 italic text-sm">{children}</blockquote>,
                   code: ({children}: {children: React.ReactNode}) => <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{children}</code>,
-                  pre: ({children}: {children: React.ReactNode}) => <pre className="bg-gray-50 rounded-lg p-3 my-2 overflow-auto text-sm">{children}</pre>
+                  pre: ({children}: {children: React.ReactNode}) => <pre className="bg-gray-50 rounded-lg p-3 my-2 overflow-auto text-sm">{children}</pre>,
+                  table: ({children}: {children: React.ReactNode}) => <table className="min-w-full border-collapse my-4 text-sm">{children}</table>,
+                  thead: ({children}: {children: React.ReactNode}) => <thead className="bg-gray-50">{children}</thead>,
+                  tbody: ({children}: {children: React.ReactNode}) => <tbody className="divide-y divide-gray-200">{children}</tbody>,
+                  tr: ({children}: {children: React.ReactNode}) => <tr>{children}</tr>,
+                  th: ({children}: {children: React.ReactNode}) => <th className="px-3 py-2 text-left font-medium text-gray-900 border border-gray-200">{children}</th>,
+                  td: ({children}: {children: React.ReactNode}) => <td className="px-3 py-2 text-gray-600 border border-gray-200">{children}</td>
                 }}
               >
                 {template}

@@ -1,7 +1,7 @@
 ---
-description: 
+description: 当需要创建新文件的时候，请先阅读本rule查看目录结构规范
 globs: 
-alwaysApply: true
+alwaysApply: false
 ---
 ## 技术栈规范
 * 主要技术：TypeScript, Next.js App Router, React, Shadcn UI, Tailwind CSS
@@ -16,6 +16,9 @@ alwaysApply: true
 * 所有代码使用 TypeScript
 * 优先使用 interface 而非 type
 * 避免使用 enum，改用 map
+
+## 配色
+* 主色调为橙色（#ef6c00）
 
 ## 文件夹结构规范
 项目根目录/

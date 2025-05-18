@@ -85,11 +85,8 @@ export default function InformationArchitecture() {
         console.log('Initial tree data:', treeData.architecture)
         setProductInfo(treeData)
         
-        // 默认展开第一级节点
-        const firstLevelIds = new Set<string>(
-          treeData.architecture.map((item: ArchitectureItem) => item.id)
-        )
-        setExpandedItems(firstLevelIds)
+        // 修改：默认不展开任何节点，而是保持折叠状态
+        setExpandedItems(new Set())
         
         setEditingOverviewText(data.overview || '')
       } catch (error) {
@@ -458,7 +455,7 @@ export default function InformationArchitecture() {
 
     return (
       <div key={item.id} style={{ marginLeft: `${level * 16}px` }}>
-        <div className={`flex items-center py-0.5 group hover:bg-gray-50 ${
+        <div className={`flex items-center py-1.5 group hover:bg-gray-50 ${
           suggestion?.action === 'update' ? 'bg-orange-50' : 
           suggestion?.action === 'delete' ? 'bg-red-50' : ''
         }`}>
@@ -469,9 +466,9 @@ export default function InformationArchitecture() {
                 className="p-0.5 hover:bg-gray-100 rounded"
               >
                 {isExpanded ? (
-                  <ChevronDown className="h-3.5 w-3.5" />
+                  <ChevronDown className="h-4 w-4" />
                 ) : (
-                  <ChevronRight className="h-3.5 w-3.5" />
+                  <ChevronRight className="h-4 w-4" />
                 )}
               </button>
             ) : (
@@ -479,17 +476,17 @@ export default function InformationArchitecture() {
             )}
             
             {isEditing ? (
-              <div className="flex items-center min-w-0 gap-1 ml-0.5">
+              <div className="flex items-center min-w-0 gap-2 ml-1">
                 <Input
                   value={editForm.title}
                   onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))}
-                  className="h-5 text-[10px] w-[100px]"
+                  className="h-8 text-sm w-[120px]"
                   placeholder="标题"
                 />
                 <Input
                   value={editForm.description}
                   onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
-                  className="h-5 text-[10px] flex-1"
+                  className="h-8 text-sm flex-1"
                   style={{ minWidth: `${Math.max(editForm.description.length * 10 + 150, 200)}px` }}
                   placeholder="描述"
                 />
@@ -498,25 +495,25 @@ export default function InformationArchitecture() {
                     variant="ghost"
                     size="sm"
                     onClick={() => setEditingId(null)}
-                    className="h-5 px-1.5 text-[10px]"
+                    className="h-8 px-2 text-sm"
                   >
                     取消
                   </Button>
                   <Button
                     size="sm"
                     onClick={() => handleSaveEdit(item.id)}
-                    className="h-5 px-1.5 text-[10px]"
+                    className="h-8 px-2 text-sm"
                   >
                     保存
                   </Button>
                 </div>
               </div>
             ) : (
-              <div className="flex items-center min-w-0 gap-1 ml-0.5 flex-1">
-                <div className="flex items-center gap-1 min-w-0 group/item">
-                  <span className="font-medium text-xs whitespace-nowrap">{item.title}</span>
+              <div className="flex items-center min-w-0 gap-2 ml-1 flex-1">
+                <div className="flex items-center gap-2 min-w-0 group/item">
+                  <span className="font-medium text-sm whitespace-nowrap">{item.title}</span>
                   {item.description && (
-                    <span className="text-xs text-gray-500 truncate">
+                    <span className="text-sm text-gray-600 truncate">
                       - {item.description}
                     </span>
                   )}
@@ -525,10 +522,10 @@ export default function InformationArchitecture() {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleEdit(item)}
-                      className="h-5 px-1"
+                      className="h-6 px-1.5"
                       title="编辑"
                     >
-                      <Edit2 className="h-3 w-3" />
+                      <Edit2 className="h-3.5 w-3.5" />
                     </Button>
                     <Button
                       variant="ghost"
@@ -574,10 +571,10 @@ export default function InformationArchitecture() {
                           })
                         }
                       }}
-                      className="h-5 px-1"
+                      className="h-6 px-1.5"
                       title="添加子节点"
                     >
-                      <Plus className="h-3 w-3" />
+                      <Plus className="h-3.5 w-3.5" />
                     </Button>
                     <Button
                       variant="ghost"
@@ -613,14 +610,14 @@ export default function InformationArchitecture() {
                           })
                         }
                       }}
-                      className="h-5 px-1 text-red-500 hover:text-red-600 hover:bg-red-50"
+                      className="h-6 px-1.5 text-red-500 hover:text-red-600 hover:bg-red-50"
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </div>
                 {suggestion && (
-                  <span className="text-xs text-yellow-600 ml-2">
+                  <span className="text-sm text-yellow-600 ml-2">
                     {suggestion.action === 'update' ? '建议修改' : suggestion.action === 'delete' ? '建议删除' : ''}
                   </span>
                 )}
@@ -642,57 +639,57 @@ export default function InformationArchitecture() {
     const isEditing = editingUserNeedId === item.id
     
     return (
-      <div className="border rounded-lg p-3">
+      <div className="border rounded-lg p-4">
         {isEditing ? (
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Input
               value={editingUserNeedForm?.title || ''}
               onChange={(e) => setEditingUserNeedForm(prev => ({ ...prev!, title: e.target.value }))}
               placeholder="用户类型"
-              className="text-[10px] h-5"
+              className="text-base h-8"
             />
             <Textarea
               value={editingUserNeedForm?.features || ''}
               onChange={(e) => setEditingUserNeedForm(prev => ({ ...prev!, features: e.target.value }))}
               placeholder="特征描述"
-              className="text-[10px] min-h-[60px]"
+              className="text-base min-h-[80px] leading-6"
             />
             <Textarea
               value={editingUserNeedForm?.needs || ''}
               onChange={(e) => setEditingUserNeedForm(prev => ({ ...prev!, needs: e.target.value }))}
               placeholder="需求描述"
-              className="text-[10px] min-h-[60px]"
+              className="text-base min-h-[80px] leading-6"
             />
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 mt-3">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleUserNeedCancel}
-                className="h-5 text-[10px]"
+                className="h-8 px-3 text-sm"
               >
                 取消
               </Button>
               <Button
                 size="sm"
                 onClick={handleUserNeedSave}
-                className="h-5 text-[10px]"
+                className="h-8 px-3 text-sm"
               >
                 保存
               </Button>
             </div>
           </div>
         ) : (
-          <div className="space-y-1">
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-medium">{item.title}</h3>
+              <h3 className="text-lg font-medium">{item.title}</h3>
               <div className="flex gap-1">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => handleUserNeedEdit(item)}
-                  className="h-6 px-2"
+                  className="h-7 px-2"
                 >
-                  <Edit2 className="h-3 w-3" />
+                  <Edit2 className="h-3.5 w-3.5" />
                 </Button>
                 <Button
                   variant="ghost"
@@ -707,17 +704,25 @@ export default function InformationArchitecture() {
                       console.error('Failed to delete persona:', error)
                     }
                   }}
-                  className="h-6 px-2 text-red-500 hover:text-red-600 hover:bg-red-50"
+                  className="h-7 px-2 text-red-500 hover:text-red-600 hover:bg-red-50"
                 >
-                  <Trash2 className="h-3 w-3" />
+                  <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
             </div>
-            <div className="text-xs leading-4">
-              <p className="text-gray-600 whitespace-pre-wrap">{item.features}</p>
+            
+            <div className="space-y-2">
+              <div className="text-sm text-gray-500 font-medium">用户特征：</div>
+              <div className="text-base leading-6">
+                <p className="text-gray-600 whitespace-pre-wrap">{item.features}</p>
+              </div>
             </div>
-            <div className="text-xs leading-4">
-              <p className="text-gray-600 whitespace-pre-wrap">{item.needs}</p>
+            
+            <div className="space-y-2">
+              <div className="text-sm text-gray-500 font-medium">用户需求：</div>
+              <div className="text-base leading-6">
+                <p className="text-gray-600 whitespace-pre-wrap">{item.needs}</p>
+              </div>
             </div>
           </div>
         )}
@@ -730,13 +735,13 @@ export default function InformationArchitecture() {
     if (!suggestions.length) return null
 
     return (
-      <Card className="mt-6">
+      <Card className="mt-8">
         <CardHeader>
-          <CardTitle className="text-lg">架构调整建议</CardTitle>
+          <CardTitle className="text-xl font-semibold">架构调整建议</CardTitle>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-[300px]">
-            <div className="space-y-4">
+          <ScrollArea className="h-[350px] pr-4">
+            <div className="space-y-5">
               {suggestions.map((suggestion, index) => (
                 <Card key={suggestion.id || index} className={`border shadow-sm ${
                   suggestion.action === 'add' 
@@ -744,7 +749,7 @@ export default function InformationArchitecture() {
                     : 'border-orange-100 bg-orange-50/50'
                 }`}>
                   <CardContent className="p-4">
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className={`
                           ${suggestion.action === 'add' 
@@ -754,22 +759,22 @@ export default function InformationArchitecture() {
                         `}>
                           {suggestion.action === 'add' ? '新增节点' : suggestion.action === 'update' ? '修改节点' : '删除节点'}
                         </Badge>
-                        <span className="text-sm text-gray-600">
+                        <span className="text-sm text-gray-600 ml-2">
                           {suggestion.action === 'add' ? `父节点: ${suggestion.parentId}` : `节点: ${suggestion.targetId}`}
                         </span>
                       </div>
                       <div>
-                        <h4 className="font-medium">{suggestion.title}</h4>
-                        <p className="text-sm text-gray-600">{suggestion.description}</p>
+                        <h4 className="font-medium text-base">{suggestion.title}</h4>
+                        <p className="text-sm text-gray-600 mt-1 leading-6">{suggestion.description}</p>
                       </div>
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-2 mt-2">
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 px-2 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50"
+                          className="h-8 px-3 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50"
                           onClick={() => handleApplySuggestion(suggestion, index)}
                         >
-                          <Check className="h-3.5 w-3.5 mr-1" />
+                          <Check className="h-4 w-4 mr-1" />
                           应用
                         </Button>
                       </div>
@@ -845,7 +850,7 @@ export default function InformationArchitecture() {
       <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
         <div className="text-center">
           <h2 className="text-lg font-semibold text-gray-700">请先选择系统</h2>
-          <p className="mt-2 text-sm text-gray-500">需要选择一个系统才能查看产品信息</p>
+          <p className="mt-2 text-base text-gray-500">需要选择一个系统才能查看产品信息</p>
         </div>
       </div>
     )
@@ -856,7 +861,7 @@ export default function InformationArchitecture() {
       <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
         <div className="text-center">
           <h2 className="text-lg font-semibold text-gray-700">加载中...</h2>
-          <p className="mt-2 text-sm text-gray-500">正在获取产品信息</p>
+          <p className="mt-2 text-base text-gray-500">正在获取产品信息</p>
         </div>
       </div>
     )
@@ -864,12 +869,12 @@ export default function InformationArchitecture() {
 
   return (
     <div className="w-[90%] mx-auto py-4">
-      <div className="space-y-6">
-        {/* Overview Section */}
+      <div className="space-y-8">
+        {/* 1) 产品概述 Section */}
         <Card>
           <CardHeader className="pb-2">
             <div className="flex justify-between items-center">
-              <CardTitle className="text-base">产品概述</CardTitle>
+              <CardTitle className="text-xl font-semibold">产品概述</CardTitle>
               <Button
                 variant="ghost"
                 size="sm"
@@ -885,7 +890,7 @@ export default function InformationArchitecture() {
             {isEditingOverview ? (
               <div className="space-y-4">
                 <textarea
-                  className="w-full h-32 p-2 border rounded-md text-sm"
+                  className="w-full h-32 p-3 border rounded-md text-base leading-6"
                   value={editingOverviewText}
                   onChange={(e) => setEditingOverviewText(e.target.value)}
                   placeholder="请输入产品概述，包括产品的定位、目标用户、核心价值等..."
@@ -908,24 +913,92 @@ export default function InformationArchitecture() {
               </div>
             ) : (
               productInfo?.overview ? (
-                <p className="text-xs text-gray-600 whitespace-pre-wrap leading-4">
+                <p className="text-base text-gray-600 whitespace-pre-wrap leading-6">
                   {productInfo.overview}
                 </p>
               ) : (
                 <div className="text-center py-6">
-                  <p className="text-sm text-gray-500">暂无产品概述</p>
-                  <p className="text-xs text-gray-400 mt-1">点击右上角的添加按钮开始编写产品概述</p>
+                  <p className="text-base text-gray-500">暂无产品概述</p>
+                  <p className="text-base text-gray-400 mt-2">点击右上角的添加按钮开始编写产品概述</p>
                 </div>
               )
             )}
           </CardContent>
         </Card>
 
-        {/* Architecture Section */}
+        {/* 2) User Persona Section */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-xl font-semibold">用户画像</CardTitle>
+              <Button
+                size="sm"
+                onClick={async () => {
+                  if (!productInfo) return
+                  try {
+                    setIsAddingPersona(true)
+                    const newPersona = {
+                      id: String(new Date().getTime()),
+                      title: '新用户画像',
+                      features: '',
+                      needs: ''
+                    }
+                    
+                    await updateProductInfo({
+                      userPersona: [...(productInfo.userPersona || []), newPersona]
+                    })
+                    
+                    // 新增后立即进入编辑状态
+                    setEditingUserNeedId(newPersona.id)
+                    setEditingUserNeedForm(newPersona)
+                  } catch (error) {
+                    console.error('Failed to add new persona:', error)
+                    toast({
+                      title: "添加失败",
+                      description: "添加用户画像失败，请重试",
+                      variant: "destructive"
+                    })
+                  } finally {
+                    setIsAddingPersona(false)
+                  }
+                }}
+                className="h-7"
+                disabled={isAddingPersona}
+              >
+                {isAddingPersona ? (
+                  <>
+                    <span className="animate-spin mr-1">⏳</span>
+                    添加中...
+                  </>
+                ) : (
+                  '新增画像'
+                )}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {productInfo?.userPersona && productInfo.userPersona.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {productInfo.userPersona.map((item, index) => (
+                  <div key={item.id || `persona-${index}`}>
+                    {renderUserPersona(item)}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-base text-gray-500">暂无用户画像</p>
+                <p className="text-base text-gray-400 mt-2">点击右上角的新增画像按钮开始创建用户画像</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 3) Architecture Section */}
         <Card>
           <CardHeader className="pb-2">
             <div className="flex justify-between items-center">
-              <CardTitle className="text-base">信息架构</CardTitle>
+              <CardTitle className="text-xl font-semibold">信息架构</CardTitle>
               <div className="flex gap-2">
                 {(productInfo?.architecture ?? []).length > 0 && (
                   <>
@@ -1038,76 +1111,8 @@ export default function InformationArchitecture() {
               </div>
             ) : (
               <div className="text-center py-8">
-                <p className="text-sm text-gray-500">暂无信息架构</p>
-                <p className="text-xs text-gray-400 mt-1">点击右上角的添加节点按钮开始构建信息架构</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* User Persona Section */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex justify-between items-center">
-              <CardTitle className="text-base">用户画像</CardTitle>
-              <Button
-                size="sm"
-                onClick={async () => {
-                  if (!productInfo) return
-                  try {
-                    setIsAddingPersona(true)
-                    const newPersona = {
-                      id: String(new Date().getTime()),
-                      title: '新用户画像',
-                      features: '',
-                      needs: ''
-                    }
-                    
-                    await updateProductInfo({
-                      userPersona: [...(productInfo.userPersona || []), newPersona]
-                    })
-                    
-                    // 新增后立即进入编辑状态
-                    setEditingUserNeedId(newPersona.id)
-                    setEditingUserNeedForm(newPersona)
-                  } catch (error) {
-                    console.error('Failed to add new persona:', error)
-                    toast({
-                      title: "添加失败",
-                      description: "添加用户画像失败，请重试",
-                      variant: "destructive"
-                    })
-                  } finally {
-                    setIsAddingPersona(false)
-                  }
-                }}
-                className="h-7"
-                disabled={isAddingPersona}
-              >
-                {isAddingPersona ? (
-                  <>
-                    <span className="animate-spin mr-1">⏳</span>
-                    添加中...
-                  </>
-                ) : (
-                  '新增画像'
-                )}
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {productInfo?.userPersona && productInfo.userPersona.length > 0 ? (
-              <div className="grid grid-cols-2 gap-4">
-                {productInfo.userPersona.map((item, index) => (
-                  <div key={item.id || `persona-${index}`}>
-                    {renderUserPersona(item)}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-sm text-gray-500">暂无用户画像</p>
-                <p className="text-xs text-gray-400 mt-1">点击右上角的新增画像按钮开始创建用户画像</p>
+                <p className="text-base text-gray-500">暂无信息架构</p>
+                <p className="text-base text-gray-400 mt-2">点击右上角的添加节点按钮开始构建信息架构</p>
               </div>
             )}
           </CardContent>
