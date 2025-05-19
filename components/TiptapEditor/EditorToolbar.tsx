@@ -45,6 +45,9 @@ interface EditorToolbarProps {
 export function markdownToHtml(markdown: string): string {
   if (!markdown) return '';
 
+  // 先处理多余的空行，确保列表项之间没有空行
+  markdown = markdown.replace(/\n\s*\n/g, '\n\n');
+
   // 替换标题
   let html = markdown
     .replace(/^### (.*$)/gim, '<h3>$1</h3>')
@@ -65,13 +68,29 @@ export function markdownToHtml(markdown: string): string {
   
   // 替换行内代码
   html = html.replace(/`(.*?)`/gim, '<code>$1</code>');
-  
-  // 替换列表
-  html = html
-    .replace(/^\- (.*$)/gim, '<ul><li>$1</li></ul>')
-    .replace(/^\+ (.*$)/gim, '<ul><li>$1</li></ul>')
-    .replace(/^\* (.*$)/gim, '<ul><li>$1</li></ul>')
-    .replace(/^\d+\. (.*$)/gim, '<ol><li>$1</li></ol>');
+
+  // 处理列表 - 改进版
+  // 首先找到所有连续的列表项区块
+  const findUlBlocksRegex = /(^[\-\+\*] .*$\n?)+/gm;
+  html = html.replace(findUlBlocksRegex, function(match) {
+    // 移除列表项开头的标记，并用<li>包裹每一行
+    const listItems = match.split('\n')
+      .filter(line => line.trim())
+      .map(line => `<li>${line.replace(/^[\-\+\*] /, '')}</li>`)
+      .join('');
+    return `<ul>${listItems}</ul>`;
+  });
+
+  // 处理有序列表
+  const findOlBlocksRegex = /(^\d+\. .*$\n?)+/gm;
+  html = html.replace(findOlBlocksRegex, function(match) {
+    // 移除列表项开头的数字和点，并用<li>包裹每一行
+    const listItems = match.split('\n')
+      .filter(line => line.trim())
+      .map(line => `<li>${line.replace(/^\d+\. /, '')}</li>`)
+      .join('');
+    return `<ol>${listItems}</ol>`;
+  });
   
   // 替换链接
   html = html.replace(/\[(.*?)\]\((.*?)\)/gim, '<a href="$2">$1</a>');
@@ -79,28 +98,26 @@ export function markdownToHtml(markdown: string): string {
   // 替换图片
   html = html.replace(/!\[(.*?)\]\((.*?)\)/gim, '<img alt="$1" src="$2" />');
   
-  // 修复重复的列表标签
-  html = html
-    .replace(/<\/ul><ul>/gim, '')
-    .replace(/<\/ol><ol>/gim, '');
-  
-  // 将剩余的换行符替换为段落
+  // 将剩余的换行符替换为段落 - 但跳过已转换为HTML标签的内容
   const paragraphs = html.split(/\n\n+/);
   html = paragraphs
     .map(p => {
+      const trimmed = p.trim();
       if (
-        !p.trim().startsWith('<h') &&
-        !p.trim().startsWith('<blockquote') &&
-        !p.trim().startsWith('<ul') &&
-        !p.trim().startsWith('<ol') &&
-        !p.trim().startsWith('<pre') &&
-        p.trim() !== ''
+        trimmed.startsWith('<h') ||
+        trimmed.startsWith('<blockquote') || 
+        trimmed.startsWith('<ul') ||
+        trimmed.startsWith('<ol') ||
+        trimmed.startsWith('<pre') ||
+        trimmed === ''
       ) {
-        return `<p>${p.replace(/\n/g, '<br>')}</p>`;
+        return trimmed;
       }
-      return p;
+      // 处理段落内的单个换行，这些通常不应该创建新段落
+      return `<p>${p.replace(/\n/g, '<br>')}</p>`;
     })
-    .join('\n\n');
+    .filter(p => p) // 移除空项
+    .join('\n');
   
   return html;
 }

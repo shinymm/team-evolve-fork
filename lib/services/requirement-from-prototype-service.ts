@@ -115,14 +115,12 @@ export class RequirementFromPrototypeService {
         imageUrls,
         filledPrompt,
         (reasoning: string) => {
-          console.log(`收到需求初稿生成推理过程内容:`, reasoning.length, '字符');
           reasoningContent = reasoning;
           if (onReasoningUpdate) {
             onReasoningUpdate(reasoning);
           }
         },
         (answer: string) => {
-          console.log(`收到需求初稿内容:`, answer.length, '字符');
           resultContent = answer;
           if (onContentUpdate) {
             onContentUpdate(answer);

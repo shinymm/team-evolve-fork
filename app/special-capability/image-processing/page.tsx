@@ -40,6 +40,7 @@ import { ActionButtons } from '@/components/image-processing/ActionButtons'
 import { ContentHeader } from '@/components/image-processing/ContentHeader'
 import { RequirementInputDialog } from '@/components/image-processing/RequirementInputDialog'
 import { TabContent } from '@/components/image-processing/TabContent'
+import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store'
 
 export default function ImageProcessing() {
   const [file, setFile] = useState<File | null>(null)
@@ -1175,6 +1176,37 @@ export default function ImageProcessing() {
     }
   };
 
+  // 获取store方法
+  const { setImageDraft } = useRequirementAnalysisStore()
+
+  // 新增：缓存图片初稿到store
+  const handleCacheRequirementDraft = () => {
+    if (!selectedSystemId) {
+      toast({
+        title: "缓存失败",
+        description: "请先选择系统",
+        variant: "destructive",
+      });
+      return;
+    }
+    const content = contents['requirement-draft'];
+    if (!content) {
+      toast({
+        title: "缓存失败",
+        description: "当前没有可缓存的需求初稿内容",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // 直接保存原始内容
+    setImageDraft(content);
+    toast({
+      title: "缓存成功",
+      description: "图片初稿已缓存到本地（按系统隔离）",
+    });
+  };
+
   return (
     <div className="flex flex-col min-h-screen">
       <Toaster />
@@ -1335,6 +1367,8 @@ export default function ImageProcessing() {
                 }))}
                 onDownload={handleDownloadRequirementDraft}
                 onDownloadReasoning={handleDownloadReasoning}
+                onCacheDraft={handleCacheRequirementDraft}
+                hasCacheDraftBtn={true}
               />
             )}
           </div>

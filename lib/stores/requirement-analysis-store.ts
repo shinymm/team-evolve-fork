@@ -20,6 +20,9 @@ interface SystemRequirementState {
   
   // 是否已固定需求书
   isRequirementBookPinned: boolean
+
+  // 新增：图片生成的需求初稿
+  imageDraft: string | null
 }
 
 // 定义需求分析Store的状态和方法
@@ -75,6 +78,12 @@ interface RequirementAnalysisState {
   
   // 清理非当前系统的缓存数据（保留近期使用的几个系统）
   cleanupCacheData: (keepRecentCount?: number) => void
+
+  // 新增：设置图片生成的需求初稿
+  setImageDraft: (draft: string) => void
+  
+  // 新增：清除图片生成的需求初稿
+  clearImageDraft: () => void
 }
 
 // 创建一个空的系统状态
@@ -84,7 +93,8 @@ const createEmptySystemState = (): SystemRequirementState => ({
   requirementBook: null,
   pinnedRequirementBook: null,
   isPinned: false,
-  isRequirementBookPinned: false
+  isRequirementBookPinned: false,
+  imageDraft: null
 })
 
 // 创建Store
@@ -443,6 +453,38 @@ export const useRequirementAnalysisStore = create<RequirementAnalysisState>()(
           
           console.log(`已清理 ${systemsToRemove.length} 个非活跃系统的本地缓存`)
         }
+      },
+
+      // 新增：设置图片生成的需求初稿
+      setImageDraft: (draft) => {
+        const { currentSystemId } = get()
+        if (!currentSystemId) return
+        set((state) => ({
+          systemRequirements: {
+            ...state.systemRequirements,
+            [currentSystemId]: {
+              ...state.systemRequirements[currentSystemId],
+              imageDraft: draft
+            }
+          }
+        }))
+        debouncedSaveToRedis(currentSystemId, get)
+      },
+      
+      // 新增：清除图片生成的需求初稿
+      clearImageDraft: () => {
+        const { currentSystemId } = get()
+        if (!currentSystemId) return
+        set((state) => ({
+          systemRequirements: {
+            ...state.systemRequirements,
+            [currentSystemId]: {
+              ...state.systemRequirements[currentSystemId],
+              imageDraft: null
+            }
+          }
+        }))
+        debouncedSaveToRedis(currentSystemId, get)
       }
     }),
     {

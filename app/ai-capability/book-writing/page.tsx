@@ -7,7 +7,8 @@ import {
   ChevronDown, 
   Loader2,
   FileText,
-  Download
+  Download,
+  Image
 } from 'lucide-react';
 import { useSystemStore } from '@/lib/stores/system-store';
 import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store';
@@ -16,7 +17,8 @@ import {
   loadDraft, 
   showToast,
   exportToWord,
-  exportToMarkdown
+  exportToMarkdown,
+  processContent
 } from '@/components/TiptapEditor/EditorToolbar';
 
 // 导入CSS样式
@@ -41,7 +43,10 @@ export default function BookWritingPage() {
   
   // 获取系统和需求分析状态
   const { selectedSystemId } = useSystemStore();
-  const { getActiveRequirementBook } = useRequirementAnalysisStore();
+  const { getActiveRequirementBook, systemRequirements } = useRequirementAnalysisStore();
+  
+  // 新增：加载图片初稿状态
+  const [isLoadingImageDraft, setIsLoadingImageDraft] = useState(false);
   
   // 点击外部关闭下拉菜单
   useEffect(() => {
@@ -135,6 +140,41 @@ export default function BookWritingPage() {
     }
   };
 
+  // 新增：处理加载图片初稿
+  const handleLoadImageDraft = () => {
+    if (!editorRef.current) {
+      showToast('编辑器未准备好', 'error');
+      return;
+    }
+    
+    if (!selectedSystemId) {
+      showToast('请先选择系统', 'error');
+      return;
+    }
+    
+    const currentSystem = systemRequirements[selectedSystemId];
+    if (!currentSystem?.imageDraft) {
+      showToast('当前系统没有可用的图片初稿', 'error');
+      return;
+    }
+    
+    setIsLoadingImageDraft(true);
+    try {
+      // 使用processContent函数处理markdown内容
+      const processedContent = processContent(currentSystem.imageDraft);
+      
+      // 设置编辑器内容
+      editorRef.current.commands.setContent(processedContent);
+      showToast('图片初稿加载成功', 'success');
+    } catch (error) {
+      console.error('加载图片初稿失败:', error);
+      showToast('加载图片初稿失败', 'error');
+    } finally {
+      setIsLoadingImageDraft(false);
+      setShowContentDropdown(false);
+    }
+  };
+
   return (
     <div className="mx-auto py-6 w-[90%]">
       <div className="space-y-6">
@@ -153,9 +193,9 @@ export default function BookWritingPage() {
                 onClick={() => setShowContentDropdown(!showContentDropdown)}
                 className="header-dropdown-button"
                 title="内容加载"
-                disabled={isLoadingTemplate || isLoadingDraft}
+                disabled={isLoadingTemplate || isLoadingDraft || isLoadingImageDraft}
               >
-                {(isLoadingTemplate || isLoadingDraft) ? (
+                {(isLoadingTemplate || isLoadingDraft || isLoadingImageDraft) ? (
                   <Loader2 size={20} className="animate-spin mr-2" />
                 ) : (
                   <FileText size={20} className="mr-2" />
@@ -191,6 +231,20 @@ export default function BookWritingPage() {
                       <>
                         <FileUp size={14} className="mr-2" />
                         加载需求初稿
+                      </>
+                    )}
+                  </button>
+                  <button 
+                    onClick={handleLoadImageDraft} 
+                    className="header-dropdown-item"
+                    disabled={isLoadingImageDraft}
+                  >
+                    {isLoadingImageDraft ? (
+                      <><Loader2 size={14} className="animate-spin mr-2" /> 加载中...</>
+                    ) : (
+                      <>
+                        <Image size={14} className="mr-2" />
+                        加载图片初稿
                       </>
                     )}
                   </button>

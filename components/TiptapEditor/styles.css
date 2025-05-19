@@ -951,4 +951,24 @@
   flex-direction: column;
   height: 100%;
   flex: 1;
+}
+
+/* 修复列表的间距问题 */
+.tiptap-editor .editor-content ul, 
+.tiptap-editor .editor-content ol {
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+
+.tiptap-editor .editor-content li {
+  margin-bottom: 0.25rem;
+}
+
+.tiptap-editor .editor-content li p {
+  margin: 0;
+}
+
+/* 确保列表项之间没有额外的空白 */
+.tiptap-editor .editor-content li + li {
+  margin-top: 0.25rem;
 } 
