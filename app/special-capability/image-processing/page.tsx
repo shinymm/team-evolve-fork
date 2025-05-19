@@ -1031,9 +1031,9 @@ export default function ImageProcessing() {
   }
   
   // 处理提交需求概述并生成初稿
-  const handleSubmitRequirementOverview = async () => {
+  const handleSubmitRequirementOverview = async (value: string) => {
     // 检查需求概述是否为空
-    if (!requirementOverview.trim()) {
+    if (!value.trim()) {
       toast({
         title: "处理失败",
         description: "需求概述不能为空",
@@ -1041,13 +1041,11 @@ export default function ImageProcessing() {
       })
       return
     }
-    
+    setRequirementOverview(value); // 同步到 state
     // 关闭弹窗
     setShowRequirementDialog(false)
-    
     // 切换到需求初稿标签页
     setActiveTab('requirement-draft')
-    
     // 重置上一次的内容和推理过程
     setReasonings(prev => ({
       ...prev,
@@ -1057,23 +1055,19 @@ export default function ImageProcessing() {
       ...prev,
       'requirement-draft': ''
     }))
-    
     // 更新处理状态
     setProcessingStates(prev => ({
       ...prev,
       'requirement-draft': true
     }))
     setProcessing(true)
-    
     // 自动折叠图片列表区域
     setIsImagesExpanded(false)
-
     // 设置初始等待提示
     setContents(prev => ({
       ...prev,
       'requirement-draft': '正在处理原型图和需求概述，生成需求初稿中...'
     }))
-    
     // 添加加载指示器
     const indicator = document.createElement('div')
     indicator.id = 'fixed-loading-indicator'
@@ -1081,26 +1075,22 @@ export default function ImageProcessing() {
       <div class="h-full bg-orange-600 animate-loading-bar"></div>
     </div>`
     document.body.appendChild(indicator)
-
     try {
       // 获取图片URL列表
       const selectedFiles = uploadedFiles.filter(file => file.selected)
       const imageUrls = selectedFiles.map(file => file.url || `https://team-evolve.oss-ap-southeast-1.aliyuncs.com/${file.id}`)
-      
       // 1. 获取当前系统ID
       const systemId = selectedSystemId
       if (!systemId) {
         throw new Error('未找到当前系统ID，请先选择一个系统')
       }
-      
       console.log('当前系统ID:', systemId)
-      
       // 调用服务生成需求初稿
       const service = new RequirementFromPrototypeService()
       await service.generateRequirementFromPrototype(
         systemId,
         imageUrls,
-        requirementOverview,
+        value,
         // 推理过程更新回调
         (reasoningContent) => {
           setReasonings(prev => ({
@@ -1116,7 +1106,6 @@ export default function ImageProcessing() {
           }))
         }
       )
-
     } catch (error) {
       console.error(`生成需求初稿失败:`, error)
       toast({
@@ -1137,7 +1126,6 @@ export default function ImageProcessing() {
         'requirement-draft': false
       }))
       setProcessing(false)
-      
       // 移除加载指示器
       const indicator = document.getElementById('fixed-loading-indicator')
       if (indicator && indicator.parentNode) {
@@ -1213,7 +1201,7 @@ export default function ImageProcessing() {
       <RequirementInputDialog
         open={showRequirementDialog}
         onClose={() => setShowRequirementDialog(false)}
-        onSubmit={handleSubmitRequirementOverview}
+        onSubmit={(value) => handleSubmitRequirementOverview(value)}
         initialValue={requirementOverview}
       />
 
