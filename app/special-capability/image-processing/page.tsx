@@ -437,6 +437,16 @@ export default function ImageProcessing() {
     setUploadedFiles(updatedFiles)
   }
 
+  // 处理全选/取消全选
+  const handleSelectAllFiles = (allSelected: boolean) => {
+    const updatedFiles = uploadedFiles.map(file => ({
+      ...file,
+      selected: allSelected
+    }));
+    
+    setUploadedFiles(updatedFiles);
+  }
+
   // 处理产品基础信息提取
   const handleExtractProductInfo = async () => {
     // 检查是否有文件上传
@@ -1247,6 +1257,7 @@ export default function ImageProcessing() {
               onUploadClick={() => setShowUploadDialog(true)}
               processing={processing}
               imagesLoading={imagesLoading}
+              onSelectAllFiles={handleSelectAllFiles}
             />
           </div>
           

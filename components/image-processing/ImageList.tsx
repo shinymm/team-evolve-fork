@@ -23,6 +23,7 @@ interface ImageListProps {
   onUploadClick: () => void;
   processing: boolean;
   imagesLoading?: boolean;
+  onSelectAllFiles?: (allSelected: boolean) => void;
 }
 
 export const ImageList = ({
@@ -33,7 +34,8 @@ export const ImageList = ({
   onDeleteFile,
   onUploadClick,
   processing,
-  imagesLoading = false
+  imagesLoading = false,
+  onSelectAllFiles
 }: ImageListProps) => {
   
   return (
@@ -110,9 +112,15 @@ export const ImageList = ({
                 onClick={(e) => {
                   // 全选/全不选文件
                   const allSelected = uploadedFiles.every(file => file.selected)
-                  uploadedFiles.forEach(file => {
-                    onSelectFile(file.id, !allSelected)
-                  })
+                  if (onSelectAllFiles) {
+                    // 如果提供了onSelectAllFiles函数，使用它
+                    onSelectAllFiles(!allSelected);
+                  } else {
+                    // 否则使用老方法
+                    uploadedFiles.forEach(file => {
+                      onSelectFile(file.id, !allSelected)
+                    })
+                  }
                 }}
                 variant="outline"
                 className="h-7 px-2 py-1 text-xs"
