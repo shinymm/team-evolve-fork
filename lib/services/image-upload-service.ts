@@ -48,72 +48,129 @@ export class ImageUploadService {
       throw new Error('系统ID不能为空');
     }
 
-    const formData = new FormData();
-    formData.append('file', file);
+    console.log(`【图片上传】开始上传图片 - 系统ID: ${systemId}, 文件: ${file.name}, 大小: ${(file.size / 1024).toFixed(2)}KB`);
 
-    // 从系统获取系统名称
-    const system = await prisma.system.findUnique({
-      where: { id: systemId },
-      select: { name: true }
-    });
-
-    if (!system) {
-      throw new Error('未找到系统信息');
-    }
-
-    // 构建API URL，添加系统名称参数
-    let apiUrl = '/api/image';
-    const safeSystemName = system.name.replace(/[^a-zA-Z0-9-_]/g, '');
-    apiUrl += `?systemName=${encodeURIComponent(safeSystemName)}`;
-
-    // 调用API上传图片
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      body: formData
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.error || '上传失败');
-    }
-
+    // 验证系统ID是否有效
     try {
-      // 将元数据保存到数据库
-      const uploadedImage = await prisma.$queryRaw<DBUploadedImage[]>`
-        INSERT INTO "UploadedImage" ("id", "systemId", "name", "ossKey", "url", "provider", "fileSize", "fileType", "uploadTime", "createdBy")
-        VALUES (gen_random_uuid(), ${systemId}, ${result.file.name}, ${result.file.id}, ${result.file.url}, ${result.file.provider}, ${result.file.size}, ${result.file.type}, NOW(), ${userName || 'unknown'})
-        RETURNING *
-      `;
+      console.log(`【图片上传】验证系统ID: ${systemId}`);
+      const system = await prisma.system.findUnique({
+        where: { id: systemId },
+        select: { id: true, name: true }
+      });
 
-      // 清除此系统的缓存
-      await deleteCache(`${CACHE_KEYS.IMAGE_LIST}${systemId}`);
+      if (!system) {
+        throw new Error(`系统ID无效: ${systemId}`);
+      }
+      
+      console.log(`【图片上传】系统验证通过 - ID: ${systemId}, 名称: ${system.name}`);
+      
+      const formData = new FormData();
+      formData.append('file', file);
 
-      // 返回上传后的文件信息
-      const image = uploadedImage[0];
-      return {
-        id: image.ossKey,
-        name: image.name,
-        url: image.url,
-        uploadTime: image.uploadTime,
-        selected: true,
-        provider: image.provider,
-        fileSize: image.fileSize || undefined,
-        fileType: image.fileType || undefined
-      };
-    } catch (dbError) {
-      console.error('保存图片元数据失败:', dbError);
-      // 尽管数据库存储失败，但文件已上传到OSS，所以我们仍然返回信息
-      return {
-        id: result.file.id,
-        name: result.file.name,
-        url: result.file.url,
-        uploadTime: new Date(),
-        selected: true,
-        provider: result.file.provider,
-        fileSize: result.file.size,
-        fileType: result.file.type
-      };
+      // 构建API URL，添加系统名称参数
+      let apiUrl = '/api/image';
+      const safeSystemName = system.name.replace(/[^a-zA-Z0-9-_]/g, '');
+      apiUrl += `?systemName=${encodeURIComponent(safeSystemName)}`;
+
+      console.log(`【图片上传】调用API上传图片: ${apiUrl}`);
+      
+      // 调用API上传图片
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error(`【图片上传】API返回错误: ${response.status} ${response.statusText}`, result);
+        throw new Error(result.error || '上传失败');
+      }
+
+      console.log(`【图片上传】OSS上传成功:`, result.file);
+
+      try {
+        // 准备插入数据
+        const imageData = {
+          systemId,
+          name: result.file.name,
+          ossKey: result.file.id,
+          url: result.file.url,
+          provider: result.file.provider,
+          fileSize: result.file.size,
+          fileType: result.file.type,
+          createdBy: userName || 'unknown'
+        };
+        
+        console.log(`【图片上传】准备保存元数据到数据库:`, imageData);
+        
+        // 使用原始SQL直接插入
+        const uploadedImage = await prisma.$executeRaw`
+          INSERT INTO "UploadedImage" (
+            "id", "systemId", "name", "ossKey", "url", 
+            "provider", "fileSize", "fileType", "uploadTime", "createdBy"
+          )
+          VALUES (
+            gen_random_uuid(), ${imageData.systemId}, ${imageData.name}, 
+            ${imageData.ossKey}, ${imageData.url}, ${imageData.provider}, 
+            ${imageData.fileSize}, ${imageData.fileType}, NOW(), ${imageData.createdBy}
+          )
+        `;
+
+        // 插入后查询获取刚插入的图片数据
+        const insertedImage = await prisma.$queryRaw<DBUploadedImage[]>`
+          SELECT * FROM "UploadedImage" 
+          WHERE "ossKey" = ${imageData.ossKey}
+          LIMIT 1
+        `;
+
+        const image = insertedImage[0];
+        console.log(`【图片上传】元数据保存成功 - ossKey: ${image.ossKey}`);
+
+        // 清除此系统的缓存
+        await deleteCache(`${CACHE_KEYS.IMAGE_LIST}${systemId}`);
+        console.log(`【图片上传】已清除缓存: ${CACHE_KEYS.IMAGE_LIST}${systemId}`);
+
+        // 返回上传后的文件信息
+        return {
+          id: image.ossKey,
+          name: image.name,
+          url: image.url,
+          uploadTime: image.uploadTime,
+          selected: true,
+          provider: image.provider,
+          fileSize: image.fileSize || undefined,
+          fileType: image.fileType || undefined
+        };
+      } catch (dbError) {
+        console.error('【图片上传】保存图片元数据失败:', dbError);
+        
+        // 记录详细错误
+        if (dbError instanceof Error) {
+          console.error('【图片上传】错误详情:', {
+            message: dbError.message,
+            stack: dbError.stack,
+            name: dbError.name
+          });
+        }
+        
+        // 尽管数据库存储失败，但文件已上传到OSS，所以我们仍然返回信息
+        return {
+          id: result.file.id,
+          name: result.file.name,
+          url: result.file.url,
+          uploadTime: new Date(),
+          selected: true,
+          provider: result.file.provider,
+          fileSize: result.file.size,
+          fileType: result.file.type
+        };
+      }
+    } catch (error) {
+      console.error('【图片上传】处理失败:', error);
+      throw error instanceof Error 
+        ? error 
+        : new Error(String(error));
     }
   }
 
@@ -128,8 +185,8 @@ export class ImageUploadService {
       throw new Error('图片ID和系统ID不能为空');
     }
 
-    // 调用API删除OSS中的图片
-    const response = await fetch(`/api/image?key=${encodeURIComponent(fileId)}`, {
+    // 调用API删除OSS中的图片，确保传递systemId参数
+    const response = await fetch(`/api/image?key=${encodeURIComponent(fileId)}&systemId=${encodeURIComponent(systemId)}`, {
       method: 'DELETE',
     });
     

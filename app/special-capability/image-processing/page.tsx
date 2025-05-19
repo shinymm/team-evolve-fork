@@ -226,6 +226,8 @@ export default function ImageProcessing() {
       return;
     }
 
+    console.log(`【图片上传】开始上传文件: ${fileToUpload.name}, 大小: ${(fileToUpload.size / 1024).toFixed(2)}KB, 系统ID: ${selectedSystemId}`);
+    
     setUploading(true);
     setError('');
 
@@ -233,31 +235,54 @@ export default function ImageProcessing() {
       const formData = new FormData();
       formData.append('file', fileToUpload);
 
-      console.log('正在上传图片到OSS...');
-
-      // 构建API URL，添加系统名称参数
+      // 构建API URL，添加系统ID和系统名称参数
       let apiUrl = '/api/image';
+      const queryParams = [];
+      
+      if (selectedSystemId) {
+        queryParams.push(`systemId=${encodeURIComponent(selectedSystemId)}`);
+      }
+      
       if (selectedSystemName) {
         const safeSystemName = selectedSystemName.replace(/[^a-zA-Z0-9-_]/g, ''); // 移除不安全字符
-        apiUrl += `?systemName=${encodeURIComponent(safeSystemName)}`;
+        queryParams.push(`systemName=${encodeURIComponent(safeSystemName)}`);
       }
+      
+      if (queryParams.length > 0) {
+        apiUrl += `?${queryParams.join('&')}`;
+      }
+
+      console.log(`【图片上传】调用API: ${apiUrl}`);
 
       // 使用图片上传API
       const response = await fetch(apiUrl, {
         method: 'POST',
-        body: formData
+        body: formData,
+        cache: 'no-store' // 确保不使用缓存
       });
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || '上传失败');
+      // 尝试解析响应
+      let result;
+      try {
+        result = await response.json();
+      } catch (parseError) {
+        console.error(`【图片上传】解析响应失败:`, parseError);
+        throw new Error('无法解析服务器响应');
       }
 
-      console.log('上传成功:', result);
+      if (!response.ok) {
+        console.error(`【图片上传】上传失败: ${response.status} ${response.statusText}`, result);
+        throw new Error(result.error || `上传失败 (${response.status})`);
+      }
 
+      console.log(`【图片上传】上传成功:`, result);
+      
+      // 等待一定时间，确保服务器处理完成
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
       // 上传成功后刷新图片列表
-      refreshImageList();
+      console.log(`【图片上传】刷新图片列表...`);
+      await refreshImageList();
 
       // 重置文件选择
       setFile(null);
@@ -273,7 +298,7 @@ export default function ImageProcessing() {
         description: `文件 ${result.file.name} 已成功上传`,
       });
     } catch (error) {
-      console.error('上传图片出错:', error);
+      console.error(`【图片上传】上传失败:`, error);
       setError(error instanceof Error ? error.message : '未知错误');
       toast({
         variant: "destructive",
@@ -289,6 +314,7 @@ export default function ImageProcessing() {
   const refreshImageList = async () => {
     if (!selectedSystemId) return;
     
+    console.log(`【刷新图片】开始刷新系统 [${selectedSystemId}] 的图片列表`);
     setImagesLoading(true); // 开始刷新时设置加载状态
     
     type ApiResponseType = {
@@ -305,39 +331,57 @@ export default function ImageProcessing() {
     };
     
     try {
-      const response = await fetch(`/api/image?systemId=${selectedSystemId}`);
+      // 添加时间戳参数避免缓存
+      const timestamp = Date.now();
+      const response = await fetch(`/api/image?systemId=${selectedSystemId}&_t=${timestamp}`, {
+        // 确保不使用缓存
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
       
       if (response.ok) {
         const data = await response.json() as ApiResponseType;
-        console.log(`刷新图片列表：从数据库加载了 ${data.images.length} 张图片`);
+        console.log(`【刷新图片】从数据库加载了 ${data.images.length} 张图片`);
         
         if (data.images && Array.isArray(data.images)) {
-          const filesWithDates: UploadedFile[] = data.images.map((file) => ({
-            ...file,
-            uploadTime: new Date(file.uploadTime),
-            selected: false,
-          }));
-          
           // 保留当前选中状态
           const selectedIds = uploadedFiles
             .filter(f => f.selected)
             .map(f => f.id);
-            
-          if (selectedIds.length > 0) {
-            filesWithDates.forEach((file) => {
-              file.selected = selectedIds.includes(file.id);
-            });
-          } else if (filesWithDates.length === 1) {
+          
+          const filesWithDates: UploadedFile[] = data.images.map((file) => ({
+            ...file,
+            uploadTime: new Date(file.uploadTime),
+            selected: selectedIds.includes(file.id),
+          }));
+          
+          // 如果没有选中的文件且只有1个文件，则自动选中
+          if (selectedIds.length === 0 && filesWithDates.length === 1) {
             filesWithDates[0].selected = true;
+            console.log(`【刷新图片】自动选中唯一的图片: ${filesWithDates[0].name}`);
           }
           
           setUploadedFiles(filesWithDates);
+          console.log(`【刷新图片】图片列表已更新，共${filesWithDates.length}张图片`);
+        } else {
+          console.warn(`【刷新图片】API返回的图片列表异常:`, data);
         }
       } else {
-        console.error('刷新图片列表失败:', response.statusText);
+        console.error(`【刷新图片】刷新图片列表失败: ${response.status} ${response.statusText}`);
+        
+        // 尝试读取错误信息
+        try {
+          const errorData = await response.json();
+          console.error(`【刷新图片】API错误详情:`, errorData);
+        } catch (e) {
+          // 无法解析JSON
+        }
       }
     } catch (error) {
-      console.error('刷新图片列表出错:', error);
+      console.error('【刷新图片】刷新图片列表出错:', error);
     } finally {
       setImagesLoading(false); // 无论成功还是失败，都结束加载状态
     }

@@ -15,20 +15,37 @@ export function getOSSClient() {
   const accessKeyId = process.env.OSS_ACCESS_KEY_ID;
   const accessKeySecret = process.env.OSS_ACCESS_KEY_SECRET;
   const bucket = process.env.OSS_BUCKET;
+  
+  console.log(`OSS配置检查 - Region: ${region ? '已设置' : '未设置'}, AccessKeyId: ${accessKeyId ? '已设置' : '未设置'}, AccessKeySecret: ${accessKeySecret ? '已设置' : '未设置'}, Bucket: ${bucket ? '已设置' : '未设置'}`);
 
   if (!region || !accessKeyId || !accessKeySecret || !bucket) {
-    throw new Error('OSS配置缺失：请确保环境变量已正确设置');
+    const missingVars = [
+      !region ? 'OSS_REGION' : null,
+      !accessKeyId ? 'OSS_ACCESS_KEY_ID' : null,
+      !accessKeySecret ? 'OSS_ACCESS_KEY_SECRET' : null,
+      !bucket ? 'OSS_BUCKET' : null
+    ].filter(Boolean).join(', ');
+    
+    throw new Error(`OSS配置缺失：请确保环境变量已正确设置 [缺少: ${missingVars}]`);
   }
 
-  // 创建OSS客户端
-  return new OSS({
-    region,
-    accessKeyId,
-    accessKeySecret,
-    bucket,
-    secure: true, // 使用HTTPS
-    timeout: 120000, // 设置为120秒超时，解决上传超时问题
-  });
+  try {
+    // 创建OSS客户端
+    const client = new OSS({
+      region,
+      accessKeyId,
+      accessKeySecret,
+      bucket,
+      secure: true, // 使用HTTPS
+      timeout: 120000, // 设置为120秒超时，解决上传超时问题
+    });
+    
+    console.log(`OSS客户端创建成功 - Bucket: ${bucket}, Region: ${region}`);
+    return client;
+  } catch (error) {
+    console.error('创建OSS客户端失败:', error);
+    throw new Error(`创建OSS客户端失败: ${error instanceof Error ? error.message : '未知错误'}`);
+  }
 }
 
 // 定义一个接口来描述包含arrayBuffer方法的对象
@@ -139,14 +156,66 @@ export async function downloadFromOSS(key: string): Promise<Buffer> {
  * @returns 删除结果
  */
 export async function deleteFromOSS(key: string): Promise<boolean> {
-  try {
-    const client = getOSSClient();
-    await client.delete(key);
-    return true;
-  } catch (error) {
-    console.error('OSS删除错误:', error);
-    return false;
+  let attempts = 0;
+  const maxAttempts = 3;
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+  while (attempts < maxAttempts) {
+    try {
+      attempts++;
+      console.log(`【OSS删除】尝试 ${attempts}/${maxAttempts}: 正在获取OSS客户端...`);
+      const client = getOSSClient();
+      
+      // 先检查文件是否存在
+      try {
+        console.log(`【OSS删除】检查文件是否存在: ${key}`);
+        // 使用get方法检查文件是否存在，因为head可能不在类型定义中
+        const exists = await client.get(key)
+          .then(() => true)
+          .catch((err: any) => {
+            console.log(`【OSS删除】文件不存在检查结果: ${err && err.code === 'NoSuchKey' ? '文件不存在' : '检查时发生错误'}`);
+            return false;
+          });
+        
+        if (!exists) {
+          console.log(`【OSS删除】文件不存在，视为删除成功: ${key}`);
+          return true;
+        }
+      } catch (headError) {
+        console.log(`【OSS删除】检查文件存在时出错: ${headError instanceof Error ? headError.message : '未知错误'}`);
+        // 继续尝试删除
+      }
+      
+      console.log(`【OSS删除】尝试 ${attempts}/${maxAttempts}: 开始删除文件 ${key}`);
+      await client.delete(key);
+      console.log(`【OSS删除】成功: 文件 ${key} 已删除`);
+      return true;
+    } catch (error) {
+      // 详细记录错误信息
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : '无堆栈信息';
+      console.error(`【OSS删除】错误 (尝试 ${attempts}/${maxAttempts}):`, errorMsg);
+      console.error(`【OSS删除】错误堆栈:`, errorStack);
+      
+      // 检查是否是因为文件不存在而失败
+      if (errorMsg.includes('NoSuchKey') || errorMsg.includes('not exist')) {
+        console.log(`【OSS删除】文件不存在，视为删除成功: ${key}`);
+        return true; // 文件不存在也视为删除成功
+      }
+      
+      // 判断是否还有重试机会
+      if (attempts < maxAttempts) {
+        const backoffTime = 1000 * attempts; // 指数退避：1秒，2秒，3秒...
+        console.log(`【OSS删除】将在 ${backoffTime}ms 后重试删除...`);
+        await delay(backoffTime);
+      } else {
+        console.error(`【OSS删除】失败: 达到最大重试次数(${maxAttempts})，无法删除文件 ${key}`);
+        return false;
+      }
+    }
   }
+  
+  return false;
 }
 
 /**
