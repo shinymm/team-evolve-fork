@@ -91,22 +91,106 @@ export async function loadTemplate(editor: Editor, selectedSystemId: string | nu
 }
 
 // 加载需求初稿
-export function loadDraft(editor: Editor, getActiveRequirementBook: () => string | null) {
+export function loadDraft(editor: Editor, getOrGetActiveRequirementBook: (() => string | null) | string | null) {
   try {
-    const requirementBook = getActiveRequirementBook();
+    console.log('[loadDraft] 开始加载需求初稿, 传入参数类型:', typeof getOrGetActiveRequirementBook);
     
-    if (!requirementBook) {
+    // 确定内容来源
+    let content: string | null = null;
+    let contentSource = '未知';
+    
+    // 如果传入的是函数，则调用获取内容
+    if (typeof getOrGetActiveRequirementBook === 'function') {
+      content = getOrGetActiveRequirementBook();
+      contentSource = '传入的函数返回值';
+      console.log(`[loadDraft] 通过函数获取内容: ${content ? '成功' : '未获取到内容'}`);
+    } else {
+      // 如果直接传入内容或null
+      content = getOrGetActiveRequirementBook;
+      contentSource = '直接传入的内容';
+      console.log(`[loadDraft] 直接传入的内容: ${content ? '有内容' : '为空'}`);
+    }
+    
+    // 如果内容为空，尝试直接从store获取
+    if (!content) {
+      console.log('[loadDraft] 传入内容为空，尝试从store获取');
+      // 从store中获取当前状态
+      const store = useRequirementAnalysisStore.getState();
+      const systemId = store.currentSystemId;
+      
+      console.log(`[loadDraft] store当前状态:`, {
+        systemId,
+        hasRequirementBook: !!store.requirementBook,
+        hasPinnedRequirementBook: !!store.pinnedRequirementBook,
+        isRequirementBookPinned: store.isRequirementBookPinned
+      });
+      
+      if (systemId) {
+        // 优先使用固定的需求书
+        if (store.isRequirementBookPinned && store.pinnedRequirementBook) {
+          content = store.pinnedRequirementBook;
+          contentSource = 'store中的固定需求书';
+          console.log('[loadDraft] 从store获取到固定需求书');
+        } 
+        // 其次使用普通需求书
+        else if (store.requirementBook) {
+          content = store.requirementBook;
+          contentSource = 'store中的普通需求书';
+          console.log('[loadDraft] 从store获取到普通需求书');
+        }
+        
+        // 如果store中仍然获取不到，直接尝试从localStorage获取
+        if (!content) {
+          try {
+            console.log('[loadDraft] store中未找到内容，尝试直接从localStorage获取');
+            const storageKey = `req_analysis_system_${systemId}`;
+            const data = localStorage.getItem(storageKey);
+            if (data) {
+              const parsedData = JSON.parse(data);
+              console.log('[loadDraft] localStorage数据:', {
+                hasPinnedBook: !!parsedData.pinnedRequirementBook,
+                hasBook: !!parsedData.requirementBook,
+                isPinned: parsedData.isRequirementBookPinned
+              });
+              
+              // 优先使用固定的需求书
+              if (parsedData.isRequirementBookPinned && parsedData.pinnedRequirementBook) {
+                content = parsedData.pinnedRequirementBook;
+                contentSource = 'localStorage中的固定需求书';
+                console.log('[loadDraft] 从localStorage直接获取到固定需求书');
+              } 
+              // 其次使用普通需求书
+              else if (parsedData.requirementBook) {
+                content = parsedData.requirementBook;
+                contentSource = 'localStorage中的普通需求书';
+                console.log('[loadDraft] 从localStorage直接获取到普通需求书');
+              }
+            } else {
+              console.log('[loadDraft] localStorage中未找到数据:', storageKey);
+            }
+          } catch (error) {
+            console.error('[loadDraft] 从localStorage获取数据失败:', error);
+          }
+        }
+      }
+    }
+    
+    // 如果仍未找到内容，显示错误
+    if (!content) {
+      console.log('[loadDraft] 最终未找到有效的需求初稿内容');
       showToast('未找到需求初稿，请先在需求分析页面生成需求书', 'error');
       return false;
     }
     
+    console.log(`[loadDraft] 成功获取内容，来源: ${contentSource}, 内容长度: ${content.length}`);
+    
     // 处理内容并设置到编辑器
-    const processedContent = processContent(requirementBook);
+    const processedContent = processContent(content);
     editor.commands.setContent(processedContent);
     showToast('需求初稿加载成功');
     return true;
   } catch (error) {
-    console.error('加载需求初稿失败:', error);
+    console.error('[loadDraft] 加载需求初稿失败:', error);
     showToast('加载需求初稿失败', 'error');
     return false;
   }

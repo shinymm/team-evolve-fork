@@ -186,16 +186,11 @@ export class RequirementExportService {
 
       // 确定存储键名
       const storageKey = systemId 
-        ? `structuredRequirement_${systemId}` 
-        : 'structuredRequirement';
+        ? `requirement-structured-content-${systemId}` 
+        : 'requirement-structured-content';
 
       // 保存到 localStorage
       localStorage.setItem(storageKey, jsonString)
-      
-      // 向后兼容，对于旧版本，始终保存一个无系统ID的副本
-      if (systemId) {
-        localStorage.setItem('structuredRequirement', jsonString)
-      }
       
       console.log(`结构化需求保存成功${systemId ? ` (系统ID: ${systemId})` : ''}:`, {
         contentBeforeScenesLength: structuredReq.contentBeforeScenes.length,

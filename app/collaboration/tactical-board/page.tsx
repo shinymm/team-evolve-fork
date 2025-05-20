@@ -40,6 +40,20 @@ export default function TacticalBoardPage() {
       useRequirementAnalysisStore.getState().clearRequirementBook();
       localStorage.removeItem('requirement-input');
       localStorage.removeItem('requirement-structured-content');
+      
+      // 清空所有系统的场景分析状态
+      // 1. 获取现有的localStorage键
+      const localStorageKeys = Object.keys(localStorage);
+      // 2. 筛选出所有scene-analysis-states相关的键
+      const sceneAnalysisKeys = localStorageKeys.filter(key => key.startsWith('scene-analysis-states'));
+      // 3. 逐个删除
+      console.log('清空所有系统的场景分析状态...');
+      sceneAnalysisKeys.forEach(key => {
+        localStorage.removeItem(key);
+        console.log(`已清空: ${key}`);
+      });
+      
+      // 兼容旧版本，也清除不带系统ID的键
       localStorage.removeItem('scene-analysis-states');
     
       // 强制重新加载任务服务中的任务列表

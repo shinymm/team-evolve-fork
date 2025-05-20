@@ -55,7 +55,7 @@ export default function BookConfirmPage() {
         return
       }
       
-      const storageKey = `structuredRequirement_${selectedSystemId}`
+      const storageKey = `requirement-structured-content-${selectedSystemId}`
       const storedReq = localStorage.getItem(storageKey)
       
       if (!storedReq) {

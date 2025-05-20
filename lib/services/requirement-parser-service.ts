@@ -109,11 +109,6 @@ export class RequirementParserService {
         const storageKey = `requirement-structured-content-${systemId}`;
         localStorage.setItem(storageKey, JSON.stringify(result));
         console.log(`已保存结构化需求到系统特定存储 (${storageKey})`);
-        
-        // 保存到兼容性键名（一些组件可能仍在使用）
-        const legacySystemKey = `structuredRequirement_${systemId}`;
-        localStorage.setItem(legacySystemKey, JSON.stringify(result));
-        console.log(`已保存结构化需求到兼容性键名 (${legacySystemKey})`);
       } else {
         console.warn('未提供系统ID，无法保存结构化需求到系统特定存储');
       }

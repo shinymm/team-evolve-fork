@@ -56,7 +56,7 @@ export default function UserStoryPage() {
       return
     }
     
-    const storageKey = `structuredRequirement_${selectedSystemId}`
+    const storageKey = `requirement-structured-content-${selectedSystemId}`
     const storedRequirement = localStorage.getItem(storageKey)
     
     if (storedRequirement) {
@@ -75,18 +75,6 @@ export default function UserStoryPage() {
       }
     } else {
       console.log(`未找到系统 ${selectedSystemId} 的需求数据`)
-      
-      // 向后兼容：尝试加载无系统ID的数据
-      const legacyStoredRequirement = localStorage.getItem('structuredRequirement')
-      if (legacyStoredRequirement) {
-        try {
-          const requirement = JSON.parse(legacyStoredRequirement)
-          setScenes(requirement.sceneList || [])
-          console.log(`已加载旧版格式的场景数据，共 ${requirement.sceneList?.length || 0} 个场景`)
-        } catch (error) {
-          console.error('解析旧版需求数据失败:', error)
-        }
-      }
     }
   }, [selectedSystemId])
 

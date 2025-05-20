@@ -5,6 +5,7 @@ import { createRequirementStructureTask, createSceneAnalysisTask } from '@/lib/s
 import { updateTask } from '@/lib/services/task-service'
 import { RequirementParseResult } from '@/lib/services/requirement-parser-service'
 import { RequirementData } from '@/lib/services/task-control'
+import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store'
 
 export class RequirementBookService {
   /**
@@ -185,23 +186,14 @@ export class RequirementBookService {
         status: 'completed'
       })
 
-      // 5. 清空之前的分析结果
-      console.log('清空之前的分析结果...')
-      localStorage.removeItem('scene-analysis-states')
-      
-      // 6. 保存新的结构化内容
+      // 5. 保存新的结构化内容
       console.log('保存新的结构化内容...')
       
-      // 只在有系统ID的情况下保存，并使用新格式
+      // 只在有系统ID的情况下保存
       if (systemId) {
         console.log(`按系统ID(${systemId})保存结构化内容...`)
         const storageKey = `requirement-structured-content-${systemId}`
         localStorage.setItem(storageKey, JSON.stringify(parsedRequirement))
-        
-        // 兼容旧格式（使用structuredRequirement_前缀）
-        // 这个键名在某些页面可能仍在使用
-        const legacySystemKey = `structuredRequirement_${systemId}`
-        localStorage.setItem(legacySystemKey, JSON.stringify(parsedRequirement))
       } else {
         console.warn('未提供系统ID，无法保存结构化内容到系统特定存储')
       }
@@ -209,6 +201,39 @@ export class RequirementBookService {
       // 7. 创建场景边界分析任务
       console.log('创建场景边界分析任务...')
       await createSceneAnalysisTask(this.adaptToRequirementData(parsedRequirement))
+      
+      // 8. 确保当前系统的状态被正确保存到localStorage
+      // 这样可以避免页面跳转导致的数据丢失问题
+      if (systemId) {
+        console.log(`确保系统 ${systemId} 的状态被正确保存...`)
+        try {
+          const store = useRequirementAnalysisStore.getState();
+          // 检查当前是否是处理中的系统
+          if (store.currentSystemId === systemId) {
+            // 当前数据已经在store中，确保立即保存到localStorage
+            // 从store获取当前相关字段并保存
+            const systemData = {
+              requirement: store.requirement,
+              pinnedAnalysis: store.pinnedAnalysis,
+              requirementBook: store.requirementBook,
+              pinnedRequirementBook: store.pinnedRequirementBook,
+              isPinned: store.isPinned,
+              isRequirementBookPinned: store.isRequirementBookPinned,
+              imageDraft: store.imageDraft,
+            };
+            
+            // 获取localStorage键名
+            const systemKey = `req_analysis_system_${systemId}`;
+            
+            // 直接保存到localStorage，确保数据不会丢失
+            localStorage.setItem(systemKey, JSON.stringify(systemData));
+            console.log(`已保存系统 ${systemId} 的状态到 localStorage`);
+          }
+        } catch (error) {
+          console.warn(`保存系统 ${systemId} 状态失败:`, error);
+          // 这里的错误不应该中断主要流程
+        }
+      }
       
       console.log('所有任务状态更新完成')
       

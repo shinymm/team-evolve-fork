@@ -54,7 +54,6 @@ export default function RequirementBook() {
     pinRequirementBook, 
     unpinRequirementBook,
     getActiveRequirementBook,
-    saveCurrentSystemToRedis
   } = useRequirementAnalysisStore()
 
   // 确保已设置当前系统
@@ -122,11 +121,11 @@ export default function RequirementBook() {
   useEffect(() => {
     return () => {
       if (currentSystemId) {
-        saveCurrentSystemToRedis()
-          .catch(err => console.error('保存到Redis失败:', err))
+        // 不再调用saveCurrentSystemToRedis
+        // 只需确保通过store的setter方法更新状态，会自动保存到localStorage
       }
     }
-  }, [currentSystemId, saveCurrentSystemToRedis])
+  }, [currentSystemId])
 
   // 修改 handleSubmit 函数
   const handleSubmit = async () => {
@@ -274,23 +273,15 @@ export default function RequirementBook() {
         pinRequirementBook(requirementBook)
       }
       
-      // 保存到Redis
-      await saveCurrentSystemToRedis()
-      
       // 使用RequirementBookService处理确认逻辑，传递系统ID
       await RequirementBookService.processConfirmation(activeBook, selectedSystem.id)
       
-      // 同步structuredRequirement数据到requirement-structured-content中
-      // 这确保场景分析页面使用正确的数据
-      const structuredReqKey = `structuredRequirement_${selectedSystem.id}`
-      const newStructuredKey = `requirement-structured-content-${selectedSystem.id}`
-      
+      // 初始化场景状态
       try {
-        const structuredData = localStorage.getItem(structuredReqKey)
+        const structuredKey = `requirement-structured-content-${selectedSystem.id}`
+        const structuredData = localStorage.getItem(structuredKey)
+        
         if (structuredData) {
-          console.log(`同步数据从 ${structuredReqKey} 到 ${newStructuredKey}`)
-          localStorage.setItem(newStructuredKey, structuredData)
-          
           // 初始化场景状态
           const parsedData = JSON.parse(structuredData)
           if (parsedData && parsedData.scenes && Array.isArray(parsedData.scenes)) {
@@ -316,7 +307,7 @@ export default function RequirementBook() {
           }
         }
       } catch (syncError) {
-        console.error('数据同步失败:', syncError)
+        console.error('初始化场景状态失败:', syncError)
       }
       
       toast({
@@ -325,8 +316,11 @@ export default function RequirementBook() {
         duration: 3000
       })
       
-      // 直接使用 window.location.replace 进行导航
-      window.location.replace('/ai-capability/scene-analysis')
+      // 确保数据保存完成后再跳转
+      console.log('页面跳转前确保数据已保存');
+      
+      // 使用router.push代替window.location.replace，保持应用状态
+      router.push('/ai-capability/scene-analysis');
     } catch (error) {
       console.error('任务状态更新失败:', error)
       toast({

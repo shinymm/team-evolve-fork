@@ -46,17 +46,130 @@ export default function BookWritingPage() {
   const { 
     getActiveRequirementBook, 
     imageDraft, 
-    setCurrentSystem 
+    setCurrentSystem,
+    requirementBook,
+    pinnedRequirementBook,
+    isRequirementBookPinned
   } = useRequirementAnalysisStore();
   
   // 新增：加载图片初稿状态
   const [isLoadingImageDraft, setIsLoadingImageDraft] = useState(false);
   
-  // 设置当前系统ID
+  // 新增：提取实际可用的需求初稿
+  const getAvailableRequirementBook = () => {
+    // 优先使用固定的需求书
+    if (isRequirementBookPinned && pinnedRequirementBook) {
+      return pinnedRequirementBook;
+    }
+    // 其次使用普通需求书
+    else if (requirementBook) {
+      return requirementBook;
+    }
+    // 最后使用老方法获取内容
+    else {
+      return getActiveRequirementBook();
+    }
+  };
+  
+  // 设置当前系统ID和加载数据
   useEffect(() => {
     if (selectedSystemId) {
+      console.log('设置当前系统ID:', selectedSystemId);
+      
+      // 先查看一下localStorage中是否有数据
+      try {
+        const storageKey = `req_analysis_system_${selectedSystemId}`;
+        const data = localStorage.getItem(storageKey);
+        console.log('localStorage中系统数据:', data ? '存在' : '不存在', storageKey);
+        
+        // 如果localStorage中有数据，先手动加载作为备份
+        if (data) {
+          try {
+            const parsedData = JSON.parse(data);
+            console.log('localStorage数据解析结果:', {
+              hasRequirementBook: !!parsedData.requirementBook,
+              hasPinnedRequirementBook: !!parsedData.pinnedRequirementBook
+            });
+          } catch (e) {
+            console.error('解析localStorage数据失败:', e);
+          }
+        }
+      } catch (error) {
+        console.error('检查localStorage数据失败:', error);
+      }
+      
+      // 设置当前系统，这会触发从Redis/localStorage加载数据
       setCurrentSystem(selectedSystemId);
+      
+      // 设置后检查store中的状态
+      setTimeout(() => {
+        const store = useRequirementAnalysisStore.getState();
+        console.log('设置系统后store中数据状态:', {
+          currentSystemId: store.currentSystemId,
+          hasRequirementBook: !!store.requirementBook,
+          hasPinnedRequirementBook: !!store.pinnedRequirementBook,
+          isPinned: store.isRequirementBookPinned
+        });
+      }, 1000); // 1秒后检查，确保异步加载完成
     }
+    
+    // 组件卸载时保存数据
+    return () => {
+      console.log('页面组件卸载，保存系统数据');
+      // 获取当前store数据并保存
+      const store = useRequirementAnalysisStore.getState();
+      if (store.currentSystemId) {
+        try {
+          // 先检查localStorage中是否已有数据
+          const existingData = localStorage.getItem(`req_analysis_system_${store.currentSystemId}`);
+          let shouldSave = true;
+          
+          // 检查当前store中的数据是否有价值
+          const hasRequirementBook = !!store.requirementBook;
+          const hasPinnedRequirementBook = !!store.pinnedRequirementBook;
+          const hasRequirement = !!store.requirement && store.requirement.trim() !== '';
+          const hasPinnedAnalysis = !!store.pinnedAnalysis;
+          const hasImageDraft = !!store.imageDraft;
+          
+          // 如果当前store正在加载中，或者数据为空，可能不应覆盖已有数据
+          if (store.isLoading) {
+            console.log('组件卸载时store正在加载中，不保存可能不完整的数据');
+            shouldSave = false;
+          } else if (!(hasRequirementBook || hasPinnedRequirementBook || hasRequirement || hasPinnedAnalysis || hasImageDraft)) {
+            console.log('组件卸载时store数据为空，检查是否应覆盖已有数据');
+            
+            // 如果localStorage中有数据但当前内存中没有，不应覆盖
+            if (existingData) {
+              try {
+                const parsedData = JSON.parse(existingData);
+                const hasExistingData = !!(
+                  parsedData.requirementBook || 
+                  parsedData.pinnedRequirementBook || 
+                  (parsedData.requirement && parsedData.requirement.trim() !== '') ||
+                  parsedData.pinnedAnalysis ||
+                  parsedData.imageDraft
+                );
+                
+                if (hasExistingData) {
+                  console.log('localStorage中存在有价值的数据，不覆盖');
+                  shouldSave = false;
+                }
+              } catch (e) {
+                console.error('解析localStorage数据失败:', e);
+              }
+            }
+          }
+          
+          if (shouldSave) {
+            store.saveCurrentSystemToRedis()
+              .then(() => console.log('成功保存系统数据到Redis'))
+              .catch(error => console.error('保存系统数据到Redis失败:', error));
+          }
+        } catch (error) {
+          console.error('页面卸载时保存数据处理失败:', error);
+        }
+      }
+    };
   }, [selectedSystemId, setCurrentSystem]);
   
   // 点击外部关闭下拉菜单
@@ -110,9 +223,56 @@ export default function BookWritingPage() {
       return;
     }
     
+    // 输出调试信息
+    console.log('开始加载需求初稿，当前系统状态:', {
+      systemId: selectedSystemId,
+      requirementBook: !!requirementBook, 
+      pinnedRequirementBook: !!pinnedRequirementBook,
+      isRequirementBookPinned
+    });
+    
     setIsLoadingDraft(true);
     try {
-      loadDraft(editorRef.current, getActiveRequirementBook);
+      // 首先获取可用的需求书内容
+      let activeBook = getAvailableRequirementBook();
+      
+      // 如果store中获取不到，直接尝试从localStorage获取
+      if (!activeBook && selectedSystemId) {
+        try {
+          const storageKey = `req_analysis_system_${selectedSystemId}`;
+          console.log('尝试直接从localStorage获取数据:', storageKey);
+          const data = localStorage.getItem(storageKey);
+          if (data) {
+            const parsedData = JSON.parse(data);
+            console.log('成功解析localStorage数据:', {
+              hasPinnedBook: !!parsedData.pinnedRequirementBook,
+              hasBook: !!parsedData.requirementBook,
+              isPinned: parsedData.isRequirementBookPinned
+            });
+            
+            // 优先使用固定的需求书
+            if (parsedData.isRequirementBookPinned && parsedData.pinnedRequirementBook) {
+              activeBook = parsedData.pinnedRequirementBook;
+              console.log('从localStorage直接获取到固定需求书');
+            } 
+            // 其次使用普通需求书
+            else if (parsedData.requirementBook) {
+              activeBook = parsedData.requirementBook;
+              console.log('从localStorage直接获取到普通需求书');
+            }
+          } else {
+            console.log('localStorage中没有找到数据:', storageKey);
+          }
+        } catch (error) {
+          console.error('直接从localStorage获取失败:', error);
+        }
+      }
+      
+      console.log('最终获取到的需求书内容:', activeBook ? '有内容' : '无内容');
+      
+      // 将内容直接传递给loadDraft函数
+      const result = loadDraft(editorRef.current, activeBook);
+      console.log('loadDraft结果:', result);
     } finally {
       setIsLoadingDraft(false);
       setShowContentDropdown(false);

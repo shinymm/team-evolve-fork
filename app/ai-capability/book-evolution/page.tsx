@@ -34,15 +34,66 @@ export default function RequirementAnalysis() {
     setRequirement, 
     pinAnalysis, 
     unpinAnalysis,
-    getActiveAnalysis,
-    saveCurrentSystemToRedis
+    getActiveAnalysis
   } = useRequirementAnalysisStore()
+
+  // 自定义函数保存到localStorage - 修复linter错误
+  const saveCurrentSystemToRedis = async (): Promise<void> => {
+    if (!currentSystemId) {
+      console.error('无法保存：没有选中的系统ID')
+      return
+    }
+
+    try {
+      // 从store获取当前相关字段并保存
+      const store = useRequirementAnalysisStore.getState()
+      
+      // 确保当前系统的ID匹配
+      if (store.currentSystemId !== currentSystemId) {
+        console.error('系统ID不匹配，无法保存')
+        return
+      }
+
+      // 构建需要保存的数据
+      const systemData = {
+        requirement: store.requirement,
+        pinnedAnalysis: store.pinnedAnalysis,
+        requirementBook: store.requirementBook,
+        pinnedRequirementBook: store.pinnedRequirementBook,
+        isPinned: store.isPinned,
+        isRequirementBookPinned: store.isRequirementBookPinned,
+        imageDraft: store.imageDraft,
+      }
+      
+      // 保存到localStorage
+      const systemKey = `req_analysis_system_${currentSystemId}`
+      localStorage.setItem(systemKey, JSON.stringify(systemData))
+      console.log(`已保存系统 ${currentSystemId} 的状态到 localStorage`)
+    } catch (error) {
+      console.error('保存到localStorage失败:', error)
+      throw error
+    }
+  }
 
   // 确保已设置当前系统
   useEffect(() => {
     if (selectedSystem?.id && selectedSystem.id !== currentSystemId) {
       console.log('设置当前系统:', selectedSystem.id)
       setCurrentSystem(selectedSystem.id)
+
+      // 尝试从localStorage获取数据，检查是否有缓存的数据
+      try {
+        const storageKey = `req_analysis_system_${selectedSystem.id}`
+        const cachedData = localStorage.getItem(storageKey)
+        if (cachedData) {
+          console.log('找到缓存的需求分析数据:', storageKey)
+          // localStorage中存在数据，会通过setCurrentSystem自动加载
+        } else {
+          console.log('未找到缓存的需求分析数据:', storageKey)
+        }
+      } catch (error) {
+        console.error('读取localStorage缓存失败:', error)
+      }
     }
   }, [selectedSystem, currentSystemId, setCurrentSystem])
 
@@ -57,6 +108,27 @@ export default function RequirementAnalysis() {
   const { toast } = useToast()
   const router = useRouter()
 
+  // 页面加载后打印数据状态
+  useEffect(() => {
+    // 延迟执行以确保数据加载完成
+    const timer = setTimeout(() => {
+      // 安全地获取长度，避免undefined错误
+      const requirementLength = requirement ? requirement.length : 0
+      const pinnedAnalysisLength = pinnedAnalysis ? pinnedAnalysis.length : 0
+      const currentAnalysisLength = analysis ? analysis.length : 0
+      
+      console.log('当前数据状态:', {
+        系统ID: currentSystemId,
+        需求内容长度: requirementLength,
+        固定分析内容长度: pinnedAnalysisLength,
+        是否固定: isPinned,
+        当前分析内容长度: currentAnalysisLength
+      })
+    }, 1000)
+    
+    return () => clearTimeout(timer)
+  }, [currentSystemId, requirement, pinnedAnalysis, isPinned, analysis])
+
   // 页面卸载时保存数据到Redis
   useEffect(() => {
     return () => {
@@ -65,7 +137,7 @@ export default function RequirementAnalysis() {
           .catch((err: Error) => console.error('保存到Redis失败:', err))
       }
     }
-  }, [currentSystemId, saveCurrentSystemToRedis])
+  }, [currentSystemId])
 
   // 当需求内容变化时，保存到 store
   const handleRequirementChange = (value: string) => {

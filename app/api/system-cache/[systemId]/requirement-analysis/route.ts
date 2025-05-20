@@ -25,8 +25,9 @@ export async function GET(
       return NextResponse.json({ error: '缺少系统ID' }, { status: 400 })
     }
 
-    // 构建Redis键名
-    const redisKey = `${REDIS_KEY_PREFIX}${systemId}:requirement-analysis`
+    // 构建Redis键名 - 加入用户ID实现数据隔离
+    const userId = session.user.id
+    const redisKey = `${REDIS_KEY_PREFIX}${userId}:${systemId}:requirement-analysis`
 
     // 从Redis获取数据
     const redisClient = getRedisClient()
@@ -84,8 +85,9 @@ export async function POST(
       return NextResponse.json({ error: '缺少系统状态数据' }, { status: 400 })
     }
 
-    // 构建Redis键名
-    const redisKey = `${REDIS_KEY_PREFIX}${systemId}:requirement-analysis`
+    // 构建Redis键名 - 加入用户ID实现数据隔离
+    const userId = session.user.id
+    const redisKey = `${REDIS_KEY_PREFIX}${userId}:${systemId}:requirement-analysis`
 
     // 序列化数据
     const serializedData = JSON.stringify(systemState)
@@ -125,8 +127,9 @@ export async function DELETE(
       return NextResponse.json({ error: '缺少系统ID' }, { status: 400 })
     }
 
-    // 构建Redis键名
-    const redisKey = `${REDIS_KEY_PREFIX}${systemId}:requirement-analysis`
+    // 构建Redis键名 - 加入用户ID实现数据隔离
+    const userId = session.user.id
+    const redisKey = `${REDIS_KEY_PREFIX}${userId}:${systemId}:requirement-analysis`
 
     // 从Redis删除数据
     const redisClient = getRedisClient()

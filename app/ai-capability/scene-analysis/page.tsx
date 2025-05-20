@@ -176,26 +176,7 @@ export default function SceneAnalysisPage() {
     const loadStructuredContent = () => {
       if (!selectedSystemId || !isComponentMounted) return;
       
-      // 这是RequirementBookService保存的最新结构化数据
-      const structuredReqKey = `structuredRequirement_${selectedSystemId}`;
-      const structuredData = localStorage.getItem(structuredReqKey);
-      
-      if (structuredData) {
-        try {
-          const parsedStructured = JSON.parse(structuredData);
-          if (parsedStructured && Array.isArray(parsedStructured.scenes) && parsedStructured.scenes.length > 0) {
-            console.log(`从 ${structuredReqKey} 加载数据，场景数量: ${parsedStructured.scenes.length}`);
-            processContent(parsedStructured);
-            
-            // 同步到新格式的存储键
-            const newStructuredKey = `requirement-structured-content-${selectedSystemId}`;
-            localStorage.setItem(newStructuredKey, structuredData);
-            return;
-          }
-        } catch (e) {
-          console.error(`解析 ${structuredReqKey} 数据失败:`, e);
-        }
-      }
+      // 使用新的格式加载结构化数据
       
       // 使用系统ID为key获取结构化内容
       const storageKey = `requirement-structured-content-${selectedSystemId}`;
