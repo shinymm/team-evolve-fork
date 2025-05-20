@@ -121,9 +121,11 @@ export default function SceneAnalysisPage() {
   const { selectedSystemId } = useSystemStore()
   const { 
     currentSystemId,
-    systemRequirements, 
     setCurrentSystem,
-    getActiveRequirementBook 
+    getActiveRequirementBook,
+    pinnedRequirementBook,
+    requirementBook,
+    isRequirementBookPinned
   } = useRequirementAnalysisStore()
   
   // 确保已设置当前系统
@@ -174,7 +176,6 @@ export default function SceneAnalysisPage() {
     const loadStructuredContent = () => {
       if (!selectedSystemId || !isComponentMounted) return;
       
-      // 首先尝试从structuredRequirement_${systemId}加载数据
       // 这是RequirementBookService保存的最新结构化数据
       const structuredReqKey = `structuredRequirement_${selectedSystemId}`;
       const structuredData = localStorage.getItem(structuredReqKey);
@@ -196,26 +197,12 @@ export default function SceneAnalysisPage() {
         }
       }
       
-      // 如果无法从structuredRequirement加载，尝试从requirement-structured-content加载
       // 使用系统ID为key获取结构化内容
       const storageKey = `requirement-structured-content-${selectedSystemId}`;
       const storedContent = localStorage.getItem(storageKey);
       
       if (!storedContent) {
         console.log(`未找到系统${selectedSystemId}的结构化内容`);
-        // 尝试从旧的全局存储加载一次（兼容旧数据）
-        const legacyContent = localStorage.getItem('requirement-structured-content');
-        if (legacyContent && isComponentMounted) {
-          try {
-            const parsedLegacy = JSON.parse(legacyContent);
-            console.log('从旧存储加载数据');
-            processContent(parsedLegacy);
-            // 迁移到新的存储格式
-            localStorage.setItem(storageKey, legacyContent);
-          } catch (e) {
-            console.error('解析旧数据失败:', e);
-          }
-        }
         return;
       }
 
@@ -259,18 +246,12 @@ export default function SceneAnalysisPage() {
     // 加载需求书内容和结构化数据
     if (selectedSystemId && isComponentMounted) {
       // 加载需求书内容 - 从当前系统的数据中获取
-      const systemData = systemRequirements[selectedSystemId];
-      if (systemData) {
-        // 优先使用固定的需求书内容，其次是普通需求书内容
-        const systemRequirementBook = systemData.isRequirementBookPinned 
-          ? systemData.pinnedRequirementBook 
-          : systemData.requirementBook;
-        
-        if (systemRequirementBook && isComponentMounted) {
-          setMdContent(systemRequirementBook);
-        } else {
-          console.log('当前系统没有需求书内容');
-        }
+      const systemData = pinnedRequirementBook || requirementBook;
+      
+      if (systemData && isComponentMounted) {
+        setMdContent(systemData);
+      } else {
+        console.log('当前系统没有需求书内容');
       }
       
       // 执行数据加载
@@ -282,7 +263,7 @@ export default function SceneAnalysisPage() {
       isComponentMounted = false;
     };
   // 重要：从依赖数组中移除content，防止循环渲染
-  }, [selectedSystemId, systemRequirements, toast]);
+  }, [selectedSystemId, pinnedRequirementBook, requirementBook, toast]);
 
   // 将场景状态的加载移到单独的useEffect中
   useEffect(() => {
@@ -910,7 +891,7 @@ export default function SceneAnalysisPage() {
       const structuredContentKey = `requirement-structured-content-${selectedSystemId}`
       localStorage.setItem(structuredContentKey, JSON.stringify(updatedContent))
     } else {
-      localStorage.setItem('requirement-structured-content', JSON.stringify(updatedContent))
+      console.warn('未提供系统ID，无法保存更新后的内容')
     }
 
     // 更新场景状态，保持分析结果不变
@@ -1133,7 +1114,7 @@ export default function SceneAnalysisPage() {
         const structuredContentKey = `requirement-structured-content-${selectedSystemId}`
         localStorage.setItem(structuredContentKey, JSON.stringify(updatedContent))
       } else {
-        localStorage.setItem('requirement-structured-content', JSON.stringify(updatedContent))
+        console.warn('未提供系统ID，无法保存更新后的内容')
       }
 
       // Restore state reset logic as per user clarification
@@ -1156,7 +1137,7 @@ export default function SceneAnalysisPage() {
         const sceneStatesKey = `scene-analysis-states-${selectedSystemId}`
         localStorage.setItem(sceneStatesKey, JSON.stringify(updatedStates))
       } else {
-        localStorage.setItem('scene-analysis-states', JSON.stringify(updatedStates))
+        console.warn('未提供系统ID，无法保存场景状态')
       }
 
       // 清空选中的场景和优化结果
@@ -1200,6 +1181,8 @@ export default function SceneAnalysisPage() {
       if (selectedSystemId) {
         const sceneStatesKey = `scene-analysis-states-${selectedSystemId}`
         localStorage.setItem(sceneStatesKey, JSON.stringify(updatedStates))
+      } else {
+        console.warn('未提供系统ID，无法保存场景状态')
       }
 
       toast({
@@ -1358,6 +1341,75 @@ export default function SceneAnalysisPage() {
       return false;
     }
   }, [selectedSystemId, sceneStates]);
+
+  // 使用 useEffect 触发分析任务的状态更新
+  useEffect(() => {
+    const updateSceneTaskStatus = async () => {
+      try {
+        // 如果全部场景都完成了，更新任务状态
+        if (content?.scenes && content.scenes.length > 0) {
+          const sceneNames = content.scenes.map(scene => scene.name);
+          const allCompleted = sceneNames.every(sceneName => {
+            return sceneStates[sceneName]?.isCompleted === true;
+          });
+          
+          // 已经全部完成的情况
+          if (allCompleted) {
+            console.log('所有场景分析已完成');
+            await updateTask('scene-analysis', {
+              status: 'completed'
+            });
+          }
+        }
+      } catch (error) {
+        console.error('更新任务状态失败:', error);
+      }
+    };
+    
+    updateSceneTaskStatus();
+  }, [content, sceneStates]);
+
+  // 加载requirementBook内容和分析
+  useEffect(() => {
+    const initializeFromRequirementBook = async () => {
+      if (!selectedSystemId) return;
+      
+      try {
+        // 获取活跃的需求书内容 - 直接从store的getter中获取
+        const activeBook = getActiveRequirementBook();
+        
+        // 如果有需求书内容，但还没有结构化内容或场景，触发初始解析
+        if (activeBook && (!content || !content.scenes || content.scenes.length === 0)) {
+          console.log('需要从需求书初始化场景分析');
+          setMdContent(activeBook);
+          
+          // 创建解析服务实例并使用正确的方法
+          const parserService = new RequirementParserService();
+          const freshContent = parserService.parseRequirement(activeBook);
+          
+          if (freshContent && freshContent.scenes) {
+            // 存储结构化内容
+            const storageKey = `requirement-structured-content-${selectedSystemId}`;
+            localStorage.setItem(storageKey, JSON.stringify(freshContent));
+            setContent(freshContent);
+          }
+        }
+      } catch (error) {
+        console.error('初始化需求书分析失败:', error);
+        toast({
+          title: "初始化失败",
+          description: error instanceof Error ? error.message : "无法从需求书初始化分析",
+          variant: "destructive",
+          duration: 3000
+        });
+      }
+    };
+    
+    // 检查是否有内容并决定是否初始化
+    if (selectedSystemId && (!content || !content.scenes || content.scenes.length === 0)) {
+      initializeFromRequirementBook();
+    }
+  }, [content, getActiveRequirementBook, selectedSystemId, toast]);
 
   if (!content) {
     return (
@@ -1635,15 +1687,6 @@ export default function SceneAnalysisPage() {
                                 const isConfirming = !!sceneState?.isConfirming;
                                 const hasTempResult = !!sceneState?.tempResult;
                                 const shouldShowConfirmButtons = isConfirming && hasTempResult;
-                                
-                                console.log(`场景状态检查 [${sceneName}]:`, {
-                                  hasAnalysisResult,
-                                  isCurrentlySelected,
-                                  hasCurrentAnalysis,
-                                  isConfirming,
-                                  hasTempResult,
-                                  shouldShowConfirmButtons
-                                });
                                 
                                 // 判断是否显示分析结果
                                 const shouldShowResults = hasAnalysisResult || hasCurrentAnalysis || (isConfirming && hasTempResult);

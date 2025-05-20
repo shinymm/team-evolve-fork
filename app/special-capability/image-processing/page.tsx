@@ -90,10 +90,20 @@ export default function ImageProcessing() {
   // 获取系统状态
   const { selectedSystemId, systems } = useSystemStore()
   
+  // 从需求分析存储中获取方法
+  const { setCurrentSystem } = useRequirementAnalysisStore()
+  
   // 获取当前选中系统的名称
   const selectedSystemName = selectedSystemId ? 
     systems.find(system => system.id === selectedSystemId)?.name || '' : 
     '';
+  
+  // 设置当前系统ID
+  useEffect(() => {
+    if (selectedSystemId) {
+      setCurrentSystem(selectedSystemId);
+    }
+  }, [selectedSystemId, setCurrentSystem]);
   
   // 处理状态
   const [processingStates, setProcessingStates] = useState<ProcessingStates>({
@@ -1176,9 +1186,6 @@ export default function ImageProcessing() {
     }
   };
 
-  // 获取store方法
-  const { setImageDraft } = useRequirementAnalysisStore()
-
   // 新增：缓存图片初稿到store
   const handleCacheRequirementDraft = () => {
     if (!selectedSystemId) {
@@ -1200,7 +1207,7 @@ export default function ImageProcessing() {
     }
 
     // 直接保存原始内容
-    setImageDraft(content);
+    useRequirementAnalysisStore.getState().setImageDraft(content);
     toast({
       title: "缓存成功",
       description: "图片初稿已缓存到本地（按系统隔离）",

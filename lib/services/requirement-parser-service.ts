@@ -27,9 +27,10 @@ export class RequirementParserService {
   /**
    * 解析需求书 Markdown 内容
    * @param mdContent Markdown 格式的需求书内容
+   * @param systemId 系统ID，用于保存到系统特定的缓存中
    * @returns 解析后的需求书对象
    */
-  public parseRequirement(mdContent: string): RequirementParseResult {
+  public parseRequirement(mdContent: string, systemId?: string): RequirementParseResult {
     console.log('开始解析需求书内容，长度:', mdContent.length);
     
     const documentStructure = this.parseMarkdownStructure(mdContent);
@@ -101,9 +102,21 @@ export class RequirementParserService {
       场景后内容长度: contentAfterScenes.length
     });
     
-    // 保存结构化结果到 localStorage (可选)
+    // 保存结构化结果到 localStorage
     try {
-      localStorage.setItem('requirement-structured-content', JSON.stringify(result));
+      if (systemId) {
+        // 只使用系统特定的键保存
+        const storageKey = `requirement-structured-content-${systemId}`;
+        localStorage.setItem(storageKey, JSON.stringify(result));
+        console.log(`已保存结构化需求到系统特定存储 (${storageKey})`);
+        
+        // 保存到兼容性键名（一些组件可能仍在使用）
+        const legacySystemKey = `structuredRequirement_${systemId}`;
+        localStorage.setItem(legacySystemKey, JSON.stringify(result));
+        console.log(`已保存结构化需求到兼容性键名 (${legacySystemKey})`);
+      } else {
+        console.warn('未提供系统ID，无法保存结构化需求到系统特定存储');
+      }
     } catch (error) {
       console.error('无法将结构化需求保存到 localStorage:', error);
     }

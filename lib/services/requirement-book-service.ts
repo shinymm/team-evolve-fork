@@ -176,7 +176,8 @@ export class RequirementBookService {
       // 3. 解析需求书内容
       console.log('解析需求书内容...')
       const parser = new RequirementParserService()
-      const parsedRequirement = parser.parseRequirement(requirementBook)
+      // 直接传递systemId给parseRequirement方法
+      const parsedRequirement = parser.parseRequirement(requirementBook, systemId)
       
       // 4. 标记结构化任务完成
       console.log('更新结构化任务状态...')
@@ -190,14 +191,19 @@ export class RequirementBookService {
       
       // 6. 保存新的结构化内容
       console.log('保存新的结构化内容...')
-      // 同时保存到全局键（向后兼容）和系统特定键
-      localStorage.setItem('requirement-structured-content', JSON.stringify(parsedRequirement))
       
-      // 如果提供了系统ID，则按系统ID保存
+      // 只在有系统ID的情况下保存，并使用新格式
       if (systemId) {
         console.log(`按系统ID(${systemId})保存结构化内容...`)
-        const systemSpecificKey = `structuredRequirement_${systemId}`
-        localStorage.setItem(systemSpecificKey, JSON.stringify(parsedRequirement))
+        const storageKey = `requirement-structured-content-${systemId}`
+        localStorage.setItem(storageKey, JSON.stringify(parsedRequirement))
+        
+        // 兼容旧格式（使用structuredRequirement_前缀）
+        // 这个键名在某些页面可能仍在使用
+        const legacySystemKey = `structuredRequirement_${systemId}`
+        localStorage.setItem(legacySystemKey, JSON.stringify(parsedRequirement))
+      } else {
+        console.warn('未提供系统ID，无法保存结构化内容到系统特定存储')
       }
       
       // 7. 创建场景边界分析任务

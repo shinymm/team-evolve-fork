@@ -24,15 +24,18 @@ export default function RequirementAnalysis() {
   const { systems, selectedSystemId } = useSystemStore()
   const selectedSystem = systems.find(s => s.id === selectedSystemId) || null
   
+  // 使用新的 store 结构，直接获取当前激活系统的字段
   const { 
     currentSystemId,
-    systemRequirements,
+    requirement,
+    pinnedAnalysis,
+    isPinned,
     setCurrentSystem,
     setRequirement, 
     pinAnalysis, 
     unpinAnalysis,
     getActiveAnalysis,
-    saveSystemDataToRedis
+    saveCurrentSystemToRedis
   } = useRequirementAnalysisStore()
 
   // 确保已设置当前系统
@@ -42,24 +45,7 @@ export default function RequirementAnalysis() {
       setCurrentSystem(selectedSystem.id)
     }
   }, [selectedSystem, currentSystemId, setCurrentSystem])
-  
-  // 从当前系统状态中获取数据
-  const currentSystemData = selectedSystem?.id 
-    ? (systemRequirements[selectedSystem.id] || { 
-        requirement: '', 
-        pinnedAnalysis: null, 
-        isPinned: false 
-      }) 
-    : { 
-        requirement: '', 
-        pinnedAnalysis: null, 
-        isPinned: false 
-      }
-  
-  const requirement = currentSystemData.requirement || ''
-  const pinnedAnalysis = currentSystemData.pinnedAnalysis
-  const isPinned = currentSystemData.isPinned || false
-  
+
   // 使用本地state管理当前分析结果
   const [analysis, setAnalysis] = useState<string>('')
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -74,12 +60,12 @@ export default function RequirementAnalysis() {
   // 页面卸载时保存数据到Redis
   useEffect(() => {
     return () => {
-      if (selectedSystem?.id) {
-        saveSystemDataToRedis(selectedSystem.id)
-          .catch(err => console.error('保存到Redis失败:', err))
+      if (currentSystemId) {
+        saveCurrentSystemToRedis()
+          .catch((err: Error) => console.error('保存到Redis失败:', err))
       }
     }
-  }, [selectedSystem, saveSystemDataToRedis])
+  }, [currentSystemId, saveCurrentSystemToRedis])
 
   // 当需求内容变化时，保存到 store
   const handleRequirementChange = (value: string) => {
@@ -293,9 +279,9 @@ export default function RequirementAnalysis() {
     }
 
     // 自动保存到Redis
-    if (selectedSystem?.id) {
-      saveSystemDataToRedis(selectedSystem.id)
-        .catch(err => console.error('保存到Redis失败:', err))
+    if (currentSystemId) {
+      saveCurrentSystemToRedis()
+        .catch((err: Error) => console.error('保存到Redis失败:', err))
     }
   }
 
@@ -312,7 +298,7 @@ export default function RequirementAnalysis() {
       }
       
       // 保存到Redis
-      await saveSystemDataToRedis(selectedSystem.id)
+      await saveCurrentSystemToRedis()
       
       // 记录需求分析完成的动作
       await recordRequirementAction(

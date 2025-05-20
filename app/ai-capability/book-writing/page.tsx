@@ -17,9 +17,9 @@ import {
   loadDraft, 
   showToast,
   exportToWord,
-  exportToMarkdown,
-  processContent
+  exportToMarkdown
 } from '@/components/TiptapEditor/EditorToolbar';
+import { processContent } from '@/lib/utils/markdown-utils';
 
 // 导入CSS样式
 import '@/components/TiptapEditor/styles.css';
@@ -43,10 +43,21 @@ export default function BookWritingPage() {
   
   // 获取系统和需求分析状态
   const { selectedSystemId } = useSystemStore();
-  const { getActiveRequirementBook, systemRequirements } = useRequirementAnalysisStore();
+  const { 
+    getActiveRequirementBook, 
+    imageDraft, 
+    setCurrentSystem 
+  } = useRequirementAnalysisStore();
   
   // 新增：加载图片初稿状态
   const [isLoadingImageDraft, setIsLoadingImageDraft] = useState(false);
+  
+  // 设置当前系统ID
+  useEffect(() => {
+    if (selectedSystemId) {
+      setCurrentSystem(selectedSystemId);
+    }
+  }, [selectedSystemId, setCurrentSystem]);
   
   // 点击外部关闭下拉菜单
   useEffect(() => {
@@ -152,8 +163,7 @@ export default function BookWritingPage() {
       return;
     }
     
-    const currentSystem = systemRequirements[selectedSystemId];
-    if (!currentSystem?.imageDraft) {
+    if (!imageDraft) {
       showToast('当前系统没有可用的图片初稿', 'error');
       return;
     }
@@ -161,7 +171,7 @@ export default function BookWritingPage() {
     setIsLoadingImageDraft(true);
     try {
       // 使用processContent函数处理markdown内容
-      const processedContent = processContent(currentSystem.imageDraft);
+      const processedContent = processContent(imageDraft);
       
       // 设置编辑器内容
       editorRef.current.commands.setContent(processedContent);

@@ -39,17 +39,22 @@ export default function RequirementBook() {
   const { systems, selectedSystemId } = useSystemStore()
   const selectedSystem = systems.find(s => s.id === selectedSystemId) || null
   
-  // 从store中获取状态和方法
+  // 从store中获取状态和方法，直接解构当前活跃系统的字段
   const { 
     currentSystemId,
-    systemRequirements,
+    requirement,
+    pinnedAnalysis,
+    requirementBook: storedRequirementBook,
+    pinnedRequirementBook,
+    isPinned,
+    isRequirementBookPinned,
     setCurrentSystem,
     setRequirement,
     pinAnalysis,
     pinRequirementBook, 
     unpinRequirementBook,
     getActiveRequirementBook,
-    saveSystemDataToRedis
+    saveCurrentSystemToRedis
   } = useRequirementAnalysisStore()
 
   // 确保已设置当前系统
@@ -59,29 +64,6 @@ export default function RequirementBook() {
       setCurrentSystem(selectedSystem.id)
     }
   }, [selectedSystem, currentSystemId, setCurrentSystem])
-  
-  // 从当前系统状态中获取数据
-  const currentSystemData = selectedSystem?.id 
-    ? (systemRequirements[selectedSystem.id] || { 
-        requirement: '', 
-        pinnedAnalysis: null,
-        requirementBook: null,
-        pinnedRequirementBook: null, 
-        isPinned: false,
-        isRequirementBookPinned: false
-      }) 
-    : { 
-        requirement: '', 
-        pinnedAnalysis: null,
-        requirementBook: null,
-        pinnedRequirementBook: null, 
-        isPinned: false,
-        isRequirementBookPinned: false 
-      }
-
-  const pinnedRequirementBook = currentSystemData.pinnedRequirementBook
-  const isRequirementBookPinned = currentSystemData.isRequirementBookPinned || false
-  const pinnedAnalysis = currentSystemData.pinnedAnalysis
   
   // 添加 AI 配置缓存
   const [cachedAIConfig, setCachedAIConfig] = useState<any>(null)
@@ -118,10 +100,9 @@ export default function RequirementBook() {
         
         // 只有当原始需求分析任务完成时，才加载历史数据
         if (requirementAnalysisTask?.status === 'completed' && selectedSystem?.id) {
-          // 从当前系统数据中获取pinnedAnalysis
-          const systemData = systemRequirements[selectedSystem.id]
-          if (systemData?.pinnedAnalysis) {
-            setOriginalRequirement(systemData.pinnedAnalysis)
+          // 直接从store中获取pinnedAnalysis
+          if (pinnedAnalysis) {
+            setOriginalRequirement(pinnedAnalysis)
             console.log('已加载系统分析数据')
           } else {
             console.log('该系统没有分析数据')
@@ -135,17 +116,17 @@ export default function RequirementBook() {
     if (selectedSystem?.id) {
       checkPreviousTaskAndLoadData()
     }
-  }, [selectedSystem, systemRequirements])
+  }, [selectedSystem, pinnedAnalysis])
 
   // 页面卸载时保存数据到Redis
   useEffect(() => {
     return () => {
-      if (selectedSystem?.id) {
-        saveSystemDataToRedis(selectedSystem.id)
+      if (currentSystemId) {
+        saveCurrentSystemToRedis()
           .catch(err => console.error('保存到Redis失败:', err))
       }
     }
-  }, [selectedSystem, saveSystemDataToRedis])
+  }, [currentSystemId, saveCurrentSystemToRedis])
 
   // 修改 handleSubmit 函数
   const handleSubmit = async () => {
@@ -294,7 +275,7 @@ export default function RequirementBook() {
       }
       
       // 保存到Redis
-      await saveSystemDataToRedis(selectedSystem.id)
+      await saveCurrentSystemToRedis()
       
       // 使用RequirementBookService处理确认逻辑，传递系统ID
       await RequirementBookService.processConfirmation(activeBook, selectedSystem.id)
@@ -426,10 +407,9 @@ export default function RequirementBook() {
                   size="sm"
                   onClick={() => {
                     if (selectedSystem?.id) {
-                      // 从当前系统数据中获取pinnedAnalysis
-                      const systemData = systemRequirements[selectedSystem.id]
-                      if (systemData?.pinnedAnalysis) {
-                        setOriginalRequirement(systemData.pinnedAnalysis)
+                      // 直接从store中获取pinnedAnalysis
+                      if (pinnedAnalysis) {
+                        setOriginalRequirement(pinnedAnalysis)
                         toast({
                           title: "加载成功",
                           description: "已重新加载需求分析内容",

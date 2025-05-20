@@ -29,7 +29,6 @@ export default function BookConfirmPage() {
   // 从 store 获取需求分析信息
   const { 
     currentSystemId,
-    systemRequirements,
     setCurrentSystem,
     getActiveRequirementBook,
   } = useRequirementAnalysisStore()

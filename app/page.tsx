@@ -22,8 +22,7 @@ export default function HomePage() {
   
   // 获取需求分析Store
   const { 
-    setCurrentSystem, 
-    cleanupCacheData 
+    setCurrentSystem
   } = useRequirementAnalysisStore()
 
   useEffect(() => {
@@ -48,7 +47,7 @@ export default function HomePage() {
       setCurrentSystem(system.id)
       
       // 3. 清理非活跃系统的缓存数据（保留最近3个）
-      cleanupCacheData(3)
+      // 这部分功能已移除
       
       // 4. 导航到系统页面
       router.push(`/systems/${system.id}`)

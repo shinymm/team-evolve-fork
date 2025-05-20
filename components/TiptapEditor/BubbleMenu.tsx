@@ -19,7 +19,7 @@ import {
   ClipboardCheck
 } from 'lucide-react';
 import { useSystemStore } from '@/lib/stores/system-store';
-import { markdownToHtml } from './EditorToolbar';
+import { markdownToHtml } from '@/lib/utils/markdown-utils';
 import { 
   polishText, 
   expandText, 

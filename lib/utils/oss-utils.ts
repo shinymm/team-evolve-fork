@@ -5,6 +5,52 @@ import 'server-only';
 import OSS from 'ali-oss';
 import { v4 as uuidv4 } from 'uuid';
 
+// 模拟实现的存储，仅用于开发环境或环境变量未配置时
+class MockOSSClient {
+  private mockStorage: Map<string, Buffer> = new Map();
+  private baseUrl: string = 'https://mock-oss-server.example.com/';
+
+  constructor(private config: any) {
+    console.log('创建模拟OSS客户端');
+  }
+
+  async put(key: string, buffer: Buffer, options?: any): Promise<any> {
+    console.log(`[模拟OSS] 上传文件: ${key}, 大小: ${buffer.length} 字节`);
+    this.mockStorage.set(key, buffer);
+    return {
+      name: key,
+      url: this.baseUrl + key
+    };
+  }
+
+  async get(key: string): Promise<any> {
+    console.log(`[模拟OSS] 下载文件: ${key}`);
+    const content = this.mockStorage.get(key);
+    if (!content) {
+      const error: any = new Error('文件不存在');
+      error.code = 'NoSuchKey';
+      throw error;
+    }
+    return { content };
+  }
+
+  async delete(key: string): Promise<any> {
+    console.log(`[模拟OSS] 删除文件: ${key}`);
+    if (!this.mockStorage.has(key)) {
+      const error: any = new Error('文件不存在');
+      error.code = 'NoSuchKey';
+      throw error;
+    }
+    this.mockStorage.delete(key);
+    return { success: true };
+  }
+
+  signatureUrl(key: string, options?: any): string {
+    console.log(`[模拟OSS] 生成签名URL: ${key}`);
+    return this.baseUrl + key + '?signature=mock-signature';
+  }
+}
+
 /**
  * 获取OSS客户端实例
  * @returns OSS客户端实例
@@ -16,17 +62,20 @@ export function getOSSClient() {
   const accessKeySecret = process.env.OSS_ACCESS_KEY_SECRET;
   const bucket = process.env.OSS_BUCKET;
   
-  console.log(`OSS配置检查 - Region: ${region ? '已设置' : '未设置'}, AccessKeyId: ${accessKeyId ? '已设置' : '未设置'}, AccessKeySecret: ${accessKeySecret ? '已设置' : '未设置'}, Bucket: ${bucket ? '已设置' : '未设置'}`);
+  // 检查是否有DISABLE_OSS环境变量
+  const disableOss = process.env.DISABLE_OSS === 'true';
+  
+  console.log(`OSS配置检查 - Region: ${region ? '已设置' : '未设置'}, AccessKeyId: ${accessKeyId ? '已设置' : '未设置'}, AccessKeySecret: ${accessKeySecret ? '已设置' : '未设置'}, Bucket: ${bucket ? '已设置' : '未设置'}, 禁用OSS: ${disableOss}`);
 
-  if (!region || !accessKeyId || !accessKeySecret || !bucket) {
-    const missingVars = [
-      !region ? 'OSS_REGION' : null,
-      !accessKeyId ? 'OSS_ACCESS_KEY_ID' : null,
-      !accessKeySecret ? 'OSS_ACCESS_KEY_SECRET' : null,
-      !bucket ? 'OSS_BUCKET' : null
-    ].filter(Boolean).join(', ');
-    
-    throw new Error(`OSS配置缺失：请确保环境变量已正确设置 [缺少: ${missingVars}]`);
+  // 如果禁用OSS或缺少环境变量，使用模拟实现
+  if (disableOss || !region || !accessKeyId || !accessKeySecret || !bucket) {
+    console.log('使用模拟OSS客户端');
+    return new MockOSSClient({
+      region: region || 'mock-region',
+      accessKeyId: accessKeyId || 'mock-key',
+      accessKeySecret: accessKeySecret || 'mock-secret',
+      bucket: bucket || 'mock-bucket'
+    });
   }
 
   try {

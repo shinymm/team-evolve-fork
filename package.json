@@ -60,7 +60,6 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.4",
-    "coffeescript": "^2.7.0",
     "dashscope": "^1.0.1",
     "date-fns": "^4.1.0",
     "encoding": "^0.1.13",
@@ -103,7 +102,8 @@
     "uuid": "^11.1.0",
     "ws": "^8.16.0",
     "zod": "^3.24.1",
-    "zustand": "^5.0.3"
+    "zustand": "^5.0.3",
+    "coffeescript": "^2.7.0"
   },
   "scripts": {
     "dev": "next dev",
@@ -130,5 +130,8 @@
   "overrides": {
     "@tiptap/core": "$@tiptap/core",
     "@tiptap/pm": "$@tiptap/pm"
+  },
+  "installConfig": {
+    "hoistingLimits": "workspaces"
   }
 }
