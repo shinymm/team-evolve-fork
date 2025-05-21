@@ -1364,15 +1364,75 @@ export default function SceneAnalysisPage() {
           console.log('需要从需求书初始化场景分析');
           setMdContent(activeBook);
           
-          // 创建解析服务实例并使用正确的方法
-          const parserService = new RequirementParserService();
-          const freshContent = parserService.parseRequirement(activeBook);
-          
-          if (freshContent && freshContent.scenes) {
-            // 存储结构化内容
-            const storageKey = `requirement-structured-content-${selectedSystemId}`;
-            localStorage.setItem(storageKey, JSON.stringify(freshContent));
-            setContent(freshContent);
+          try {
+            // 创建解析服务实例并使用正确的方法
+            const parserService = new RequirementParserService();
+            const freshContent = parserService.parseRequirement(activeBook);
+            
+            if (freshContent && freshContent.scenes && freshContent.scenes.length > 0) {
+              // 结构化成功且有场景数据，存储结构化内容
+              console.log('需求书结构化成功，识别到场景数：', freshContent.scenes.length);
+              const storageKey = `requirement-structured-content-${selectedSystemId}`;
+              localStorage.setItem(storageKey, JSON.stringify(freshContent));
+              setContent(freshContent);
+            } else {
+              // 结构化成功但没有场景数据，显示警告但不更新内容
+              console.warn('需求书结构化未能识别出场景，保留原始数据');
+              toast({
+                title: "结构化警告",
+                description: "需求书解析未能识别出场景信息，请手动解析",
+                variant: "destructive",
+                duration: 5000
+              });
+              
+              // 确保原始内容数据不会丢失
+              const store = useRequirementAnalysisStore.getState();
+              if (!store.requirementBook && activeBook) {
+                store.setRequirementBook(activeBook);
+              }
+            }
+          } catch (parseError) {
+            console.error('需求书解析失败:', parseError);
+            
+            // 解析错误时，确保原始数据不会丢失
+            toast({
+              title: "解析失败",
+              description: "需求书解析失败，请检查格式，原始数据已保留",
+              variant: "destructive",
+              duration: 3000
+            });
+            
+            // 确保原始需求书数据不会丢失
+            const store = useRequirementAnalysisStore.getState();
+            
+            // 显式保存回localStorage以确保数据不丢失
+            if (selectedSystemId) {
+              try {
+                const systemKey = `req_analysis_system_${selectedSystemId}`;
+                const existingData = localStorage.getItem(systemKey);
+                
+                if (existingData) {
+                  // 已有数据，不覆盖
+                  console.log('保留已有的需求书数据');
+                } else if (activeBook) {
+                  // 没有现有数据，但有活跃的需求书，保存它
+                  console.log('保存活跃的需求书数据到localStorage');
+                  const systemData = {
+                    requirement: store.requirement || '',
+                    pinnedAnalysis: store.pinnedAnalysis || null,
+                    requirementBook: activeBook,
+                    pinnedRequirementBook: store.pinnedRequirementBook || null,
+                    isPinned: store.isPinned || false,
+                    isRequirementBookPinned: true, // 设置为固定以确保不会丢失
+                    imageDraft: store.imageDraft || null,
+                  };
+                  
+                  localStorage.setItem(systemKey, JSON.stringify(systemData));
+                }
+              } catch (saveError) {
+                console.error('保存原始需求书数据失败:', saveError);
+              }
+            }
           }
         }
       } catch (error) {
