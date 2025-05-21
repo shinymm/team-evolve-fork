@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { sceneOptimizePrompt } from '@/lib/prompts/scene-optimize';
+import { boundaryOptimizePrompt } from '@/lib/prompts/boundary-optimize';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { aiModelConfigService } from '@/lib/services/ai-model-config-service';
 import { decrypt } from '@/lib/utils/encryption-utils';
@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
     };
     
     // 填充提示词模板
-    let prompt = sceneOptimizePrompt;
+    let prompt = boundaryOptimizePrompt;
     for (const [key, value] of Object.entries(promptData)) {
       prompt = prompt.replace(`{{${key}}}`, value);
     }
