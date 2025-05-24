@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation' // Import useRouter
 import React from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -102,6 +103,7 @@ const cleanSceneContentForDisplay = (sceneName: string, content: string): string
 };
 
 export default function SceneAnalysisPage() {
+  const router = useRouter() // Initialize router
   const [content, setContent] = useState<RequirementParseResult | null>(null)
   const [mdContent, setMdContent] = useState<string>('')
   const [isExpanded, setIsExpanded] = useState(false)
@@ -1273,7 +1275,7 @@ export default function SceneAnalysisPage() {
       });
 
       // 跳转到需求书确认页面
-      window.location.href = "/ai-capability/book-confirm";
+      router.push("/ai-capability/book-confirm"); // Changed to router.push
     } catch (error) {
       console.error('确认失败:', error);
       toast({

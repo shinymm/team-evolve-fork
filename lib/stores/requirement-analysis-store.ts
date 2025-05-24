@@ -28,7 +28,6 @@ const loadSystemFromLocalStorage = (systemId: string): SystemRequirementState | 
     return null
   } catch (error) {
     console.error(`Error loading system ${systemId} from localStorage:`, error)
-    localStorage.removeItem(getSystemLocalStorageKey(systemId)); // Remove corrupted item
     return null
   }
 }

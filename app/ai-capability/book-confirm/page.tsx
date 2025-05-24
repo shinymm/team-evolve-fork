@@ -60,48 +60,65 @@ export default function BookConfirmPage() {
       
       if (!storedReq) {
         console.log(`未找到系统 ${selectedSystemId} 的存储需求数据`)
+        setRequirement(null); // Explicitly set to null if no data
         return
       }
 
-      // 验证JSON格式
-      const parsedReq = JSON.parse(storedReq)
+      const parsedDataFromStorage = JSON.parse(storedReq);
       
-      // 验证数据结构
-      if (!parsedReq || typeof parsedReq !== 'object') {
-        throw new Error('需求数据格式无效')
+      // Validate the actual structure from localStorage (RequirementParseResult-like)
+      if (!parsedDataFromStorage || 
+          typeof parsedDataFromStorage.contentBeforeScenes === 'undefined' ||
+          typeof parsedDataFromStorage.contentAfterScenes === 'undefined' || 
+          !Array.isArray(parsedDataFromStorage.scenes)) { // Expect 'scenes' array
+        console.error('加载的需求数据结构不完整或字段名不匹配. Expected: { contentBeforeScenes: string, contentAfterScenes: string, scenes: [] }', parsedDataFromStorage);
+        throw new Error('需求数据结构不完整或字段名不匹配 (expected scenes, contentBeforeScenes, contentAfterScenes)');
       }
 
-      if (!parsedReq.contentBeforeScenes || !parsedReq.contentAfterScenes || !Array.isArray(parsedReq.sceneList)) {
-        throw new Error('需求数据结构不完整')
-      }
-
-      // 验证场景列表并清理分隔线
-      parsedReq.sceneList.forEach((scene: any, index: number) => {
-        if (!scene.sceneName || !scene.content) {
-          console.error(`场景 ${index + 1} 数据不完整:`, scene);
-          throw new Error(`场景 ${index + 1} 数据不完整: 缺少必要字段`)
+      // Validate and clean scene content from raw data
+      parsedDataFromStorage.scenes.forEach((scene: any, index: number) => {
+        if (typeof scene.name === 'undefined' || typeof scene.content === 'undefined') { // Expect 'name' and 'content'
+          console.error(`场景 ${index + 1} 数据不完整 (raw):`, scene);
+          throw new Error(`场景 ${index + 1} 数据不完整: 缺少 name 或 content 字段`);
         }
-        // 清理场景内容中的分隔线
+        // Clean separators on raw content before mapping
         scene.content = cleanSeparators(scene.content);
-      })
+      });
 
-      setRequirement(parsedReq)
-      // 更新 console.log 以使用正确的字段名
-      console.log(`系统 ${selectedSystemId} 需求数据加载成功:`, {
-        contentBeforeScenesLength: parsedReq.contentBeforeScenes?.length ?? 0,
-        contentAfterScenesLength: parsedReq.contentAfterScenes?.length ?? 0,
-        sceneCount: parsedReq.sceneList.length
-      })
+      // Transform parsedDataFromStorage (RequirementParseResult-like with 'scenes' and 'scene.name')
+      // to StructuredRequirement (with 'sceneList' and 'scene.sceneName')
+      const transformedReq: StructuredRequirement = {
+        contentBeforeScenes: parsedDataFromStorage.contentBeforeScenes || '',
+        contentAfterScenes: parsedDataFromStorage.contentAfterScenes || '',
+        sceneList: parsedDataFromStorage.scenes.map((s: { name: string; content: string; [key: string]: any }) => ({
+          sceneName: s.name, // Map 'name' to 'sceneName'
+          content: s.content,
+          // Other fields in StructuredScene like analysisResult, isOptimize, optimizedContent
+          // are not typically in RequirementParseResult.scenes. They will be undefined if not present in 's'.
+          analysisResult: s.analysisResult, 
+          isOptimize: s.isOptimize,
+          optimizedContent: s.optimizedContent,
+        })),
+      };
+
+      setRequirement(transformedReq);
+      
+      console.log(`系统 ${selectedSystemId} 需求数据加载成功 (transformed):`, {
+        contentBeforeScenesLength: transformedReq.contentBeforeScenes?.length ?? 0,
+        contentAfterScenesLength: transformedReq.contentAfterScenes?.length ?? 0,
+        sceneCount: transformedReq.sceneList.length // Use transformedReq for logging
+      });
     } catch (e) {
-      console.error('加载需求数据失败:', e)
+      console.error('加载需求数据失败:', e);
+      setRequirement(null); // Ensure requirement is null on error
       toast({
         title: "加载失败",
         description: e instanceof Error ? e.message : "无法加载需求数据",
         variant: "destructive",
         duration: 3000
-      })
+      });
     }
-  }, [selectedSystemId])
+  }, [selectedSystemId, toast]); // Removed 'requirement' from dependencies to avoid re-triggering on setRequirement
 
   // 加载当前系统的信息架构
   useEffect(() => {
