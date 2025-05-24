@@ -161,9 +161,7 @@ export default function BookWritingPage() {
           }
           
           if (shouldSave) {
-            store.saveCurrentSystemToRedis()
-              .then(() => console.log('成功保存系统数据到Redis'))
-              .catch(error => console.error('保存系统数据到Redis失败:', error));
+            console.log('[BookWritingPage Unmount] Relying on store setters and beforeunload for final save.');
           }
         } catch (error) {
           console.error('页面卸载时保存数据处理失败:', error);
