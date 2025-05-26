@@ -1715,7 +1715,7 @@ export default function SceneAnalysisPage() {
                                       li: ({children}: {children: React.ReactNode}) => <li className="text-sm text-gray-600">{children}</li>
                                     }}
                                   >
-                                    {cleanSceneContentForDisplay(scene.name, scene.content)}
+                                    {String(cleanSceneContentForDisplay(scene.name, scene.content))}
                                   </ReactMarkdown>
                                 )}
                               </div>
@@ -1756,7 +1756,7 @@ export default function SceneAnalysisPage() {
                                             p: ({children}: {children: React.ReactNode}) => <p className="text-sm mb-2 text-orange-700">{children}</p>
                                           }}
                                         >
-                                          {sceneState?.analysisResult || (isCurrentlySelected ? analysisResult : '') || sceneState?.tempResult || ''}
+                                          {String(sceneState?.analysisResult || (isCurrentlySelected ? analysisResult : '') || sceneState?.tempResult || '')}
                                         </ReactMarkdown>
                                       )}
                                     </div>
@@ -1845,7 +1845,7 @@ export default function SceneAnalysisPage() {
                                             pre: ({children}: {children: React.ReactNode}) => <pre className="bg-gray-50 rounded-lg p-3 my-2 overflow-auto text-sm">{children}</pre>
                                           }}
                                         >
-                                          {sceneStates[scene.name]?.optimizeResult}
+                                          {String(sceneStates[scene.name]?.optimizeResult)}
                                         </ReactMarkdown>
                                         <div className="flex items-center justify-center py-4 mt-2 bg-gray-50 rounded-md">
                                           <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
@@ -1886,7 +1886,7 @@ export default function SceneAnalysisPage() {
                                             pre: ({children}: {children: React.ReactNode}) => <pre className="bg-gray-50 rounded-lg p-3 my-2 overflow-auto text-sm">{children}</pre>
                                           }}
                                         >
-                                          {resultContent}
+                                          {String(resultContent)}
                                         </ReactMarkdown>
                                       );
                                     })()}
