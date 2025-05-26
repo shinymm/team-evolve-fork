@@ -167,6 +167,7 @@ model System {
   requirementTemplate RequirementTemplate?
   requirementActions RequirementAction[]
   uploadedImages   UploadedImage[]  // 添加上传图片关联
+  requirementFiles RequirementFile[] // 添加需求文件关联
 
   @@index([status])
 }
@@ -189,6 +190,24 @@ model UploadedImage {
   
   @@index([systemId]) // 索引系统ID以加速查询
   @@index([ossKey])   // 索引OSS key
+}
+
+// 需求文件模型
+model RequirementFile {
+  id          String   @id @default(cuid())
+  name        String   // 文件名
+  systemId    String   // 关联的系统ID
+  qwenFileId  String   // Qwen API返回的文件ID
+  mimeType    String   // 文件MIME类型
+  uploadedBy  String   // 上传用户ID
+  uploadedAt  DateTime @default(now())
+  
+  // 关联系统
+  system      System   @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  
+  @@index([systemId])
+  @@index([uploadedBy])
+  @@map("requirement_files")
 }
 
 // 产品信息模型

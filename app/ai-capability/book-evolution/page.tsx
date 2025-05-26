@@ -108,27 +108,6 @@ export default function RequirementAnalysis() {
   const { toast } = useToast()
   const router = useRouter()
 
-  // 页面加载后打印数据状态
-  useEffect(() => {
-    // 延迟执行以确保数据加载完成
-    const timer = setTimeout(() => {
-      // 安全地获取长度，避免undefined错误
-      const requirementLength = requirement ? requirement.length : 0
-      const pinnedAnalysisLength = pinnedAnalysis ? pinnedAnalysis.length : 0
-      const currentAnalysisLength = analysis ? analysis.length : 0
-      
-      console.log('当前数据状态:', {
-        系统ID: currentSystemId,
-        需求内容长度: requirementLength,
-        固定分析内容长度: pinnedAnalysisLength,
-        是否固定: isPinned,
-        当前分析内容长度: currentAnalysisLength
-      })
-    }, 1000)
-    
-    return () => clearTimeout(timer)
-  }, [currentSystemId, requirement, pinnedAnalysis, isPinned, analysis])
-
   // 页面卸载时保存数据到Redis
   useEffect(() => {
     return () => {

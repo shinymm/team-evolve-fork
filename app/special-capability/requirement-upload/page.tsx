@@ -44,11 +44,12 @@ import './requirement-styles.css'
 
 // 已上传文件类型定义
 type UploadedFile = {
-  id: string;
+  id: string; // 这个将是数据库记录的ID
   name: string;
   uploadTime: Date;
-  selected?: boolean;  // 新增：是否被选中
-  provider: string; // 新增：文件提供者
+  selected?: boolean;
+  qwenFileId: string; // 阿里云返回的实际文件ID
+  mimeType: string; // 文件的MIME类型
 };
 
 // 修改TabType定义
@@ -329,6 +330,7 @@ export default function RequirementUpload() {
   const terminologyTextRef = useRef<string>('')
   const architectureContentRef = useRef<HTMLDivElement>(null)
   const { systems, selectedSystemId } = useSystemStore()
+  const UPLOADED_BY_PLACEHOLDER = '43170448'; // 假设的上传者ID
   
   // 批处理设置参数
   const batchSizeRef = useRef<number>(200); // 默认批量大小
@@ -381,33 +383,47 @@ export default function RequirementUpload() {
     return () => clearInterval(timer);
   }, [processing]);
 
-  // 获取已上传文件列表
+  // 获取已上传文件列表 - 从数据库获取
   useEffect(() => {
-    // 从localStorage恢复已上传文件列表
-    const storedFiles = localStorage.getItem('uploaded-requirement-files')
-    if (storedFiles) {
-      try {
-        const parsedFiles = JSON.parse(storedFiles)
-        // 将字符串日期转换回Date对象
-        const filesWithDates = parsedFiles.map((file: any) => ({
-          ...file,
-          uploadTime: new Date(file.uploadTime),
-          selected: parsedFiles.length === 1 ? true : false, // 只有一个文件时默认选中
-          provider: file.provider || 'openai' // 记录文件提供者
-        }))
-        setUploadedFiles(filesWithDates)
-      } catch (e) {
-        console.error('Failed to parse stored files:', e)
-      }
+    if (!selectedSystemId) {
+      // 如果没有选择系统，则不加载文件，或清空现有文件列表
+      setUploadedFiles([]);
+      return;
     }
-  }, [])
 
-  // 当上传文件列表变化时，保存到localStorage
-  useEffect(() => {
-    if (uploadedFiles.length > 0) {
-      localStorage.setItem('uploaded-requirement-files', JSON.stringify(uploadedFiles))
-    }
-  }, [uploadedFiles])
+    const fetchFiles = async () => {
+      try {
+        console.log(`Fetching files for systemId: ${selectedSystemId}`);
+        const response = await fetch(`/api/requirement-files?systemId=${selectedSystemId}`);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || '获取文件列表失败');
+        }
+        const data = await response.json();
+        // 将从API获取的数据转换为UploadedFile格式
+        const filesFromDb: UploadedFile[] = data.files.map((file: any) => ({
+          id: file.id, // 数据库记录的ID
+          name: file.name,
+          uploadTime: new Date(file.uploadedAt),
+          selected: data.files.length === 1, // 只有一个文件时默认选中
+          qwenFileId: file.qwenFileId,
+          mimeType: file.mimeType,
+        }));
+        setUploadedFiles(filesFromDb);
+        console.log('Fetched files from DB:', filesFromDb);
+      } catch (e) {
+        console.error('Failed to fetch files from DB:', e);
+        toast({
+          title: "获取文件列表失败",
+          description: e instanceof Error ? e.message : "未知错误",
+          variant: "destructive",
+        });
+        setUploadedFiles([]); // 出错时清空列表
+      }
+    };
+
+    fetchFiles();
+  }, [selectedSystemId, toast]); // 当 selectedSystemId 改变时重新获取
 
   const validateAndSetFile = (selectedFile: File) => {
     // 支持的文件类型列表
@@ -490,65 +506,106 @@ export default function RequirementUpload() {
 
   const handleUploadFile = async (fileToUpload: File) => {
     if (!fileToUpload) {
-      setError('请先选择文件')
-      return
+      setError('请先选择文件');
+      return;
+    }
+    if (!selectedSystemId) {
+      setError('请先选择一个系统以上传文件');
+      toast({
+        title: "上传失败",
+        description: "请先在右上角选择一个系统。",
+        variant: "destructive",
+      });
+      setUploading(false);
+      return;
     }
 
-    setUploading(true)
-    setError('')
+    setUploading(true);
+    setError('');
 
     try {
-      const formData = new FormData()
-      formData.append('file', fileToUpload)
+      const formData = new FormData();
+      formData.append('file', fileToUpload);
 
-      console.log(`正在上传文件...`)
-
-      const response = await fetch('/api/upload-requirement', {
+      console.log(`正在通过 /api/upload-requirement 上传文件到阿里云...`);
+      const aliUploadResponse = await fetch('/api/upload-requirement', {
         method: 'POST',
         body: formData
-      })
+      });
 
-      const result = await response.json()
+      const aliResult = await aliUploadResponse.json();
 
-      if (!response.ok) {
-        throw new Error(result.error || '上传失败')
+      if (!aliUploadResponse.ok) {
+        throw new Error(aliResult.error || '上传到阿里云失败');
       }
+      console.log('阿里云上传成功:', aliResult);
 
-      console.log('上传成功:', result)
+      // 文件成功上传到阿里云后，将其元数据保存到数据库
+      const fileMetadata = {
+        name: aliResult.file.name,
+        systemId: selectedSystemId,
+        qwenFileId: aliResult.file.id, // 这是从阿里云API获取的ID
+        mimeType: fileToUpload.type || aliResult.file.mime_type, // 优先使用浏览器检测的，否则用API返回的
+        uploadedBy: UPLOADED_BY_PLACEHOLDER, // 需要确定上传者ID
+        // ossKey: null, // ossKey现在是可选的，后端会处理
+      };
 
-      // 添加到文件列表
-      setUploadedFiles(prev => [
-        ...prev,
-        {
-          id: result.file.id,
-          name: result.file.name,
-          uploadTime: new Date(),
-          selected: true,
-          provider: result.file.provider
-        }
-      ])
+      console.log('准备将文件元数据保存到数据库:', fileMetadata);
+      const dbResponse = await fetch('/api/requirement-files', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(fileMetadata),
+      });
+
+      const dbResult = await dbResponse.json();
+
+      if (!dbResponse.ok) {
+        throw new Error(dbResult.error || dbResult.details || '保存文件元数据到数据库失败');
+      }
+      console.log('文件元数据成功保存到数据库:', dbResult);
+
+      // 使用从数据库返回的完整记录更新前端列表
+      const newFileEntry: UploadedFile = {
+        id: dbResult.id, // 数据库生成的ID
+        name: dbResult.name,
+        uploadTime: new Date(dbResult.uploadedAt),
+        selected: true, // 新上传的文件默认选中
+        qwenFileId: dbResult.qwenFileId,
+        mimeType: dbResult.mimeType,
+      };
+      
+      // 取消其他文件的选中状态，确保新上传的为唯一选中 (如果业务需求是单选)
+      // 如果是多选，则直接添加
+      setUploadedFiles(prev => {
+        const updated = prev.map(f => ({ ...f, selected: false }));
+        return [...updated, newFileEntry];
+      });
+
 
       // 重置文件选择
-      setFile(null)
-      setError('')
-      setFileId(result.file.id)
-      setShowUploadDialog(false)
+      setFile(null);
+      setError('');
+      // setFileId(dbResult.id); // fileId 现在是dbResult.id, 但这个状态似乎没在其他地方用
+      setShowUploadDialog(false);
       toast({
         title: "上传成功",
-        description: `文件 ${result.file.name} 已成功上传，文件ID: ${result.file.id}`,
-      })
+        description: `文件 ${dbResult.name} 已成功上传并记录。`,
+      });
+
     } catch (error) {
-      console.error('上传文件出错:', error)
-      setError(error instanceof Error ? error.message : '未知错误')
+      console.error('上传或记录文件出错:', error);
+      setError(error instanceof Error ? error.message : '未知错误');
       toast({
         variant: "destructive",
-        title: "上传失败",
+        title: "操作失败",
         description: error instanceof Error ? error.message : "未知错误",
-      })
+      });
     } finally {
-      setUploading(false)
+      setUploading(false);
     }
-  }
+  };
   
   // 保留原有的handleUpload函数，但修改为使用handleUploadFile
   const handleUpload = async () => {
@@ -560,38 +617,86 @@ export default function RequirementUpload() {
     await handleUploadFile(file);
   }
 
-  const handleDeleteFile = (fileId: string) => {
-    // 从已上传文件列表中移除文件
-    const updatedFiles = uploadedFiles.filter(file => file.id !== fileId)
-    
-    // 如果删除后只剩一个文件，则自动选中
-    if (updatedFiles.length === 1) {
-      updatedFiles[0].selected = true
+  const handleDeleteFile = async (fileIdToDelete: string) => { // fileIdToDelete 现在是数据库记录的 ID
+    console.log(`准备删除数据库文件记录 ID: ${fileIdToDelete}`);
+    try {
+      const response = await fetch(`/api/requirement-files/${fileIdToDelete}`, {
+        method: 'DELETE',
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || '删除文件失败');
+      }
+
+      console.log('文件删除成功:', result);
+
+      // 从已上传文件列表中移除文件
+      const updatedFiles = uploadedFiles.filter(file => file.id !== fileIdToDelete);
+      
+      // 如果删除后只剩一个文件，则自动选中 (如果之前有选中的，需要重新评估选中逻辑)
+      if (updatedFiles.length === 1 && !updatedFiles[0].selected) {
+         updatedFiles[0].selected = true;
+      } else if (updatedFiles.length > 0) {
+        // 检查是否还有选中的文件，如果没有，可以考虑选中第一个
+        const anySelected = updatedFiles.some(f => f.selected);
+        if (!anySelected) {
+          // updatedFiles[0].selected = true; // 或者不自动选择
+        }
+      }
+      
+      setUploadedFiles(updatedFiles);
+      
+      toast({
+        title: "删除成功",
+        description: result.message || "文件已成功删除",
+      });
+
+    } catch (error) {
+      console.error('删除文件失败:', error);
+      toast({
+        variant: "destructive",
+        title: "删除失败",
+        description: error instanceof Error ? error.message : "未知错误",
+      });
     }
-    
-    setUploadedFiles(updatedFiles)
-    
-    // 更新localStorage
-    localStorage.setItem('uploaded-requirement-files', JSON.stringify(updatedFiles))
-    
-    // 显示删除成功的提示
-    toast({
-      title: "删除成功",
-      description: "文件已从列表中移除",
-    });
   };
   
   // 处理文件选择状态变更
-  const handleSelectFile = (fileId: string, checked: boolean) => {
-    // 更新为支持多选功能
-    const updatedFiles = uploadedFiles.map(file => ({
-      ...file,
-      selected: file.id === fileId ? checked : file.selected
-    }))
-    
-    setUploadedFiles(updatedFiles)
-    localStorage.setItem('uploaded-requirement-files', JSON.stringify(updatedFiles))
-  }
+  const handleSelectFile = (fileIdToSelect: string, checked: boolean) => {
+    const currentConfig = TAB_CONFIGS.find(tab => tab.id === activeTab);
+    const maxFiles = currentConfig?.maxFiles;
+
+    setUploadedFiles(prevFiles => {
+      let selectedCount = prevFiles.filter(f => f.selected).length;
+      
+      return prevFiles.map(file => {
+        if (file.id === fileIdToSelect) {
+          if (checked) { // 如果要选中
+            if (maxFiles === 1) { // 单选逻辑
+              return { ...file, selected: true };
+            } else if (maxFiles && selectedCount >= maxFiles) {
+               toast({
+                title: "选择超出限制",
+                description: `此操作最多只能选择 ${maxFiles} 个文件。`,
+              });
+              return file; //保持不变
+            }
+            return { ...file, selected: true };
+          } else { // 如果要取消选中
+            return { ...file, selected: false };
+          }
+        } else { // 其他文件
+          if (maxFiles === 1 && checked) { // 如果当前是单选模式且选中了目标文件，则其他文件应取消选中
+            return { ...file, selected: false };
+          }
+          return file; // 保持不变
+        }
+      });
+    });
+    // localStorage的更新已移除
+  };
 
   // 统一的文档处理函数
   const handleProcessDocument = async (tabId: TabType, options?: { requirementChapter?: string }) => {
@@ -645,7 +750,7 @@ export default function RequirementUpload() {
       const config = TAB_CONFIGS.find(c => c.id === tabId)
       if (!config) return
 
-      const fileIds = selectedFiles.map(file => file.id)
+      const fileIds = selectedFiles.map(file => file.qwenFileId)
       
       // 用于累积内容的变量
       let accumulatedContent = ''
@@ -1350,7 +1455,10 @@ export default function RequirementUpload() {
                             文件名
                           </th>
                           <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            文件ID
+                            文件ID (DB)
+                          </th>
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            QwenFileID
                           </th>
                           <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             上传时间
@@ -1375,7 +1483,10 @@ export default function RequirementUpload() {
                               {file.name}
                             </td>
                             <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
-                              {file.id}
+                              {file.id} {/* 显示数据库的ID */}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
+                              {file.qwenFileId} {/* 显示Qwen的ID */}
                             </td>
                             <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
                               {file.uploadTime.toLocaleString('zh-CN')}
