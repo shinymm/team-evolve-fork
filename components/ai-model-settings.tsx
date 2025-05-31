@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import VectorSettings from '@/components/vector-settings'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useTranslations } from 'next-intl'
 import type { AIModelConfig } from '@/lib/services/ai-service'
 import { streamingAICall } from '@/lib/services/ai-service'
 import { 
@@ -61,6 +62,7 @@ const visionModelPresets = [
 ]
 
 export function AIModelSettings({ onStatusChange }: { onStatusChange?: (loading: boolean) => void }) {
+  const t = useTranslations('AIModelSettings')
   const [languageConfigs, setLanguageConfigs] = useState<AIModelConfig[]>([])
   const [visionConfigs, setVisionConfigs] = useState<AIModelConfig[]>([])
   const [showAddForm, setShowAddForm] = useState(false)
@@ -89,14 +91,14 @@ export function AIModelSettings({ onStatusChange }: { onStatusChange?: (loading:
       }
     } catch (error) {
       toast({
-        title: `加载${type === 'language' ? '语言' : '视觉'}模型配置失败`,
-        description: error instanceof Error ? error.message : '加载配置时发生错误',
+        title: t('messages.loadFailed', { type: type === 'language' ? '语言' : '视觉' }),
+        description: error instanceof Error ? error.message : t('messages.loadFailedDetail'),
         variant: 'destructive',
       })
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [t])
 
   // 加载所有配置
   const loadAllConfigs = useCallback(async () => {
@@ -135,8 +137,8 @@ export function AIModelSettings({ onStatusChange }: { onStatusChange?: (loading:
   const handleAddConfig = useCallback(async () => {
     if (!newConfig.name || !newConfig.baseURL || !newConfig.apiKey || !newConfig.model) {
       toast({
-        title: '验证失败',
-        description: 'API地址、模型名称、模型类型和API Key是必填项',
+        title: t('messages.validationFailed'),
+        description: t('messages.requiredFields'),
         variant: 'destructive',
       })
       return
@@ -166,17 +168,17 @@ export function AIModelSettings({ onStatusChange }: { onStatusChange?: (loading:
       setShowAddForm(false)
       
       toast({
-        title: '添加成功',
-        description: '新的AI模型配置已添加',
+        title: t('messages.addSuccess'),
+        description: t('messages.addSuccessDetail'),
       })
     } catch (error) {
       toast({
-        title: '添加失败',
-        description: error instanceof Error ? error.message : '添加配置时发生错误',
+        title: t('messages.addFailed'),
+        description: error instanceof Error ? error.message : t('messages.addFailedDetail'),
         variant: 'destructive',
       })
     }
-  }, [newConfig, loadConfigsByType])
+  }, [newConfig, loadConfigsByType, t])
 
   // 删除配置
   const handleDeleteConfig = useCallback(async (id: string, type: string = 'language') => {
@@ -198,17 +200,17 @@ export function AIModelSettings({ onStatusChange }: { onStatusChange?: (loading:
       })
       
       toast({
-        title: '删除成功',
-        description: 'AI模型配置已删除',
+        title: t('messages.deleteSuccess'),
+        description: t('messages.deleteSuccessDetail'),
       })
     } catch (error) {
       toast({
-        title: '删除失败',
-        description: error instanceof Error ? error.message : '删除配置时发生错误',
+        title: t('messages.deleteFailed'),
+        description: error instanceof Error ? error.message : t('messages.deleteFailedDetail'),
         variant: 'destructive',
       })
     }
-  }, [loadConfigsByType])
+  }, [loadConfigsByType, t])
 
   // 设置默认配置
   const handleSetDefault = useCallback(async (id: string, type: string = 'language') => {
@@ -225,19 +227,19 @@ export function AIModelSettings({ onStatusChange }: { onStatusChange?: (loading:
       }
       
       toast({
-        title: '已更新默认配置',
-        description: 'AI模型默认配置已更新',
+        title: t('messages.defaultUpdated'),
+        description: t('messages.defaultUpdatedDetail'),
       })
     } catch (error) {
       toast({
-        title: '设置失败',
-        description: error instanceof Error ? error.message : '设置默认配置时发生错误',
+        title: t('messages.defaultFailed'),
+        description: error instanceof Error ? error.message : t('messages.defaultFailedDetail'),
         variant: 'destructive',
       })
     } finally {
       setIsLoading(false)
     }
-  }, [loadConfigsByType])
+  }, [loadConfigsByType, t])
 
   // 测试连接
   const handleTestConfig = useCallback(async (config: AIModelConfig) => {
@@ -260,7 +262,7 @@ export function AIModelSettings({ onStatusChange }: { onStatusChange?: (loading:
           console.error('测试连接失败:', error)
           setTestResults(prev => ({ ...prev, [config.id as string]: false }))
           toast({
-            title: '测试失败',
+            title: t('messages.testFailed'),
             description: error,
             variant: 'destructive',
           })
@@ -269,8 +271,11 @@ export function AIModelSettings({ onStatusChange }: { onStatusChange?: (loading:
       
       if (responseContent) {
         toast({
-          title: '测试成功',
-          description: `成功连接到${config.name}\n模型返回：${responseContent}`,
+          title: t('messages.testSuccess'),
+          description: t('messages.testSuccessDetail', { 
+            name: config.name,
+            response: responseContent
+          }),
         })
       }
     } catch (error) {
@@ -279,14 +284,14 @@ export function AIModelSettings({ onStatusChange }: { onStatusChange?: (loading:
         [config.id as string]: false 
       }))
       toast({
-        title: '测试失败',
-        description: error instanceof Error ? error.message : '无法连接到AI服务',
+        title: t('messages.testFailed'),
+        description: error instanceof Error ? error.message : t('messages.testFailedDetail'),
         variant: 'destructive',
       })
     } finally {
       setTestingId(null)
     }
-  }, [])
+  }, [t])
 
   // 生成配置表格行
   const generateConfigRows = useCallback((configs: AIModelConfig[], type: string = 'language') => {
@@ -330,12 +335,12 @@ export function AIModelSettings({ onStatusChange }: { onStatusChange?: (loading:
                 {testingId === config.id ? (
                   <>
                     <Zap className="mr-1 h-3 w-3 animate-spin" />
-                    测试中...
+                    {t('actions.testing')}
                   </>
                 ) : (
                   <>
                     <Zap className="mr-1 h-3 w-3" />
-                    测试连接
+                    {t('actions.testConnection')}
                   </>
                 )}
               </Button>
@@ -353,7 +358,7 @@ export function AIModelSettings({ onStatusChange }: { onStatusChange?: (loading:
         </TableRow>
       );
     }).filter(Boolean)
-  }, [testingId, testResults, handleTestConfig, handleDeleteConfig, handleSetDefault])
+  }, [testingId, testResults, handleTestConfig, handleDeleteConfig, handleSetDefault, t])
 
   // 生成语言模型的配置行
   const languageConfigRows = useMemo(() => {
@@ -375,7 +380,7 @@ export function AIModelSettings({ onStatusChange }: { onStatusChange?: (loading:
     return (
       <div className="space-y-3 border p-3 rounded-md bg-slate-50">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-sm font-semibold">添加新配置</h2>
+          <h2 className="text-sm font-semibold">{t('addForm.title')}</h2>
           <div className="flex space-x-2">
             <Button 
               size="sm" 
@@ -383,7 +388,7 @@ export function AIModelSettings({ onStatusChange }: { onStatusChange?: (loading:
               className="h-7 text-xs"
               onClick={() => setCurrentModelType('language')}
             >
-              语言模型
+              {t('addForm.modelTypes.language')}
             </Button>
             <Button 
               size="sm" 
@@ -391,16 +396,16 @@ export function AIModelSettings({ onStatusChange }: { onStatusChange?: (loading:
               className="h-7 text-xs"
               onClick={() => setCurrentModelType('vision')}
             >
-              视觉模型
+              {t('addForm.modelTypes.vision')}
             </Button>
           </div>
         </div>
         <div className="space-y-2">
           <div className="grid grid-cols-[100px,1fr] items-center gap-3">
-            <Label htmlFor="ai-preset" className="text-xs">预设模型</Label>
+            <Label htmlFor="ai-preset" className="text-xs">{t('addForm.fields.preset')}</Label>
             <Select onValueChange={handlePresetChange}>
               <SelectTrigger id="ai-preset" className="h-8 text-sm">
-                <SelectValue placeholder="选择预设" />
+                <SelectValue placeholder={t('addForm.fields.presetPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {presetList.map(provider => (
@@ -417,52 +422,52 @@ export function AIModelSettings({ onStatusChange }: { onStatusChange?: (loading:
           </div>
 
           <div className="grid grid-cols-[100px,1fr] items-center gap-3">
-            <Label htmlFor="ai-name" className="text-xs">名称</Label>
+            <Label htmlFor="ai-name" className="text-xs">{t('addForm.fields.name')}</Label>
             <Input
               id="ai-name"
               value={newConfig.name || ''}
               onChange={(e) => setNewConfig(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="例如: OpenAI GPT-4"
+              placeholder={t('addForm.fields.namePlaceholder')}
               className="h-8 text-sm"
             />
           </div>
 
           <div className="grid grid-cols-[100px,1fr] items-center gap-3">
-            <Label htmlFor="ai-model" className="text-xs">模型名称</Label>
+            <Label htmlFor="ai-model" className="text-xs">{t('addForm.fields.model')}</Label>
             <Input
               id="ai-model"
               value={newConfig.model || ''}
               onChange={(e) => setNewConfig(prev => ({ ...prev, model: e.target.value }))}
-              placeholder="例如: gpt-4-turbo, text-embedding-3-small"
+              placeholder={t('addForm.fields.modelPlaceholder')}
               className="h-8 text-sm"
             />
           </div>
 
           <div className="grid grid-cols-[100px,1fr] items-center gap-3">
-            <Label htmlFor="ai-url" className="text-xs">API 地址</Label>
+            <Label htmlFor="ai-url" className="text-xs">{t('addForm.fields.apiUrl')}</Label>
             <Input
               id="ai-url"
               value={newConfig.baseURL || ''}
               onChange={(e) => setNewConfig(prev => ({ ...prev, baseURL: e.target.value }))}
-              placeholder="例如: https://api.openai.com/v1"
+              placeholder={t('addForm.fields.apiUrlPlaceholder')}
               className="h-8 text-sm"
             />
           </div>
 
           <div className="grid grid-cols-[100px,1fr] items-center gap-3">
-            <Label htmlFor="ai-api-key" className="text-xs">API Key</Label>
+            <Label htmlFor="ai-api-key" className="text-xs">{t('addForm.fields.apiKey')}</Label>
             <Input
               id="ai-api-key"
               type="password"
               value={newConfig.apiKey || ''}
               onChange={(e) => setNewConfig(prev => ({ ...prev, apiKey: e.target.value }))}
-              placeholder="输入您的API密钥"
+              placeholder={t('addForm.fields.apiKeyPlaceholder')}
               className="h-8 text-sm"
             />
           </div>
 
           <div className="grid grid-cols-[100px,1fr] items-center gap-3">
-            <Label htmlFor="ai-temperature" className="text-xs">温度</Label>
+            <Label htmlFor="ai-temperature" className="text-xs">{t('addForm.fields.temperature')}</Label>
             <Input
               id="ai-temperature"
               type="number"
@@ -471,23 +476,23 @@ export function AIModelSettings({ onStatusChange }: { onStatusChange?: (loading:
               step="0.1"
               value={newConfig.temperature || 0.7}
               onChange={(e) => setNewConfig(prev => ({ ...prev, temperature: parseFloat(e.target.value) }))}
-              placeholder="输入温度值（0-1之间）"
+              placeholder={t('addForm.fields.temperaturePlaceholder')}
               className="h-8 text-sm"
             />
           </div>
 
           <div className="flex justify-end gap-2 mt-3">
             <Button variant="outline" size="sm" onClick={() => setShowAddForm(false)}>
-              取消
+              {t('addForm.buttons.cancel')}
             </Button>
             <Button size="sm" onClick={handleAddConfig}>
-              添加
+              {t('addForm.buttons.add')}
             </Button>
           </div>
         </div>
       </div>
     )
-  }, [showAddForm, newConfig, currentModelType, handlePresetChange, handleAddConfig])
+  }, [showAddForm, newConfig, currentModelType, handlePresetChange, handleAddConfig, t])
 
   return (
     <Tabs
@@ -496,8 +501,8 @@ export function AIModelSettings({ onStatusChange }: { onStatusChange?: (loading:
       className="w-full"
     >
       <TabsList className="mb-6">
-        <TabsTrigger value="models">AI模型设置</TabsTrigger>
-        <TabsTrigger value="vector">向量模型设置</TabsTrigger>
+        <TabsTrigger value="models">{t('tabs.models')}</TabsTrigger>
+        <TabsTrigger value="vector">{t('tabs.vector')}</TabsTrigger>
       </TabsList>
       
       <TabsContent value="models">
@@ -505,15 +510,15 @@ export function AIModelSettings({ onStatusChange }: { onStatusChange?: (loading:
           <CardHeader className="pb-6">
             <div className="flex justify-between items-center">
               <div>
-                <CardTitle className="text-xl font-bold mb-3">AI模型配置</CardTitle>
+                <CardTitle className="text-xl font-bold mb-3">{t('card.title')}</CardTitle>
                 <CardDescription className="text-base">
-                  配置不同的AI模型服务，用于问答和聊天功能
+                  {t('card.description')}
                 </CardDescription>
               </div>
               {!showAddForm && (
                 <Button size="sm" onClick={() => setShowAddForm(true)}>
                   <Plus className="mr-2 h-4 w-4" />
-                  添加配置
+                  {t('card.addButton')}
                 </Button>
               )}
             </div>
@@ -524,18 +529,18 @@ export function AIModelSettings({ onStatusChange }: { onStatusChange?: (loading:
               
               {/* 语言模型配置表格 */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold">语言模型</h3>
+                <h3 className="text-lg font-semibold">{t('modelSections.language')}</h3>
                 {languageConfigs.length > 0 ? (
                   <div className="border rounded-md">
                     <Table>
                       <TableHeader>
                         <TableRow className="hover:bg-transparent">
-                          <TableHead className="h-8 text-xs">名称</TableHead>
-                          <TableHead className="h-8 text-xs">模型</TableHead>
-                          <TableHead className="h-8 text-xs">API地址</TableHead>
-                          <TableHead className="h-8 text-xs">温度</TableHead>
-                          <TableHead className="h-8 text-xs">默认</TableHead>
-                          <TableHead className="h-8 text-xs">操作</TableHead>
+                          <TableHead className="h-8 text-xs">{t('tableHeaders.name')}</TableHead>
+                          <TableHead className="h-8 text-xs">{t('tableHeaders.model')}</TableHead>
+                          <TableHead className="h-8 text-xs">{t('tableHeaders.apiUrl')}</TableHead>
+                          <TableHead className="h-8 text-xs">{t('tableHeaders.temperature')}</TableHead>
+                          <TableHead className="h-8 text-xs">{t('tableHeaders.default')}</TableHead>
+                          <TableHead className="h-8 text-xs">{t('tableHeaders.actions')}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -545,25 +550,25 @@ export function AIModelSettings({ onStatusChange }: { onStatusChange?: (loading:
                   </div>
                 ) : (
                   <div className="text-center py-4 text-muted-foreground border rounded-md">
-                    暂无语言模型配置，请添加新的配置
+                    {t('modelSections.noLanguageModels')}
                   </div>
                 )}
               </div>
               
               {/* 视觉模型配置表格 */}
               <div className="space-y-4 mt-8">
-                <h3 className="text-lg font-semibold">视觉模型</h3>
+                <h3 className="text-lg font-semibold">{t('modelSections.vision')}</h3>
                 {visionConfigs.length > 0 ? (
                   <div className="border rounded-md">
                     <Table>
                       <TableHeader>
                         <TableRow className="hover:bg-transparent">
-                          <TableHead className="h-8 text-xs">名称</TableHead>
-                          <TableHead className="h-8 text-xs">模型</TableHead>
-                          <TableHead className="h-8 text-xs">API地址</TableHead>
-                          <TableHead className="h-8 text-xs">温度</TableHead>
-                          <TableHead className="h-8 text-xs">默认</TableHead>
-                          <TableHead className="h-8 text-xs">操作</TableHead>
+                          <TableHead className="h-8 text-xs">{t('tableHeaders.name')}</TableHead>
+                          <TableHead className="h-8 text-xs">{t('tableHeaders.model')}</TableHead>
+                          <TableHead className="h-8 text-xs">{t('tableHeaders.apiUrl')}</TableHead>
+                          <TableHead className="h-8 text-xs">{t('tableHeaders.temperature')}</TableHead>
+                          <TableHead className="h-8 text-xs">{t('tableHeaders.default')}</TableHead>
+                          <TableHead className="h-8 text-xs">{t('tableHeaders.actions')}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -573,7 +578,7 @@ export function AIModelSettings({ onStatusChange }: { onStatusChange?: (loading:
                   </div>
                 ) : (
                   <div className="text-center py-4 text-muted-foreground border rounded-md">
-                    暂无视觉模型配置，请添加新的配置
+                    {t('modelSections.noVisionModels')}
                   </div>
                 )}
               </div>

@@ -16,6 +16,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { StructuredRequirement, StructuredScene } from '@/lib/services/requirement-export-service'
+import { useTranslations } from 'next-intl'
 
 interface TestCase {
   type: string
@@ -26,6 +27,7 @@ interface TestCase {
 }
 
 export function TestCaseAssistant() {
+  const t = useTranslations('TestCaseAssistant')
   const [requirements, setRequirements] = useState('')
   const [result, setResult] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
@@ -129,22 +131,22 @@ export function TestCaseAssistant() {
           setResult(generatedResult)
         },
         (error: string) => {
-          throw new Error(`测试用例生成失败: ${error}`)
+          throw new Error(`${t('generateFailed')}: ${error}`)
         }
       )
 
       setIsOutputComplete(true)
       toast({
-        title: "生成完成",
-        description: "测试用例已生成，请查看结果",
+        title: t('generateSuccess'),
+        description: t('generateSuccessDesc'),
         duration: 3000
       })
     } catch (error) {
       console.error('Generation error:', error)
       toast({
         variant: "destructive",
-        title: "生成失败",
-        description: error instanceof Error ? error.message : "未知错误",
+        title: t('generateFailed'),
+        description: error instanceof Error ? error.message : t('unknownError'),
         duration: 3000
       })
     } finally {
@@ -156,16 +158,16 @@ export function TestCaseAssistant() {
     try {
       await navigator.clipboard.writeText(result)
       toast({
-        title: "复制成功",
-        description: "YAML内容已复制到剪贴板",
+        title: t('copySuccess'),
+        description: t('copyYAMLSuccessDesc'),
         duration: 3000
       })
     } catch (error) {
       console.error('Copy error:', error)
       toast({
         variant: "destructive",
-        title: "复制失败",
-        description: "无法访问剪贴板",
+        title: t('copyFailed'),
+        description: t('copyFailedDesc'),
         duration: 3000
       })
     }
@@ -174,7 +176,7 @@ export function TestCaseAssistant() {
   const handleCopyTable = async () => {
     try {
       // 生成TSV格式（Excel可以直接粘贴）
-      const header = ['类型', '用例概述', '前提条件', '用例步骤', '预期结果'].join('\t')
+      const header = [t('type'), t('summary'), t('preconditions'), t('steps'), t('expectedResult')].join('\t')
       const rows = parsedTestCases.map(testCase => {
         // 处理步骤中的换行，将其替换为分号加空格
         const steps = testCase?.steps?.replace(/\n/g, '; ') || ''
@@ -192,16 +194,16 @@ export function TestCaseAssistant() {
       await navigator.clipboard.writeText(tableContent)
       
       toast({
-        title: "复制成功",
-        description: "表格内容已复制到剪贴板",
+        title: t('copySuccess'),
+        description: t('copyTableSuccessDesc'),
         duration: 3000
       })
     } catch (error) {
       console.error('Copy table error:', error)
       toast({
         variant: "destructive",
-        title: "复制失败",
-        description: "无法访问剪贴板",
+        title: t('copyFailed'),
+        description: t('copyFailedDesc'),
         duration: 3000
       })
     }
@@ -217,7 +219,7 @@ export function TestCaseAssistant() {
 
       <div className="space-y-1">
         <div className="flex items-center justify-between">
-          <h2 className="text-m font-semibold">请输入需求描述：</h2>
+          <h2 className="text-m font-semibold">{t('inputTitle')}</h2>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button
@@ -225,21 +227,21 @@ export function TestCaseAssistant() {
                 size="sm"
                 className="h-7 px-2 text-sm text-gray-500 hover:text-gray-700"
               >
-                从缓存中加载场景
+                {t('loadFromCache')}
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>选择要加载的场景</DialogTitle>
+                <DialogTitle>{t('selectSceneTitle')}</DialogTitle>
               </DialogHeader>
               <Select value={selectedScene} onValueChange={handleSceneSelect} name="test-case-scene-select">
                 <SelectTrigger>
-                  <SelectValue placeholder="选择要拆解的场景" />
+                  <SelectValue placeholder={t('selectScenePlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {scenes.map((scene: StructuredScene, index: number) => (
                     <SelectItem key={index} value={String(index)}>
-                      {`场景${index + 1}: ${scene.sceneName}` || `场景 ${index + 1}`}
+                      {`${t('scene')}${index + 1}: ${scene.sceneName}` || `${t('scene')} ${index + 1}`}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -248,7 +250,7 @@ export function TestCaseAssistant() {
           </Dialog>
         </div>
         <Textarea
-          placeholder="请输入需求描述、核心功能、边界场景及处理方式等信息..."
+          placeholder={t('inputPlaceholder')}
           value={requirements}
           onChange={(e) => setRequirements(e.target.value)}
           className="min-h-[100px] w-full"
@@ -264,10 +266,10 @@ export function TestCaseAssistant() {
           {isGenerating ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              生成中...
+              {t('generating')}
             </>
           ) : (
-            '生成测试用例'
+            t('generateButton')
           )}
         </Button>
       </div>
@@ -280,23 +282,23 @@ export function TestCaseAssistant() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  title="重置所有修改"
+                  title={t('reset')}
                   disabled={!isOutputComplete}
                 >
                   <RotateCcw className="h-4 w-4 mr-1" />
-                  重置
+                  {t('reset')}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>确认重置?</AlertDialogTitle>
+                  <AlertDialogTitle>{t('confirmReset')}</AlertDialogTitle>
                   <AlertDialogDescription>
-                    此操作将丢弃所有修改，恢复到原始内容。此操作无法撤销。
+                    {t('resetConfirmDesc')}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>取消</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleReset}>确认重置</AlertDialogAction>
+                  <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleReset}>{t('confirmReset')}</AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
@@ -304,33 +306,33 @@ export function TestCaseAssistant() {
               variant="ghost"
               size="sm"
               onClick={handleCopyTable}
-              title="复制为表格格式"
+              title={t('copyTable')}
               disabled={!isOutputComplete}
             >
               <Copy className="h-4 w-4 mr-1" />
-              复制表格
+              {t('copyTable')}
             </Button>
             <Button
               variant="ghost"
               size="sm"
               onClick={handleCopyYaml}
-              title="复制YAML格式"
+              title={t('copyYAML')}
               disabled={!isOutputComplete}
             >
               <Copy className="h-4 w-4 mr-1" />
-              复制YAML
+              {t('copyYAML')}
             </Button>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类型</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">概述</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">前提条件</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">步骤</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">预期结果</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('type')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('summary')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('preconditions')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('steps')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('expectedResult')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('actions')}</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -360,15 +362,15 @@ export function TestCaseAssistant() {
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>确认删除?</AlertDialogTitle>
+                            <AlertDialogTitle>{t('confirmDelete')}</AlertDialogTitle>
                             <AlertDialogDescription>
-                              此操作将删除该测试用例。此操作无法撤销。
+                              {t('deleteConfirmDesc')}
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
-                            <AlertDialogCancel>取消</AlertDialogCancel>
+                            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
                             <AlertDialogAction onClick={() => handleDeleteTestCase(index)}>
-                              确认删除
+                              {t('confirmDelete')}
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>

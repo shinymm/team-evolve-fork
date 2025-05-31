@@ -27,6 +27,7 @@ import {
   optimizeBoundary, 
   chatWithAI 
 } from '@/lib/services/editor-action-service';
+import { useTranslations } from 'next-intl';
 
 interface BubbleMenuProps {
   editor: Editor;
@@ -73,6 +74,12 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
     startX: 0,
     startY: 0
   });
+  const [selectedText, setSelectedText] = useState('');
+  const [resultPanelOpen, setResultPanelOpen] = useState(false);
+  const [resultPanelMode, setResultPanelMode] = 
+    useState<'polish' | 'expand' | 'chat' | 'boundary-analysis' | 'boundary-optimize'>('polish');
+  const [chatMode, setChatMode] = useState(false);
+  const t = useTranslations('TiptapEditor');
 
   // 重置结果状态
   const resetResult = () => {
@@ -145,7 +152,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
     return { x: 0, y: 0, useFixed: false };
   };
 
-  // 处理润色文本
+  // 处理润色功能
   const handlePolish = async () => {
     // 获取选中的文本
     const { from, to } = editor.state.selection;
@@ -188,7 +195,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
           setResult(prev => ({ 
             ...prev, 
             loading: false, 
-            content: `润色过程出现错误，请重试：${error}`
+            content: `${t('resultPanel.polishing')}${error}`
           }));
         }
       );
@@ -197,7 +204,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
     }
   };
 
-  // 处理扩写文本
+  // 处理扩写功能
   const handleExpand = async () => {
     // 获取选中的文本
     const { from, to } = editor.state.selection;
@@ -240,7 +247,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
           setResult(prev => ({ 
             ...prev, 
             loading: false, 
-            content: `扩写过程出现错误，请重试：${error}`
+            content: `${t('resultPanel.expanding')}${error}`
           }));
         }
       );
@@ -249,7 +256,111 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
     }
   };
 
-  // 处理与AI对话
+  // 处理边界分析功能
+  const handleBoundaryAnalysis = async () => {
+    // 获取选中的文本
+    const { from, to } = editor.state.selection;
+    const selectedText = editor.state.doc.textBetween(from, to, ' ');
+    const fullText = editor.getText();
+    
+    if (!selectedText) return;
+
+    // 计算结果框的初始位置
+    const position = calculatePosition();
+    
+    // 设置状态
+    setResult({
+      loading: true,
+      content: '',
+      visible: true,
+      position,
+      type: 'boundary',
+      size: { width: 800, height: 300 },
+      selectedText,
+      selectionRange: { from, to } // 保存选择范围
+    });
+
+    try {
+      // 使用service调用API
+      await analyzeBoundary(
+        selectedText, 
+        fullText, 
+        selectedSystemId,
+        // 进度回调
+        (content) => {
+          setResult(prev => ({ 
+            ...prev, 
+            loading: false,
+            content
+          }));
+        },
+        // 错误回调
+        (error) => {
+          setResult(prev => ({ 
+            ...prev, 
+            loading: false, 
+            content: `${t('resultPanel.analyzingBoundary')}${error}`
+          }));
+        }
+      );
+    } catch (error) {
+      console.error('边界分析请求失败:', error);
+    }
+  };
+
+  // 处理边界优化功能
+  const handleBoundaryOptimize = async () => {
+    // 获取选中的文本
+    const { from, to } = editor.state.selection;
+    const selectedText = editor.state.doc.textBetween(from, to, ' ');
+    const fullText = editor.getText();
+    
+    if (!selectedText) return;
+
+    // 计算结果框的初始位置
+    const position = calculatePosition();
+    
+    // 设置状态
+    setResult({
+      loading: true,
+      content: '',
+      visible: true,
+      position,
+      type: 'optimize',
+      size: { width: 800, height: 300 },
+      selectedText,
+      selectionRange: { from, to } // 保存选择范围
+    });
+
+    try {
+      // 使用service调用API
+      await optimizeBoundary(
+        selectedText, 
+        fullText, 
+        selectedSystemId,
+        // 进度回调
+        (content) => {
+          setResult(prev => ({ 
+            ...prev, 
+            loading: false,
+            content
+          }));
+        },
+        // 错误回调
+        (error) => {
+          setResult(prev => ({ 
+            ...prev, 
+            loading: false, 
+            content: `${t('resultPanel.optimizingScenario')}${error}`
+          }));
+        }
+      );
+    } catch (error) {
+      console.error('边界优化请求失败:', error);
+    }
+  };
+
+  // 处理AI对话功能
   const handleChat = async () => {
     // 获取选中的文本
     const { from, to } = editor.state.selection;
@@ -316,116 +427,12 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
           setResult(prev => ({ 
             ...prev, 
             loading: false, 
-            content: `对话过程出现错误，请重试：${error}`
+            content: `${t('resultPanel.thinking')}${error}`
           }));
         }
       );
     } catch (error) {
       console.error('AI对话请求失败:', error);
-    }
-  };
-
-  // 处理边界分析
-  const handleBoundary = async () => {
-    // 获取选中的文本
-    const { from, to } = editor.state.selection;
-    const selectedText = editor.state.doc.textBetween(from, to, ' ');
-    const fullText = editor.getText();
-    
-    if (!selectedText) return;
-
-    // 计算结果框的初始位置
-    const position = calculatePosition();
-    
-    // 设置状态
-    setResult({
-      loading: true,
-      content: '',
-      visible: true,
-      position,
-      type: 'boundary',
-      size: { width: 800, height: 300 },
-      selectedText,
-      selectionRange: { from, to } // 保存选择范围
-    });
-
-    try {
-      // 使用service调用API
-      await analyzeBoundary(
-        selectedText, 
-        fullText, 
-        selectedSystemId,
-        // 进度回调
-        (content) => {
-          setResult(prev => ({ 
-            ...prev, 
-            loading: false,
-            content
-          }));
-        },
-        // 错误回调
-        (error) => {
-          setResult(prev => ({ 
-            ...prev, 
-            loading: false, 
-            content: `边界分析过程出现错误，请重试：${error}`
-          }));
-        }
-      );
-    } catch (error) {
-      console.error('边界分析请求失败:', error);
-    }
-  };
-
-  // 处理边界优化
-  const handleOptimize = async () => {
-    // 获取选中的文本
-    const { from, to } = editor.state.selection;
-    const selectedText = editor.state.doc.textBetween(from, to, ' ');
-    const fullText = editor.getText();
-    
-    if (!selectedText) return;
-
-    // 计算结果框的初始位置
-    const position = calculatePosition();
-    
-    // 设置状态
-    setResult({
-      loading: true,
-      content: '',
-      visible: true,
-      position,
-      type: 'optimize',
-      size: { width: 800, height: 300 },
-      selectedText,
-      selectionRange: { from, to } // 保存选择范围
-    });
-
-    try {
-      // 使用service调用API
-      await optimizeBoundary(
-        selectedText, 
-        fullText, 
-        selectedSystemId,
-        // 进度回调
-        (content) => {
-          setResult(prev => ({ 
-            ...prev, 
-            loading: false,
-            content
-          }));
-        },
-        // 错误回调
-        (error) => {
-          setResult(prev => ({ 
-            ...prev, 
-            loading: false, 
-            content: `边界优化过程出现错误，请重试：${error}`
-          }));
-        }
-      );
-    } catch (error) {
-      console.error('边界优化请求失败:', error);
     }
   };
 
@@ -452,10 +459,10 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
         handleExpand();
         break;
       case 'boundary':
-        handleBoundary();
+        handleBoundaryAnalysis();
         break;
       case 'optimize':
-        handleOptimize();
+        handleBoundaryOptimize();
         break;
     }
   };
@@ -751,55 +758,82 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
         }}
       >
         <div className="bubble-menu">
-          <button 
-            onClick={handlePolish}
-            className="bubble-menu-button"
-            title="润色文本"
-            data-tooltip="使用AI智能润色和优化选中的文本"
-          >
-            <Wand2 size={16} />
-            <span>润色</span>
-          </button>
-          <div className="bubble-menu-divider"></div>
-          <button 
-            onClick={handleExpand}
-            className="bubble-menu-button"
-            title="扩写文本"
-            data-tooltip="基于选中内容进行扩展和丰富写作"
-          >
-            <FileText size={16} />
-            <span>扩写</span>
-          </button>
-          <div className="bubble-menu-divider"></div>
-          <button 
-            onClick={handleBoundary}
-            className="bubble-menu-button"
-            title="边界分析"
-            data-tooltip="分析选中内容的边界条件和异常情况"
-          >
-            <AlertTriangle size={16} />
-            <span>边界分析</span>
-          </button>
-          <div className="bubble-menu-divider"></div>
-          <button 
-            onClick={handleOptimize}
-            className="bubble-menu-button"
-            title="边界优化"
-            data-tooltip="优化选中场景的边界条件和需求描述"
-          >
-            <Scissors size={16} />
-            <span>边界优化</span>
-          </button>
-          <div className="bubble-menu-divider"></div>
-          <button 
-            onClick={handleChat}
-            className="bubble-menu-button"
-            title="与AI对话"
-            data-tooltip="基于选中内容与AI进行对话和提问"
-          >
-            <MessageSquare size={16} />
-            <span>Chat With LLM</span>
-          </button>
+          <div className="bubble-menu-content">
+            {/* 一级菜单：通用 */}
+            <div className="bubble-menu-dropdown">
+              <button className="bubble-menu-button primary-button">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 4V20M4 12H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <span>{t('bubbleMenu.common')}</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+              <div className="bubble-submenu">
+                <button 
+                  onClick={handlePolish} 
+                  className="bubble-menu-button"
+                  title={t('bubbleMenu.polishTooltip')}
+                >
+                  <Wand2 size={16} />
+                  <span>{t('bubbleMenu.polish')}</span>
+                </button>
+                <button 
+                  onClick={handleExpand} 
+                  className="bubble-menu-button"
+                  title={t('bubbleMenu.expandTooltip')}
+                >
+                  <FileText size={16} />
+                  <span>{t('bubbleMenu.expand')}</span>
+                </button>
+              </div>
+            </div>
+            
+            {/* 一级菜单：需求改写 */}
+            <div className="bubble-menu-dropdown">
+              <button className="bubble-menu-button primary-button">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M11 4H4V11H11V4Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M20 4H13V11H20V4Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M11 13H4V20H11V13Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M20 13H13V20H20V13Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <span>{t('bubbleMenu.requirementRewrite')}</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+              <div className="bubble-submenu">
+                <button 
+                  onClick={handleBoundaryAnalysis} 
+                  className="bubble-menu-button"
+                  title={t('bubbleMenu.boundaryAnalysisTooltip')}
+                >
+                  <AlertTriangle size={16} />
+                  <span>{t('bubbleMenu.boundaryAnalysis')}</span>
+                </button>
+                <button 
+                  onClick={handleBoundaryOptimize} 
+                  className="bubble-menu-button"
+                  title={t('bubbleMenu.boundaryOptimizeTooltip')}
+                >
+                  <Scissors size={16} />
+                  <span>{t('bubbleMenu.boundaryOptimize')}</span>
+                </button>
+              </div>
+            </div>
+            
+            {/* 一级菜单：开放Chat（无二级菜单） */}
+            <button 
+              onClick={handleChat} 
+              className="bubble-menu-button primary-button"
+              title={t('bubbleMenu.chatTooltip')}
+            >
+              <MessageSquare size={16} />
+              <span>{t('bubbleMenu.chat')}</span>
+            </button>
+          </div>
         </div>
       </TiptapBubbleMenu>
 
@@ -922,16 +956,6 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
               </>
             )}
           </div>
-          
-          {/* 增强调整大小的视觉反馈 */}
-          <div 
-            className="resize-indicator"
-            onMouseDown={handleResizeStart}
-            style={{ cursor: 'se-resize', zIndex: 100 }}
-          >
-            <Maximize2 size={16} />
-          </div>
-          <div className="resize-hint">可拖动调整大小</div>
         </div>
       )}
     </>

@@ -1,0 +1,108 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 国际化 (i18n) 设置指南 - next-intl
+
+本项目使用 `next-intl` 实现国际化功能，支持多语言路由和内容翻译。
+
+## 1. 核心配置文件
+
+*   **Next.js 配置**: `[next.config.js](mdc:next.config.js)`
+    *   通过 `next-intl/plugin` 集成。确保 `createNextIntlPlugin` 正确包裹了 `nextConfig`。
+*   **语言路由定义**: `[i18n/routing.ts](mdc:i18n/routing.ts)`
+    *   `locales`: 定义所有支持的语言列表 (例如: `['en', 'zh']`)。
+    *   `defaultLocale`: 定义默认语言 (例如: `'zh'`)。
+*   **导航组件**: `[i18n/navigation.ts](mdc:i18n/navigation.ts)`
+    *   导出国际化版本的 `Link`, `redirect`, `usePathname`, `useRouter`, `getPathname`。在应用中进行页面跳转和路径获取时，应使用这些导出的组件/钩子。
+*   **服务端请求配置**: `[i18n/request.ts](mdc:i18n/request.ts)`
+    *   配置服务端组件如何根据当前 `locale` 加载对应的翻译消息文件。它会从 `messages/[locale].json` 动态导入消息。
+
+## 2. 翻译消息文件
+
+*   **目录**: `[messages/](mdc:messages)`
+*   **文件**: 每个支持的语言都有一个对应的 JSON 文件，例如 `[messages/en.json](mdc:messages/en.json)` 和 `[messages/zh.json](mdc:messages/zh.json)`。
+*   **结构**: JSON 文件内部可以按页面或组件组织翻译键值对，例如：
+    ```json
+    {
+      "HomePage": {
+        "title": "Welcome to our Homepage",
+        "greeting": "Hello, {name}!"
+      },
+      "Common": {
+        "submitButton": "Submit"
+      }
+    }
+    ```
+
+## 3. 中间件
+
+*   **文件**: `[middleware.ts](mdc:middleware.ts)`
+*   **功能**:
+    1.  使用 `createMiddleware` (从 `next-intl/middleware` 导入) 和 `routing` 配置 (从 `[i18n/routing.ts](mdc:i18n/routing.ts)` 导入) 来初始化国际化中间件。
+    2.  国际化中间件应在其他中间件逻辑 (如认证) **之前**执行。
+    3.  它负责检测请求路径中的语言环境，如果缺少语言环境，则根据 `defaultLocale`进行重定向。
+    4.  `config.matcher` 需要配置为匹配所有页面路径，同时排除 API 路由、Next.js 内部路径和静态文件。
+
+## 4. 应用页面结构 (App Router)
+
+*   **动态路由段**: 所有国际化的页面和布局都应放在 `app/[locale]/` 目录下。
+    *   例如: `[app/[locale]/layout.tsx](mdc:app/[locale]/layout.tsx)`, `[app/[locale]/page.tsx](mdc:app/[locale]/page.tsx)`。
+    *   其他页面也应遵循此模式，例如 `app/[locale]/settings/page.tsx`。
+*   **布局文件 (`app/[locale]/layout.tsx`)**:
+    *   接收 `params: {locale: string}`。
+    *   验证 `locale` 的有效性，如果无效则调用 `notFound()`。
+    *   使用 `NextIntlClientProvider` 包裹 `children`，并传递 `locale` 和 `messages` (通过 `useMessages()` 获取)。
+    *   HTML lang 属性应设置为当前 `locale`。
+    *   (可选，用于静态渲染) 调用 `setRequestLocale(locale)`。
+*   **页面文件 (例如 `app/[locale]/page.tsx`)**:
+    *   接收 `params: {locale: string}`。
+    *   (可选，用于静态渲染) 调用 `setRequestLocale(locale)`。
+    *   (可选，用于静态渲染) 定义 `generateStaticParams` 函数，返回所有支持的 `locale` 列表。
+
+## 5. 在组件中使用翻译
+
+*   **导入**: `import {useTranslations} from 'next-intl';`
+*   **使用**:
+    ```typescript jsx
+    // 在组件内部
+    const t = useTranslations('Namespace'); // 'Namespace' 对应 messages JSON 文件中的顶层 key
+    // ...
+    return <h1>{t('titleKey')}</h1>; // titleKey 对应 Namespace 下的某个 key
+    ```
+    例如，如果 `messages/zh.json` 是：
+    ```json
+    {
+      "HomePage": { "title": "首页" }
+    }
+    ```
+    则在组件中：
+    ```typescript jsx
+    const t = useTranslations('HomePage');
+    // ...
+    <div>{t('title')}</div> // 将显示 "首页"
+    ```
+
+## 6. 添加新的翻译
+
+1.  **识别文本**: 找到需要翻译的硬编码字符串。
+2.  **定义 Key**: 在 `messages/en.json` 和 `messages/zh.json` (以及其他语言文件) 中，为你希望翻译的文本选择一个合适的命名空间 (如 `HomePage`, `UserSettingsPage`, `Common`) 并添加一个唯一的 key。
+    ```json
+    // messages/en.json
+    {
+      "ProfilePage": {
+        "welcome": "Welcome, {username}!",
+        "editProfileButton": "Edit Profile"
+      }
+    }
+    ```
+3.  **提供翻译**: 为所有支持的语言文件添加该 key 和对应的翻译文本。
+4.  **使用翻译**: 在组件中使用 `const t = useTranslations('ProfilePage');` 和 `{t('editProfileButton')}` 来显示翻译。
+
+## 7. 添加新的语言
+
+1.  **更新路由**: 在 `[i18n/routing.ts](mdc:i18n/routing.ts)` 中的 `locales` 数组里添加新的语言代码 (例如 `'fr'` 代表法语)。
+2.  **创建消息文件**: 在 `[messages/](mdc:messages)` 目录下为新语言创建一个 JSON 文件 (例如 `messages/fr.json`)。复制现有语言文件 (如 `en.json`) 的结构作为模板，然后翻译所有文本。
+3.  **更新中间件 (可选)**: 如果你的 `[middleware.ts](mdc:middleware.ts)` 中的 `pathWithoutLocale` 正则表达式 (`path.replace(/^\/(en|zh)/, '')`) 硬编码了语言列表，需要更新它以包含新语言。更好的做法是动态生成这个正则表达式或者使用更通用的匹配方式。
+4.  **测试**: 全面测试新语言的路由和翻译显示。

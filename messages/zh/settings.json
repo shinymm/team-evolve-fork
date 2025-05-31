@@ -1,0 +1,144 @@
+{
+  "AIModelsPage": {
+    "loading": "正在加载模型配置，请稍候..."
+  },
+  "AIModelSettings": {
+    "tabs": {
+      "models": "AI模型设置",
+      "vector": "向量模型设置"
+    },
+    "card": {
+      "title": "AI模型配置",
+      "description": "配置不同的AI模型服务，用于问答和聊天功能",
+      "addButton": "添加配置"
+    },
+    "addForm": {
+      "title": "添加新配置",
+      "modelTypes": {
+        "language": "语言模型",
+        "vision": "视觉模型"
+      },
+      "fields": {
+        "preset": "预设模型",
+        "presetPlaceholder": "选择预设",
+        "name": "名称",
+        "namePlaceholder": "例如: OpenAI GPT-4",
+        "model": "模型名称",
+        "modelPlaceholder": "例如: gpt-4-turbo, text-embedding-3-small",
+        "apiUrl": "API 地址",
+        "apiUrlPlaceholder": "例如: https://api.openai.com/v1",
+        "apiKey": "API Key",
+        "apiKeyPlaceholder": "输入您的API密钥",
+        "temperature": "温度",
+        "temperaturePlaceholder": "输入温度值（0-1之间）"
+      },
+      "buttons": {
+        "cancel": "取消",
+        "add": "添加"
+      }
+    },
+    "modelSections": {
+      "language": "语言模型",
+      "vision": "视觉模型",
+      "noLanguageModels": "暂无语言模型配置，请添加新的配置",
+      "noVisionModels": "暂无视觉模型配置，请添加新的配置"
+    },
+    "tableHeaders": {
+      "name": "名称",
+      "model": "模型",
+      "apiUrl": "API地址",
+      "temperature": "温度",
+      "default": "默认",
+      "actions": "操作"
+    },
+    "actions": {
+      "testConnection": "测试连接",
+      "testing": "测试中..."
+    },
+    "messages": {
+      "validationFailed": "验证失败",
+      "requiredFields": "API地址、模型名称、模型类型和API Key是必填项",
+      "addSuccess": "添加成功",
+      "addSuccessDetail": "新的AI模型配置已添加",
+      "addFailed": "添加失败",
+      "addFailedDetail": "添加配置时发生错误",
+      "deleteSuccess": "删除成功",
+      "deleteSuccessDetail": "AI模型配置已删除",
+      "deleteFailed": "删除失败",
+      "deleteFailedDetail": "删除配置时发生错误",
+      "defaultUpdated": "已更新默认配置",
+      "defaultUpdatedDetail": "AI模型默认配置已更新",
+      "defaultFailed": "设置失败",
+      "defaultFailedDetail": "设置默认配置时发生错误",
+      "testSuccess": "测试成功",
+      "testSuccessDetail": "成功连接到{name}\n模型返回：{response}",
+      "testFailed": "测试失败",
+      "testFailedDetail": "无法连接到AI服务",
+      "loadFailed": "加载{type}模型配置失败",
+      "loadFailedDetail": "加载配置时发生错误"
+    }
+  },
+  "VectorSettings": {
+    "card": {
+      "title": "向量模型配置",
+      "description": "配置用于语义搜索和向量存储的嵌入模型",
+      "addButton": "添加配置"
+    },
+    "addForm": {
+      "title": "添加新配置",
+      "fields": {
+        "preset": "预设模型",
+        "presetPlaceholder": "选择预设",
+        "name": "名称",
+        "namePlaceholder": "例如: OpenAI Embedding",
+        "model": "模型名称",
+        "modelPlaceholder": "例如: text-embedding-3-small",
+        "apiUrl": "API 地址",
+        "apiUrlPlaceholder": "例如: https://api.openai.com/v1",
+        "apiKey": "API Key",
+        "apiKeyPlaceholder": "输入您的API密钥",
+        "setDefault": "设为默认",
+        "defaultLabel": "将此配置设为默认向量模型"
+      },
+      "buttons": {
+        "cancel": "取消",
+        "add": "添加"
+      }
+    },
+    "tableHeaders": {
+      "name": "名称",
+      "model": "模型",
+      "apiUrl": "API地址",
+      "default": "默认",
+      "actions": "操作"
+    },
+    "actions": {
+      "testConnection": "测试连接",
+      "testing": "测试中..."
+    },
+    "noConfigs": "暂无向量模型配置，请点击\"添加配置\"按钮添加",
+    "messages": {
+      "loadFailed": "加载失败",
+      "loadFailedDetail": "无法加载向量模型配置",
+      "validationFailed": "验证失败",
+      "requiredFields": "API地址、模型名称、API Key和向量模型名称是必填项",
+      "deleteConfirm": "确定要删除这个配置吗？",
+      "addSuccess": "添加成功",
+      "addSuccessDetail": "新的向量模型配置已添加",
+      "addFailed": "添加失败",
+      "addFailedDetail": "无法添加向量模型配置",
+      "deleteSuccess": "删除成功",
+      "deleteSuccessDetail": "向量模型配置已删除",
+      "deleteFailed": "删除失败",
+      "deleteFailedDetail": "无法删除向量模型配置",
+      "defaultUpdated": "已更新默认配置",
+      "defaultUpdatedDetail": "向量模型默认配置已更新",
+      "defaultFailed": "设置失败",
+      "defaultFailedDetail": "无法设置默认向量模型配置",
+      "testSuccess": "测试成功",
+      "testSuccessDetail": "成功连接到{name}\n测试文本：{testText}\n向量维度：{dimensions}\n示例向量：{embedding}",
+      "testFailed": "测试失败",
+      "testFailedDetail": "无法连接到向量服务"
+    }
+  }
+} 

@@ -37,6 +37,7 @@ import {
 import { useSystemStore } from '@/lib/stores/system-store';
 import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store';
 import { markdownToHtml, htmlToMarkdown, processContent } from '@/lib/utils/markdown-utils';
+import { useTranslations } from 'next-intl';
 
 interface EditorToolbarProps {
   editor: Editor;
@@ -60,16 +61,16 @@ export function showToast(message: string, type: 'success' | 'error' = 'success'
 }
 
 // 加载需求模板
-export async function loadTemplate(editor: Editor, selectedSystemId: string | null) {
+export async function loadTemplate(editor: Editor, selectedSystemId: string | null, t: any) {
   if (!selectedSystemId) {
-    showToast('请先选择一个系统', 'error');
+    showToast(t('notifications.selectSystemFirst'), 'error');
     return false;
   }
 
   try {
     const response = await fetch(`/api/requirement-templates?systemId=${selectedSystemId}`);
     if (!response.ok) {
-      throw new Error('获取模板失败');
+      throw new Error(t('notifications.templateLoadFailed'));
     }
     
     const data = await response.json();
@@ -77,21 +78,21 @@ export async function loadTemplate(editor: Editor, selectedSystemId: string | nu
       // 处理内容并设置到编辑器
       const processedContent = processContent(data.template.content);
       editor.commands.setContent(processedContent);
-      showToast('需求模板加载成功');
+      showToast(t('notifications.templateLoadSuccess'));
       return true;
     } else {
-      showToast('未找到该系统的需求模板', 'error');
+      showToast(t('notifications.templateNotFound'), 'error');
       return false;
     }
   } catch (error) {
-    console.error('加载需求模板失败:', error);
-    showToast('加载需求模板失败', 'error');
+    console.error(t('notifications.templateLoadFailed'), error);
+    showToast(t('notifications.templateLoadFailed'), 'error');
     return false;
   }
 }
 
 // 加载需求初稿
-export function loadDraft(editor: Editor, getOrGetActiveRequirementBook: (() => string | null) | string | null) {
+export function loadDraft(editor: Editor, getOrGetActiveRequirementBook: (() => string | null) | string | null, t: any) {
   try {
     console.log('[loadDraft] 开始加载需求初稿, 传入参数类型:', typeof getOrGetActiveRequirementBook);
     
@@ -178,7 +179,7 @@ export function loadDraft(editor: Editor, getOrGetActiveRequirementBook: (() => 
     // 如果仍未找到内容，显示错误
     if (!content) {
       console.log('[loadDraft] 最终未找到有效的需求初稿内容');
-      showToast('未找到需求初稿，请先在需求分析页面生成需求书', 'error');
+      showToast(t('notifications.draftNotFound'), 'error');
       return false;
     }
     
@@ -187,17 +188,17 @@ export function loadDraft(editor: Editor, getOrGetActiveRequirementBook: (() => 
     // 处理内容并设置到编辑器
     const processedContent = processContent(content);
     editor.commands.setContent(processedContent);
-    showToast('需求初稿加载成功');
+    showToast(t('notifications.draftLoadSuccess'));
     return true;
   } catch (error) {
     console.error('[loadDraft] 加载需求初稿失败:', error);
-    showToast('加载需求初稿失败', 'error');
+    showToast(t('notifications.draftLoadFailed'), 'error');
     return false;
   }
 }
 
 // 导出HTML为Word文档
-export function exportToWord(editor: Editor, filename: string = '需求文档') {
+export function exportToWord(editor: Editor, filename: string = '需求文档', t: any) {
   try {
     // 获取HTML内容
     const html = editor.getHTML();
@@ -239,17 +240,17 @@ export function exportToWord(editor: Editor, filename: string = '需求文档') 
     link.click();
     document.body.removeChild(link);
     
-    showToast('Word文档导出成功');
+    showToast(t('notifications.wordExportSuccess'));
     return true;
   } catch (error) {
     console.error('导出Word文档失败:', error);
-    showToast('导出Word文档失败', 'error');
+    showToast(t('notifications.wordExportFailed'), 'error');
     return false;
   }
 }
 
 // 导出为Markdown文件
-export function exportToMarkdown(editor: Editor, filename: string = '需求文档') {
+export function exportToMarkdown(editor: Editor, filename: string = '需求文档', t: any) {
   try {
     // 获取HTML内容并转换为Markdown
     const html = editor.getHTML();
@@ -268,11 +269,11 @@ export function exportToMarkdown(editor: Editor, filename: string = '需求文�
     link.click();
     document.body.removeChild(link);
     
-    showToast('Markdown文件导出成功');
+    showToast(t('notifications.markdownExportSuccess'));
     return true;
   } catch (error) {
     console.error('导出Markdown文件失败:', error);
-    showToast('导出Markdown文件失败', 'error');
+    showToast(t('notifications.markdownExportFailed'), 'error');
     return false;
   }
 }
@@ -283,6 +284,8 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
   }
 
   const iconSize = 18;
+  // 添加国际化翻译支持
+  const t = useTranslations('TiptapEditor');
 
   // 修改插入表格的方法
   const insertTable = () => {
@@ -397,34 +400,34 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
       <button
         onClick={() => editor.chain().focus().toggleBold().run()}
         className={editor.isActive('bold') ? 'is-active' : ''}
-        title="加粗"
+        title={t('toolbar.bold')}
       >
         <Bold size={iconSize} />
       </button>
       <button
         onClick={() => editor.chain().focus().toggleItalic().run()}
         className={editor.isActive('italic') ? 'is-active' : ''}
-        title="斜体"
+        title={t('toolbar.italic')}
       >
         <Italic size={iconSize} />
       </button>
       <button
         onClick={() => editor.chain().focus().toggleStrike().run()}
         className={editor.isActive('strike') ? 'is-active' : ''}
-        title="删除线"
+        title={t('toolbar.strikethrough')}
       >
         <Strikethrough size={iconSize} />
       </button>
       <button
         onClick={() => editor.chain().focus().toggleCode().run()}
         className={editor.isActive('code') ? 'is-active' : ''}
-        title="代码"
+        title={t('toolbar.code')}
       >
         <Code size={iconSize} />
       </button>
       <button 
         onClick={() => editor.chain().focus().unsetAllMarks().run()}
-        title="清除标记"
+        title={t('toolbar.clearMarks')}
       >
         <RemoveFormatting size={iconSize} />
       </button>
@@ -434,28 +437,28 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
       <button
         onClick={() => editor.chain().focus().setParagraph().run()}
         className={editor.isActive('paragraph') ? 'is-active' : ''}
-        title="段落"
+        title={t('toolbar.paragraph')}
       >
         <Pilcrow size={iconSize} />
       </button>
       <button
         onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
         className={editor.isActive('heading', { level: 1 }) ? 'is-active' : ''}
-        title="标题1"
+        title={t('toolbar.heading1')}
       >
         <Heading1 size={iconSize} />
       </button>
       <button
         onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
         className={editor.isActive('heading', { level: 2 }) ? 'is-active' : ''}
-        title="标题2"
+        title={t('toolbar.heading2')}
       >
         <Heading2 size={iconSize} />
       </button>
       <button
         onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
         className={editor.isActive('heading', { level: 3 }) ? 'is-active' : ''}
-        title="标题3"
+        title={t('toolbar.heading3')}
       >
         <Heading3 size={iconSize} />
       </button>
@@ -465,41 +468,41 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
       <button
         onClick={() => editor.chain().focus().toggleBulletList().run()}
         className={editor.isActive('bulletList') ? 'is-active' : ''}
-        title="无序列表"
+        title={t('toolbar.bulletList')}
       >
         <List size={iconSize} />
       </button>
       <button
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
         className={editor.isActive('orderedList') ? 'is-active' : ''}
-        title="有序列表"
+        title={t('toolbar.orderedList')}
       >
         <ListOrdered size={iconSize} />
       </button>
       <button
         onClick={() => editor.chain().focus().toggleTaskList().run()}
         className={editor.isActive('taskList') ? 'is-active' : ''}
-        title="任务列表"
+        title={t('toolbar.taskList')}
       >
         <CheckSquare size={iconSize} />
       </button>
       <button
         onClick={() => editor.chain().focus().toggleCodeBlock().run()}
         className={editor.isActive('codeBlock') ? 'is-active' : ''}
-        title="代码块"
+        title={t('toolbar.codeBlock')}
       >
         <FileCode size={iconSize} />
       </button>
       <button
         onClick={() => editor.chain().focus().toggleBlockquote().run()}
         className={editor.isActive('blockquote') ? 'is-active' : ''}
-        title="引用"
+        title={t('toolbar.blockquote')}
       >
         <Quote size={iconSize} />
       </button>
       <button 
         onClick={() => editor.chain().focus().setHorizontalRule().run()}
-        title="分割线"
+        title={t('toolbar.horizontalRule')}
       >
         <SeparatorHorizontal size={iconSize} />
       </button>
@@ -509,21 +512,21 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
       <button
         onClick={() => editor.chain().focus().setTextAlign('left').run()}
         className={editor.isActive({ textAlign: 'left' }) ? 'is-active' : ''}
-        title="左对齐"
+        title={t('toolbar.alignLeft')}
       >
         <AlignLeft size={iconSize} />
       </button>
       <button
         onClick={() => editor.chain().focus().setTextAlign('center').run()}
         className={editor.isActive({ textAlign: 'center' }) ? 'is-active' : ''}
-        title="居中"
+        title={t('toolbar.alignCenter')}
       >
         <AlignCenter size={iconSize} />
       </button>
       <button
         onClick={() => editor.chain().focus().setTextAlign('right').run()}
         className={editor.isActive({ textAlign: 'right' }) ? 'is-active' : ''}
-        title="右对齐"
+        title={t('toolbar.alignRight')}
       >
         <AlignRight size={iconSize} />
       </button>
@@ -531,74 +534,74 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
       <div className="editor-toolbar-divider"></div>
       
       {/* 表格相关操作按钮 */}
-      <button
-        onClick={insertTable}
-        title="插入表格"
-        className={editor.isActive('table') ? 'is-active' : ''}
-      >
-        <TableIcon size={iconSize} />
-      </button>
+      {!editor.isActive('table') && (
+        <button 
+          onClick={insertTable}
+          title={t('toolbar.insertTable')}
+        >
+          <TableIcon size={iconSize} />
+        </button>
+      )}
       
-      {/* 表格操作按钮组，只在表格内部显示 */}
       {editor.isActive('table') && (
         <>
-          <button
-            onClick={addColumnBefore}
-            title="在前面插入列"
+          <button 
+            onClick={() => editor.chain().focus().addColumnBefore().run()}
+            title={t('toolbar.addColumnBefore')}
+          >
+            <TableProperties size={iconSize} className="rotate-90" />
+          </button>
+          <button 
+            onClick={() => editor.chain().focus().addColumnAfter().run()}
+            title={t('toolbar.addColumnAfter')}
+          >
+            <TableProperties size={iconSize} className="rotate-90" />
+          </button>
+          <button 
+            onClick={() => editor.chain().focus().deleteColumn().run()}
+            title={t('toolbar.deleteColumn')}
           >
             <ColumnsIcon size={iconSize} />
           </button>
-          <button
-            onClick={addColumnAfter}
-            title="在后面插入列"
-          >
-            <ColumnsIcon size={iconSize} />
-          </button>
-          <button
-            onClick={deleteColumn}
-            title="删除列"
-          >
-            <ColumnsIcon size={iconSize} />
-          </button>
-          <button
-            onClick={addRowBefore}
-            title="在上方插入行"
-          >
-            <RowsIcon size={iconSize} />
-          </button>
-          <button
-            onClick={addRowAfter}
-            title="在下方插入行"
-          >
-            <RowsIcon size={iconSize} />
-          </button>
-          <button
-            onClick={deleteRow}
-            title="删除行"
-          >
-            <RowsIcon size={iconSize} />
-          </button>
-          <button
-            onClick={mergeCells}
-            title="合并单元格"
-          >
-            <Combine size={iconSize} />
-          </button>
-          <button
-            onClick={splitCell}
-            title="拆分单元格"
-          >
-            <Split size={iconSize} />
-          </button>
-          <button
-            onClick={toggleHeaderCell}
-            title="切换表头单元格"
+          <button 
+            onClick={() => editor.chain().focus().addRowBefore().run()}
+            title={t('toolbar.addRowBefore')}
           >
             <TableProperties size={iconSize} />
           </button>
-          <button
-            onClick={deleteTable}
-            title="删除表格"
+          <button 
+            onClick={() => editor.chain().focus().addRowAfter().run()}
+            title={t('toolbar.addRowAfter')}
+          >
+            <TableProperties size={iconSize} />
+          </button>
+          <button 
+            onClick={() => editor.chain().focus().deleteRow().run()}
+            title={t('toolbar.deleteRow')}
+          >
+            <RowsIcon size={iconSize} />
+          </button>
+          <button 
+            onClick={() => editor.chain().focus().mergeCells().run()}
+            title={t('toolbar.mergeCells')}
+          >
+            <Combine size={iconSize} />
+          </button>
+          <button 
+            onClick={() => editor.chain().focus().splitCell().run()}
+            title={t('toolbar.splitCell')}
+          >
+            <Split size={iconSize} />
+          </button>
+          <button 
+            onClick={() => editor.chain().focus().toggleHeaderCell().run()}
+            title={t('toolbar.toggleHeaderCell')}
+          >
+            <TableProperties size={iconSize} />
+          </button>
+          <button 
+            onClick={() => editor.chain().focus().deleteTable().run()}
+            title={t('toolbar.deleteTable')}
           >
             <Trash size={iconSize} />
           </button>
@@ -613,13 +616,15 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
       
       <button 
         onClick={() => editor.chain().focus().undo().run()}
-        title="撤销"
+        disabled={!editor.can().undo()}
+        title={t('toolbar.undo')}
       >
         <Undo size={iconSize} />
       </button>
       <button 
         onClick={() => editor.chain().focus().redo().run()}
-        title="重做"
+        disabled={!editor.can().redo()}
+        title={t('toolbar.redo')}
       >
         <Redo size={iconSize} />
       </button>

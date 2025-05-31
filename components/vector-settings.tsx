@@ -13,6 +13,7 @@ import { useVectorConfigStore } from '@/lib/stores/vector-config-store'
 import { cn } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
+import { useTranslations } from 'next-intl'
 import { VectorModelConfig, addVectorConfig, deleteVectorConfig, getAllVectorConfigs, setVectorConfig } from '@/lib/services/vector-config-service'
 
 // 可用的向量模型预设
@@ -48,6 +49,8 @@ const vectorModelPresets = [
 ]
 
 export default function VectorSettings({ onStatusChange }: { onStatusChange?: (loading: boolean) => void }) {
+  const t = useTranslations('VectorSettings')
+  
   // 使用 Zustand store 获取配置
   const { defaultConfig, setDefaultConfig, clearDefaultConfig } = useVectorConfigStore()
   
@@ -75,8 +78,8 @@ export default function VectorSettings({ onStatusChange }: { onStatusChange?: (l
       } catch (error) {
         console.error('加载配置失败:', error)
         toast({
-          title: '加载失败',
-          description: '无法加载向量模型配置',
+          title: t('messages.loadFailed'),
+          description: t('messages.loadFailedDetail'),
           variant: 'destructive',
         })
       } finally {
@@ -84,7 +87,7 @@ export default function VectorSettings({ onStatusChange }: { onStatusChange?: (l
       }
     }
     loadConfigs()
-  }, [])
+  }, [t])
 
   // 处理预设选择
   const handlePresetChange = useCallback((preset: string) => {
@@ -114,8 +117,8 @@ export default function VectorSettings({ onStatusChange }: { onStatusChange?: (l
   const handleAddConfig = useCallback(async () => {
     if (!newConfig.name || !newConfig.baseURL || !newConfig.apiKey || !newConfig.model) {
       toast({
-        title: '验证失败',
-        description: 'API地址、模型名称、API Key和向量模型名称是必填项',
+        title: t('messages.validationFailed'),
+        description: t('messages.requiredFields'),
         variant: 'destructive',
       })
       return
@@ -168,24 +171,24 @@ export default function VectorSettings({ onStatusChange }: { onStatusChange?: (l
       setShowAddForm(false)
       
       toast({
-        title: '添加成功',
-        description: '新的向量模型配置已添加',
+        title: t('messages.addSuccess'),
+        description: t('messages.addSuccessDetail'),
       })
     } catch (error) {
       console.error('添加配置失败:', error)
       toast({
-        title: '添加失败',
-        description: '无法添加向量模型配置',
+        title: t('messages.addFailed'),
+        description: t('messages.addFailedDetail'),
         variant: 'destructive',
       })
     } finally {
       setIsLoading(false)
     }
-  }, [newConfig, isDefault, setDefaultConfig])
+  }, [newConfig, isDefault, setDefaultConfig, t])
 
   // 删除配置
   const handleDeleteConfig = useCallback(async (id: string) => {
-    if (!confirm('确定要删除这个配置吗？')) return
+    if (!confirm(t('messages.deleteConfirm'))) return
     
     try {
       setIsLoading(true)
@@ -217,20 +220,20 @@ export default function VectorSettings({ onStatusChange }: { onStatusChange?: (l
       })
       
       toast({
-        title: '删除成功',
-        description: '向量模型配置已删除',
+        title: t('messages.deleteSuccess'),
+        description: t('messages.deleteSuccessDetail'),
       })
     } catch (error) {
       console.error('删除配置失败:', error)
       toast({
-        title: '删除失败',
-        description: '无法删除向量模型配置',
+        title: t('messages.deleteFailed'),
+        description: t('messages.deleteFailedDetail'),
         variant: 'destructive',
       })
     } finally {
       setIsLoading(false)
     }
-  }, [configs, setDefaultConfig, clearDefaultConfig])
+  }, [configs, setDefaultConfig, clearDefaultConfig, t])
 
   // 设置默认配置
   const handleSetDefault = useCallback(async (id: string) => {
@@ -247,20 +250,20 @@ export default function VectorSettings({ onStatusChange }: { onStatusChange?: (l
       setConfigs(allConfigs)
       
       toast({
-        title: '已更新默认配置',
-        description: '向量模型默认配置已更新',
+        title: t('messages.defaultUpdated'),
+        description: t('messages.defaultUpdatedDetail'),
       })
     } catch (error) {
       console.error('设置默认配置失败:', error)
       toast({
-        title: '设置失败',
-        description: '无法设置默认向量模型配置',
+        title: t('messages.defaultFailed'),
+        description: t('messages.defaultFailedDetail'),
         variant: 'destructive',
       })
     } finally {
       setIsLoading(false)
     }
-  }, [configs, setDefaultConfig])
+  }, [configs, setDefaultConfig, t])
 
   // 测试连接
   const handleTestConfig = useCallback(async (config: VectorModelConfig) => {
@@ -292,8 +295,13 @@ export default function VectorSettings({ onStatusChange }: { onStatusChange?: (l
         [config.id as string]: true 
       }))
       toast({
-        title: '测试成功',
-        description: `成功连接到${config.name}\n测试文本：${data.data.testText}\n向量维度：${data.data.dimensions}\n示例向量：${data.data.embedding.join(', ')}`,
+        title: t('messages.testSuccess'),
+        description: t('messages.testSuccessDetail', {
+          name: config.name,
+          testText: data.data.testText,
+          dimensions: data.data.dimensions,
+          embedding: data.data.embedding.join(', ')
+        }),
       })
     } catch (error) {
       setTestResults((prev: Record<string, boolean>) => ({ 
@@ -301,14 +309,14 @@ export default function VectorSettings({ onStatusChange }: { onStatusChange?: (l
         [config.id as string]: false 
       }))
       toast({
-        title: '测试失败',
-        description: error instanceof Error ? error.message : '无法连接到向量服务',
+        title: t('messages.testFailed'),
+        description: error instanceof Error ? error.message : t('messages.testFailedDetail'),
         variant: 'destructive',
       })
     } finally {
       setTestingId(null)
     }
-  }, [])
+  }, [t])
 
   // 使用 useMemo 缓存配置列表渲染
   const configRows = useMemo(() => {
@@ -346,12 +354,12 @@ export default function VectorSettings({ onStatusChange }: { onStatusChange?: (l
                 {testingId === config.id ? (
                   <>
                     <Zap className="mr-1 h-3 w-3 animate-spin" />
-                    测试中...
+                    {t('actions.testing')}
                   </>
                 ) : (
                   <>
                     <Zap className="mr-1 h-3 w-3" />
-                    测试连接
+                    {t('actions.testConnection')}
                   </>
                 )}
               </Button>
@@ -369,7 +377,7 @@ export default function VectorSettings({ onStatusChange }: { onStatusChange?: (l
         </TableRow>
       );
     }).filter(Boolean)
-  }, [configs, testingId, testResults, handleTestConfig, handleDeleteConfig, handleSetDefault])
+  }, [configs, testingId, testResults, handleTestConfig, handleDeleteConfig, handleSetDefault, t])
 
   // 使用 useMemo 缓存添加表单渲染
   const addForm = useMemo(() => {
@@ -377,13 +385,13 @@ export default function VectorSettings({ onStatusChange }: { onStatusChange?: (l
     
     return (
       <div className="space-y-3 border p-3 rounded-md bg-slate-50">
-        <h2 className="text-sm font-semibold">添加新配置</h2>
+        <h2 className="text-sm font-semibold">{t('addForm.title')}</h2>
         <div className="space-y-2">
           <div className="grid grid-cols-[100px,1fr] items-center gap-3">
-            <Label htmlFor="vector-preset" className="text-xs">预设模型</Label>
+            <Label htmlFor="vector-preset" className="text-xs">{t('addForm.fields.preset')}</Label>
             <Select onValueChange={handlePresetChange}>
               <SelectTrigger id="vector-preset" className="h-8 text-sm">
-                <SelectValue placeholder="选择预设" />
+                <SelectValue placeholder={t('addForm.fields.presetPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {vectorModelPresets.map(provider => (
@@ -400,59 +408,59 @@ export default function VectorSettings({ onStatusChange }: { onStatusChange?: (l
           </div>
 
           <div className="grid grid-cols-[100px,1fr] items-center gap-3">
-            <Label htmlFor="vector-name" className="text-xs">名称</Label>
+            <Label htmlFor="vector-name" className="text-xs">{t('addForm.fields.name')}</Label>
             <Input
               id="vector-name"
               value={newConfig.name || ''}
               onChange={(e) => setNewConfig(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="例如: OpenAI Embedding"
+              placeholder={t('addForm.fields.namePlaceholder')}
               className="h-8 text-sm"
             />
           </div>
 
           <div className="grid grid-cols-[100px,1fr] items-center gap-3">
-            <Label htmlFor="vector-model" className="text-xs">模型名称</Label>
+            <Label htmlFor="vector-model" className="text-xs">{t('addForm.fields.model')}</Label>
             <Input
               id="vector-model"
               value={newConfig.model || ''}
               onChange={(e) => setNewConfig(prev => ({ ...prev, model: e.target.value }))}
-              placeholder="例如: text-embedding-3-small"
+              placeholder={t('addForm.fields.modelPlaceholder')}
               className="h-8 text-sm"
             />
           </div>
 
           <div className="grid grid-cols-[100px,1fr] items-center gap-3">
-            <Label htmlFor="vector-url" className="text-xs">API 地址</Label>
+            <Label htmlFor="vector-url" className="text-xs">{t('addForm.fields.apiUrl')}</Label>
             <Input
               id="vector-url"
               value={newConfig.baseURL || ''}
               onChange={(e) => setNewConfig(prev => ({ ...prev, baseURL: e.target.value }))}
-              placeholder="例如: https://api.openai.com/v1"
+              placeholder={t('addForm.fields.apiUrlPlaceholder')}
               className="h-8 text-sm"
             />
           </div>
 
           <div className="grid grid-cols-[100px,1fr] items-center gap-3">
-            <Label htmlFor="vector-api-key" className="text-xs">API Key</Label>
+            <Label htmlFor="vector-api-key" className="text-xs">{t('addForm.fields.apiKey')}</Label>
             <Input
               id="vector-api-key"
               type="password"
               value={newConfig.apiKey || ''}
               onChange={(e) => setNewConfig(prev => ({ ...prev, apiKey: e.target.value }))}
-              placeholder="输入您的API密钥"
+              placeholder={t('addForm.fields.apiKeyPlaceholder')}
               className="h-8 text-sm"
             />
           </div>
 
           <div className="grid grid-cols-[100px,1fr] items-center gap-3">
-            <Label htmlFor="vector-default" className="text-xs">设为默认</Label>
+            <Label htmlFor="vector-default" className="text-xs">{t('addForm.fields.setDefault')}</Label>
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="vector-default"
                 checked={isDefault}
                 onCheckedChange={(checked) => setIsDefault(checked as boolean)}
               />
-              <Label htmlFor="vector-default" className="text-sm">将此配置设为默认向量模型</Label>
+              <Label htmlFor="vector-default" className="text-sm">{t('addForm.fields.defaultLabel')}</Label>
             </div>
           </div>
 
@@ -462,31 +470,31 @@ export default function VectorSettings({ onStatusChange }: { onStatusChange?: (l
               setIsDefault(false)
               setNewConfig({})
             }}>
-              取消
+              {t('addForm.buttons.cancel')}
             </Button>
             <Button size="sm" onClick={handleAddConfig}>
-              添加
+              {t('addForm.buttons.add')}
             </Button>
           </div>
         </div>
       </div>
     )
-  }, [showAddForm, newConfig, handlePresetChange, handleAddConfig, isDefault])
+  }, [showAddForm, newConfig, handlePresetChange, handleAddConfig, isDefault, t])
 
   return (
     <Card className="w-full">
       <CardHeader className="pb-6">
         <div className="flex justify-between items-center">
           <div>
-            <CardTitle className="text-xl font-bold mb-3">向量模型配置</CardTitle>
+            <CardTitle className="text-xl font-bold mb-3">{t('card.title')}</CardTitle>
             <CardDescription className="text-base">
-              配置用于语义搜索和向量存储的嵌入模型
+              {t('card.description')}
             </CardDescription>
           </div>
           {!showAddForm && (
             <Button size="sm" onClick={() => setShowAddForm(true)}>
               <Plus className="mr-2 h-4 w-4" />
-              添加配置
+              {t('card.addButton')}
             </Button>
           )}
         </div>
@@ -499,11 +507,11 @@ export default function VectorSettings({ onStatusChange }: { onStatusChange?: (l
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="h-8 text-xs">名称</TableHead>
-                  <TableHead className="h-8 text-xs">模型</TableHead>
-                  <TableHead className="h-8 text-xs">API地址</TableHead>
-                  <TableHead className="h-8 text-xs">默认</TableHead>
-                  <TableHead className="h-8 text-xs">操作</TableHead>
+                  <TableHead className="h-8 text-xs">{t('tableHeaders.name')}</TableHead>
+                  <TableHead className="h-8 text-xs">{t('tableHeaders.model')}</TableHead>
+                  <TableHead className="h-8 text-xs">{t('tableHeaders.apiUrl')}</TableHead>
+                  <TableHead className="h-8 text-xs">{t('tableHeaders.default')}</TableHead>
+                  <TableHead className="h-8 text-xs">{t('tableHeaders.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -512,7 +520,7 @@ export default function VectorSettings({ onStatusChange }: { onStatusChange?: (l
             </Table>
           ) : (
             <div className="text-center py-6 text-sm text-muted-foreground">
-              暂无向量模型配置，请点击"添加配置"按钮添加
+              {t('noConfigs')}
             </div>
           )}
         </div>

@@ -1,0 +1,52 @@
+{
+  "Layout": {
+    "title": "Team Evolve - 异界"
+  },
+  "Common": {
+    "noDescription": "No description available"
+  },
+  "SiteHeader": {
+    "teamNamePrefix": "Team Evolve | ",
+    "otherworld": "异界",
+    "slogan": "Knowledge drives capability breakthrough, AI summons collaborative inspiration",
+    "loading": "Loading...",
+    "guestMode": "Guest Mode",
+    "login": "Login",
+    "switchLanguage": "中文",
+    "currentLanguage": "English"
+  },
+  "Sidebar": {
+    "otherworldEvolution": "Otherworld Evolution",
+    "tacticalBoard": "Tactical Board",
+    "aiCapabilityCapsule": "AI Capability Capsule",
+    "rawRequirementAnalysis": "Raw Req Analysis",
+    "draftRequirementEvolution": "Draft Req Evolution",
+    "sceneBoundaryAnalysis": "Scene Boundary Analysis",
+    "requirementDocConfirm": "Req Doc Confirm",
+    "requirementDocWriting": "Req Doc Writing",
+    "userStoryDecomposition": "User Story Decomposition",
+    "testCaseGeneration": "Test Case Generation",
+    "testDescriptionFormat": "Test Description Format",
+    "testCaseDetailAssistant": "Test Case Detail Assistant",
+    "logAnalysis": "Log Analysis",
+    "knowledgeForge": "Knowledge Forge",
+    "productInfoArchitecture": "Product Info Architecture",
+    "productSystemArchitecture": "Product System Architecture",
+    "productOpenAPI": "Product OpenAPI",
+    "glossaryManagement": "Glossary Management",
+    "requirementSummaryManagement": "Requirement Summary Management",
+    "requirementTemplate": "Requirement Template",
+    "boundaryIdentificationKnowledge": "Boundary Identification Knowledge",
+    "inspirationPavilion": "Inspiration Pavilion",
+    "reqAnalysisSkill": "Req Analysis Skill",
+    "docComprehensiveProcessing": "Doc Processing",
+    "imageComprehensiveProcessing": "Image Processing",
+    "aiCapabilityEcosystem": "AI Capability Ecosystem",
+    "aiTeamFactory": "AI Team Factory",
+    "settings": "Settings",
+    "llmSettings": "LLM Settings",
+    "promptDebug": "Prompt Debug",
+    "accessDenied": "Access Denied",
+    "loginOrPermissionRequired": "You need to login or do not have permission to access this feature"
+  }
+}

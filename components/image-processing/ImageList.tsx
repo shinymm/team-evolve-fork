@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Upload, Trash2, ChevronDown, ChevronRight, Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 export interface UploadedFile {
   id: string;
@@ -37,6 +38,7 @@ export const ImageList = ({
   imagesLoading = false,
   onSelectAllFiles
 }: ImageListProps) => {
+  const t = useTranslations('ImageProcessingPage');
   
   return (
     <div className="flex flex-col space-y-2">
@@ -48,16 +50,16 @@ export const ImageList = ({
             <ChevronRight className="h-4 w-4 mr-1.5 text-gray-500" />
           }
           <h2 className="text-sm font-medium flex items-center">
-            已上传图片（{uploadedFiles.length}）
+            {t('imageList.title')}（{uploadedFiles.length}）
             {imagesLoading && (
               <span className="ml-2 flex items-center text-gray-500">
                 <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                加载中...
+                {t('loadingImages')}
               </span>
             )}
             {uploadedFiles.filter(f => f.selected).length > 0 && (
               <span className="text-xs ml-2 text-orange-500 font-medium">
-                已选择 {uploadedFiles.filter(f => f.selected).length} 张
+                {t('imageList.selected', { count: uploadedFiles.filter(f => f.selected).length })}
               </span>
             )}
           </h2>
@@ -86,7 +88,7 @@ export const ImageList = ({
         <div className="flex items-center gap-2">
           {!isImagesExpanded && (
             <span className="text-xs text-gray-500">
-              点击展开
+              {t('imageList.clickToExpand')}
             </span>
           )}
           <Button 
@@ -99,7 +101,7 @@ export const ImageList = ({
             disabled={processing}
           >
             <Upload className="h-3 w-3 mr-1" />
-            上传图片
+            {t('imageList.addImage')}
           </Button>
         </div>
       </div>
@@ -126,7 +128,7 @@ export const ImageList = ({
                 className="h-7 px-2 py-1 text-xs"
                 size="sm"
               >
-                {uploadedFiles.every(file => file.selected) ? '取消全选' : '全选'}
+                {uploadedFiles.every(file => file.selected) ? t('imageList.unselectAll') : t('imageList.selectAll')}
               </Button>
             </div>
           )}
@@ -134,11 +136,11 @@ export const ImageList = ({
           {imagesLoading ? (
             <div className="flex justify-center items-center p-8 text-gray-400">
               <Loader2 className="h-8 w-8 animate-spin mr-2" />
-              <span>正在加载图片列表...</span>
+              <span>{t('loadingImages')}</span>
             </div>
           ) : uploadedFiles.length === 0 ? (
             <div className="text-gray-400 text-sm p-4 text-center border border-dashed rounded-lg">
-              尚未上传图片文件
+              {t('imageList.noImages')}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mt-2">
@@ -162,10 +164,10 @@ export const ImageList = ({
                           {file.name}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {new Date(file.uploadTime).toLocaleString()}
+                          {t('imageList.uploadTime')}: {new Date(file.uploadTime).toLocaleString()}
                         </p>
                         <p className="text-xs text-gray-400">
-                          来源: {file.provider}
+                          {t('imageList.source')}: {file.provider}
                         </p>
                       </div>
                       

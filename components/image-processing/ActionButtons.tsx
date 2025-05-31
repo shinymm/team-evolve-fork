@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { FileText, Loader2, Image as ImageIcon } from 'lucide-react'
 import { ProcessingStates } from '@/types/image-processing'
+import { useTranslations } from 'next-intl'
 
 interface ActionButtonsProps {
   processingStates: ProcessingStates
@@ -23,6 +24,8 @@ export const ActionButtons = ({
   onVisionAnalysis,
   onGenerateRequirementDraft
 }: ActionButtonsProps) => {
+  const t = useTranslations('ImageProcessingPage');
+  
   return (
     <div className="flex flex-wrap space-x-2 pt-4">
       <Button
@@ -35,7 +38,7 @@ export const ActionButtons = ({
         ) : (
           <FileText className="mr-2 h-4 w-4" />
         )}
-        提炼产品基础信息
+        {t('actionButtons.extractProductInfo')}
       </Button>
       
       <Button
@@ -48,7 +51,7 @@ export const ActionButtons = ({
         ) : (
           <FileText className="mr-2 h-4 w-4" />
         )}
-        抽取信息架构
+        {t('actionButtons.extractArchitecture')}
       </Button>
       
       <Button
@@ -61,7 +64,7 @@ export const ActionButtons = ({
         ) : (
           <ImageIcon className="mr-2 h-4 w-4" />
         )}
-        自定义视觉分析
+        {t('actionButtons.visionAnalysis')}
       </Button>
       
       <Button
@@ -74,7 +77,7 @@ export const ActionButtons = ({
         ) : (
           <FileText className="mr-2 h-4 w-4" />
         )}
-        生成需求初稿
+        {t('actionButtons.generateRequirementDraft')}
       </Button>
     </div>
   )

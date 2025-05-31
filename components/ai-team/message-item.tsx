@@ -1,6 +1,7 @@
 import React from 'react'
 import { UserCircle2, CheckCircle, XCircle, Clock, ChevronDown, ChevronUp } from 'lucide-react'
 import { getToolCallsStatus } from './tool-call-service'
+import { useTranslations } from 'next-intl'
 
 interface ToolCall {
   id: string
@@ -28,6 +29,8 @@ interface MessageItemProps {
 }
 
 export function MessageItem({ message, memberName, memberInitial }: MessageItemProps) {
+  const t = useTranslations('ai-team-factory.ChatDialog.toolCall')
+  
   // 过滤出非执行中状态的工具调用
   const finalToolCalls = message.toolCalls?.filter(tc => tc.status !== 'running')
   const hasToolCalls = finalToolCalls && finalToolCalls.length > 0
@@ -54,10 +57,10 @@ export function MessageItem({ message, memberName, memberInitial }: MessageItemP
           <div className="mt-1 pt-1">
             <div className="flex items-center justify-between">
               <div className="text-xs text-gray-500 mb-1 flex items-center">
-                <span className="mr-1">工具调用</span>
+                <span className="mr-1">{t('title')}</span>
                 {hasMultipleTools && (
                   <span className="text-2xs bg-gray-100 rounded-full px-2 py-0.5 ml-1">
-                    {finalToolCalls!.length}个
+                    {t('multipleToolIndicator', { count: finalToolCalls!.length })}
                   </span>
                 )}
               </div>
@@ -101,6 +104,8 @@ export function MessageItem({ message, memberName, memberInitial }: MessageItemP
 }
 
 function ToolCallView({ toolCall }: { toolCall: ToolCall }) {
+  const t = useTranslations('ai-team-factory.ChatDialog.toolCall')
+  
   // 工具状态对应的样式
   const statusStyles = {
     running: "text-blue-600 bg-blue-50 border-blue-200",
@@ -169,7 +174,7 @@ function ToolCallView({ toolCall }: { toolCall: ToolCall }) {
         </pre>
       );
     } catch (error) {
-      return <span className="text-red-500 text-2xs">无法显示参数</span>
+      return <span className="text-red-500 text-2xs">{t('errors.cannotDisplayParams')}</span>
     }
   }
   
@@ -233,7 +238,7 @@ function ToolCallView({ toolCall }: { toolCall: ToolCall }) {
         return <span className="whitespace-pre-line text-2xs">{String(result)}</span>;
       }
     } catch (error) {
-      return <span className="text-red-500 text-2xs">无法显示结果</span>;
+      return <span className="text-red-500 text-2xs">{t('errors.cannotDisplayResult')}</span>;
     }
   }
   
@@ -254,9 +259,9 @@ function ToolCallView({ toolCall }: { toolCall: ToolCall }) {
               toolCall.status === 'error' ? 'bg-red-100 text-red-800' : 
               'bg-blue-100 text-blue-800'
             }`}>
-              {toolCall.status === 'running' && '执行中'}
-              {toolCall.status === 'success' && '成功'}
-              {toolCall.status === 'error' && '失败'}
+              {toolCall.status === 'running' && t('status.running')}
+              {toolCall.status === 'success' && t('status.success')}
+              {toolCall.status === 'error' && t('status.error')}
             </span>
           )}
           
@@ -273,21 +278,21 @@ function ToolCallView({ toolCall }: { toolCall: ToolCall }) {
         <>
           {toolCall.arguments && (
             <div className="mt-1">
-              <div className="text-2xs text-gray-500 mb-0.5">参数:</div>
+              <div className="text-2xs text-gray-500 mb-0.5">{t('details.parameters')}</div>
               {formatArguments(toolCall.arguments)}
             </div>
           )}
           
           {toolCall.result && (
             <div className="mt-1 pt-1 border-t border-gray-200">
-              <div className="text-2xs text-gray-500 mb-0.5">结果:</div>
+              <div className="text-2xs text-gray-500 mb-0.5">{t('details.result')}</div>
               {formatResult(toolCall.result)}
             </div>
           )}
           
           {toolCall.status === 'error' && toolCall.result && (
             <div className="mt-1 pt-1 border-t border-red-200 text-red-600 text-2xs">
-              <div className="font-medium">错误:</div>
+              <div className="font-medium">{t('details.error')}</div>
               <div>{typeof toolCall.result === 'string' ? toolCall.result : JSON.stringify(toolCall.result)}</div>
             </div>
           )}

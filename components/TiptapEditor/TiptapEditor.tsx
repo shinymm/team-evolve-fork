@@ -16,6 +16,7 @@ import TableHeader from '@tiptap/extension-table-header';
 import Highlight from '@tiptap/extension-highlight';
 import { EditorToolbar } from './EditorToolbar';
 import { BubbleMenu } from './BubbleMenu';
+import { useTranslations } from 'next-intl';
 import './styles.css';
 
 interface TiptapEditorProps {
@@ -31,6 +32,9 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
   className = '',
   onReady,
 }) => {
+  // 添加国际化翻译支持
+  const t = useTranslations('TiptapEditor');
+  
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -75,6 +79,7 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
     onUpdate: ({ editor }) => {
       onChange?.(editor.getHTML());
     },
+    immediatelyRender: false,
   });
 
   // 当编辑器实例可用时调用onReady
@@ -85,7 +90,7 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
   }, [editor, onReady]);
 
   if (!editor) {
-    return <div>加载编辑器中...</div>;
+    return <div>{t('general.loading')}</div>;
   }
 
   return (

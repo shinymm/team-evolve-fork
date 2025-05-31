@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/components/ui/use-toast'
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 
 interface ApplicationDialogProps {
   open: boolean
@@ -33,6 +34,7 @@ export function ApplicationDialog({
   editingApplication,
 }: ApplicationDialogProps) {
   const { toast } = useToast()
+  const t = useTranslations('ai-team-factory.ApplicationDialog')
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
@@ -102,12 +104,12 @@ export function ApplicationDialog({
       })
 
       if (!response.ok) {
-        throw new Error(editingApplication ? 'Failed to update application' : 'Failed to create application')
+        throw new Error(editingApplication ? t('errors.updateFailed') : t('errors.addFailed'))
       }
 
       toast({
         title: '成功',
-        description: editingApplication ? '应用已成功更新' : '应用已成功添加',
+        description: editingApplication ? t('success.updated') : t('success.added'),
       })
 
       onSuccess?.()
@@ -116,7 +118,7 @@ export function ApplicationDialog({
       console.error('提交表单失败:', error)
       toast({
         title: '错误',
-        description: editingApplication ? '更新应用失败，请重试' : '添加应用失败，请重试',
+        description: editingApplication ? t('errors.updateFailed') : t('errors.addFailed'),
         variant: 'destructive',
       })
     } finally {
@@ -133,13 +135,11 @@ export function ApplicationDialog({
   }
 
   const isEditing = !!editingApplication
-  const title = isEditing ? '编辑应用' : '引入应用'
-  const description = isEditing 
-    ? '编辑应用信息。' 
-    : '添加一个新的应用到AI团队中。请填写应用的基本信息。'
+  const title = isEditing ? t('title.edit') : t('title.add')
+  const description = isEditing ? t('description.edit') : t('description.add')
   const submitText = isEditing 
-    ? (loading ? '更新中...' : '更新应用') 
-    : (loading ? '添加中...' : '添加应用')
+    ? (loading ? t('buttons.updating') : t('buttons.update')) 
+    : (loading ? t('buttons.adding') : t('buttons.add'))
 
   return (
     <Dialog 
@@ -158,7 +158,7 @@ export function ApplicationDialog({
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-12 items-center gap-4">
               <Label htmlFor="name" className="text-right col-span-1">
-                名称
+                {t('labels.name')}
               </Label>
               <Input
                 id="name"
@@ -166,11 +166,12 @@ export function ApplicationDialog({
                 onChange={handleInputChange}
                 className="col-span-11"
                 required
+                placeholder={t('placeholders.name')}
               />
             </div>
             <div className="grid grid-cols-12 items-start gap-4">
               <Label htmlFor="introduction" className="text-right col-span-1 pt-2">
-                简介
+                {t('labels.introduction')}
               </Label>
               <Textarea
                 id="introduction"
@@ -178,11 +179,12 @@ export function ApplicationDialog({
                 onChange={handleInputChange}
                 className="col-span-11"
                 required
+                placeholder={t('placeholders.introduction')}
               />
             </div>
             <div className="grid grid-cols-12 items-center gap-4">
               <Label htmlFor="entryUrl" className="text-right col-span-1">
-                入口
+                {t('labels.entryUrl')}
               </Label>
               <Input
                 id="entryUrl"
@@ -191,19 +193,19 @@ export function ApplicationDialog({
                 className="col-span-11"
                 required
                 type="url"
-                placeholder="https://"
+                placeholder={t('placeholders.entryUrl')}
               />
             </div>
             <div className="grid grid-cols-12 items-center gap-4">
               <Label htmlFor="category" className="text-right col-span-1">
-                标签
+                {t('labels.category')}
               </Label>
               <Input
                 id="category"
                 value={formData.category}
                 onChange={handleInputChange}
                 className="col-span-11"
-                placeholder="可选"
+                placeholder={t('placeholders.category')}
               />
             </div>
           </div>

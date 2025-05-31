@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { BoundaryRule } from '@/types/boundary'
 import { BoundaryRuleDialog } from './boundary-rule-dialog'
 import { useBoundaryRulesStore } from '@/lib/stores/boundary-rules-store'
+import { useTranslations } from 'next-intl'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,6 +26,7 @@ export default function BoundaryRules() {
   const [showDialog, setShowDialog] = useState(false)
   const [showResetAlert, setShowResetAlert] = useState(false)
   const { toast } = useToast()
+  const t = useTranslations('BoundaryRules')
 
   const handleAdd = () => {
     setEditingRule(null)
@@ -39,8 +41,8 @@ export default function BoundaryRules() {
   const handleDelete = (id: string) => {
     deleteRule(id)
     toast({
-      title: "删除成功",
-      description: "边界识别规则已删除",
+      title: t('deleteSuccess'),
+      description: t('deleteSuccessDesc'),
       duration: 3000
     })
   }
@@ -50,16 +52,16 @@ export default function BoundaryRules() {
       // 编辑现有规则
       updateRule(editingRule.id, rule as Omit<BoundaryRule, 'id'>)
       toast({
-        title: "更新成功",
-        description: "边界识别规则已更新",
+        title: t('updateSuccess'),
+        description: t('updateSuccessDesc'),
         duration: 3000
       })
     } else {
       // 添加新规则
       addRule(rule as Omit<BoundaryRule, 'id'>)
       toast({
-        title: "添加成功",
-        description: "新的边界识别规则已添加",
+        title: t('addSuccess'),
+        description: t('addSuccessDesc'),
         duration: 3000
       })
     }
@@ -74,8 +76,8 @@ export default function BoundaryRules() {
     resetRules()
     setShowResetAlert(false)
     toast({
-      title: "重置成功",
-      description: "边界识别规则已重置为默认值",
+      title: t('resetSuccess'),
+      description: t('resetSuccessDesc'),
       duration: 3000
     })
   }
@@ -83,15 +85,15 @@ export default function BoundaryRules() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold">边界识别规则</h2>
+        <h2 className="text-xl font-semibold">{t('title')}</h2>
         <div className="space-x-2">
           <Button variant="outline" onClick={handleReset} size="sm">
             <RotateCcw className="mr-2 h-4 w-4" />
-            重置
+            {t('reset')}
           </Button>
           <Button onClick={handleAdd} size="sm">
             <Plus className="mr-2 h-4 w-4" />
-            添加规则
+            {t('addRule')}
           </Button>
         </div>
       </div>
@@ -99,12 +101,12 @@ export default function BoundaryRules() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[200px]">检查项</TableHead>
-            <TableHead className="w-[200px]">适用场景</TableHead>
-            <TableHead className="w-[300px]">检查要点</TableHead>
-            <TableHead className="w-[200px]">示例</TableHead>
-            <TableHead className="w-[300px]">边界示例</TableHead>
-            <TableHead className="w-[100px]">操作</TableHead>
+            <TableHead className="w-[200px]">{t('checkItem')}</TableHead>
+            <TableHead className="w-[200px]">{t('scenario')}</TableHead>
+            <TableHead className="w-[300px]">{t('checkPoints')}</TableHead>
+            <TableHead className="w-[200px]">{t('example')}</TableHead>
+            <TableHead className="w-[300px]">{t('boundaryExample')}</TableHead>
+            <TableHead className="w-[100px]">{t('actions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -140,14 +142,14 @@ export default function BoundaryRules() {
       <AlertDialog open={showResetAlert} onOpenChange={setShowResetAlert}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>确定要重置规则吗？</AlertDialogTitle>
+            <AlertDialogTitle>{t('resetConfirm')}</AlertDialogTitle>
             <AlertDialogDescription>
-              这将删除所有自定义规则，并恢复默认规则。此操作无法撤销。
+              {t('resetConfirmDesc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmReset}>确定重置</AlertDialogAction>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmReset}>{t('confirmReset')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

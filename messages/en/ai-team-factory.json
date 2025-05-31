@@ -1,0 +1,217 @@
+{
+  "AITeamPage": {
+    "title": "AI Team Factory",
+    "loading": "Loading data, please wait...",
+    "tabs": {
+      "members": "Team Members",
+      "applications": "Integrated Apps"
+    }
+  },
+  "MemberList": {
+    "addButton": "Add Member",
+    "errorMessages": {
+      "loadFailed": "Failed to load AI team members",
+      "requiredFields": "Please fill in all required fields",
+      "updateFailed": "Update failed",
+      "addFailed": "Add failed",
+      "deleteFailed": "Delete failed"
+    },
+    "successMessages": {
+      "updateSuccess": "AI team member updated successfully",
+      "addSuccess": "AI team member added successfully",
+      "deleteSuccess": "AI team member deleted successfully"
+    }
+  },
+  "ApplicationList": {
+    "addButton": "Import App",
+    "errorMessages": {
+      "fetchFailed": "Failed to fetch application list",
+      "deleteFailed": "Failed to delete application, please try again"
+    },
+    "successMessages": {
+      "deleteSuccess": "Application deleted successfully"
+    },
+    "logs": {
+      "editApp": "Edit application",
+      "prepareDelete": "Preparing to delete application ID"
+    }
+  },
+  "TeamCard": {
+    "tooltips": {
+      "visitApp": "Visit application",
+      "chatWithMember": "Chat with member",
+      "editMember": "Edit member",
+      "editApp": "Edit application",
+      "deleteMember": "Delete member",
+      "deleteApp": "Delete application"
+    }
+  },
+  "ConfirmDeleteDialog": {
+    "title": "Confirm Deletion",
+    "description": "Are you sure you want to delete {itemName}? This action cannot be undone.",
+    "cancelButton": "Cancel",
+    "deleteButton": "Delete",
+    "defaultItemName": "this item"
+  },
+  "ApplicationDialog": {
+    "title": {
+      "edit": "Edit Application",
+      "add": "Import Application"
+    },
+    "description": {
+      "edit": "Edit application information.",
+      "add": "Add a new application to the AI team. Please fill in the basic information."
+    },
+    "labels": {
+      "name": "Name",
+      "introduction": "Introduction",
+      "entryUrl": "Entry URL",
+      "category": "Category"
+    },
+    "placeholders": {
+      "name": "Enter application name (max 50 characters)",
+      "introduction": "Enter introduction (max 200 characters)",
+      "entryUrl": "https://",
+      "category": "Optional"
+    },
+    "buttons": {
+      "update": "Update Application",
+      "add": "Add Application",
+      "updating": "Updating...",
+      "adding": "Adding..."
+    },
+    "errors": {
+      "updateFailed": "Failed to update application",
+      "addFailed": "Failed to add application"
+    },
+    "success": {
+      "updated": "Application has been successfully updated",
+      "added": "Application has been successfully added"
+    }
+  },
+  "ChatInput": {
+    "placeholder": "Enter message...",
+    "loadingMessage": "Processing..."
+  },
+  "ChatDialog": {
+    "preparingSession": "Preparing session environment, please wait...",
+    "welcomeMessage": "Hello! I'm {name}, how can I help you?",
+    "welcomeWithTools": "{welcomeMessage} (Tool service configured)",
+    "welcomeWithoutTools": "{welcomeMessage} (Unable to configure tool service, only providing basic conversation)",
+    "warnings": {
+      "toolServiceUnavailable": "Unable to configure tool service, will use basic conversation mode"
+    },
+    "errors": {
+      "conversationError": "Conversation error: {message}",
+      "unknownError": "Conversation error: Unknown error",
+      "processingError": "Conversation processing error, please try again later"
+    },
+    "toolCall": {
+      "title": "Tool Call",
+      "multipleToolIndicator": "{count} tools",
+      "status": {
+        "running": "Running",
+        "success": "Success",
+        "error": "Failed"
+      },
+      "details": {
+        "parameters": "Parameters:",
+        "result": "Result:",
+        "error": "Error:"
+      },
+      "errors": {
+        "cannotDisplayParams": "Cannot display parameters",
+        "cannotDisplayResult": "Cannot display result"
+      }
+    }
+  },
+  "MemberFormDialog": {
+    "title": {
+      "edit": "Edit AI Team Member",
+      "add": "Add AI Team Member"
+    },
+    "tabs": {
+      "info": "Basic Info",
+      "skills": "Skills Config",
+      "model": "LLM Config",
+      "mcp": "External Tools"
+    },
+    "basicInfo": {
+      "name": "Member Name",
+      "introduction": "Personal Introduction",
+      "category": "Category Tags",
+      "greeting": "Welcome Message"
+    },
+    "placeholders": {
+      "name": "Enter member name (max 50 characters)",
+      "introduction": "Enter personal introduction (max 200 characters)",
+      "category": "Enter tags, separated by commas (e.g.: Requirements Analysis,Test Cases)",
+      "greeting": "Member's greeting when conversation starts (max 200 characters)"
+    },
+    "skills": {
+      "role": "Role Definition",
+      "responsibilities": "Tasks & Responsibilities"
+    },
+    "skillsPlaceholders": {
+      "role": "Describe the member's role in detail, e.g.: \"You are a senior test engineer\"",
+      "responsibilities": "Describe the member's specific responsibilities, capabilities and behavioral requirements, which will affect their performance in conversations."
+    },
+    "modelConfig": {
+      "title": "Large Language Model Configuration",
+      "description": "Set up the large language model used by the AI team member, click \"Save\" when done",
+      "provider": "Model Provider",
+      "baseUrl": "API Base URL",
+      "modelName": "Model Name",
+      "apiKey": "API Key",
+      "temperature": "Temperature",
+      "temperatureHint": "Lower values make responses more deterministic",
+      "temperatureLabels": {
+        "precise": "Precise (0.0)",
+        "creative": "Creative (1.0)"
+      },
+      "notice": {
+        "title": "Note",
+        "description": "API keys are stored encrypted and only decrypted when needed for requests."
+      },
+      "errors": {
+        "decryptFailed": "Unable to decrypt API Key, please re-enter"
+      }
+    },
+    "mcpConfig": {
+      "title": "MCP Server Configuration (HTTP URL only)",
+      "tooltips": {
+        "savePreview": "Save and Preview",
+        "editJson": "Edit JSON",
+        "insertExample": "Insert Streamable HTTP Config Example"
+      },
+      "notice": {
+        "title": "Tip",
+        "description": "The current system only supports connecting to and using tools from the FIRST server in the `mcpServers` object in the JSON configuration."
+      },
+      "jsonEditor": {
+        "label": "MCP Configuration JSON",
+        "placeholder": "Example config"
+      },
+      "serverCard": {
+        "testButton": "Test",
+        "testing": "Testing",
+        "connectingMessage": "Connecting to server...",
+        "successMessage": "Connection successful, found {count} tools",
+        "connectionFailed": "Connection failed: {error}"
+      }
+    },
+    "buttons": {
+      "cancel": "Cancel",
+      "save": "Save",
+      "update": "Update"
+    },
+    "errors": {
+      "jsonParseError": "JSON parsing or validation failed: {message}",
+      "invalidJsonStructure": "Invalid JSON structure, top level must contain a \"mcpServers\" object",
+      "invalidServerConfig": "Server \"{name}\" configuration is invalid: only Streamable HTTP configurations with 'url' field are supported, 'command' or 'args' are not allowed."
+    }
+  },
+  "MessageList": {
+    "noMessages": "No messages yet. Start a conversation!"
+  }
+} 

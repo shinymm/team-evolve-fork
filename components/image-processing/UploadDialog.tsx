@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react'
 import { Button } from "@/components/ui/button"
 import { Upload, Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import {
   Dialog,
   DialogContent,
@@ -27,6 +28,7 @@ export const UploadDialog = ({
   uploading,
   error
 }: UploadDialogProps) => {
+  const t = useTranslations('ImageProcessingPage');
   const [file, setFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropAreaRef = useRef<HTMLDivElement>(null);
@@ -110,9 +112,9 @@ export const UploadDialog = ({
     }}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>上传图片文件</DialogTitle>
+          <DialogTitle>{t('uploadDialog.title')}</DialogTitle>
           <DialogDescription>
-            请上传产品截图或相关图片，支持 JPG、PNG、GIF 等常见图片格式。
+            {t('uploadDialog.description')}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -127,12 +129,12 @@ export const UploadDialog = ({
               <Upload className="h-8 w-8 text-gray-400" />
               <div className="text-xs text-gray-600">
                 {file ? (
-                  <p className="text-green-600">已选择文件: {file.name}</p>
+                  <p className="text-green-600">{t('uploadDialog.fileSelected', { fileName: file.name })}</p>
                 ) : (
                   <>
-                    <p>拖拽图片到此处或</p>
+                    <p>{t('uploadDialog.dragDropHint')}</p>
                     <label className="cursor-pointer text-orange-600 hover:text-orange-700">
-                      点击上传
+                      {t('uploadDialog.browse')}
                       <input
                         ref={fileInputRef}
                         type="file"
@@ -153,7 +155,7 @@ export const UploadDialog = ({
             setFile(null);
             onClose();
           }}>
-            取消
+            {t('uploadDialog.cancel')}
           </Button>
           <Button 
             onClick={handleUpload}
@@ -163,9 +165,9 @@ export const UploadDialog = ({
             {uploading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                上传中...
+                {t('uploadSection.processingFile')}
               </>
-            ) : '上传图片'}
+            ) : t('uploadDialog.uploadButton')}
           </Button>
         </DialogFooter>
       </DialogContent>

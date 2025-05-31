@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import { useTranslations } from 'next-intl'
 import {
   Dialog,
   DialogContent,
@@ -27,6 +28,7 @@ export const SupplementDialog = ({
   title, 
   description 
 }: SupplementDialogProps) => {
+  const t = useTranslations('ImageProcessingPage');
   const [text, setText] = useState('');
 
   return (
@@ -43,16 +45,16 @@ export const SupplementDialog = ({
             value={text}
             onChange={(e) => setText(e.target.value)}
             className="min-h-[150px]"
-            placeholder="请在此输入补充信息..."
+            placeholder={t('supplements.placeholder')}
           />
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>取消</Button>
+          <Button variant="outline" onClick={onClose}>{t('supplements.cancel')}</Button>
           <Button 
             onClick={() => onConfirm(text)}
             className="bg-orange-500 hover:bg-orange-600 text-white"
           >
-            确认
+            {t('supplements.confirm')}
           </Button>
         </DialogFooter>
       </DialogContent>

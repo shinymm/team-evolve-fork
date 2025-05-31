@@ -3,6 +3,7 @@
 import React, { useRef } from 'react';
 import type { Editor } from '@tiptap/react';
 import { ImagePlus } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 interface ImageUploadButtonProps {
   editor: Editor;
@@ -10,6 +11,7 @@ interface ImageUploadButtonProps {
 
 export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({ editor }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const t = useTranslations('TiptapEditor');
 
   const handleClick = () => {
     fileInputRef.current?.click();
@@ -40,7 +42,7 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({ editor }) 
 
   return (
     <>
-      <button onClick={handleClick} title="插入图片">
+      <button onClick={handleClick} title={t('toolbar.insertImage')}>
         <ImagePlus size={18} />
       </button>
       <input

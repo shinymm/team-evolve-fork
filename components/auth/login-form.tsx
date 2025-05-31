@@ -1,11 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/i18n/navigation'
 import { signIn } from 'next-auth/react'
+import { useTranslations } from 'next-intl'
 
 export function LoginForm() {
   const router = useRouter()
+  const t = useTranslations('Auth')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -34,7 +36,7 @@ export function LoginForm() {
       router.push('/')
       router.refresh()
     } catch (error) {
-      setError('登录过程中发生错误')
+      setError(t('loginError'))
     } finally {
       setIsLoading(false)
     }
@@ -45,7 +47,7 @@ export function LoginForm() {
       <div className="rounded-md shadow-sm -space-y-px">
         <div>
           <label htmlFor="email" className="sr-only">
-            邮箱地址
+            {t('emailAddress')}
           </label>
           <input
             id="email"
@@ -54,12 +56,12 @@ export function LoginForm() {
             autoComplete="email"
             required
             className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-orange-500 focus:border-orange-500 focus:z-10 sm:text-sm"
-            placeholder="邮箱地址"
+            placeholder={t('emailAddress')}
           />
         </div>
         <div>
           <label htmlFor="password" className="sr-only">
-            密码
+            {t('password')}
           </label>
           <input
             id="password"
@@ -68,7 +70,7 @@ export function LoginForm() {
             autoComplete="current-password"
             required
             className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-orange-500 focus:border-orange-500 focus:z-10 sm:text-sm"
-            placeholder="密码"
+            placeholder={t('password')}
           />
         </div>
       </div>
@@ -91,7 +93,7 @@ export function LoginForm() {
             isLoading ? 'opacity-50 cursor-not-allowed' : ''
           }`}
         >
-          {isLoading ? '登录中...' : '登录'}
+          {isLoading ? t('loginInProgress') : t('submit')}
         </button>
       </div>
     </form>

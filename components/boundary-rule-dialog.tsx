@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { useState, useEffect, useRef } from "react"
 import { BoundaryRule } from "@/types/boundary"
+import { useTranslations } from "next-intl"
 
 interface Props {
   open: boolean
@@ -19,6 +20,7 @@ interface Props {
 export function BoundaryRuleDialog({ open, onOpenChange, rule, onSave, className }: Props) {
   const [formData, setFormData] = useState<Partial<BoundaryRule>>({})
   const originalRule = useRef<BoundaryRule | null>(null)
+  const t = useTranslations('BoundaryRuleDialog')
 
   useEffect(() => {
     if (rule) {
@@ -54,11 +56,11 @@ export function BoundaryRuleDialog({ open, onOpenChange, rule, onSave, className
     }}>
       <DialogContent className={className || "max-w-[80%] w-[80%] max-h-[80vh] overflow-y-auto"}>
         <DialogHeader>
-          <DialogTitle>{rule ? '编辑规则' : '添加规则'}</DialogTitle>
+          <DialogTitle>{rule ? t('editRule') : t('addRule')}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-[120px,1fr] items-center gap-4">
-            <Label htmlFor="checkItem">检查项</Label>
+            <Label htmlFor="checkItem">{t('checkItem')}</Label>
             <Input
               id="checkItem"
               value={formData.checkItem || ''}
@@ -68,7 +70,7 @@ export function BoundaryRuleDialog({ open, onOpenChange, rule, onSave, className
           </div>
 
           <div className="grid grid-cols-[120px,1fr] items-center gap-4">
-            <Label htmlFor="scenario">适用场景</Label>
+            <Label htmlFor="scenario">{t('scenario')}</Label>
             <Input
               id="scenario"
               value={formData.scenario || ''}
@@ -78,7 +80,7 @@ export function BoundaryRuleDialog({ open, onOpenChange, rule, onSave, className
           </div>
 
           <div className="grid grid-cols-[120px,1fr] items-start gap-4">
-            <Label htmlFor="checkPoints">检查要点</Label>
+            <Label htmlFor="checkPoints">{t('checkPoints')}</Label>
             <Textarea
               id="checkPoints"
               value={formData.checkPoints || ''}
@@ -89,7 +91,7 @@ export function BoundaryRuleDialog({ open, onOpenChange, rule, onSave, className
           </div>
 
           <div className="grid grid-cols-[120px,1fr] items-center gap-4">
-            <Label htmlFor="example">示例</Label>
+            <Label htmlFor="example">{t('example')}</Label>
             <Input
               id="example"
               value={formData.example || ''}
@@ -99,7 +101,7 @@ export function BoundaryRuleDialog({ open, onOpenChange, rule, onSave, className
           </div>
 
           <div className="grid grid-cols-[120px,1fr] items-start gap-4">
-            <Label htmlFor="boundaryExample">边界示例</Label>
+            <Label htmlFor="boundaryExample">{t('boundaryExample')}</Label>
             <Textarea
               id="boundaryExample"
               value={formData.boundaryExample || ''}
@@ -111,10 +113,10 @@ export function BoundaryRuleDialog({ open, onOpenChange, rule, onSave, className
 
           <div className="flex justify-end gap-4">
             <Button type="submit">
-              保存
+              {t('save')}
             </Button>
             <Button type="button" variant="outline" onClick={handleCancel}>
-              取消
+              {t('cancel')}
             </Button>
           </div>
         </form>

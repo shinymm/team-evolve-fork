@@ -3,19 +3,21 @@
 import { useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { useTranslations } from 'next-intl'
 
 interface ContentDisplayProps {
   content: string;
 }
 
 export const ContentDisplay = ({ content }: ContentDisplayProps) => {
+  const t = useTranslations('ImageProcessingPage');
   const contentRef = useRef<HTMLDivElement>(null);
 
   // 如果内容为空，显示提示
   if (!content) {
     return (
       <div className="text-gray-500 text-sm flex items-center gap-2">
-        <span>暂无内容</span>
+        <span>{t('contentDisplay.waitingForModel')}</span>
       </div>
     );
   }
@@ -24,7 +26,7 @@ export const ContentDisplay = ({ content }: ContentDisplayProps) => {
   if (content.trim() === '') {
     return (
       <div className="text-gray-500 text-sm">
-        内容为空白字符
+        {t('contentDisplay.emptyContent')}
       </div>
     );
   }

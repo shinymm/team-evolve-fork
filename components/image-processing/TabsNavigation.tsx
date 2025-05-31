@@ -1,6 +1,7 @@
 'use client'
 
 import { TabType } from '@/types/image-processing'
+import { useTranslations } from 'next-intl'
 
 interface TabsNavigationProps {
   activeTab: TabType
@@ -11,6 +12,8 @@ export const TabsNavigation = ({
   activeTab,
   onTabChange
 }: TabsNavigationProps) => {
+  const t = useTranslations('ImageProcessingPage');
+  
   return (
     <div className="flex border-b border-gray-200">
       <button
@@ -21,7 +24,7 @@ export const TabsNavigation = ({
         }`}
         onClick={() => onTabChange('product-info')}
       >
-        产品信息
+        {t('tabs.productInfo')}
       </button>
       <button
         className={`px-4 py-2 text-base font-medium border-b-2 transition-colors ${
@@ -31,7 +34,7 @@ export const TabsNavigation = ({
         }`}
         onClick={() => onTabChange('architecture')}
       >
-        信息架构
+        {t('tabs.architecture')}
       </button>
       <button
         className={`px-4 py-2 text-base font-medium border-b-2 transition-colors ${
@@ -41,7 +44,7 @@ export const TabsNavigation = ({
         }`}
         onClick={() => onTabChange('vision-analysis')}
       >
-        视觉分析
+        {t('tabs.visionAnalysis')}
       </button>
       <button
         className={`px-4 py-2 text-base font-medium border-b-2 transition-colors ${
@@ -51,7 +54,7 @@ export const TabsNavigation = ({
         }`}
         onClick={() => onTabChange('requirement-draft')}
       >
-        需求初稿
+        {t('tabs.requirementDraft')}
       </button>
     </div>
   )

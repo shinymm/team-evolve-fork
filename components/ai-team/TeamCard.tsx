@@ -1,6 +1,7 @@
 import { Card, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Pencil, Trash2, ExternalLink, MessageCircle } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 interface TeamCardProps {
   id: string
@@ -25,6 +26,8 @@ export function TeamCard({
   onDelete,
   onChat,
 }: TeamCardProps) {
+  const t = useTranslations('TeamCard')
+
   const handleVisit = () => {
     if (entryUrl) {
       window.open(entryUrl, '_blank')
@@ -52,7 +55,7 @@ export function TeamCard({
                   size="sm"
                   className="h-7 w-7 p-0"
                   onClick={handleVisit}
-                  title="访问应用"
+                  title={t('tooltips.visitApp')}
                 >
                   <ExternalLink className="h-4 w-4" />
                 </Button>
@@ -63,7 +66,7 @@ export function TeamCard({
                   size="sm"
                   className="h-7 w-7 p-0"
                   onClick={onChat}
-                  title="与成员对话"
+                  title={t('tooltips.chatWithMember')}
                 >
                   <MessageCircle className="h-4 w-4" />
                 </Button>
@@ -73,7 +76,7 @@ export function TeamCard({
                 size="sm"
                 className="h-7 w-7 p-0"
                 onClick={onEdit}
-                title={type === 'member' ? '编辑成员' : '编辑应用'}
+                title={type === 'member' ? t('tooltips.editMember') : t('tooltips.editApp')}
               >
                 <Pencil className="h-4 w-4" />
               </Button>
@@ -82,7 +85,7 @@ export function TeamCard({
                 size="sm"
                 className="h-7 w-7 p-0 text-red-600 hover:text-red-600 hover:bg-red-50"
                 onClick={onDelete}
-                title={type === 'member' ? '删除成员' : '删除应用'}
+                title={type === 'member' ? t('tooltips.deleteMember') : t('tooltips.deleteApp')}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>

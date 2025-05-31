@@ -1,98 +1,110 @@
 'use client'
 
-import { ChevronDown, Settings, Database, Microscope, ListChecks, BookOpenIcon, Flame, Hexagon, Sparkles } from 'lucide-react'
-import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { ChevronDown, Settings, Database, Microscope, Flame, Hexagon, Sparkles } from 'lucide-react'
+import { usePathname } from "next/navigation" // usePathname from next/navigation is fine
 import { useState, useEffect } from "react"
 import { useSession } from 'next-auth/react'
 import { getPathPermission } from '@/config/permissions'
 import { toast } from '@/components/ui/use-toast'
+import { useTranslations } from 'next-intl';
+import { useRouter } from '@/i18n/navigation'; // USE THIS ROUTER
+import { routing } from '@/i18n/routing'; // Added for dynamic locale regex
 
 type UserRole = 'USER' | 'ADMIN'
 
-interface MenuItem {
-  title: string
+interface MenuItemDef {
+  titleKey: string
   icon: React.ReactNode
   href?: string
-  submenu?: {
-    title: string
-    href: string
-    isPro?: boolean
-  }[]
+  submenu?: SubMenuItemDef[]
 }
 
-// 将设置菜单从主菜单中分离出来
-const mainMenuItems: MenuItem[] = [
-  {
-    title: "异界进化",
-    icon: <Hexagon className="h-4 w-4" />,
-    submenu: [
-      { title: "战术板", href: "/collaboration/tactical-board" }
-    ]
-  },
-  {
-    title: "AI能力胶囊",
-    icon: <Microscope className="h-4 w-4" />,
-    submenu: [
-      { title: "原始需求分析", href: "/ai-capability/book-evolution" },
-      { title: "需求初稿衍化", href: "/ai-capability/book" },
-      { title: "场景边界分析", href: "/ai-capability/scene-analysis" },
-      { title: "需求书确认", href: "/ai-capability/book-confirm" },
-      { title: "需求书撰写", href: "/ai-capability/book-writing", isPro: true },
-      { title: "用户故事拆解", href: "/ai-capability/user-story" },
-      { title: "测试用例生成", href: "/ai-capability/test-cases" },
-      { title: "测试描述格式化", href: "/ai-capability/test-format" },
-      { title: "测试用例细节辅助", href: "/ai-capability/test-detail" },
-      { title: "日志分析", href: "/ai-capability/log-analysis" },
-    ]
-  },
-  {
-    title: "知识熔炉",
-    icon: <Database className="h-4 w-4" />,
-    submenu: [
-      { title: "产品信息架构", href: "/knowledge/information-architecture" },
-      { title: "产品系统架构", href: "/knowledge/system-architecture" },
-      { title: "产品开放API", href: "/knowledge/api-interfaces" },
-      { title: "术语管理", href: "/knowledge/glossary" },
-      { title: "需求摘要管理", href: "/knowledge/requirement-summaries" },
-      { title: "需求书模版", href: "/knowledge/requirement-templates" },
-      { title: "边界识别知识", href: "/knowledge/boundary", isPro: true },
-    ]
-  },
-  {
-    title: "灵犀阁",
-    icon: <Sparkles className="h-4 w-4" />,
-    submenu: [
-      { title: "需求分析技能", href: "/inspire/req-analysis-skill", isPro: true },
-      { title: "文档综合处理", href: "/special-capability/requirement-upload", isPro: true },
-      { title: "图片综合处理", href: "/special-capability/image-processing", isPro: true }
-    ]
-  },
-  {
-    title: "AI能力生态",
-    icon: <Flame className="h-4 w-4" />,
-    submenu: [
-      { title: "AI团队工厂", href: "/settings/ai-team" }
-      
-    ]
-  }
-]
-
-const settingsMenu: MenuItem = {
-  title: "设置",
-  icon: <Settings className="h-4 w-4" />,
-  submenu: [
-    { title: "大模型设置", href: "/settings/ai-models" },
-    { title: "提示词调试", href: "/special-capability/prompt-debug"}
-  ]
+interface SubMenuItemDef {
+  titleKey: string
+  href: string
+  isPro?: boolean
 }
+
+// Construct a regex to remove locale prefixes dynamically
+const localesRegexSegment = routing.locales.join('|');
+const localePrefixRegex = new RegExp(`^\/(${localesRegexSegment})`);
+const localePrefixWithSlashRegex = new RegExp(`^\/(${localesRegexSegment})\/`);
 
 export function Sidebar() {
-  const pathname = usePathname()
-  const router = useRouter()
+  const t = useTranslations('Sidebar');
+  const pathname = usePathname() 
+  const router = useRouter() 
   const { data: session } = useSession()
-  const [openMenus, setOpenMenus] = useState<string[]>(["AI能力胶囊"])
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  
+  // Menu definitions using titleKey for translation
+  // It's better to define these outside the component if they don't depend on component's state/props,
+  // or memoize them with useMemo if they do. For simplicity, defined here.
+  const mainMenuItems: MenuItemDef[] = [
+    {
+      titleKey: "otherworldEvolution",
+      icon: <Hexagon className="h-4 w-4" />,
+      submenu: [
+        { titleKey: "tacticalBoard", href: "/collaboration/tactical-board" }
+      ]
+    },
+    {
+      titleKey: "aiCapabilityCapsule",
+      icon: <Microscope className="h-4 w-4" />,
+      submenu: [
+        { titleKey: "rawRequirementAnalysis", href: "/ai-capability/book-evolution" },
+        { titleKey: "draftRequirementEvolution", href: "/ai-capability/book" },
+        { titleKey: "sceneBoundaryAnalysis", href: "/ai-capability/scene-analysis" },
+        { titleKey: "requirementDocConfirm", href: "/ai-capability/book-confirm" },
+        { titleKey: "requirementDocWriting", href: "/ai-capability/book-writing", isPro: true },
+        { titleKey: "userStoryDecomposition", href: "/ai-capability/user-story" },
+        { titleKey: "testCaseGeneration", href: "/ai-capability/test-cases" },
+        { titleKey: "testDescriptionFormat", href: "/ai-capability/test-format" },
+        { titleKey: "testCaseDetailAssistant", href: "/ai-capability/test-detail" },
+        { titleKey: "logAnalysis", href: "/ai-capability/log-analysis" },
+      ]
+    },
+    {
+      titleKey: "knowledgeForge",
+      icon: <Database className="h-4 w-4" />,
+      submenu: [
+        { titleKey: "productInfoArchitecture", href: "/knowledge/information-architecture" },
+        { titleKey: "productSystemArchitecture", href: "/knowledge/system-architecture" },
+        { titleKey: "productOpenAPI", href: "/knowledge/api-interfaces" },
+        { titleKey: "glossaryManagement", href: "/knowledge/glossary" },
+        { titleKey: "requirementSummaryManagement", href: "/knowledge/requirement-summaries" },
+        { titleKey: "requirementTemplate", href: "/knowledge/requirement-templates" },
+        { titleKey: "boundaryIdentificationKnowledge", href: "/knowledge/boundary", isPro: true },
+      ]
+    },
+    {
+      titleKey: "inspirationPavilion",
+      icon: <Sparkles className="h-4 w-4" />,
+      submenu: [
+        { titleKey: "reqAnalysisSkill", href: "/inspire/req-analysis-skill", isPro: true },
+        { titleKey: "docComprehensiveProcessing", href: "/special-capability/requirement-upload", isPro: true },
+        { titleKey: "imageComprehensiveProcessing", href: "/special-capability/image-processing", isPro: true }
+      ]
+    },
+    {
+      titleKey: "aiCapabilityEcosystem",
+      icon: <Flame className="h-4 w-4" />,
+      submenu: [
+        { titleKey: "aiTeamFactory", href: "/settings/ai-team" }        
+      ]
+    }
+  ];
+  
+  const settingsMenu: MenuItemDef = {
+    titleKey: "settings",
+    icon: <Settings className="h-4 w-4" />,
+    submenu: [
+      { titleKey: "llmSettings", href: "/settings/ai-models" },
+      { titleKey: "promptDebug", href: "/special-capability/prompt-debug"}
+    ]
+  };
+
+  // Use titleKey for managing open state, as it's the stable identifier
+  const [openMenus, setOpenMenus] = useState<string[]>([mainMenuItems[1].titleKey]); // Default open "AI能力胶囊" by its key
   const [navigating, setNavigating] = useState<string | null>(null)
 
   useEffect(() => {
@@ -104,19 +116,19 @@ export function Sidebar() {
     settingsMenu.submenu?.forEach(subitem => {
       router.prefetch(subitem.href)
     })
-  }, [router])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router]); // router is stable, menu items are stable if defined outside or memoized
 
-  const toggleMenu = (title: string) => {
+  const toggleMenu = (menuTitleKey: string) => {
     setOpenMenus(prev =>
-      prev.includes(title)
-        ? prev.filter(item => item !== title)
-        : [...prev, title]
+      prev.includes(menuTitleKey)
+        ? prev.filter(item => item !== menuTitleKey)
+        : [...prev, menuTitleKey]
     )
   }
 
   const canAccessPath = (path: string) => {
     const permission = getPathPermission(path)
-
     if (!permission) return true
     if (!permission.requiresAuth) return true
     if (!session?.user) return false
@@ -125,19 +137,32 @@ export function Sidebar() {
     return permission.allowedRoles.includes(userRole)
   }
 
+  const getPathWithoutLocale = (currentPath: string) => {
+    // First, try to remove /<locale>/ (e.g., /en/foo -> foo)
+    let path = currentPath.replace(localePrefixWithSlashRegex, '');
+    // If that didn't change anything, it might be just /<locale> (e.g., /en -> )
+    // So, try removing /<locale> (e.g. /en -> )
+    if (path === currentPath) { 
+      path = currentPath.replace(localePrefixRegex, '');
+    }
+    return path || '/'; // Ensure root path is represented as '/'
+  };
+
   const handleNavigate = async (href: string) => {
     if (!canAccessPath(href)) {
       toast({
-        title: "访问受限",
-        description: "您需要登录或没有权限访问此功能",
+        title: t('accessDenied'),
+        description: t('loginOrPermissionRequired'),
         variant: "destructive"
       })
       return
     }
 
-    if (href !== pathname) {
+    const currentPathWithoutLocale = getPathWithoutLocale(pathname);
+    if (href !== currentPathWithoutLocale) {
       setNavigating(href)
-      await router.push(href)
+      // router.push from @/i18n/navigation will handle locale automatically
+      await router.push(href) 
       setNavigating(null)
     }
   }
@@ -146,45 +171,49 @@ export function Sidebar() {
     setNavigating(null)
   }, [pathname])
 
-  const renderMenuItem = (item: MenuItem) => {
+  const renderMenuItem = (item: MenuItemDef) => {
     if (!item.submenu) return null
+    
+    // Use item.titleKey for logic, t(item.titleKey) for display
+    const translatedTitle = t(item.titleKey as any); 
 
-    // 检查是否有任何可访问的子菜单
     const hasAccessibleSubmenu = item.submenu.some(sub => canAccessPath(sub.href))
     if (!hasAccessibleSubmenu) return null
 
     return (
-      <div key={item.title} className="mb-0">
+      <div key={item.titleKey} className="mb-0"> {/* Use stable titleKey for React key */}
         <div
           className="w-full flex items-center justify-between px-1.5 py-1 text-[12px] text-gray-600 font-medium bg-gray-100/80 rounded-md cursor-default select-none"
         >
           <div className="flex items-center gap-1">
             {item.icon}
-            <span>{item.title}</span>
+            <span>{translatedTitle}</span>
           </div>
           <ChevronDown
             className={`h-2.5 w-2.5 transition-transform text-gray-400 ${
-              openMenus.includes(item.title) ? "transform rotate-180" : ""
+              openMenus.includes(item.titleKey) ? "transform rotate-180" : "" // Check against titleKey
             }`}
-            onClick={() => toggleMenu(item.title)}
+            onClick={() => toggleMenu(item.titleKey)} // Toggle using titleKey
           />
         </div>
-        {openMenus.includes(item.title) && (
+        {openMenus.includes(item.titleKey) && ( // Check against titleKey
           <div className="space-y-0">
             {item.submenu.map((subitem) => {
               const isAccessible = canAccessPath(subitem.href)
+              const translatedSubitemTitle = t(subitem.titleKey as any);
+              const currentPathWithoutLocale = getPathWithoutLocale(pathname);
               return (
                 <button
-                  key={subitem.href}
+                  key={subitem.href} // href is unique for subitems
                   onClick={() => handleNavigate(subitem.href)}
                   className={`w-full text-left pl-6 pr-1 py-1 text-[12px] relative block
                     ${!isAccessible ? 'opacity-50 cursor-not-allowed' : 'hover:bg-orange-100 hover:text-orange-700'}
-                    ${pathname === subitem.href ? "bg-orange-50 text-orange-700 font-medium" : "text-gray-700"}
+                    ${currentPathWithoutLocale === subitem.href ? "bg-orange-50 text-orange-700 font-medium" : "text-gray-700"}
                     ${navigating === subitem.href ? "opacity-70" : ""}`}
                   disabled={navigating === subitem.href || !isAccessible}
                 >
                   <span className="relative inline-block">
-                    {subitem.title}
+                    {translatedSubitemTitle}
                     {subitem.isPro && (
                       <span className="absolute -top-0.5 -right-5 text-[8px] font-semibold text-orange-600">
                         PRO
@@ -202,14 +231,11 @@ export function Sidebar() {
 
   return (
     <div className="w-40 border-r bg-gray-50/50 h-[calc(100vh-3.5rem)] sticky top-14 flex flex-col">
-      {/* 主菜单区域 */}
       <div className="flex-1 overflow-y-auto">
         <nav className="p-1 space-y-1">
           {mainMenuItems.map(renderMenuItem)}
         </nav>
       </div>
-
-      {/* 设置菜单区域 - 固定在底部 */}
       <div className="border-t">
         <div className="p-0.5">
           {renderMenuItem(settingsMenu)}
@@ -218,4 +244,3 @@ export function Sidebar() {
     </div>
   )
 }
-

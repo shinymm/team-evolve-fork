@@ -1,0 +1,217 @@
+{
+  "AITeamPage": {
+    "title": "AI团队工厂",
+    "loading": "正在加载数据，请稍候...",
+    "tabs": {
+      "members": "团队成员",
+      "applications": "集成应用"
+    }
+  },
+  "MemberList": {
+    "addButton": "添加成员",
+    "errorMessages": {
+      "loadFailed": "加载AI团队成员失败",
+      "requiredFields": "请填写所有必填字段",
+      "updateFailed": "更新失败",
+      "addFailed": "添加失败",
+      "deleteFailed": "删除失败"
+    },
+    "successMessages": {
+      "updateSuccess": "AI团队成员更新成功",
+      "addSuccess": "AI团队成员添加成功",
+      "deleteSuccess": "AI团队成员删除成功"
+    }
+  },
+  "ApplicationList": {
+    "addButton": "引入应用",
+    "errorMessages": {
+      "fetchFailed": "获取应用列表失败",
+      "deleteFailed": "删除应用失败，请重试"
+    },
+    "successMessages": {
+      "deleteSuccess": "应用已成功删除"
+    },
+    "logs": {
+      "editApp": "编辑应用",
+      "prepareDelete": "准备删除应用ID"
+    }
+  },
+  "TeamCard": {
+    "tooltips": {
+      "visitApp": "访问应用",
+      "chatWithMember": "与成员对话",
+      "editMember": "编辑成员",
+      "editApp": "编辑应用",
+      "deleteMember": "删除成员",
+      "deleteApp": "删除应用"
+    }
+  },
+  "ConfirmDeleteDialog": {
+    "title": "确认删除",
+    "description": "您确定要删除{itemName}吗？此操作无法撤销。",
+    "cancelButton": "取消",
+    "deleteButton": "删除",
+    "defaultItemName": "此项目"
+  },
+  "ApplicationDialog": {
+    "title": {
+      "edit": "编辑应用",
+      "add": "引入应用"
+    },
+    "description": {
+      "edit": "编辑应用信息。",
+      "add": "添加一个新的应用到AI团队中。请填写应用的基本信息。"
+    },
+    "labels": {
+      "name": "名称",
+      "introduction": "简介",
+      "entryUrl": "入口",
+      "category": "标签"
+    },
+    "placeholders": {
+      "name": "请输入应用名称（最多50个字符）",
+      "introduction": "请输入简介（最多200个字符）",
+      "entryUrl": "https://",
+      "category": "可选"
+    },
+    "buttons": {
+      "update": "更新应用",
+      "add": "添加应用",
+      "updating": "更新中...",
+      "adding": "添加中..."
+    },
+    "errors": {
+      "updateFailed": "更新应用失败",
+      "addFailed": "添加应用失败"
+    },
+    "success": {
+      "updated": "应用已成功更新",
+      "added": "应用已成功添加"
+    }
+  },
+  "ChatInput": {
+    "placeholder": "输入消息...",
+    "loadingMessage": "处理中..."
+  },
+  "ChatDialog": {
+    "preparingSession": "正在准备会话环境，请稍候...",
+    "welcomeMessage": "你好！我是{name}，有什么可以帮你的吗？",
+    "welcomeWithTools": "{welcomeMessage} (工具服务已配置)",
+    "welcomeWithoutTools": "{welcomeMessage} (无法配置工具服务，仅提供普通对话)",
+    "warnings": {
+      "toolServiceUnavailable": "无法配置工具服务，将使用普通对话模式"
+    },
+    "errors": {
+      "conversationError": "对话出错: {message}",
+      "unknownError": "对话出错: 未知错误",
+      "processingError": "对话处理出错，请稍后再试"
+    },
+    "toolCall": {
+      "title": "工具调用",
+      "multipleToolIndicator": "{count}个",
+      "status": {
+        "running": "执行中",
+        "success": "成功",
+        "error": "失败"
+      },
+      "details": {
+        "parameters": "参数:",
+        "result": "结果:",
+        "error": "错误:"
+      },
+      "errors": {
+        "cannotDisplayParams": "无法显示参数",
+        "cannotDisplayResult": "无法显示结果"
+      }
+    }
+  },
+  "MemberFormDialog": {
+    "title": {
+      "edit": "编辑AI团队成员",
+      "add": "添加AI团队成员"
+    },
+    "tabs": {
+      "info": "基础信息",
+      "skills": "技能设定",
+      "model": "大模型配置",
+      "mcp": "外挂工具"
+    },
+    "basicInfo": {
+      "name": "成员名称",
+      "introduction": "个人简介",
+      "category": "类别标签",
+      "greeting": "欢迎语"
+    },
+    "placeholders": {
+      "name": "请输入成员名称（最多50个字符）",
+      "introduction": "请输入个人简介（最多200个字符）",
+      "category": "请输入标签，用逗号分隔（如：需求分析,测试用例）",
+      "greeting": "成员在对话开始时的问候语（最多200字符）"
+    },
+    "skills": {
+      "role": "角色定位",
+      "responsibilities": "任务与职责"
+    },
+    "skillsPlaceholders": {
+      "role": "详细描述该成员的角色，例如：\"你是一个资深测试工程师\"",
+      "responsibilities": "详细描述成员的具体职责、能力范围和行为要求，这将影响其在对话中的表现。"
+    },
+    "modelConfig": {
+      "title": "大模型配置",
+      "description": "设置AI团队成员使用的大语言模型，完成后点击\"保存\"按钮",
+      "provider": "模型提供商",
+      "baseUrl": "API基础URL",
+      "modelName": "模型名称",
+      "apiKey": "API密钥",
+      "temperature": "温度",
+      "temperatureHint": "值越低，回答越确定",
+      "temperatureLabels": {
+        "precise": "精确 (0.0)",
+        "creative": "创造 (1.0)"
+      },
+      "notice": {
+        "title": "注意",
+        "description": "API密钥会被加密保存，只有在需要发送请求时才会解密使用。"
+      },
+      "errors": {
+        "decryptFailed": "无法解密API Key，请重新输入"
+      }
+    },
+    "mcpConfig": {
+      "title": "MCP 服务器配置 (仅支持 HTTP URL)",
+      "tooltips": {
+        "savePreview": "保存并预览",
+        "editJson": "编辑JSON",
+        "insertExample": "插入Streamable HTTP配置示例"
+      },
+      "notice": {
+        "title": "提示",
+        "description": "当前系统只支持连接和使用 JSON 配置中 `mcpServers` 对象里的 **第一个** 服务器及其工具。"
+      },
+      "jsonEditor": {
+        "label": "MCP 配置 JSON",
+        "placeholder": "示例配置"
+      },
+      "serverCard": {
+        "testButton": "测试",
+        "testing": "测试中",
+        "connectingMessage": "连接服务器中...",
+        "successMessage": "连接成功，发现 {count} 个工具",
+        "connectionFailed": "连接失败: {error}"
+      }
+    },
+    "buttons": {
+      "cancel": "取消",
+      "save": "保存",
+      "update": "更新"
+    },
+    "errors": {
+      "jsonParseError": "JSON 解析或验证失败: {message}",
+      "invalidJsonStructure": "JSON 结构无效，顶层必须包含 \"mcpServers\" 对象",
+      "invalidServerConfig": "服务器 \"{name}\" 配置无效：只支持包含 'url' 字段的 Streamable HTTP 配置，不允许包含 'command' 或 'args'。"
+    }
+  },
+  "MessageList": {
+    "noMessages": "暂无消息。开始一个对话吧！"
+  }
+} 

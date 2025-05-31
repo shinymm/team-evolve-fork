@@ -6,6 +6,7 @@ import { MessageList } from './message-list'
 import { ChatInput } from './chat-input'
 import { Message } from './message-item'
 import { parseToolCallFromStreamData, parseToolCallsFromStreamData, updateMessageToolCalls, updateMessageWithMultipleToolCalls } from './tool-call-service'
+import { useTranslations } from 'next-intl'
 
 interface AITeamMember {
   id: string
@@ -35,6 +36,7 @@ export function ChatDialog({ open, onOpenChange, member }: ChatDialogProps) {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [isSessionReady, setIsSessionReady] = useState(false)
   const { toast } = useToast()
+  const t = useTranslations('ai-team-factory.ChatDialog')
 
   // 当对话框打开或成员变化时，重置聊天状态
   useEffect(() => {
@@ -56,11 +58,11 @@ export function ChatDialog({ open, onOpenChange, member }: ChatDialogProps) {
     if (!member) return
     
     setIsSessionReady(false)
-    setMessages([{ id: uuidv4(), role: 'assistant', content: '正在准备会话环境，请稍候...' }])
+    setMessages([{ id: uuidv4(), role: 'assistant', content: t('preparingSession') }])
     setInputValue('')
     setSessionId(null)
     
-    let welcomeMessage = member.greeting || `你好！我是${member.name}，有什么可以帮你的吗？`
+    let welcomeMessage = member.greeting || t('welcomeMessage', { name: member.name })
     
     if (member.mcpConfigJson) {
       try {
@@ -152,16 +154,16 @@ export function ChatDialog({ open, onOpenChange, member }: ChatDialogProps) {
         if (newSessionId) {
           setSessionId(newSessionId)
           console.log('会话ID已设置:', newSessionId)
-          welcomeMessage = `${welcomeMessage} (工具服务已配置)`
+          welcomeMessage = t('welcomeWithTools', { welcomeMessage })
         } else {
-          welcomeMessage = `${welcomeMessage} (无法配置工具服务，仅提供普通对话)`
+          welcomeMessage = t('welcomeWithoutTools', { welcomeMessage })
           throw new Error('多次尝试后仍无法配置会话')
         }
       } catch (error) {
         console.error('初始化MCP会话失败:', error)
         toast({ 
           title: '警告', 
-          description: '无法配置工具服务，将使用普通对话模式', 
+          description: t('warnings.toolServiceUnavailable'), 
           variant: 'destructive' 
         })
       }
@@ -309,7 +311,7 @@ export function ChatDialog({ open, onOpenChange, member }: ChatDialogProps) {
 
         if (!response.ok) {
           const errorData = await response.json()
-          throw new Error(errorData.error || '对话请求失败')
+          throw new Error(errorData.error || t('errors.conversationError', { message: '' }))
         }
 
         // 处理流式响应
@@ -386,7 +388,7 @@ export function ChatDialog({ open, onOpenChange, member }: ChatDialogProps) {
                   console.error('[Flow] 收到错误:', data.content)
                   setMessages(prevMessages => {
                       const newMessages = [...prevMessages]
-                      newMessages.push({ id: uuidv4(), role: 'assistant', content: `错误: ${data.content}` })
+                      newMessages.push({ id: uuidv4(), role: 'assistant', content: t('errors.conversationError', { message: data.content }) })
                       return newMessages
                   })
                   startNewMessageNext = false
@@ -507,13 +509,15 @@ export function ChatDialog({ open, onOpenChange, member }: ChatDialogProps) {
           console.error('对话错误:', error)
           setMessages(prevMessages => {
             const newMessages = [...prevMessages]
-            const errorText = `对话出错: ${error instanceof Error ? error.message : '未知错误'}`
+            const errorText = error instanceof Error ? 
+              t('errors.conversationError', { message: error.message }) : 
+              t('errors.unknownError')
             newMessages.push({ id: uuidv4(), role: 'assistant', content: errorText })
             return newMessages
           })
           toast({
             title: '错误',
-            description: '对话处理出错，请稍后再试',
+            description: t('errors.processingError'),
             variant: 'destructive',
           })
         }
@@ -526,13 +530,15 @@ export function ChatDialog({ open, onOpenChange, member }: ChatDialogProps) {
       console.error('对话错误:', error)
       setMessages(prevMessages => {
         const newMessages = [...prevMessages]
-        const errorText = `对话出错: ${error instanceof Error ? error.message : '未知错误'}`
+        const errorText = error instanceof Error ? 
+          t('errors.conversationError', { message: error.message }) : 
+          t('errors.unknownError')
         newMessages.push({ id: uuidv4(), role: 'assistant', content: errorText })
         return newMessages
       })
       toast({
         title: '错误',
-        description: '对话处理出错，请稍后再试',
+        description: t('errors.processingError'),
         variant: 'destructive',
       })
       setIsLoading(false)

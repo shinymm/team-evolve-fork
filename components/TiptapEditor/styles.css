@@ -275,76 +275,147 @@
   background-color: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 5px;
-  padding: 2px 3px; /* 略微增加水平内边距 */
+  padding: 2px 3px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   z-index: 50;
   gap: 2px;
-  min-width: 450px; /* 调整整体最小宽度 */
-  width: auto; /* 允许根据内容自动调整宽度 */
+  min-width: 250px; /* 减少最小宽度，让菜单更紧凑 */
+  width: auto;
+}
+
+.bubble-menu * {
+  font-family: inherit; /* 确保所有元素使用相同的字体 */
+}
+
+.bubble-menu-content {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  width: 100%;
+  justify-content: space-around; /* 均匀分布按钮 */
+  padding: 2px;
 }
 
 .bubble-menu-button {
   display: flex;
   align-items: center;
   gap: 3px;
-  padding: 5px 9px; /* 调整水平内边距，确保文字周围有足够空间 */
+  padding: 5px 9px;
   border-radius: 4px;
   background: transparent;
   border: none;
   cursor: pointer;
   color: #4b5563;
-  font-size: 12px;
+  font-size: 13px; /* 确保所有按钮基础字体大小一致 */
   transition: all 0.2s;
   white-space: nowrap;
-  min-width: auto; /* 移除最小宽度限制，允许按内容自适应 */
-  justify-content: center; /* 按钮内容居中对齐 */
-  flex: none; /* 取消均匀分布，按内容决定宽度 */
-  position: relative; /* 为tooltip定位 */
+  min-width: auto;
+  justify-content: center;
+  flex: none;
+  position: relative;
+  font-family: inherit; /* 确保按钮使用相同的字体 */
 }
 
-/* 添加tooltip样式 */
-.bubble-menu-button::after {
-  content: attr(data-tooltip);
+.bubble-menu-button span {
+  font-size: 13px; /* 确保所有文本大小一致 */
+  font-family: inherit;
+}
+
+/* 主菜单按钮样式 */
+.bubble-menu-button.primary-button {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 6px 12px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 90px;
+  justify-content: center;
+}
+
+.bubble-menu-button.primary-button svg {
+  color: #ef6c00;
+  flex-shrink: 0;
+}
+
+.bubble-menu-button.primary-button svg:last-child {
+  margin-left: 2px; /* 下拉箭头左侧添加一点间距 */
+}
+
+.bubble-menu-button.primary-button span {
+  display: inline-block;
+  text-align: center;
+  flex-grow: 0;
+}
+
+.bubble-menu-button.primary-button:hover {
+  background-color: #f1f5f9;
+  color: #ef6c00;
+  border-color: #ef6c00;
+}
+
+/* 二级菜单容器 */
+.bubble-menu-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+/* 二级菜单 */
+.bubble-submenu {
+  display: none;
   position: absolute;
-  top: -40px;
-  left: 50%;
-  transform: translateX(-50%);
-  background-color: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 6px 10px;
+  top: 100%;
+  left: 0;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 4px;
-  font-size: 11px;
-  white-space: nowrap;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.2s ease, visibility 0.2s ease;
-  pointer-events: none;
-  z-index: 100;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 51;
+  padding: 2px;
+  min-width: 150px;
+  margin-top: 2px;
+  flex-direction: column;
 }
 
-/* 添加小三角形指示 */
+/* 显示二级菜单 */
+.bubble-menu-dropdown:hover .bubble-submenu {
+  display: flex;
+}
+
+/* 二级菜单中的按钮样式 */
+.bubble-submenu .bubble-menu-button {
+  text-align: left;
+  justify-content: flex-start;
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: 2px;
+  margin: 1px 0;
+  gap: 6px; /* 增加图标和文字的间距 */
+}
+
+.bubble-submenu .bubble-menu-button svg {
+  color: #ef6c00;
+  flex-shrink: 0;
+}
+
+.bubble-submenu .bubble-menu-button span {
+  font-weight: normal;
+}
+
+.bubble-submenu .bubble-menu-button:hover {
+  background-color: #f1f5f9;
+  color: #ef6c00;
+}
+
+/* 移除tooltip样式 */
+.bubble-menu-button::after {
+  display: none;
+}
+
+/* 移除小三角形指示 */
 .bubble-menu-button::before {
-  content: "";
-  position: absolute;
-  top: -10px;
-  left: 50%;
-  transform: translateX(-50%);
-  border-width: 5px;
-  border-style: solid;
-  border-color: rgba(0, 0, 0, 0.8) transparent transparent transparent;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.2s ease, visibility 0.2s ease;
-  pointer-events: none;
-  z-index: 100;
-}
-
-/* 悬停时显示tooltip */
-.bubble-menu-button:hover::after,
-.bubble-menu-button:hover::before {
-  opacity: 1;
-  visibility: visible;
+  display: none;
 }
 
 /* 针对英文按钮的样式调整 */
@@ -480,12 +551,12 @@
 
 /* 添加尺寸调整指示器样式 */
 .resize-indicator {
+  display: none; /* 隐藏调整大小的指示器 */
   position: absolute;
   right: 4px;
   bottom: 4px;
   width: 24px;
   height: 24px;
-  display: flex;
   align-items: center;
   justify-content: center;
   cursor: se-resize;
@@ -507,6 +578,7 @@
 
 /* 添加一个提示文本，指示可调整大小 */
 .resize-hint {
+  display: none; /* 隐藏调整大小的提示 */
   position: absolute;
   right: 30px;
   bottom: 5px;
@@ -938,11 +1010,28 @@
   .bubble-menu {
     flex-wrap: wrap; /* 在小屏幕上允许换行 */
     justify-content: center;
+    min-width: 200px;
   }
   
-  .bubble-menu-button {
-    flex: 1;
+  .bubble-menu-content {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .bubble-menu-button.primary-button {
     min-width: 70px;
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+  
+  .bubble-submenu {
+    position: fixed;
+    top: auto;
+    left: 10px;
+    right: 10px;
+    width: calc(100% - 20px);
+    max-width: none;
+    z-index: 1000;
   }
 }
 

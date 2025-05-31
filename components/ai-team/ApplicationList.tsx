@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
 import { ConfirmDeleteDialog } from './ConfirmDeleteDialog'
+import { useTranslations } from 'next-intl'
 
 interface Application {
   id: string
@@ -25,21 +26,22 @@ export function ApplicationList({ onStatusChange }: ApplicationListProps) {
   const [editingApplication, setEditingApplication] = useState<Application | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deletingAppId, setDeletingAppId] = useState<string | null>(null)
+  const t = useTranslations('ApplicationList')
 
   const fetchApplications = async () => {
     onStatusChange?.(true)
     try {
       const response = await fetch('/api/ai-team/applications')
       if (!response.ok) {
-        throw new Error('Failed to fetch applications')
+        throw new Error(t('errorMessages.fetchFailed'))
       }
       const data = await response.json()
       setApplications(data)
     } catch (error) {
       console.error('Error fetching applications:', error)
       toast({
-        title: '错误',
-        description: '获取应用列表失败',
+        title: "错误",
+        description: t('errorMessages.fetchFailed'),
         variant: 'destructive',
       })
     } finally {
@@ -57,13 +59,13 @@ export function ApplicationList({ onStatusChange }: ApplicationListProps) {
   }
 
   const handleEditClick = (app: Application) => {
-    console.log('编辑应用:', app)
+    console.log(t('logs.editApp'), app)
     setEditingApplication(app)
     setDialogOpen(true)
   }
 
   const handleDeleteClick = (id: string) => {
-    console.log('准备删除应用ID:', id)
+    console.log(t('logs.prepareDelete'), id)
     setDeletingAppId(id)
     setDeleteDialogOpen(true)
   }
@@ -78,20 +80,20 @@ export function ApplicationList({ onStatusChange }: ApplicationListProps) {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to delete application')
+        throw new Error(t('errorMessages.deleteFailed'))
       }
 
       toast({
-        title: '成功',
-        description: '应用已成功删除',
+        title: "成功",
+        description: t('successMessages.deleteSuccess'),
       })
       
       fetchApplications()
     } catch (error) {
       console.error('删除应用失败:', error)
       toast({
-        title: '错误',
-        description: '删除应用失败，请重试',
+        title: "错误",
+        description: t('errorMessages.deleteFailed'),
         variant: 'destructive',
       })
     } finally {
@@ -117,7 +119,7 @@ export function ApplicationList({ onStatusChange }: ApplicationListProps) {
       <div className="flex justify-end items-center mb-2">
         <Button onClick={handleAddClick}>
           <Plus className="mr-2 h-4 w-4" />
-          引入应用
+          {t('addButton')}
         </Button>
       </div>
 

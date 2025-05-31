@@ -8,6 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { useTranslations } from "next-intl"
 
 interface ConfirmDeleteDialogProps {
   open: boolean
@@ -22,28 +23,32 @@ export function ConfirmDeleteDialog({
   open,
   onOpenChange,
   onConfirm,
-  title = "确认删除",
+  title,
   description,
-  itemName = "此项目",
+  itemName,
 }: ConfirmDeleteDialogProps) {
-  const defaultDescription = `您确定要删除${itemName}吗？此操作无法撤销。`
+  const t = useTranslations('ConfirmDeleteDialog')
+  
+  const dialogTitle = title || t('title')
+  const defaultItemName = itemName || t('defaultItemName')
+  const dialogDescription = description || t('description', { itemName: defaultItemName })
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogTitle>{dialogTitle}</AlertDialogTitle>
           <AlertDialogDescription>
-            {description || defaultDescription}
+            {dialogDescription}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => onOpenChange(false)}>取消</AlertDialogCancel>
+          <AlertDialogCancel onClick={() => onOpenChange(false)}>{t('cancelButton')}</AlertDialogCancel>
           <AlertDialogAction 
             onClick={onConfirm} 
             className="bg-red-600 hover:bg-red-700"
           >
-            删除
+            {t('deleteButton')}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

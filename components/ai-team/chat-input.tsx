@@ -1,6 +1,7 @@
 import React from 'react'
 import { Button } from '@/components/ui/button'
 import { Send } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 interface ChatInputProps {
   value: string
@@ -17,8 +18,10 @@ export function ChatInput({
   onSend,
   disabled = false,
   loading = false,
-  placeholder = '输入消息...'
+  placeholder
 }: ChatInputProps) {
+  const t = useTranslations('ai-team-factory.ChatInput')
+  
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -33,7 +36,7 @@ export function ChatInput({
       <div className="flex gap-2">
         <input
           type="text"
-          placeholder={placeholder}
+          placeholder={placeholder || t('placeholder')}
           className="flex-1 min-h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -55,7 +58,7 @@ export function ChatInput({
       {loading && (
         <div className="mt-2 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
           <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-          <span>处理中...</span>
+          <span>{t('loadingMessage')}</span>
         </div>
       )}
     </div>

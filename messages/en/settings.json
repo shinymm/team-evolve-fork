@@ -1,0 +1,144 @@
+{
+  "AIModelsPage": {
+    "loading": "Loading model configurations, please wait..."
+  },
+  "AIModelSettings": {
+    "tabs": {
+      "models": "AI Model Settings",
+      "vector": "Vector Model Settings"
+    },
+    "card": {
+      "title": "AI Model Configuration",
+      "description": "Configure different AI model services for Q&A and chat functions",
+      "addButton": "Add Configuration"
+    },
+    "addForm": {
+      "title": "Add New Configuration",
+      "modelTypes": {
+        "language": "Language Model",
+        "vision": "Vision Model"
+      },
+      "fields": {
+        "preset": "Preset Model",
+        "presetPlaceholder": "Select Preset",
+        "name": "Name",
+        "namePlaceholder": "e.g. OpenAI GPT-4",
+        "model": "Model Name",
+        "modelPlaceholder": "e.g. gpt-4-turbo, text-embedding-3-small",
+        "apiUrl": "API URL",
+        "apiUrlPlaceholder": "e.g. https://api.openai.com/v1",
+        "apiKey": "API Key",
+        "apiKeyPlaceholder": "Enter your API key",
+        "temperature": "Temperature",
+        "temperaturePlaceholder": "Enter temperature value (between 0-1)"
+      },
+      "buttons": {
+        "cancel": "Cancel",
+        "add": "Add"
+      }
+    },
+    "modelSections": {
+      "language": "Language Models",
+      "vision": "Vision Models",
+      "noLanguageModels": "No language model configurations yet, please add new ones",
+      "noVisionModels": "No vision model configurations yet, please add new ones"
+    },
+    "tableHeaders": {
+      "name": "Name",
+      "model": "Model",
+      "apiUrl": "API URL",
+      "temperature": "Temperature",
+      "default": "Default",
+      "actions": "Actions"
+    },
+    "actions": {
+      "testConnection": "Test Connection",
+      "testing": "Testing..."
+    },
+    "messages": {
+      "validationFailed": "Validation Failed",
+      "requiredFields": "API URL, model name, model type, and API Key are required fields",
+      "addSuccess": "Added Successfully",
+      "addSuccessDetail": "New AI model configuration has been added",
+      "addFailed": "Add Failed",
+      "addFailedDetail": "An error occurred while adding configuration",
+      "deleteSuccess": "Deleted Successfully",
+      "deleteSuccessDetail": "AI model configuration has been deleted",
+      "deleteFailed": "Delete Failed",
+      "deleteFailedDetail": "An error occurred while deleting configuration",
+      "defaultUpdated": "Default Updated",
+      "defaultUpdatedDetail": "AI model default configuration has been updated",
+      "defaultFailed": "Update Failed",
+      "defaultFailedDetail": "An error occurred while setting default configuration",
+      "testSuccess": "Test Successful",
+      "testSuccessDetail": "Successfully connected to {name}\nModel response: {response}",
+      "testFailed": "Test Failed",
+      "testFailedDetail": "Unable to connect to AI service",
+      "loadFailed": "Failed to load {type} model configurations",
+      "loadFailedDetail": "An error occurred while loading configurations"
+    }
+  },
+  "VectorSettings": {
+    "card": {
+      "title": "Vector Model Configuration",
+      "description": "Configure embedding models for semantic search and vector storage",
+      "addButton": "Add Configuration"
+    },
+    "addForm": {
+      "title": "Add New Configuration",
+      "fields": {
+        "preset": "Preset Model",
+        "presetPlaceholder": "Select Preset",
+        "name": "Name",
+        "namePlaceholder": "e.g. OpenAI Embedding",
+        "model": "Model Name",
+        "modelPlaceholder": "e.g. text-embedding-3-small",
+        "apiUrl": "API URL",
+        "apiUrlPlaceholder": "e.g. https://api.openai.com/v1",
+        "apiKey": "API Key",
+        "apiKeyPlaceholder": "Enter your API key",
+        "setDefault": "Set as Default",
+        "defaultLabel": "Set this configuration as default vector model"
+      },
+      "buttons": {
+        "cancel": "Cancel",
+        "add": "Add"
+      }
+    },
+    "tableHeaders": {
+      "name": "Name",
+      "model": "Model",
+      "apiUrl": "API URL",
+      "default": "Default",
+      "actions": "Actions"
+    },
+    "actions": {
+      "testConnection": "Test Connection",
+      "testing": "Testing..."
+    },
+    "noConfigs": "No vector model configurations yet, please click 'Add Configuration' button",
+    "messages": {
+      "loadFailed": "Load Failed",
+      "loadFailedDetail": "Unable to load vector model configurations",
+      "validationFailed": "Validation Failed",
+      "requiredFields": "API URL, model name, API Key and vector model name are required fields",
+      "deleteConfirm": "Are you sure you want to delete this configuration?",
+      "addSuccess": "Added Successfully",
+      "addSuccessDetail": "New vector model configuration has been added",
+      "addFailed": "Add Failed",
+      "addFailedDetail": "Unable to add vector model configuration",
+      "deleteSuccess": "Deleted Successfully",
+      "deleteSuccessDetail": "Vector model configuration has been deleted",
+      "deleteFailed": "Delete Failed",
+      "deleteFailedDetail": "Unable to delete vector model configuration",
+      "defaultUpdated": "Default Updated",
+      "defaultUpdatedDetail": "Vector model default configuration has been updated",
+      "defaultFailed": "Update Failed",
+      "defaultFailedDetail": "Unable to set default vector model configuration",
+      "testSuccess": "Test Successful",
+      "testSuccessDetail": "Successfully connected to {name}\nTest text: {testText}\nVector dimensions: {dimensions}\nSample vector: {embedding}",
+      "testFailed": "Test Failed",
+      "testFailedDetail": "Unable to connect to vector service"
+    }
+  }
+} 

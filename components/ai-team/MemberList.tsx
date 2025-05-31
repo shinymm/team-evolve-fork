@@ -5,6 +5,7 @@ import { MemberFormDialog, MemberFormData } from "./member-form-dialog";
 import { TeamCard } from "./TeamCard";
 import { ChatDialog } from "./ChatDialog";
 import { Plus } from 'lucide-react'
+import { useTranslations } from "next-intl";
 
 type AITeamMember = MemberFormData & {
   id: string;
@@ -24,19 +25,20 @@ export function MemberList({ onStatusChange }: MemberListProps) {
   const [isChatDialogOpen, setIsChatDialogOpen] = useState(false);
   const [chatMember, setChatMember] = useState<AITeamMember | null>(null);
   const { toast } = useToast();
+  const t = useTranslations('MemberList');
 
   // 加载团队成员列表
   const loadMembers = async () => {
     onStatusChange?.(true);
     try {
       const response = await fetch("/api/settings/ai-team");
-      if (!response.ok) throw new Error("加载失败");
+      if (!response.ok) throw new Error(t('errorMessages.loadFailed'));
       const data = await response.json();
       setMembers(data);
     } catch (error) {
       toast({
         title: "错误",
-        description: "加载AI团队成员失败",
+        description: t('errorMessages.loadFailed'),
         variant: "destructive",
       });
     } finally {
@@ -81,7 +83,7 @@ export function MemberList({ onStatusChange }: MemberListProps) {
     ) {
       toast({
         title: "错误",
-        description: "请填写所有必填字段",
+        description: t('errorMessages.requiredFields'),
         variant: "destructive",
       });
       return;
@@ -109,13 +111,13 @@ export function MemberList({ onStatusChange }: MemberListProps) {
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(
-          errorText || (editingMember?.id ? "更新失败" : "添加失败")
+          errorText || (editingMember?.id ? t('errorMessages.updateFailed') : t('errorMessages.addFailed'))
         );
       }
 
       toast({
         title: "成功",
-        description: `AI团队成员${editingMember?.id ? "更新" : "添加"}成功`,
+        description: editingMember?.id ? t('successMessages.updateSuccess') : t('successMessages.addSuccess'),
       });
       handleCloseMemberDialog();
       loadMembers();
@@ -126,7 +128,7 @@ export function MemberList({ onStatusChange }: MemberListProps) {
         description:
           error instanceof Error
             ? error.message
-            : `${editingMember?.id ? "更新" : "添加"}AI团队成员失败`,
+            : (editingMember?.id ? t('errorMessages.updateFailed') : t('errorMessages.addFailed')),
         variant: "destructive",
       });
     } finally {
@@ -142,17 +144,17 @@ export function MemberList({ onStatusChange }: MemberListProps) {
         method: "DELETE",
       });
 
-      if (!response.ok) throw new Error("删除失败");
+      if (!response.ok) throw new Error(t('errorMessages.deleteFailed'));
 
       toast({
         title: "成功",
-        description: "AI团队成员删除成功",
+        description: t('successMessages.deleteSuccess'),
       });
       loadMembers();
     } catch (error) {
       toast({
         title: "错误",
-        description: "删除AI团队成员失败",
+        description: t('errorMessages.deleteFailed'),
         variant: "destructive",
       });
     } finally {
@@ -171,7 +173,7 @@ export function MemberList({ onStatusChange }: MemberListProps) {
       <div className="flex justify-end items-center mb-2">
         <Button onClick={() => handleOpenMemberDialog()}>
           <Plus className="mr-2 h-4 w-4" />
-          添加成员
+          {t('addButton')}
         </Button>
       </div>
 

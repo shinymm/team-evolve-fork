@@ -19,6 +19,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { parseMcpConfig, testMcpConnection, McpStreamableHttpConfig } from '@/lib/mcp/client'
 import { encrypt, decrypt } from '@/lib/utils/encryption-utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useTranslations } from 'next-intl'
 
 export interface MemberFormData {
   id?: string
@@ -93,6 +94,15 @@ const modelPresets = [
   }
 ]
 
+const jsonTemplate = `{
+  "mcpServers": {
+    "<server-name>": { 
+      "url": "<Complete URL of Streamable HTTP server>",
+      "headers": { "Optional-Header": "value" } 
+    }
+  }
+}`;
+
 export function MemberFormDialog({
   open,
   onOpenChange,
@@ -100,6 +110,7 @@ export function MemberFormDialog({
   onSubmit,
   onClose,
 }: MemberFormDialogProps) {
+  const t = useTranslations('ai-team-factory.MemberFormDialog')
   const [formData, setFormData] = useState<MemberFormData>({
     name: '',
     introduction: '',
@@ -247,7 +258,7 @@ export function MemberFormDialog({
            if (config && typeof config === 'object' && 'url' in config && !('command' in config) && !('args' in config)) {
              servers.push({ name, config: config as McpStreamableHttpConfig });
            } else {
-             throw new Error(`服务器 "${name}" 配置无效：只支持包含 'url' 字段的 Streamable HTTP 配置，不允许包含 'command' 或 'args'。`);
+             throw new Error(t('errors.invalidServerConfig', { name }));
            }
         }
         setParsedServers(servers);
@@ -255,10 +266,10 @@ export function MemberFormDialog({
         setFormData(prev => ({ ...prev, mcpConfigJson: jsonStr.trim() }));
         return true;
       } else {
-        throw new Error('JSON 结构无效，顶层必须包含 "mcpServers" 对象');
+        throw new Error(t('errors.invalidJsonStructure'));
       }
     } catch (error: any) {
-      setJsonError(`JSON 解析或验证失败: ${error.message}`);
+      setJsonError(t('errors.jsonParseError', { message: error.message }));
       setParsedServers([]);
        if (forceEditOnError) setIsEditingJson(true);
       return false;
@@ -459,7 +470,7 @@ export function MemberFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[60rem] w-[90%] h-[90vh] flex flex-col">
         <DialogHeader className="pb-1 flex-shrink-0">
-          <DialogTitle>{editingMember?.id ? '编辑' : '添加'}AI团队成员</DialogTitle>
+          <DialogTitle>{editingMember?.id ? t('title.edit') : t('title.add')}</DialogTitle>
         </DialogHeader>
         <div className="flex-grow overflow-hidden pt-2">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
@@ -468,32 +479,32 @@ export function MemberFormDialog({
                   value="info"
                   className="data-[state=active]:bg-orange-500 data-[state=active]:text-white"
                 >
-                  基础信息
+                  {t('tabs.info')}
                 </TabsTrigger>
                 <TabsTrigger 
                   value="skills"
                   className="data-[state=active]:bg-orange-500 data-[state=active]:text-white"
                 >
-                  技能设定
+                  {t('tabs.skills')}
                 </TabsTrigger>
                 <TabsTrigger 
                   value="model"
                   className="data-[state=active]:bg-orange-500 data-[state=active]:text-white"
                 >
-                  大模型配置
+                  {t('tabs.model')}
                 </TabsTrigger>
                 <TabsTrigger 
                   value="mcp"
                   className="data-[state=active]:bg-orange-500 data-[state=active]:text-white"
                 >
-                  外挂工具
+                  {t('tabs.mcp')}
                 </TabsTrigger>
               </TabsList>
 
               <div className="overflow-y-auto flex-grow px-1">
                 <TabsContent value="info" className="space-y-3 mt-4 h-full p-1">
                    <div className="space-y-1">
-                    <Label htmlFor="name">成员名称 *</Label>
+                    <Label htmlFor="name">{t('basicInfo.name')} *</Label>
                     <Input
                       id="name"
                       name="name"
@@ -501,12 +512,12 @@ export function MemberFormDialog({
                       onChange={handleInputChange}
                       required
                       maxLength={50}
-                      placeholder="请输入成员名称（最多50个字符）"
+                      placeholder={t('placeholders.name')}
                       className="text-sm"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="introduction">个人简介 *</Label>
+                    <Label htmlFor="introduction">{t('basicInfo.introduction')} *</Label>
                     <div className="relative">
                       <Textarea
                         id="introduction"
@@ -515,7 +526,7 @@ export function MemberFormDialog({
                         onChange={handleInputChange}
                         required
                         maxLength={200}
-                        placeholder="请输入个人简介（最多200个字符）"
+                        placeholder={t('placeholders.introduction')}
                         className="min-h-[60px] resize-none text-sm"
                         rows={3}
                       />
@@ -525,18 +536,18 @@ export function MemberFormDialog({
                     </div>
                   </div>
                    <div className="space-y-1.5">
-                    <Label htmlFor="category">类别标签</Label>
+                    <Label htmlFor="category">{t('basicInfo.category')}</Label>
                     <Input
                       id="category"
                       name="category"
                       value={formData.category || ''}
                       onChange={handleInputChange}
-                      placeholder="请输入标签，用逗号分隔（如：需求分析,测试用例）"
+                      placeholder={t('placeholders.category')}
                       className="text-sm"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="greeting">欢迎语</Label>
+                    <Label htmlFor="greeting">{t('basicInfo.greeting')}</Label>
                     <div className="relative">
                       <Textarea
                         id="greeting"
@@ -544,7 +555,7 @@ export function MemberFormDialog({
                         value={formData.greeting || ''}
                         onChange={handleInputChange}
                         maxLength={200}
-                        placeholder="成员在对话开始时的问候语（最多200字符）"
+                        placeholder={t('placeholders.greeting')}
                         className="min-h-[80px] resize-none text-sm"
                         rows={3}
                       />
@@ -557,27 +568,27 @@ export function MemberFormDialog({
 
                 <TabsContent value="skills" className="space-y-3 mt-4 h-full p-1">
                    <div className="space-y-1.5">
-                    <Label htmlFor="role">角色定位 *</Label>
+                    <Label htmlFor="role">{t('skills.role')} *</Label>
                     <Textarea
                       id="role"
                       name="role"
                       value={formData.role}
                       onChange={handleInputChange}
                       required
-                      placeholder={'详细描述该成员的角色，例如："你是一个资深测试工程师"'}
+                      placeholder={t('skillsPlaceholders.role')}
                       className="min-h-[100px] resize-none text-sm"
                       rows={4}
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="responsibilities">任务与职责 *</Label>
+                    <Label htmlFor="responsibilities">{t('skills.responsibilities')} *</Label>
                     <Textarea
                       id="responsibilities"
                       name="responsibilities"
                       value={formData.responsibilities}
                       onChange={handleInputChange}
                       required
-                      placeholder={`详细描述成员的具体职责、能力范围和行为要求，这将影响其在对话中的表现。`}
+                      placeholder={t('skillsPlaceholders.responsibilities')}
                       className="min-h-[200px] resize-none text-sm"
                       rows={8}
                     />
@@ -587,22 +598,22 @@ export function MemberFormDialog({
                  <TabsContent value="model" className="overflow-y-auto flex-grow pt-4">
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <h3 className="text-lg font-medium">大模型配置</h3>
+                      <h3 className="text-lg font-medium">{t('modelConfig.title')}</h3>
                       <p className="text-sm text-gray-500">
-                        设置AI团队成员使用的大语言模型，完成后点击"保存"按钮
+                        {t('modelConfig.description')}
                       </p>
                     </div>
 
                     <div className="space-y-4 pt-2">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="modelProvider">模型提供商</Label>
+                          <Label htmlFor="modelProvider">{t('modelConfig.provider')}</Label>
                           <Select 
                             value={selectedProvider || ''} 
                             onValueChange={handleProviderChange}
                           >
                             <SelectTrigger>
-                              <SelectValue placeholder="选择模型提供商" />
+                              <SelectValue placeholder={t('modelConfig.provider')} />
                             </SelectTrigger>
                             <SelectContent>
                               {modelPresets.map((provider) => (
@@ -615,7 +626,7 @@ export function MemberFormDialog({
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="baseUrl">API基础URL</Label>
+                          <Label htmlFor="baseUrl">{t('modelConfig.baseUrl')}</Label>
                           <Input
                             id="baseUrl"
                             name="aiModelBaseUrl"
@@ -628,14 +639,14 @@ export function MemberFormDialog({
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="modelName">模型名称</Label>
+                          <Label htmlFor="modelName">{t('modelConfig.modelName')}</Label>
                           {selectedProvider ? (
                             <Select 
                               value={selectedModel || ''} 
                               onValueChange={handleModelChange}
                             >
                               <SelectTrigger>
-                                <SelectValue placeholder="选择模型" />
+                                <SelectValue placeholder={t('modelConfig.modelName')} />
                               </SelectTrigger>
                               <SelectContent>
                                 {modelPresets
@@ -653,13 +664,13 @@ export function MemberFormDialog({
                               name="aiModelName"
                               value={formData.aiModelName || ''}
                               onChange={handleInputChange}
-                              placeholder="模型名称"
+                              placeholder={t('modelConfig.modelName')}
                             />
                           )}
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="apiKey">API密钥</Label>
+                          <Label htmlFor="apiKey">{t('modelConfig.apiKey')}</Label>
                           <div className="relative">
                             <Input
                               id="apiKey"
@@ -676,15 +687,15 @@ export function MemberFormDialog({
                             )}
                           </div>
                           {decryptError && (
-                            <p className="text-sm text-red-500">{decryptError}</p>
+                            <p className="text-sm text-red-500">{t('modelConfig.errors.decryptFailed')}</p>
                           )}
                         </div>
                       </div>
 
                       <div className="space-y-2">
                         <div className="flex justify-between">
-                          <Label htmlFor="temperature">温度 ({formData.aiModelTemperature || 0.2})</Label>
-                          <span className="text-sm text-gray-500">值越低，回答越确定</span>
+                          <Label htmlFor="temperature">{t('modelConfig.temperature')} ({formData.aiModelTemperature || 0.2})</Label>
+                          <span className="text-sm text-gray-500">{t('modelConfig.temperatureHint')}</span>
                         </div>
                         <Input
                           id="temperature"
@@ -697,17 +708,17 @@ export function MemberFormDialog({
                           onChange={handleTemperatureChange}
                         />
                         <div className="flex justify-between text-xs text-gray-500">
-                          <span>精确 (0.0)</span>
-                          <span>创造 (1.0)</span>
+                          <span>{t('modelConfig.temperatureLabels.precise')}</span>
+                          <span>{t('modelConfig.temperatureLabels.creative')}</span>
                         </div>
                       </div>
                     </div>
 
                     <Alert>
                       <AlertCircle className="h-4 w-4" />
-                      <AlertTitle>注意</AlertTitle>
+                      <AlertTitle>{t('modelConfig.notice.title')}</AlertTitle>
                       <AlertDescription>
-                        API密钥会被加密保存，只有在需要发送请求时才会解密使用。
+                        {t('modelConfig.notice.description')}
                       </AlertDescription>
                     </Alert>
                   </div>
@@ -715,7 +726,7 @@ export function MemberFormDialog({
 
                 <TabsContent value="mcp" className="space-y-4 mt-4 h-full p-1">
                     <div className="flex justify-between items-center">
-                      <h3 className="text-lg font-medium">MCP 服务器配置 (仅支持 HTTP URL)</h3>
+                      <h3 className="text-lg font-medium">{t('mcpConfig.title')}</h3>
                       <div className="flex gap-2">
                         {isEditingJson ? (
                           <TooltipProvider>
@@ -731,7 +742,7 @@ export function MemberFormDialog({
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>
-                                <p>保存并预览</p>
+                                <p>{t('mcpConfig.tooltips.savePreview')}</p>
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
@@ -748,7 +759,7 @@ export function MemberFormDialog({
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>
-                                <p>编辑JSON</p>
+                                <p>{t('mcpConfig.tooltips.editJson')}</p>
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
@@ -781,7 +792,7 @@ export function MemberFormDialog({
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>插入Streamable HTTP配置示例</p>
+                              <p>{t('mcpConfig.tooltips.insertExample')}</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -790,9 +801,9 @@ export function MemberFormDialog({
 
                     <Alert variant="default" className="bg-blue-50 border-blue-200 text-blue-800">
                       <HelpCircle className="h-4 w-4 !text-blue-800" />
-                      <AlertTitle className="font-semibold">提示</AlertTitle>
+                      <AlertTitle className="font-semibold">{t('mcpConfig.notice.title')}</AlertTitle>
                       <AlertDescription>
-                        当前系统只支持连接和使用 JSON 配置中 `mcpServers` 对象里的 **第一个** 服务器及其工具。
+                        {t('mcpConfig.notice.description')}
                       </AlertDescription>
                     </Alert>
                     
@@ -800,18 +811,11 @@ export function MemberFormDialog({
                       <>
                         <div className="relative">
                           <Label htmlFor="mcpConfigJson">
-                            MCP 配置 JSON
+                            {t('mcpConfig.jsonEditor.label')}
                           </Label>
                           <Textarea
                             id="mcpConfigJson"
-                            placeholder='{
-  "mcpServers": {
-    "<服务器名称>": { 
-      "url": "<Streamable HTTP 服务器的完整 URL>",
-      "headers": { "Optional-Header": "value" } 
-    }
-  }
-}'
+                            placeholder={jsonTemplate}
                             className="font-mono text-sm h-[200px]"
                             value={mcpJsonStringInternal}
                             onChange={handleMcpJsonChange}
@@ -850,12 +854,12 @@ export function MemberFormDialog({
                                         {currentStatus.status === 'testing' ? (
                                           <>
                                             <Loader2 size={12} className="animate-spin" />
-                                            <span>测试中</span>
+                                            <span>{t('mcpConfig.serverCard.testing')}</span>
                                           </>
                                         ) : (
                                           <>
                                             <PlugZap size={12} />
-                                            <span>测试</span>
+                                            <span>{t('mcpConfig.serverCard.testButton')}</span>
                                           </>
                                         )}
                                       </Button>
@@ -880,7 +884,7 @@ export function MemberFormDialog({
                                   <CardFooter className="bg-muted/20 py-2 px-4 text-xs border-t">
                                     <div className="w-full text-center">
                                       <Loader2 size={16} className="animate-spin mx-auto" />
-                                      <p className="mt-1">连接服务器中...</p>
+                                      <p className="mt-1">{t('mcpConfig.serverCard.connectingMessage')}</p>
                                     </div>
                                   </CardFooter>
                                 )}
@@ -890,7 +894,7 @@ export function MemberFormDialog({
                                     <div className="w-full">
                                       <div className="flex items-center gap-1 text-green-600 mb-1">
                                         <CheckCircle size={14} />
-                                        <span>连接成功，发现 {currentStatus.tools.length} 个工具</span>
+                                        <span>{t('mcpConfig.serverCard.successMessage', { count: currentStatus.tools.length })}</span>
                                       </div>
                                       <div className="flex flex-wrap gap-1 mt-1">
                                         {currentStatus.tools.map(tool => (
@@ -908,7 +912,7 @@ export function MemberFormDialog({
                                     <div className="w-full">
                                       <div className="flex items-center gap-1 text-red-600">
                                         <AlertCircle size={14} />
-                                        <span>连接失败: {currentStatus.error}</span>
+                                        <span>{t('mcpConfig.serverCard.connectionFailed', { error: currentStatus.error || '' })}</span>
                                       </div>
                                     </div>
                                   </CardFooter>
@@ -925,10 +929,10 @@ export function MemberFormDialog({
         </div>
         <DialogFooter className="pt-2 border-t flex-shrink-0 bg-background">
             <Button type="button" variant="outline" onClick={onClose}>
-            取消
+              {t('buttons.cancel')}
             </Button>
             <Button type="button" onClick={() => handleFinalSubmit()}>
-            {editingMember?.id ? '更新' : '保存'}
+              {editingMember?.id ? t('buttons.update') : t('buttons.save')}
             </Button>
         </DialogFooter>
       </DialogContent>

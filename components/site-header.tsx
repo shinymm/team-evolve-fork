@@ -1,10 +1,14 @@
 'use client'
 
 import { Long_Cang } from 'next/font/google'
-import Link from 'next/link'
+// import Link from 'next/link' // Replaced by i18n Link
 import { useSession } from 'next-auth/react'
 import { useSystemStore } from '@/lib/stores/system-store'
 import { UserMenu } from './auth/user-menu'
+import { useTranslations, useLocale } from 'next-intl'; // Added
+import { Link, usePathname } from '@/i18n/navigation'; // Added i18n Link
+import { Globe } from 'lucide-react'
+import { routing } from '@/i18n/routing'
 
 const longCang = Long_Cang({
   weight: '400',
@@ -15,22 +19,38 @@ const longCang = Long_Cang({
 })
 
 export function SiteHeader() {
+  const t = useTranslations('SiteHeader'); // Added
   const { data: session, status } = useSession()
   const { selectedSystemId, systems } = useSystemStore()
+  const pathname = usePathname()
+  const locales = Array.from(routing.locales) as string[];
+  const locale = useLocale();
+  const targetLocale = locale === 'en' ? 'zh' : 'en';
 
-  // 获取当前选中的系统名称
+  function getLanguageSwitchPath(pathname: string, locales: string[]) {
+    const localePattern = `(?:${locales.join('|')})`;
+    const regex = new RegExp(`^(?:/(${localePattern}))+`);
+    let unprefixed = pathname.replace(regex, '') || '/';
+    return unprefixed.startsWith('/') ? unprefixed : '/' + unprefixed;
+  }
+
+  const targetPath = getLanguageSwitchPath(pathname, locales);
+  
+  // 获取目标语言的显示名称
+  const targetLanguageDisplay = locale === 'en' ? '中文' : 'English';
+
   const selectedSystem = systems.find(system => system.id === selectedSystemId)
-
+  
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-gray-900">
       <div className="flex h-14 items-center px-4 justify-between">
         <div className="w-1/4">
           <Link href="/" className="text-xl hover:opacity-80">
             <span className="font-bold tracking-tight text-white">
-              Team Evolve ｜ 
+              {t('teamNamePrefix')}
             </span>
             <span className="font-weibei text-orange-500 ml-1 text-2xl">
-              异界
+              {t('otherworld')}
             </span>
             {selectedSystem && (
               <span className="text-white ml-3 text-lg">
@@ -41,22 +61,33 @@ export function SiteHeader() {
         </div>
         <div className="hidden md:flex flex-1 justify-center items-center space-x-8">
           <span className={`text-base text-gray-300 hover:text-orange-400 transition-colors duration-200 ${longCang.className}`}>
-            知识驱动能力破界，AI召唤协作灵感
+            {t('slogan')}
           </span>
         </div>
-        <div className="w-1/4 flex justify-end items-center">
+        <div className="w-1/4 flex justify-end items-center space-x-4">
+          {/* 语言切换按钮 */}
+          <Link 
+            key={targetLocale + targetPath}
+            href={targetPath}
+            locale={targetLocale}
+            className="flex items-center text-xs font-medium text-gray-300 hover:text-orange-400 transition-colors px-2 py-1 rounded-md border border-gray-700 hover:border-orange-400"
+          >
+            <Globe className="mr-1 h-3 w-3" />
+            <span>{targetLanguageDisplay}</span>
+          </Link>
+          
           {status === 'loading' ? (
-            <div className="text-sm text-gray-300">加载中...</div>
+            <div className="text-sm text-gray-300">{t('loading')}</div>
           ) : session?.user ? (
             <UserMenu user={session.user} />
           ) : (
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-300">访客模式</span>
+              <span className="text-sm text-gray-300">{t('guestMode')}</span>
               <Link
                 href="/auth/signin"
                 className="text-sm font-medium text-orange-400 hover:text-orange-300 transition-colors"
               >
-                登录
+                {t('login')}
               </Link>
             </div>
           )}

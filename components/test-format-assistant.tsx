@@ -11,6 +11,7 @@ import { streamingAICall } from '@/lib/services/ai-service'
 import yaml from 'yaml'
 import { testFormatPromptTemplate } from '@/lib/prompts'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
+import { useTranslations } from 'next-intl'
 
 interface TestCase {
   type: string
@@ -25,6 +26,7 @@ interface YamlData {
 }
 
 export function TestFormatAssistant() {
+  const t = useTranslations('TestFormatAssistant')
   const [testDescription, setTestDescription] = useState('')
   const [result, setResult] = useState('')
   const [parsedResult, setParsedResult] = useState<TestCase[]>([])
@@ -59,21 +61,21 @@ export function TestFormatAssistant() {
           setResult(formattedResult)
         },
         (error: string) => {
-          throw new Error(`测试用例格式化失败: ${error}`)
+          throw new Error(`${t('formatFailed')}: ${error}`)
         }
       )
 
       setIsOutputComplete(true)
       toast({
-        title: "格式化完成",
-        description: "测试用例已格式化，请查看结果",
+        title: t('formatSuccess'),
+        description: t('formatSuccessDesc'),
         duration: 3000
       })
     } catch (error) {
       console.error('Format error:', error)
       toast({
         variant: "destructive",
-        title: "格式化失败",
+        title: t('formatFailed'),
         description: error instanceof Error ? error.message : "未知错误",
         duration: 3000
       })
@@ -107,16 +109,16 @@ export function TestFormatAssistant() {
     try {
       await navigator.clipboard.writeText(result)
       toast({
-        title: "复制成功",
-        description: "YAML内容已复制到剪贴板",
+        title: t('copySuccess'),
+        description: t('copyYAMLSuccessDesc'),
         duration: 3000
       })
     } catch (error) {
       console.error('Copy error:', error)
       toast({
         variant: "destructive",
-        title: "复制失败",
-        description: "无法访问剪贴板",
+        title: t('copyFailed'),
+        description: t('copyFailedDesc'),
         duration: 3000
       })
     }
@@ -125,7 +127,7 @@ export function TestFormatAssistant() {
   const handleCopyTable = async () => {
     try {
       // 生成TSV格式（Excel可以直接粘贴）
-      const header = ['类型', '用例概述', '前提条件', '用例步骤', '预期结果'].join('\t')
+      const header = [t('type'), t('summary'), t('preconditions'), t('steps'), t('expectedResult')].join('\t')
       const rows = parsedResult.map(testCase => {
         // 处理步骤中的换行，将其替换为分号加空格
         const steps = testCase?.steps?.replace(/\n/g, '; ') || ''
@@ -143,16 +145,16 @@ export function TestFormatAssistant() {
       await navigator.clipboard.writeText(tableContent)
       
       toast({
-        title: "复制成功",
-        description: "表格内容已复制到剪贴板",
+        title: t('copySuccess'),
+        description: t('copyTableSuccessDesc'),
         duration: 3000
       })
     } catch (error) {
       console.error('Copy table error:', error)
       toast({
         variant: "destructive",
-        title: "复制失败",
-        description: "无法访问剪贴板",
+        title: t('copyFailed'),
+        description: t('copyFailedDesc'),
         duration: 3000
       })
     }
@@ -161,9 +163,9 @@ export function TestFormatAssistant() {
   return (
     <div className="space-y-2">
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold">请输入测试描述：</h2>
+        <h2 className="text-lg font-semibold">{t('inputTitle')}</h2>
         <Textarea
-          placeholder="请输入需要格式化的测试描述..."
+          placeholder={t('inputPlaceholder')}
           value={testDescription}
           onChange={(e) => setTestDescription(e.target.value)}
           className="min-h-[100px] w-full"
@@ -179,10 +181,10 @@ export function TestFormatAssistant() {
           {isFormatting ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              格式化中...
+              {t('formatting')}
             </>
           ) : (
-            '测试用例格式化'
+            t('formatButton')
           )}
         </Button>
       </div>
@@ -195,26 +197,26 @@ export function TestFormatAssistant() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  title="重置所有修改"
+                  title={t('reset')}
                   disabled={!isOutputComplete}
                 >
                   <RotateCcw className="h-4 w-4 mr-1" />
-                  重置
+                  {t('reset')}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>确认重置?</AlertDialogTitle>
+                  <AlertDialogTitle>{t('confirmReset')}</AlertDialogTitle>
                   <AlertDialogDescription>
-                    此操作将丢弃所有修改，恢复到原始内容。此操作无法撤销。
+                    {t('resetConfirmDesc')}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>取消</AlertDialogCancel>
+                  <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
                   <AlertDialogAction onClick={() => {
                     setEditableTestCases(parsedResult)
                     setIsOutputComplete(false)
-                  }}>确认重置</AlertDialogAction>
+                  }}>{t('confirmReset')}</AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
@@ -222,33 +224,33 @@ export function TestFormatAssistant() {
               variant="ghost"
               size="sm"
               onClick={handleCopyTable}
-              title="复制为表格格式"
+              title={t('copyTable')}
               disabled={!isOutputComplete}
             >
               <Copy className="h-4 w-4 mr-1" />
-              复制表格
+              {t('copyTable')}
             </Button>
             <Button
               variant="ghost"
               size="sm"
               onClick={handleCopyYaml}
-              title="复制YAML格式"
+              title={t('copyYAML')}
               disabled={!isOutputComplete}
             >
               <Copy className="h-4 w-4 mr-1" />
-              复制YAML
+              {t('copyYAML')}
             </Button>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-300">
               <thead>
                 <tr className="bg-gray-50">
-                  <th className="px-3 py-2 text-left text-sm font-semibold text-gray-900">类型</th>
-                  <th className="px-3 py-2 text-left text-sm font-semibold text-gray-900">用例概述</th>
-                  <th className="px-3 py-2 text-left text-sm font-semibold text-gray-900">前提条件</th>
-                  <th className="px-3 py-2 text-left text-sm font-semibold text-gray-900">用例步骤</th>
-                  <th className="px-3 py-2 text-left text-sm font-semibold text-gray-900">预期结果</th>
-                  <th className="px-3 py-2 text-left text-sm font-semibold text-gray-900">操作</th>
+                  <th className="px-3 py-2 text-left text-sm font-semibold text-gray-900">{t('type')}</th>
+                  <th className="px-3 py-2 text-left text-sm font-semibold text-gray-900">{t('summary')}</th>
+                  <th className="px-3 py-2 text-left text-sm font-semibold text-gray-900">{t('preconditions')}</th>
+                  <th className="px-3 py-2 text-left text-sm font-semibold text-gray-900">{t('steps')}</th>
+                  <th className="px-3 py-2 text-left text-sm font-semibold text-gray-900">{t('expectedResult')}</th>
+                  <th className="px-3 py-2 text-left text-sm font-semibold text-gray-900">{t('actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
@@ -272,18 +274,18 @@ export function TestFormatAssistant() {
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>确认删除?</AlertDialogTitle>
+                            <AlertDialogTitle>{t('confirmDelete')}</AlertDialogTitle>
                             <AlertDialogDescription>
-                              此操作将删除该测试用例。此操作无法撤销。
+                              {t('deleteConfirmDesc')}
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
-                            <AlertDialogCancel>取消</AlertDialogCancel>
+                            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
                             <AlertDialogAction onClick={() => {
                               const newTestCases = editableTestCases.filter((_, i) => i !== index)
                               setEditableTestCases(newTestCases)
                             }}>
-                              确认删除
+                              {t('confirmDelete')}
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>

@@ -1,0 +1,52 @@
+{
+  "Layout": {
+    "title": "Team Evolve - 异界"
+  },
+  "Common": {
+    "noDescription": "无描述信息"
+  },
+  "SiteHeader": {
+    "teamNamePrefix": "Team Evolve ｜ ",
+    "otherworld": "异界",
+    "slogan": "知识驱动能力破界，AI召唤协作灵感",
+    "loading": "加载中...",
+    "guestMode": "访客模式",
+    "login": "登录",
+    "switchLanguage": "English",
+    "currentLanguage": "中文"
+  },
+  "Sidebar": {
+    "otherworldEvolution": "异界进化",
+    "tacticalBoard": "战术板",
+    "aiCapabilityCapsule": "AI能力胶囊",
+    "rawRequirementAnalysis": "原始需求分析",
+    "draftRequirementEvolution": "需求初稿衍化",
+    "sceneBoundaryAnalysis": "场景边界分析",
+    "requirementDocConfirm": "需求书确认",
+    "requirementDocWriting": "需求书撰写",
+    "userStoryDecomposition": "用户故事拆解",
+    "testCaseGeneration": "测试用例生成",
+    "testDescriptionFormat": "测试描述格式化",
+    "testCaseDetailAssistant": "测试用例细节辅助",
+    "logAnalysis": "日志分析",
+    "knowledgeForge": "知识熔炉",
+    "productInfoArchitecture": "产品信息架构",
+    "productSystemArchitecture": "产品系统架构",
+    "productOpenAPI": "产品开放API",
+    "glossaryManagement": "术语管理",
+    "requirementSummaryManagement": "需求摘要管理",
+    "requirementTemplate": "需求书模版",
+    "boundaryIdentificationKnowledge": "边界识别知识",
+    "inspirationPavilion": "灵犀阁",
+    "reqAnalysisSkill": "需求分析技能",
+    "docComprehensiveProcessing": "文档综合处理",
+    "imageComprehensiveProcessing": "图片综合处理",
+    "aiCapabilityEcosystem": "AI能力生态",
+    "aiTeamFactory": "AI团队工厂",
+    "settings": "设置",
+    "llmSettings": "大模型设置",
+    "promptDebug": "提示词调试",
+    "accessDenied": "访问受限",
+    "loginOrPermissionRequired": "您需要登录或没有权限访问此功能"
+  }
+}
