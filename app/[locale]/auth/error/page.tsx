@@ -2,6 +2,8 @@ import { Metadata } from 'next'
 import { Link } from '@/i18n/navigation'
 import { getTranslations } from 'next-intl/server'
 import { useTranslations } from 'next-intl'
+import {setRequestLocale} from 'next-intl/server';
+import {routing} from '@/i18n/routing';
 
 export async function generateMetadata({ params }: { params: { locale: string } }): Promise<Metadata> {
   const t = await getTranslations({ locale: params.locale, namespace: 'Auth' })
@@ -12,7 +14,12 @@ export async function generateMetadata({ params }: { params: { locale: string } 
   }
 }
 
-export default function AuthErrorPage() {
+export function generateStaticParams() {
+  return routing.locales.map((locale) => ({locale}));
+}
+
+export default function AuthErrorPage({params: {locale}}: {params: {locale: string}}) {
+  setRequestLocale(locale);
   const t = useTranslations('Auth')
   
   return (

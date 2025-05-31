@@ -13,16 +13,16 @@ import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-s
 import { toast } from '@/components/ui/use-toast'
 
 import {useTranslations} from 'next-intl';
-// import {setRequestLocale} from 'next-intl/server'; 
-import {routing} from '@/i18n/routing'; 
-import {useRouter} from '@/i18n/navigation'; 
+import {setRequestLocale} from 'next-intl/server';
+import {routing} from '@/i18n/routing';
+import {useRouter} from '@/i18n/navigation';
 
-// export function generateStaticParams() {
-//   return routing.locales.map((locale) => ({locale}));
-// }
+export function generateStaticParams() {
+  return routing.locales.map((locale) => ({locale}));
+}
 
 export default function Page({params: {locale}}: {params: {locale: string}}) {
-  // setRequestLocale(locale);
+  setRequestLocale(locale);
 
   const t = useTranslations('HomePage'); 
   const tCommon = useTranslations('Common');

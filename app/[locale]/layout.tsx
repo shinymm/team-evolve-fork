@@ -13,8 +13,8 @@ import { Providers } from '../providers'
 
 import {NextIntlClientProvider, useMessages} from 'next-intl';
 import {notFound} from 'next/navigation';
-import {routing} from '@/i18n/routing'; 
-// import {setRequestLocale, getTranslations} from 'next-intl/server'; 
+import {routing} from '@/i18n/routing';
+import {setRequestLocale} from 'next-intl/server';
 import { LayoutWithSidebar } from '@/components/layout-with-sidebar'
 // import { usePathname } from 'next/navigation' // 如果不用，可以注释掉
 import { StoreInitializer } from '@/lib/stores/store-initializer'
@@ -41,6 +41,8 @@ export default function LocaleLayout({
   children: React.ReactNode;
   params: {locale: string};
 }) {
+  // Enable static rendering
+  setRequestLocale(locale);
   console.log(`[Layout] 正在渲染 locale=${locale} 的布局`);
   
   if (!routing.locales.includes(locale as any)) {
