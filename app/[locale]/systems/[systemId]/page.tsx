@@ -100,6 +100,7 @@ export default function SystemPage() {
               className="object-contain"
               priority
               fill
+              sizes="320px"
             />
           </div>
           <h1 className="text-2xl font-bold text-gray-800 mb-3">{currentSystem.name}</h1>

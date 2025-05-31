@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { useTranslations } from "next-intl"
 import { useState } from "react"
 
 interface PathInputDialogProps {
@@ -14,6 +15,7 @@ interface PathInputDialogProps {
 
 export function PathInputDialog({ isOpen, onOpenChange, onSubmit, isLoading }: PathInputDialogProps) {
   const [path, setPath] = useState('')
+  const t = useTranslations('PathInputDialog')
 
   const handleSubmit = () => {
     if (path.trim()) {
@@ -25,14 +27,14 @@ export function PathInputDialog({ isOpen, onOpenChange, onSubmit, isLoading }: P
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>输入操作路径</DialogTitle>
+          <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>
-            请输入简要的操作路径，例如：知识引擎-FAQ-批量导入
+            {t('description')}
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
           <Input
-            placeholder="知识引擎-FAQ-批量导入"
+            placeholder={t('placeholder')}
             value={path}
             onChange={(e) => setPath(e.target.value)}
             className="w-full"
@@ -44,13 +46,13 @@ export function PathInputDialog({ isOpen, onOpenChange, onSubmit, isLoading }: P
             onClick={() => onOpenChange(false)}
             disabled={isLoading}
           >
-            取消
+            {t('cancelButton')}
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={!path.trim() || isLoading}
           >
-            {isLoading ? "生成中..." : "确定"}
+            {isLoading ? t('submittingButton') : t('submitButton')}
           </Button>
         </DialogFooter>
       </DialogContent>

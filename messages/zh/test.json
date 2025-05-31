@@ -122,5 +122,13 @@
   "TestDetailPage": {
     "title": "测试用例细节辅助",
     "subtitle": "补充测试用例的细节信息，提高测试覆盖率。"
+  },
+  "PathInputDialog": {
+    "title": "输入操作路径",
+    "description": "请输入简要的操作路径，例如：知识引擎-FAQ-批量导入",
+    "placeholder": "知识引擎-FAQ-批量导入",
+    "cancelButton": "取消",
+    "submitButton": "确定",
+    "submittingButton": "生成中..."
   }
 }

@@ -122,5 +122,13 @@
   "TestDetailPage": {
     "title": "Test Case Detail Assistant",
     "subtitle": "Supplement test case details to improve test coverage."
+  },
+  "PathInputDialog": {
+    "title": "Enter Operation Path",
+    "description": "Please enter a brief operation path, e.g., Knowledge Engine-FAQ-Batch Import",
+    "placeholder": "Knowledge Engine-FAQ-Batch Import",
+    "cancelButton": "Cancel",
+    "submitButton": "Submit",
+    "submittingButton": "Generating..."
   }
 }
