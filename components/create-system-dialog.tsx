@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl';
 
 import {
   Dialog,
@@ -20,14 +21,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 
-// 定义表单验证模式
-const formSchema = z.object({
-  name: z.string().min(2, '系统名称至少需要2个字符').max(50, '系统名称不能超过50个字符'),
-  description: z.string().optional(),
-})
-
-type FormData = z.infer<typeof formSchema>
-
 export interface CreateSystemDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -37,6 +30,15 @@ export interface CreateSystemDialogProps {
 export function CreateSystemDialog({ open, onOpenChange, onSuccess }: CreateSystemDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
+  const t = useTranslations('CreateSystemDialog');
+  
+  // 定义表单验证模式
+  const formSchema = z.object({
+    name: z.string().min(2, t('validationNameMin')).max(50, t('validationNameMax')),
+    description: z.string().optional(),
+  })
+
+  type FormData = z.infer<typeof formSchema>
   
   const {
     register,
@@ -65,12 +67,12 @@ export function CreateSystemDialog({ open, onOpenChange, onSuccess }: CreateSyst
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || '创建系统失败')
+        throw new Error(errorData.error || t('createFailedError'))
       }
 
       toast({
-        title: '创建成功',
-        description: `系统 "${data.name}" 已成功创建`,
+        title: t('createSuccessTitle'),
+        description: t('createSuccessDescription', { name: data.name }),
       })
       
       reset()
@@ -79,8 +81,8 @@ export function CreateSystemDialog({ open, onOpenChange, onSuccess }: CreateSyst
     } catch (error) {
       console.error('创建系统失败:', error)
       toast({
-        title: '创建失败',
-        description: error instanceof Error ? error.message : '未知错误',
+        title: t('createFailedTitle'),
+        description: error instanceof Error ? error.message : t('unknownError'),
         variant: 'destructive',
       })
     } finally {
@@ -90,23 +92,23 @@ export function CreateSystemDialog({ open, onOpenChange, onSuccess }: CreateSyst
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="w-full md:w-1/2">
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogHeader>
-            <DialogTitle>创建新系统</DialogTitle>
+            <DialogTitle>{t('title')}</DialogTitle>
             <DialogDescription>
-              填写系统信息，创建新的系统。
+              {t('description')}
             </DialogDescription>
           </DialogHeader>
           
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="name">
-                系统名称 <span className="text-red-500">*</span>
+                {t('labelName')} <span className="text-red-500">*</span>
               </Label>
               <Input
                 id="name"
-                placeholder="输入系统名称"
+                placeholder={t('placeholderName')}
                 {...register('name')}
                 disabled={isLoading}
               />
@@ -116,10 +118,10 @@ export function CreateSystemDialog({ open, onOpenChange, onSuccess }: CreateSyst
             </div>
             
             <div className="grid gap-2">
-              <Label htmlFor="description">系统描述</Label>
+              <Label htmlFor="description">{t('labelDescription')}</Label>
               <Textarea
                 id="description"
-                placeholder="输入系统描述（可选）"
+                placeholder={t('placeholderDescription')}
                 {...register('description')}
                 disabled={isLoading}
                 rows={4}
@@ -137,11 +139,11 @@ export function CreateSystemDialog({ open, onOpenChange, onSuccess }: CreateSyst
               onClick={() => onOpenChange(false)}
               disabled={isLoading}
             >
-              取消
+              {t('buttonCancel')}
             </Button>
             <Button type="submit" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              创建
+              {t('buttonCreate')}
             </Button>
           </DialogFooter>
         </form>

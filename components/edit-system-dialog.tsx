@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2 } from 'lucide-react'
 import { type System } from '@/lib/stores/system-store'
+import { useTranslations } from 'next-intl';
 
 import {
   Dialog,
@@ -37,6 +38,7 @@ export interface EditSystemDialogProps {
 export function EditSystemDialog({ system, open, onOpenChange, onSuccess }: EditSystemDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
+  const t = useTranslations('EditSystemDialog');
   
   const {
     register,
@@ -64,12 +66,12 @@ export function EditSystemDialog({ system, open, onOpenChange, onSuccess }: Edit
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || '更新系统失败')
+        throw new Error(errorData.error || t('updateFailedError'))
       }
 
       toast({
-        title: '更新成功',
-        description: '系统描述已更新',
+        title: t('updateSuccessTitle'),
+        description: t('updateSuccessDescription'),
       })
       
       onOpenChange(false)
@@ -77,8 +79,8 @@ export function EditSystemDialog({ system, open, onOpenChange, onSuccess }: Edit
     } catch (error) {
       console.error('更新系统失败:', error)
       toast({
-        title: '更新失败',
-        description: error instanceof Error ? error.message : '未知错误',
+        title: t('updateFailedTitle'),
+        description: error instanceof Error ? error.message : t('unknownError'),
         variant: 'destructive',
       })
     } finally {
@@ -88,10 +90,10 @@ export function EditSystemDialog({ system, open, onOpenChange, onSuccess }: Edit
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="w-full md:w-1/2">
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogHeader>
-            <DialogTitle>编辑系统描述</DialogTitle>
+            <DialogTitle>{t('title')}</DialogTitle>
             <DialogDescription>
               {system.name}
             </DialogDescription>
@@ -99,10 +101,10 @@ export function EditSystemDialog({ system, open, onOpenChange, onSuccess }: Edit
           
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="description">系统描述</Label>
+              <Label htmlFor="description">{t('labelDescription')}</Label>
               <Textarea
                 id="description"
-                placeholder="输入系统描述（可选）"
+                placeholder={t('placeholderDescription')}
                 {...register('description')}
                 disabled={isLoading}
                 rows={6}
@@ -120,11 +122,11 @@ export function EditSystemDialog({ system, open, onOpenChange, onSuccess }: Edit
               onClick={() => onOpenChange(false)}
               disabled={isLoading}
             >
-              取消
+              {t('buttonCancel')}
             </Button>
             <Button type="submit" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              保存
+              {t('buttonSave')}
             </Button>
           </DialogFooter>
         </form>

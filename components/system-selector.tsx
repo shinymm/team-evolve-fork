@@ -8,8 +8,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { useTranslations } from 'next-intl';
 
 export function SystemSelector() {
+  const t = useTranslations('SystemSelector');
   const { data: session } = useSession()
   const { 
     systems,
@@ -41,11 +43,11 @@ export function SystemSelector() {
   }
 
   if (isLoading) {
-    return <div className="text-sm text-gray-300">加载中...</div>
+    return <div className="text-sm text-gray-300">{t('loading')}</div>
   }
 
   if (error) {
-    return <div className="text-sm text-red-500">加载失败: {error}</div>
+    return <div className="text-sm text-red-500">{t('loadFailed', { error })}</div>
   }
 
   return (
@@ -54,12 +56,12 @@ export function SystemSelector() {
       onValueChange={handleSystemChange}
     >
       <SelectTrigger className="w-[200px] bg-white/10 border-white/20 text-white">
-        <SelectValue placeholder="选择系统" />
+        <SelectValue placeholder={t('selectSystemPlaceholder')} />
       </SelectTrigger>
       <SelectContent>
         {systems.length === 0 ? (
           <SelectItem value="empty" disabled>
-            暂无系统数据
+            {t('noSystemData')}
           </SelectItem>
         ) : (
           systems.map(system => (

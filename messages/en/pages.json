@@ -187,5 +187,40 @@
       "deepseek": "Deepseek",
       "gemini": "Gemini"
     }
+  },
+  "SystemSelector": {
+    "loading": "Loading...",
+    "loadFailed": "Load failed: {error}",
+    "selectSystemPlaceholder": "Select system",
+    "noSystemData": "No system data available"
+  },
+  "CreateSystemDialog": {
+    "validationNameMin": "System name must be at least 2 characters",
+    "validationNameMax": "System name cannot exceed 50 characters",
+    "createFailedError": "Failed to create system",
+    "createSuccessTitle": "Creation Successful",
+    "createSuccessDescription": "System \"{name}\" has been successfully created",
+    "createFailedTitle": "Creation Failed",
+    "unknownError": "Unknown error",
+    "title": "Create New System",
+    "description": "Fill in the system information to create a new system.",
+    "labelName": "System Name",
+    "placeholderName": "Enter system name",
+    "labelDescription": "System Description",
+    "placeholderDescription": "Enter system description (optional)",
+    "buttonCancel": "Cancel",
+    "buttonCreate": "Create"
+  },
+  "EditSystemDialog": {
+    "updateFailedError": "Failed to update system",
+    "updateSuccessTitle": "Update Successful",
+    "updateSuccessDescription": "System description has been updated",
+    "updateFailedTitle": "Update Failed",
+    "unknownError": "Unknown error",
+    "title": "Edit System Description",
+    "labelDescription": "System Description",
+    "placeholderDescription": "Enter system description (optional)",
+    "buttonCancel": "Cancel",
+    "buttonSave": "Save"
   }
 }

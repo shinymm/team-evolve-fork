@@ -187,5 +187,40 @@
       "deepseek": "深度求索",
       "gemini": "Gemini"
     }
+  },
+  "SystemSelector": {
+    "loading": "加载中...",
+    "loadFailed": "加载失败: {error}",
+    "selectSystemPlaceholder": "选择系统",
+    "noSystemData": "暂无系统数据"
+  },
+  "CreateSystemDialog": {
+    "validationNameMin": "系统名称至少需要2个字符",
+    "validationNameMax": "系统名称不能超过50个字符",
+    "createFailedError": "创建系统失败",
+    "createSuccessTitle": "创建成功",
+    "createSuccessDescription": "系统 \"{name}\" 已成功创建",
+    "createFailedTitle": "创建失败",
+    "unknownError": "未知错误",
+    "title": "创建新系统",
+    "description": "填写系统信息，创建新的系统。",
+    "labelName": "系统名称",
+    "placeholderName": "输入系统名称",
+    "labelDescription": "系统描述",
+    "placeholderDescription": "输入系统描述（可选）",
+    "buttonCancel": "取消",
+    "buttonCreate": "创建"
+  },
+  "EditSystemDialog": {
+    "updateFailedError": "更新系统失败",
+    "updateSuccessTitle": "更新成功",
+    "updateSuccessDescription": "系统描述已更新",
+    "updateFailedTitle": "更新失败",
+    "unknownError": "未知错误",
+    "title": "编辑系统描述",
+    "labelDescription": "系统描述",
+    "placeholderDescription": "输入系统描述（可选）",
+    "buttonCancel": "取消",
+    "buttonSave": "保存"
   }
 }
