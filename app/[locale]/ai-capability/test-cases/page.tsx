@@ -1,8 +1,10 @@
 import { TestCaseAssistant } from '@/components/test-case-assistant'
-import { useTranslations } from 'next-intl'
+import { getTranslations } from 'next-intl/server'
+import {setRequestLocale} from 'next-intl/server'
 
-export default function TestCasesPage() {
-  const t = useTranslations('TestCasesPage')
+export default async function TestCasesPage({params: {locale}}: {params: {locale: string}}) {
+  setRequestLocale(locale)
+  const t = await getTranslations({locale, namespace: 'TestCasesPage'})
   
   return (
     <div className="w-[90%] mx-auto py-8">

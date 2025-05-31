@@ -103,6 +103,7 @@
   },
   "GlossaryPage": {
     "title": "术语知识管理",
+    "subtitle": "管理和定义项目中使用的标准化术语。",
     "searchPlaceholder": "搜索术语...",
     "clear": "清除",
     "statusFilter": "状态筛选",

@@ -34,9 +34,9 @@ interface Exception {
 type SortField = 'request' | 'error'
 type SortOrder = 'asc' | 'desc'
 
-export default function LogAnalysis() {
+export default function LogAnalysis({params}: {params: {locale: string}}) {
+  const currentLocale = useLocale()
   const t = useTranslations('LogAnalysisPage')
-  const locale = useLocale()
   
   const [analyzing, setAnalyzing] = useState(false)
   const [exceptions, setExceptions] = useState<Exception[]>([])

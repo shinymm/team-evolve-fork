@@ -16,9 +16,9 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useTranslations, useLocale } from 'next-intl'
 
-export default function BookConfirmPage() {
+export default function BookConfirmPage({params}: {params: {locale: string}}) {
+  const currentLocale = useLocale()
   const t = useTranslations('BookConfirmPage')
-  const locale = useLocale()
   
   const [requirement, setRequirement] = useState<StructuredRequirement | null>(null)
   const [isUpdating, setIsUpdating] = useState(false)
@@ -176,7 +176,7 @@ export default function BookConfirmPage() {
     // 添加系统名称到文件名
     const systemName = currentSystem?.name || selectedSystemId
     // 根据当前语言生成不同的文件名
-    const fileName = locale === 'zh' 
+    const fileName = currentLocale === 'zh' 
       ? `需求书_${systemName}.md`
       : `Requirements_${systemName}.md`
     a.download = fileName

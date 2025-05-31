@@ -26,8 +26,8 @@ import { useTranslations, useLocale } from 'next-intl';
 import '@/components/TiptapEditor/styles.css';
 
 export default function BookWritingPage() {
-  const t = useTranslations('BookWritingPage');
   const locale = useLocale();
+  const t = useTranslations('BookWritingPage');
   
   const [content, setContent] = useState<string>('');
   

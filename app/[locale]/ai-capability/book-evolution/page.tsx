@@ -20,9 +20,9 @@ import { SystemInfoService } from '@/lib/services/system-info-service'
 import { useTranslations, useLocale } from 'next-intl'
 import { useRouter } from '@/i18n/navigation'
 
-export default function RequirementAnalysis() {
+export default function RequirementAnalysis({params}: {params: {locale: string}}) {
+  const currentLocale = useLocale()
   const t = useTranslations('RequirementEvolutionPage')
-  const locale = useLocale()
   
   // 获取当前选中的系统
   const { systems, selectedSystemId } = useSystemStore()

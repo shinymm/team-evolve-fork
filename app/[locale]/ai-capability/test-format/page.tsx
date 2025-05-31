@@ -1,8 +1,10 @@
 import { TestFormatAssistant } from '@/components/test-format-assistant'
-import { useTranslations } from 'next-intl'
+import { getTranslations } from 'next-intl/server'
+import { setRequestLocale } from 'next-intl/server'
 
-export default function TestFormatPage() {
-  const t = useTranslations('TestFormatPage')
+export default async function TestFormatPage({ params: { locale } }: { params: { locale: string } }) {
+  setRequestLocale(locale)
+  const t = await getTranslations({ locale, namespace: 'TestFormatPage' })
   
   return (
     <div className="w-[90%] mx-auto py-8">

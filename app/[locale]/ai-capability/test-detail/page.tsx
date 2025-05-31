@@ -4,7 +4,7 @@ import { TestDetailAssistant } from "@/components/test-detail-assistant"
 import { useTranslations } from 'next-intl'
 import { TooltipProvider } from "@/components/ui/tooltip"
 
-export default function TestDetailPage() {
+export default function TestDetailPage({params: {locale}}: {params: {locale: string}}) {
   const t = useTranslations('TestDetailPage')
   
   return (

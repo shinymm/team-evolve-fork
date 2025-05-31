@@ -103,6 +103,7 @@
   },
   "GlossaryPage": {
     "title": "Glossary Management",
+    "subtitle": "Manage and define standardized terms used across your projects.",
     "searchPlaceholder": "Search terms...",
     "clear": "Clear",
     "statusFilter": "Status Filter",

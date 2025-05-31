@@ -103,10 +103,11 @@ const cleanSceneContentForDisplay = (sceneName: string, content: string): string
   return cleanedContent;
 };
 
-export default function SceneAnalysisPage() {
-  const router = useRouter() // Initialize router
+export default function SceneAnalysisPage({params}: {params: {locale: string}}) {
+  // setRequestLocale(params.locale); // Removed
+  const router = useRouter() 
+  const currentLocale = useLocale();
   const t = useTranslations('SceneAnalysisPage')
-  const locale = useLocale()
   
   const [content, setContent] = useState<RequirementParseResult | null>(null)
   const [mdContent, setMdContent] = useState<string>('')
