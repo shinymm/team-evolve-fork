@@ -218,6 +218,41 @@ export const aiModelConfigService = {
   },
 
   /**
+   * 获取默认推理模型配置
+   * 返回带加密API密钥的完整配置
+   */
+  async getDefaultReasoningConfig(): Promise<AIModelConfig | null> {
+    try {
+      console.log('开始从数据库获取默认推理模型配置');
+      
+      const config = await prisma.aIModelConfig.findFirst({
+        where: { 
+          isDefault: true,
+          type: 'reasoning'  // 指定获取推理模型类型
+        }
+      });
+
+      if (!config) {
+        console.log('数据库中未找到默认推理模型配置');
+        return null;
+      }
+
+      console.log('从数据库获取到默认推理模型配置:', {
+        id: config.id,
+        model: config.model,
+        hasApiKey: !!config.apiKey,
+        apiKeyLength: config.apiKey?.length || 0
+      });
+
+      // 直接转换配置（保持API密钥加密状态）
+      return convertToAIModelConfig(config);
+    } catch (error) {
+      console.error('获取默认推理模型配置失败:', error);
+      return null;
+    }
+  },
+
+  /**
    * 添加新配置
    * 注意：入参中的API密钥是明文，会在此方法中加密存储
    */

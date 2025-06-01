@@ -1,6 +1,9 @@
 {
   "AIModelsPage": {
-    "loading": "Loading model configurations, please wait..."
+    "loading": "Loading model configurations, please wait...",
+    "languageModelsTitle": "Language Models",
+    "reasoningModelsTitle": "Reasoning Models",
+    "visionModelsTitle": "Vision Models"
   },
   "AIModelSettings": {
     "tabs": {
@@ -10,13 +13,16 @@
     "card": {
       "title": "AI Model Configuration",
       "description": "Configure different AI model services for Q&A and chat functions",
-      "addButton": "Add Configuration"
+      "addButton": "Add Configuration",
+      "titleForType": "{modelType} Configuration",
+      "descriptionForType": "Manage {modelType} configurations"
     },
     "addForm": {
       "title": "Add New Configuration",
       "modelTypes": {
         "language": "Language Model",
-        "vision": "Vision Model"
+        "vision": "Vision Model",
+        "reasoning": "Reasoning Model"
       },
       "fields": {
         "preset": "Preset Model",
@@ -35,13 +41,17 @@
       "buttons": {
         "cancel": "Cancel",
         "add": "Add"
-      }
+      },
+      "titleForType": "Add New {modelType} Configuration",
+      "noPresetsAvailable": "No presets available for this model type."
     },
     "modelSections": {
       "language": "Language Models",
       "vision": "Vision Models",
+      "reasoning": "Reasoning Models",
       "noLanguageModels": "No language model configurations yet, please add new ones",
-      "noVisionModels": "No vision model configurations yet, please add new ones"
+      "noVisionModels": "No vision model configurations yet, please add new ones",
+      "noReasoningModels": "No reasoning model configurations yet, please add new ones"
     },
     "tableHeaders": {
       "name": "Name",
@@ -49,7 +59,9 @@
       "apiUrl": "API URL",
       "temperature": "Temperature",
       "default": "Default",
-      "actions": "Actions"
+      "actions": "Actions",
+      "loadFailed": "Failed to load {type} model configurations",
+      "loadFailedDetail": "An error occurred while loading configurations"
     },
     "actions": {
       "testConnection": "Test Connection",
@@ -71,11 +83,10 @@
       "defaultFailed": "Update Failed",
       "defaultFailedDetail": "An error occurred while setting default configuration",
       "testSuccess": "Test Successful",
-      "testSuccessDetail": "Successfully connected to {name}\nModel response: {response}",
+      "testSuccessDetail": "Successfully connected to {modelName}\nModel response: {response}",
       "testFailed": "Test Failed",
       "testFailedDetail": "Unable to connect to AI service",
-      "loadFailed": "Failed to load {type} model configurations",
-      "loadFailedDetail": "An error occurred while loading configurations"
+      "noDataReceivedTimeout": "Connection test timed out: No data received from the model."
     }
   },
   "VectorSettings": {

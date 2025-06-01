@@ -13,19 +13,22 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const type = url.searchParams.get('type');
     
     let config = null;
-    
+
     // 根据类型参数选择不同的获取方法
     if (type === 'vision') {
-      console.log('开始获取默认视觉模型配置');
+      console.log(`开始获取默认视觉模型配置`);
       config = await aiModelConfigService.getDefaultVisionConfig();
+    } else if (type === 'reasoning') {
+      console.log(`开始获取默认推理模型配置`);
+      config = await aiModelConfigService.getDefaultReasoningConfig();
     } else {
-      // 默认获取语言模型配置
-      console.log('开始获取默认语言模型配置');
-      config = await aiModelConfigService.getDefaultConfig();
+      // 默认获取语言模型配置 (type is null, undefined, or 'language')
+      console.log(`开始获取默认语言模型配置`);
+      config = await aiModelConfigService.getDefaultConfig(); // This gets default language model
     }
 
     if (!config) {
-      console.log(`未找到${type === 'vision' ? '视觉' : '语言'}模型的默认配置`);
+      console.log(`未找到${type}模型的默认配置`);
       return NextResponse.json({ config: null });
     }
 
@@ -35,8 +38,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       modelInfo: {
         name: config.name,
         model: config.model,
-        type: config.type || (type === 'vision' ? 'vision' : 'language'),
-        isQVQ: config.model.includes('qvq')
+        type: config.type || type || 'language', // Ensure type reflects what was requested or found
+        isQVQ: config.model.includes('qvq') // This is specific to vision qvq models
       }
     });
   } catch (error) {

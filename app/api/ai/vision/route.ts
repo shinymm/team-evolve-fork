@@ -15,7 +15,37 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     // 解析请求数据
     const formData = await request.formData();
-    const imageUrls = formData.getAll('imageUrls').map(url => url.toString());
+    
+    let imageUrls: string[] = [];
+    const imageUrlsFormData = formData.getAll('imageUrls'); // Returns FormDataEntryValue[]
+
+    if (imageUrlsFormData.length > 0) {
+      const firstEntry = imageUrlsFormData[0]; // Assuming the stringified array is the first entry
+      if (typeof firstEntry === 'string') {
+        try {
+          const parsed = JSON.parse(firstEntry);
+          if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
+            imageUrls = parsed;
+          } else {
+            // This case handles if the frontend accidentally sends a non-array JSON or an array of non-strings
+            console.error('Parsed imageUrls is not an array of strings:', parsed);
+            return NextResponse.json({ error: 'Invalid imageUrls format: Expected a JSON array of URL strings.' }, { status: 400 });
+          }
+        } catch (e) {
+          // This case handles if the string is not valid JSON
+          console.error('Error parsing imageUrls JSON string:', firstEntry, e);
+          // If it's not JSON, it might be a single URL string directly (though current frontend sends JSON string for test)
+          // For now, strictly expect JSON array string as per test case.
+          return NextResponse.json({ error: 'Malformed imageUrls parameter: Not a valid JSON string.' }, { status: 400 });
+        }
+      } else {
+        // This case handles if the FormData entry is a File, not a string
+        console.error('imageUrls FormData entry is not a string:', firstEntry);
+        return NextResponse.json({ error: 'Invalid imageUrls format: Expected a string.' }, { status: 400 });
+      }
+    }
+    // If imageUrlsFormData is empty, the check `if (imageUrls.length === 0)` later will handle it.
+
     const prompt = formData.get('prompt')?.toString() || '';
     const systemPrompt = formData.get('systemPrompt')?.toString();
     const modelConfigId = formData.get('modelConfig')?.toString();
