@@ -44,7 +44,8 @@ export function Sidebar() {
       titleKey: "aiCapabilityEcosystem",
       icon: <Flame className="h-4 w-4" />,
       submenu: [
-        { titleKey: "aiTeamFactory", href: "/settings/ai-team" }        
+        { titleKey: "aiTeamMembers", href: "/settings/ai-team-members" },
+        { titleKey: "aiTeamApplications", href: "/settings/ai-team-applications" }
       ]
     },
     {
@@ -103,7 +104,7 @@ export function Sidebar() {
   useEffect(() => {
     mainMenuItems.forEach(item => {
       item.submenu?.forEach(subitem => {
-        router.prefetch(subitem.href)
+        router.prefetch(subitem.href);
       })
     })
     settingsMenu.submenu?.forEach(subitem => {
@@ -189,15 +190,15 @@ export function Sidebar() {
             onClick={() => toggleMenu(item.titleKey)} // Toggle using titleKey
           />
         </div>
-        {openMenus.includes(item.titleKey) && ( // Check against titleKey
+        {openMenus.includes(item.titleKey) && (
           <div className="space-y-0">
             {item.submenu.map((subitem) => {
-              const isAccessible = canAccessPath(subitem.href)
+              const isAccessible = canAccessPath(subitem.href);
               const translatedSubitemTitle = t(subitem.titleKey as any);
               const currentPathWithoutLocale = getPathWithoutLocale(pathname);
               return (
                 <button
-                  key={subitem.href} // href is unique for subitems
+                  key={subitem.href} 
                   onClick={() => handleNavigate(subitem.href)}
                   className={`w-full text-left pl-6 pr-1 py-1 text-[12px] relative block
                     ${!isAccessible ? 'opacity-50 cursor-not-allowed' : 'hover:bg-orange-100 hover:text-orange-700'}

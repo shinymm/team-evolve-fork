@@ -17,7 +17,6 @@
   },
   "Sidebar": {
     "otherworldEvolution": "异界进化",
-    "tacticalBoard": "战术板",
     "aiCapabilityCapsule": "AI能力胶囊",
     "rawRequirementAnalysis": "原始需求分析",
     "draftRequirementEvolution": "需求初稿衍化",
@@ -42,7 +41,8 @@
     "docComprehensiveProcessing": "文档综合处理",
     "imageComprehensiveProcessing": "图片综合处理",
     "aiCapabilityEcosystem": "AI能力生态",
-    "aiTeamFactory": "AI团队工厂",
+    "aiTeamMembers": "AI团队成员",
+    "aiTeamApplications": "AI集成应用",
     "settings": "设置",
     "llmSettings": "大模型设置",
     "promptDebug": "提示词调试",

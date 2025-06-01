@@ -17,7 +17,6 @@
   },
   "Sidebar": {
     "otherworldEvolution": "Otherworld Evolution",
-    "tacticalBoard": "Tactical Board",
     "aiCapabilityCapsule": "AI Capability Capsule",
     "rawRequirementAnalysis": "Raw Req Analysis",
     "draftRequirementEvolution": "Draft Req Evolution",
@@ -42,7 +41,8 @@
     "docComprehensiveProcessing": "Doc Processing",
     "imageComprehensiveProcessing": "Image Processing",
     "aiCapabilityEcosystem": "AI Capability Ecosystem",
-    "aiTeamFactory": "AI Team Factory",
+    "aiTeamMembers": "AI Team Members",
+    "aiTeamApplications": "AI Team Applications",
     "settings": "Settings",
     "llmSettings": "LLM Settings",
     "promptDebug": "Prompt Debug",

@@ -6,8 +6,6 @@ interface Permission {
 }
 
 export const pagePermissions: Record<string, Permission> = {
-  // 异界进化
-  "/collaboration/tactical-board": { requiresAuth: true, allowedRoles: ["ADMIN"] },
 
   // AI能力胶囊 - 基础功能，匿名可用
   "/ai-capability/book-evolution": { requiresAuth: false },
@@ -41,7 +39,8 @@ export const pagePermissions: Record<string, Permission> = {
 
   // 设置页面 - 仅管理员可访问
   "/settings/ai-models": { requiresAuth: true, allowedRoles: ["ADMIN"] },
-  "/settings/ai-team": { requiresAuth: true, allowedRoles: ["USER", "ADMIN"] },
+  "/settings/ai-team-members": { requiresAuth: true, allowedRoles: ["USER", "ADMIN"] },
+  "/settings/ai-team-applications": { requiresAuth: false },
 };
 
 // 检查路径是否需要认证
