@@ -110,7 +110,7 @@ export function MemberFormDialog({
   onSubmit,
   onClose,
 }: MemberFormDialogProps) {
-  const t = useTranslations('ai-team-factory.MemberFormDialog')
+  const t = useTranslations('MemberFormDialog')
   const [formData, setFormData] = useState<MemberFormData>({
     name: '',
     introduction: '',

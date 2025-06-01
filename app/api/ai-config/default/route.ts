@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'; // Force dynamic rendering for this route
+
 import { NextResponse } from 'next/server'
 import { aiModelConfigService } from '@/lib/services/ai-model-config-service'
 

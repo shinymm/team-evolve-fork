@@ -34,7 +34,7 @@ export function ApplicationDialog({
   editingApplication,
 }: ApplicationDialogProps) {
   const { toast } = useToast()
-  const t = useTranslations('ai-team-factory.ApplicationDialog')
+  const t = useTranslations('ApplicationDialog')
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: '',

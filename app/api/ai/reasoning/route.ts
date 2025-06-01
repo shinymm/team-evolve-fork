@@ -5,7 +5,7 @@ import { getApiEndpointAndHeaders, AIModelConfig } from "@/lib/services/ai-servi
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 60;
 
 // Define message structure for OpenAI-compatible models
 interface OpenAIMessage {
