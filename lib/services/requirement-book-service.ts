@@ -1,8 +1,6 @@
 import { streamingAICall } from '@/lib/services/ai-service'
 import { requirementBookPrompt } from '@/lib/prompts/requirement-book'
 import { RequirementParserService } from '@/lib/services/requirement-parser-service'
-import { createRequirementStructureTask, createSceneAnalysisTask } from '@/lib/services/task-control'
-import { updateTask } from '@/lib/services/task-service'
 import { RequirementParseResult } from '@/lib/services/requirement-parser-service'
 import { RequirementData } from '@/lib/services/task-control'
 import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store'
@@ -164,32 +162,14 @@ export class RequirementBookService {
    */
   public static async processConfirmation(requirementBook: string, systemId?: string): Promise<RequirementParseResult> {
     try {
-      // 1. 更新需求书任务状态为完成
-      console.log('更新需求书任务状态...')
-      await updateTask('requirement-book', {
-        status: 'completed'
-      })
-      
-      // 2. 创建需求书结构化任务
-      console.log('创建需求书结构化任务...')
-      const structureTask = await createRequirementStructureTask(requirementBook)
-      
-      // 3. 解析需求书内容
+      // 解析需求书内容
       console.log('解析需求书内容...')
       const parser = new RequirementParserService()
       // 直接传递systemId给parseRequirement方法
       const parsedRequirement = parser.parseRequirement(requirementBook, systemId)
       
-      // 4. 标记结构化任务完成
-      console.log('更新结构化任务状态...')
-      await updateTask(structureTask.id, {
-        status: 'completed'
-      })
-
-      // 5. 保存新的结构化内容
-      console.log('保存新的结构化内容...')
-      
       // 只在有系统ID的情况下保存
+      console.log('保存新的结构化内容...')
       if (systemId) {
         console.log(`按系统ID(${systemId})保存结构化内容...`)
         const storageKey = `requirement-structured-content-${systemId}`
@@ -198,12 +178,7 @@ export class RequirementBookService {
         console.warn('未提供系统ID，无法保存结构化内容到系统特定存储')
       }
       
-      // 7. 创建场景边界分析任务
-      console.log('创建场景边界分析任务...')
-      await createSceneAnalysisTask(this.adaptToRequirementData(parsedRequirement))
-      
-      // 8. 确保当前系统的状态被正确保存到localStorage
-      // 这样可以避免页面跳转导致的数据丢失问题
+      // 确保当前系统的状态被正确保存到localStorage,避免页面跳转导致的数据丢失问题
       if (systemId) {
         console.log(`确保系统 ${systemId} 的状态被正确保存...`)
         try {
@@ -235,9 +210,9 @@ export class RequirementBookService {
         }
       }
       
-      console.log('所有任务状态更新完成')
-      
+      console.log('所有任务状态更新完成') 
       return parsedRequirement
+
     } catch (error) {
       console.error('任务状态更新失败:', error)
       throw error

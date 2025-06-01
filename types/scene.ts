@@ -1,5 +1,4 @@
 export interface SceneAnalysisState {
-  taskId?: string
   tempResult?: string
   analysisResult?: string
   isConfirming?: boolean

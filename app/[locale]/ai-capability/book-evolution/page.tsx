@@ -8,7 +8,6 @@ import { streamingAICall } from '@/lib/services/ai-service'
 import { Card } from "@/components/ui/card"
 import { Loader2, Copy, Download, Edit2, Save, ArrowRight, Pin, PinOff } from "lucide-react"
 import { requirementAnalysisPrompt } from '@/lib/prompts/requirement-analysis'
-import { updateTask } from '@/lib/services/task-service'
 import { Toaster } from "@/components/ui/toaster"
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'

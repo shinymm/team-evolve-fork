@@ -12,7 +12,6 @@ import { useToast } from "@/components/ui/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { createTask, updateTask } from '@/lib/services/task-service'
 import { cn } from '@/lib/utils'
 import { SceneRequirementService } from '@/lib/services/scene-requirement-service'
 import { RequirementExportService } from '@/lib/services/requirement-export-service'
@@ -560,20 +559,10 @@ export default function SceneAnalysisPage({params}: {params: {locale: string}}) 
     setAnalysisResult('') // 清空旧结果
 
     try {
-      // 创建任务
-      const task = await createTask({
-        title: `场景${index + 1}边界分析`,
-        description: `分析场景"${scene.name}"的边界条件和异常情况`,
-        type: 'scene-boundary-analysis',
-        assignee: 'system',
-        status: 'pending'
-      })
-
       // 更新场景状态
       const updatedStates = {
         ...sceneStates,
         [scene.name]: {
-          taskId: task.id,
           isConfirming: false,
           isCompleted: false
         }
@@ -690,27 +679,11 @@ export default function SceneAnalysisPage({params}: {params: {locale: string}}) 
     console.log('场景状态详情:', {
       sceneName: scene.name,
       state: state,
-      taskIdExists: !!state?.taskId,
       hasAnalysisResult: !!analysisResult,
       hasTempResult: !!state?.tempResult,
       analysisResultLength: analysisResult?.length || 0,
       tempResultLength: state?.tempResult?.length || 0
     })
-    
-    // 如果没有taskId，只记录错误但继续执行，不要直接返回
-    if (!state?.taskId) {
-      console.warn('无法找到taskId，但会继续执行保存结果操作', scene.name, sceneStates[scene.name])
-    } else {
-      try {
-        // 更新任务状态
-        await updateTask(state.taskId, {
-          status: 'completed'
-        })
-        console.log('已更新任务状态为completed')
-      } catch (error) {
-        console.error('更新任务状态失败，但将继续保存分析结果:', error)
-      }
-    }
 
     try {
       // 确保analysisResult不为空
@@ -739,8 +712,6 @@ export default function SceneAnalysisPage({params}: {params: {locale: string}}) 
         ...sceneStates,
         [scene.name]: {
           ...sceneStates[scene.name],
-          // 如果存在taskId就保留，如果不存在则初始化一个临时ID
-          taskId: state?.taskId || `temp-task-${Date.now()}`,
           isConfirming: false,
           isCompleted: true,
           analysisResult: finalResult,  // 保存当前的分析结果
@@ -784,7 +755,6 @@ export default function SceneAnalysisPage({params}: {params: {locale: string}}) 
 
   const handleRejectResult = async (scene: Scene) => {
     const state = sceneStates[scene.name]
-    // 移除对taskId的硬性依赖，即使没有taskId也继续执行
     if (!state) {
       console.warn('场景状态不存在:', scene.name)
       return
@@ -792,7 +762,6 @@ export default function SceneAnalysisPage({params}: {params: {locale: string}}) 
 
     try {
       console.log('拒绝分析结果', scene.name, {
-        hasTaskId: !!state.taskId,
         isConfirming: state.isConfirming,
         hasTempResult: !!state.tempResult
       })
@@ -801,8 +770,6 @@ export default function SceneAnalysisPage({params}: {params: {locale: string}}) 
       const updatedStates = {
         ...sceneStates,
         [scene.name]: {
-          // 如果存在taskId就保留，如果不存在则不使用该字段
-          ...(state.taskId ? { taskId: state.taskId } : {}),
           isConfirming: false,
           isCompleted: false,
           tempResult: undefined,  // 清空临时结果
@@ -933,18 +900,9 @@ export default function SceneAnalysisPage({params}: {params: {locale: string}}) 
     setOptimizeResult('')
 
     try {
-      // 创建优化任务
-      const task = await createTask({
-        title: `优化场景"${scene.name}"的需求描述`,
-        description: "使用AI优化场景需求描述",
-        type: "scene-requirement-optimize",
-        assignee: "AI",
-        status: "in_progress"
-      })
 
       // 添加调试日志
       console.log(`开始优化场景: ${scene.name}`, { 
-        taskId: task.id, 
         sceneContent: scene.content.substring(0, 50) + '...'
       });
 
@@ -953,7 +911,6 @@ export default function SceneAnalysisPage({params}: {params: {locale: string}}) 
         ...sceneStates,
         [scene.name]: {
           ...sceneStates[scene.name],
-          taskId: task.id,
           isOptimizing: true,
           optimizeResult: '' // 确保从空字符串开始
         }
@@ -1109,7 +1066,6 @@ export default function SceneAnalysisPage({params}: {params: {locale: string}}) 
       const updatedStates = {
         ...sceneStates,
         [scene.name]: {
-          taskId: state.taskId, // Preserve the taskId from the optimization initiation
           isOptimizing: false,
           isOptimizeConfirming: false,
           optimizeResult: undefined,  // Clear optimizeResult as it's now in scene.content
@@ -1149,8 +1105,6 @@ export default function SceneAnalysisPage({params}: {params: {locale: string}}) 
   }
 
   const handleRejectOptimize = async (scene: Scene) => {
-    const state = sceneStates[scene.name]
-    if (!state?.taskId) return
 
     try {
       // 重置场景状态
@@ -1264,15 +1218,6 @@ export default function SceneAnalysisPage({params}: {params: {locale: string}}) 
       const sceneStatesKey = `scene-analysis-states-${selectedSystemId}`;
       localStorage.setItem(sceneStatesKey, JSON.stringify(sceneStates));
 
-      // 创建需求书确认任务
-      await createTask({
-        title: "需求书确认",
-        description: "确认生成的需求书内容",
-        type: "requirement-book-confirm",
-        assignee: "SQ",
-        status: "pending"
-      });
-
       toast({
         title: t('confirmSuccess'),
         description: t('confirmTaskCreated'),
@@ -1341,13 +1286,6 @@ export default function SceneAnalysisPage({params}: {params: {locale: string}}) 
             return sceneStates[sceneName]?.isCompleted === true;
           });
           
-          // 已经全部完成的情况
-          if (allCompleted) {
-            console.log('所有场景分析已完成');
-            await updateTask('scene-analysis', {
-              status: 'completed'
-            });
-          }
         }
       } catch (error) {
         console.error('更新任务状态失败:', error);

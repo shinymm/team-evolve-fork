@@ -6,9 +6,7 @@ import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { StructuredRequirement, StructuredScene } from '@/lib/services/requirement-export-service'
-import { createArchitectureSuggestionTask, createArchitectureConfirmTask } from '@/lib/services/task-control'
 import { generateArchitectureSuggestions } from '@/lib/services/architecture-suggestion-service'
-import { updateTask } from '@/lib/services/task-service'
 import { useSystemStore } from '@/lib/stores/system-store'
 import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store'
 import type { ArchitectureItem } from '@/types/product-info'
@@ -197,76 +195,72 @@ export default function BookConfirmPage({params}: {params: {locale: string}}) {
   }
 
   const handleUpdateKnowledge = async () => {
-    if (!requirement) {
-      toast({
-        title: t('updateError'),
-        description: t('noRequirementData'),
-        variant: "destructive",
-        duration: 3000
-      })
-      return
-    }
-
-    if (!selectedSystemId) {
-      toast({
-        title: t('updateError'),
-        description: t('noSystemSelected'),
-        variant: "destructive",
-        duration: 3000
-      })
-      return
-    }
-
-    setIsUpdating(true)
     toast({
-      title: t('updateTaskStarted'),
-      description: t('updateTaskDesc'),
-      duration: 8000
-    })
+      title: t("UnderReconstruction"),
+      description: t("Being refactor..."),
+      variant: "destructive",
+      duration: 3000,
+    });
+    // if (!requirement) {
+    //   toast({
+    //     title: t('updateError'),
+    //     description: t('noRequirementData'),
+    //     variant: "destructive",
+    //     duration: 3000
+    //   })
+    //   return
+    // }
 
-    try {
-      // 1. 创建产品知识更新建议任务
-      const suggestionTask = await createArchitectureSuggestionTask(requirement)
+    // if (!selectedSystemId) {
+    //   toast({
+    //     title: t('updateError'),
+    //     description: t('noSystemSelected'),
+    //     variant: "destructive",
+    //     duration: 3000
+    //   })
+    //   return
+    // }
 
-      // 2. 调用架构建议服务获取建议
-      const suggestions = await generateArchitectureSuggestions(requirement, currentArchitecture)
+    // setIsUpdating(true)
+    // toast({
+    //   title: t('updateTaskStarted'),
+    //   description: t('updateTaskDesc'),
+    //   duration: 8000
+    // })
 
-      // 3. 更新建议任务状态为已完成
-      await updateTask(suggestionTask.id, {
-        status: 'completed'
-      })
+    // try {
+  
+    //   // 调用架构建议服务获取建议
+    //   const suggestions = await generateArchitectureSuggestions(requirement, currentArchitecture)
 
-      // 4. 创建产品知识更新确认任务
-      await createArchitectureConfirmTask(suggestions)
+    //   // 跳转到信息架构页面
+    //   window.location.href = '/knowledge/information-architecture'
 
-      // 5. 跳转到信息架构页面
-      window.location.href = '/knowledge/information-architecture'
-
-    } catch (error) {
-      console.error('更新产品知识失败:', error)
-      let errorMessage = t('tryAgain')
+    // } catch (error) {
+    //   console.error('更新产品知识失败:', error)
+    //   let errorMessage = t('tryAgain')
       
-      if (error instanceof Error) {
-        if (error.message === '未配置AI模型') {
-          errorMessage = t('configureAiModel')
-        } else if (error.message === 'AI服务返回为空') {
-          errorMessage = t('emptyAiResponse')
-        } else if (error.message.includes('Invalid')) {
-          errorMessage = t('invalidFormat')
-        } else {
-          errorMessage = error.message
-        }
-      }
+    //   if (error instanceof Error) {
+    //     if (error.message === '未配置AI模型') {
+    //       errorMessage = t('configureAiModel')
+    //     } else if (error.message === 'AI服务返回为空') {
+    //       errorMessage = t('emptyAiResponse')
+    //     } else if (error.message.includes('Invalid')) {
+    //       errorMessage = t('invalidFormat')
+    //     } else {
+    //       errorMessage = error.message
+    //     }
+    //   }
       
-      toast({
-        title: t('updateFailed'),
-        description: errorMessage,
-        variant: "destructive",
-        duration: 5000
-      })
-    } finally {
-      setIsUpdating(false)
-    }
+    //   toast({
+    //     title: t('updateFailed'),
+    //     description: errorMessage,
+    //     variant: "destructive",
+    //     duration: 5000
+    //   })
+    // } finally {
+    //   setIsUpdating(false)
+    // }
   }
 
   // 清理场景内容开头的冗余标题和分隔线

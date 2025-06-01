@@ -41,10 +41,10 @@ export function Sidebar() {
   // or memoize them with useMemo if they do. For simplicity, defined here.
   const mainMenuItems: MenuItemDef[] = [
     {
-      titleKey: "otherworldEvolution",
-      icon: <Hexagon className="h-4 w-4" />,
+      titleKey: "aiCapabilityEcosystem",
+      icon: <Flame className="h-4 w-4" />,
       submenu: [
-        { titleKey: "tacticalBoard", href: "/collaboration/tactical-board" }
+        { titleKey: "aiTeamFactory", href: "/settings/ai-team" }        
       ]
     },
     {
@@ -83,13 +83,6 @@ export function Sidebar() {
         { titleKey: "reqAnalysisSkill", href: "/inspire/req-analysis-skill", isPro: true },
         { titleKey: "docComprehensiveProcessing", href: "/special-capability/requirement-upload", isPro: true },
         { titleKey: "imageComprehensiveProcessing", href: "/special-capability/image-processing", isPro: true }
-      ]
-    },
-    {
-      titleKey: "aiCapabilityEcosystem",
-      icon: <Flame className="h-4 w-4" />,
-      submenu: [
-        { titleKey: "aiTeamFactory", href: "/settings/ai-team" }        
       ]
     }
   ];

@@ -5,23 +5,14 @@ import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
-import { streamingAICall } from '@/lib/services/ai-service';
 import { Card } from "@/components/ui/card";
 import { Loader2, Copy, Download, Edit2, Save, ArrowRight, Pin, PinOff } from "lucide-react";
-import { requirementBookPrompt } from '@/lib/prompts/requirement-book';
-import { updateTask } from '@/lib/services/task-service';
-import { createRequirementStructureTask, createSceneAnalysisTask } from '@/lib/services/task-control';
-import { RequirementParserService } from '@/lib/services/requirement-parser-service';
 import { useRouter } from 'next/navigation';
 import { Toaster } from "@/components/ui/toaster";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { getTasks } from '@/lib/services/task-service';
 import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { RequirementParseResult } from '@/lib/services/requirement-parser-service';
-import { RequirementData } from '@/lib/services/task-control';
-import { Scene } from '@/types/requirement';
 import { useSystemStore } from '@/lib/stores/system-store';
 import { RequirementBookService } from '@/lib/services/requirement-book-service';
 import { SceneAnalysisState } from '@/types/scene';
@@ -82,23 +73,19 @@ export function RequirementBookClient() {
   };
 
   useEffect(() => {
-    const checkPreviousTaskAndLoadData = async () => {
-      try {
-        const allTasks = await getTasks();
-        const requirementAnalysisTask = allTasks.find(t => t.id === 'requirement-analysis');
-        if (requirementAnalysisTask?.status === 'completed' && selectedSystem?.id) {
-          if (pinnedAnalysis) {
-            setOriginalRequirement(pinnedAnalysis);
-          }
-        }
-      } catch (error) {
-        // ignore
+    // 检查 store 中是否已有 pinnedAnalysis 或 requirement 作为原始需求
+    if (selectedSystem?.id) { // 确保有选中的系统
+      if (pinnedAnalysis) {
+        // 如果 store 中有固定的分析结果，则使用它
+        setOriginalRequirement(pinnedAnalysis);
+      } else if (requirement) {
+        // 否则，如果 store 中有来自上一页的原始需求输入 (requirement)，使用它
+        // 这通常是用户在 book-evolution 页面直接输入的内容
+        setOriginalRequirement(requirement);
       }
-    };
-    if (selectedSystem?.id) {
-      checkPreviousTaskAndLoadData();
+      // 如果两者都没有，originalRequirement 将保持其初始空字符串状态
     }
-  }, [selectedSystem, pinnedAnalysis]);
+  }, [selectedSystem, pinnedAnalysis, requirement]); // 依赖项更新
 
   useEffect(() => {
     return () => {
