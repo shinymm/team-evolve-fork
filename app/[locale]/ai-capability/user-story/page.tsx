@@ -56,31 +56,41 @@ export default function UserStoryPage() {
   useEffect(() => {
     // 根据当前系统ID从localStorage获取结构化需求
     if (!selectedSystemId) {
-      console.log('未选择系统，无法加载数据')
-      return
+      console.log('[UserStoryPage] No system selected. Clearing scenes.');
+      setScenes([]);
+      return;
     }
-    
-    const storageKey = `requirement-structured-content-${selectedSystemId}`
-    const storedRequirement = localStorage.getItem(storageKey)
-    
+
+    console.log(`[UserStoryPage] Attempting to load scenes for system: ${selectedSystemId}`);
+    const storageKey = `requirement-structured-content-${selectedSystemId}`;
+    const storedRequirement = localStorage.getItem(storageKey);
+
     if (storedRequirement) {
       try {
-        const requirement = JSON.parse(storedRequirement)
-        setScenes(requirement.sceneList || [])
-        console.log(`已加载系统 ${selectedSystemId} 的场景数据，共 ${requirement.sceneList?.length || 0} 个场景`)
+        const requirement = JSON.parse(storedRequirement);
+        // 确保 requirement 和 requirement.scenes 存在且 scenes 是数组
+        if (requirement && Array.isArray(requirement.scenes)) {
+          setScenes(requirement.scenes);
+          console.log(`[UserStoryPage] Successfully loaded ${requirement.scenes.length} scenes for system ${selectedSystemId}.`);
+        } else {
+          console.warn(`[UserStoryPage] scenes field is missing or not an array in stored data for ${selectedSystemId}. Key: ${storageKey}. Expected 'scenes' to be an array. Found: ${JSON.stringify(requirement)}. Clearing scenes.`);
+          setScenes([]);
+        }
       } catch (error) {
-        console.error('解析需求数据失败:', error)
+        console.error(`[UserStoryPage] Failed to parse stored requirement for ${selectedSystemId}. Key: ${storageKey}. Error:`, error);
+        setScenes([]); // 清空场景
         toast({
           title: t('loadFailed'),
-          description: t('copyFailedDesc'),
+          description: t('copyFailedDesc'), // 您可能需要一个更具体的翻译键，如 'parseErrorDesc'
           variant: "destructive",
           duration: 3000
-        })
+        });
       }
     } else {
-      console.log(`未找到系统 ${selectedSystemId} 的需求数据`)
+      console.log(`[UserStoryPage] No stored requirement data found for system ${selectedSystemId}. Key: ${storageKey}. Clearing scenes.`);
+      setScenes([]); // 清空场景
     }
-  }, [selectedSystemId, t])
+  }, [selectedSystemId, t, toast]);
 
   // 当分析结果更新时，尝试解析YAML
   useEffect(() => {
@@ -368,9 +378,9 @@ export default function UserStoryPage() {
                   <SelectValue placeholder={t('selectScenePlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {scenes.map((scene: StructuredScene, index: number) => (
+                  {scenes.map((scene: any, index: number) => (
                     <SelectItem key={index} value={String(index)}>
-                      {`场景${index + 1}: ${scene.sceneName}` || `场景 ${index + 1}`}
+                      {`场景${index + 1}: ${scene.name}` || `场景 ${index + 1}`}
                     </SelectItem>
                   ))}
                 </SelectContent>
