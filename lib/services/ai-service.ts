@@ -82,11 +82,13 @@ export function isGeminiModel(modelName: string): boolean {
  * @param prompt 用户提示
  * @param onData 处理回复内容的回调函数
  * @param onError 处理错误信息的回调函数
+ * @param configId 可选的模型配置ID
  */
 export async function streamingAICall(
   prompt: string,
   onData: (content: string) => void,
-  onError: (error: string) => void
+  onError: (error: string) => void,
+  configId?: string
 ) {
   try {
 
@@ -95,7 +97,7 @@ export async function streamingAICall(
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ prompt })
+      body: JSON.stringify({ prompt, modelConfigId: configId })
     })
 
     console.log('🔄 [streamingAICall] 收到响应:', {
@@ -157,6 +159,8 @@ export async function streamingAICall(
             const content = data.choices?.[0]?.delta?.content
             if (content) {
               onData(content)
+            } else {
+              console.log('🔄 [streamingAICall] Content is falsy, not calling onData.');
             }
           } catch (e) {
             console.error('🔄 [streamingAICall] 解析JSON失败:', e)

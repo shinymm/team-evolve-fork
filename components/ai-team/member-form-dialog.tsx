@@ -4,6 +4,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -471,6 +472,9 @@ export function MemberFormDialog({
       <DialogContent className="max-w-[60rem] w-[90%] h-[90vh] flex flex-col">
         <DialogHeader className="pb-1 flex-shrink-0">
           <DialogTitle>{editingMember?.id ? t('title.edit') : t('title.add')}</DialogTitle>
+          <DialogDescription>
+            {editingMember?.id ? t('description.edit') : t('description.add')}
+          </DialogDescription>
         </DialogHeader>
         <div className="flex-grow overflow-hidden pt-2">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">

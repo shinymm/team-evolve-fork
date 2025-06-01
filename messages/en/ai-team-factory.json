@@ -130,6 +130,10 @@
       "edit": "Edit AI Team Member",
       "add": "Add AI Team Member"
     },
+    "description": {
+      "edit": "Modify the details of this AI team member.",
+      "add": "Provide the necessary information to create a new AI team member."
+    },
     "tabs": {
       "info": "Basic Info",
       "skills": "Skills Config",

@@ -263,7 +263,7 @@ export function AIModelSettings({ modelType, onStatusChange }: AIModelSettingsPr
         setTestResults(prev => ({ ...prev, [config.id as string]: true }));
         toast({
           title: t('messages.testSuccess'),
-          description: t('messages.testSuccessDetail', { modelName: config.name }),
+          description: t('messages.testSuccessDetail', { modelName: config.name, response: "连接成功" }),
         });
 
       } catch (error: any) {
@@ -303,7 +303,7 @@ export function AIModelSettings({ modelType, onStatusChange }: AIModelSettingsPr
         setTestResults(prev => ({ ...prev, [config.id as string]: true }));
         toast({
           title: t('messages.testSuccess'),
-          description: t('messages.testSuccessDetail', { modelName: config.name }),
+          description: t('messages.testSuccessDetail', { modelName: config.name, response: "连接成功" }),
         });
 
       } catch (error: any) {
@@ -319,26 +319,27 @@ export function AIModelSettings({ modelType, onStatusChange }: AIModelSettingsPr
       }
 
     } else { // Default to language model testing (old behavior)
-      console.log(`🧪 Testing LANGUAGE model (generic): ${config.name} using streamingAICall`);
+      console.log(`🧪 Testing LANGUAGE model (generic): ${config.name} ID: ${config.id} using streamingAICall`);
       let testHandled = false; 
-      let receivedContent = false; 
+      let receivedContent = false;
 
       try {
         const handleSuccess = () => {
-          if (testingId === config.id && !testHandled) {
+          if (!testHandled) { 
             testHandled = true;
-            receivedContent = true;
             setTestResults(prev => ({ ...prev, [config.id as string]: true }));
             toast({
               title: t('messages.testSuccess'),
-              description: t('messages.testSuccessDetail', { modelName: config.name }),
+              description: t('messages.testSuccessDetail', { modelName: config.name, response: "连接成功，收到数据流。" }),
             });
             setTestingId(null);
+          } else {
+            console.log(`☑️ [AIModelSettings] handleSuccess for ${config.id} skipped, already handled.`);
           }
         };
 
         const handleError = (error: any) => {
-          if (testingId === config.id && !testHandled) {
+          if (!testHandled) { 
             testHandled = true;
             console.error(`Error testing language model ${config.name}:`, error);
             setTestResults(prev => ({ ...prev, [config.id as string]: false }));
@@ -349,6 +350,9 @@ export function AIModelSettings({ modelType, onStatusChange }: AIModelSettingsPr
               variant: 'destructive',
             });
             setTestingId(null);
+            console.log(`❌ [AIModelSettings] handleError for ${config.id} processed, testingId set to null.`);
+          } else {
+            console.log(`☑️ [AIModelSettings] handleError for ${config.id} skipped, already handled.`);
           }
         };
 
@@ -356,11 +360,17 @@ export function AIModelSettings({ modelType, onStatusChange }: AIModelSettingsPr
         streamingAICall(
           "Hello, this is a test call. Please respond with a short confirmation.", // prompt
           (content: string) => { // onContent callback with explicit type for content
-            if (!receivedContent && !testHandled) { 
-              handleSuccess();
+            if (!receivedContent && content.trim() !== "") {
+                 receivedContent = true;
+            }
+            if (receivedContent && !testHandled) {
+                handleSuccess();
+            } else {
+                console.log(`💡 [AIModelSettings] Conditions NOT met for ${config.id} for handleSuccess. receivedContent: ${receivedContent}, testHandled: ${testHandled}`);
             }
           },
-          handleError // onError callback
+          handleError, // onError callback
+          config.id // 新增：传递 config.id
         );
 
         setTimeout(() => {
@@ -374,11 +384,12 @@ export function AIModelSettings({ modelType, onStatusChange }: AIModelSettingsPr
               variant: 'destructive',
             });
             setTestingId(null);
+            console.log(`⏰ [AIModelSettings] Timeout for ${config.id} processed, testingId set to null.`);
           }
-        }, 5000); 
+        }, 5000);
 
       } catch (error: any) { 
-        if (testingId === config.id && !testHandled) { 
+        if (!testHandled) { 
           testHandled = true;
           console.error(`Synchronous error calling streamingAICall for ${config.name}:`, error);
           setTestResults(prev => ({ ...prev, [config.id as string]: false }));
@@ -389,10 +400,11 @@ export function AIModelSettings({ modelType, onStatusChange }: AIModelSettingsPr
             variant: 'destructive',
           });
           setTestingId(null);
+          console.log(`💥 [AIModelSettings] Sync error for ${config.name} processed, testingId set to null.`);
         }
       }
     }
-  }, [modelType, t, testingId, testResults]) 
+  }, [modelType, t, testingId])
 
   // 生成配置表格行
   const configRows = useMemo(() => {
