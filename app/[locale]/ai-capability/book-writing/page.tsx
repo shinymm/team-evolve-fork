@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useSystemStore } from '@/lib/stores/system-store';
 import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store';
+import { useBookContentStore } from '@/lib/stores/book-content-store';
 import { 
   loadTemplate, 
   loadDraft, 
@@ -61,8 +62,22 @@ export default function BookWritingPage() {
     isRequirementBookPinned
   } = useRequirementAnalysisStore();
   
+  // 获取编辑器内容存储
+  const { 
+    saveContent, 
+    loadContent, 
+    setCurrentSystemId: setBookContentSystemId,
+    hasContent 
+  } = useBookContentStore();
+  
   // 新增：加载图片初稿状态
   const [isLoadingImageDraft, setIsLoadingImageDraft] = useState(false);
+  
+  // 新增：保存到本地缓存状态
+  const [isSavingToLocalCache, setIsSavingToLocalCache] = useState(false);
+  
+  // 新增：加载本地缓存状态
+  const [isLoadingLocalCache, setIsLoadingLocalCache] = useState(false);
   
   // 新增：提取实际可用的需求初稿
   const getAvailableRequirementBook = () => {
@@ -109,6 +124,9 @@ export default function BookWritingPage() {
       
       // 设置当前系统，这会触发从Redis/localStorage加载数据
       setCurrentSystem(selectedSystemId);
+      
+      // 同时设置编辑器内容存储的当前系统ID
+      setBookContentSystemId(selectedSystemId);
       
       // 设置后检查store中的状态
       setTimeout(() => {
@@ -177,7 +195,7 @@ export default function BookWritingPage() {
         }
       }
     };
-  }, [selectedSystemId, setCurrentSystem]);
+  }, [selectedSystemId, setCurrentSystem, setBookContentSystemId]);
   
   // 点击外部关闭下拉菜单
   useEffect(() => {
@@ -406,6 +424,76 @@ export default function BookWritingPage() {
     }
   };
 
+  // 新增：处理保存到本地缓存
+  const handleSaveToLocalCache = () => {
+    if (!editorRef.current) {
+      localizedShowToast('editorNotReady', 'error');
+      return;
+    }
+    
+    if (!selectedSystemId) {
+      localizedShowToast('selectSystemFirst', 'error');
+      return;
+    }
+    
+    setIsSavingToLocalCache(true);
+    try {
+      // 获取当前编辑器内容
+      const currentContent = editorRef.current.getHTML();
+      
+      // 保存到本地缓存
+      saveContent(selectedSystemId, currentContent);
+      
+      // 显示成功消息
+      localizedShowToast('saveToLocalCacheSuccess');
+    } catch (error) {
+      console.error('保存到本地缓存失败:', error);
+      localizedShowToast('saveToLocalCacheError', 'error');
+    } finally {
+      setIsSavingToLocalCache(false);
+      setShowDownloadDropdown(false);
+    }
+  };
+  
+  // 新增：处理从本地缓存加载
+  const handleLoadFromLocalCache = () => {
+    if (!editorRef.current) {
+      localizedShowToast('editorNotReady', 'error');
+      return;
+    }
+    
+    if (!selectedSystemId) {
+      localizedShowToast('selectSystemFirst', 'error');
+      return;
+    }
+    
+    setIsLoadingLocalCache(true);
+    try {
+      // 检查是否有本地缓存
+      if (!hasContent(selectedSystemId)) {
+        localizedShowToast('noLocalCache', 'error');
+        return;
+      }
+      
+      // 从本地缓存加载内容
+      const cachedContent = loadContent(selectedSystemId);
+      
+      if (cachedContent) {
+        // 设置到编辑器
+        editorRef.current.commands.setContent(cachedContent);
+        localizedShowToast('loadLocalCacheSuccess');
+      } else {
+        localizedShowToast('loadLocalCacheError', 'error');
+      }
+    } catch (error) {
+      console.error('从本地缓存加载失败:', error);
+      localizedShowToast('loadLocalCacheError', 'error');
+    } finally {
+      setIsLoadingLocalCache(false);
+      setShowContentDropdown(false);
+    }
+  };
+
   return (
     <div className="mx-auto py-6 w-[90%]">
       <div className="space-y-6">
@@ -424,9 +512,9 @@ export default function BookWritingPage() {
                 onClick={() => setShowContentDropdown(!showContentDropdown)}
                 className="header-dropdown-button"
                 title={t('contentLoad')}
-                disabled={isLoadingTemplate || isLoadingDraft || isLoadingImageDraft}
+                disabled={isLoadingTemplate || isLoadingDraft || isLoadingImageDraft || isLoadingLocalCache}
               >
-                {(isLoadingTemplate || isLoadingDraft || isLoadingImageDraft) ? (
+                {(isLoadingTemplate || isLoadingDraft || isLoadingImageDraft || isLoadingLocalCache) ? (
                   <Loader2 size={20} className="animate-spin mr-2" />
                 ) : (
                   <FileText size={20} className="mr-2" />
@@ -479,19 +567,33 @@ export default function BookWritingPage() {
                       </>
                     )}
                   </button>
+                  <button 
+                    onClick={handleLoadFromLocalCache} 
+                    className="header-dropdown-item"
+                    disabled={isLoadingLocalCache}
+                  >
+                    {isLoadingLocalCache ? (
+                      <><Loader2 size={14} className="animate-spin mr-2" /> {t('loading')}</>
+                    ) : (
+                      <>
+                        <FileText size={14} className="mr-2" />
+                        {t('loadLocalCache')}
+                      </>
+                    )}
+                  </button>
                 </div>
               )}
             </div>
             
-            {/* 下载文档下拉菜单 */}
+            {/* 保存与下载文档下拉菜单 */}
             <div className="header-dropdown-container" ref={downloadDropdownRef}>
               <button
                 onClick={() => setShowDownloadDropdown(!showDownloadDropdown)}
                 className="header-dropdown-button"
                 title={t('downloadDoc')}
-                disabled={isExporting}
+                disabled={isExporting || isSavingToLocalCache}
               >
-                {isExporting ? (
+                {(isExporting || isSavingToLocalCache) ? (
                   <Loader2 size={20} className="animate-spin mr-2" />
                 ) : (
                   <Download size={20} className="mr-2" />
@@ -502,6 +604,20 @@ export default function BookWritingPage() {
               
               {showDownloadDropdown && (
                 <div className="header-dropdown-menu">
+                  <button 
+                    onClick={handleSaveToLocalCache} 
+                    className="header-dropdown-item"
+                    disabled={isSavingToLocalCache}
+                  >
+                    {isSavingToLocalCache ? (
+                      <><Loader2 size={14} className="animate-spin mr-2" /> {t('loading')}</>
+                    ) : (
+                      <>
+                        <FileText size={14} className="mr-2" />
+                        {t('saveToLocalCache')}
+                      </>
+                    )}
+                  </button>
                   <button 
                     onClick={handleExportWord} 
                     className="header-dropdown-item"
