@@ -612,7 +612,7 @@ export async function polishText(
       throw new Error('润色API调用失败');
     }
 
-    // 使用与快思考相同的处理方法
+    // 使用统一的流处理方法
     return await processStreamUnified(
       response, 
       'polishedText',
@@ -651,7 +651,7 @@ export async function expandText(
       throw new Error('扩写API调用失败');
     }
 
-    // 使用与快思考相同的处理方法
+    // 使用统一的流处理方法
     return await processStreamUnified(
       response, 
       'expandedText',
@@ -690,7 +690,7 @@ export async function analyzeBoundary(
       throw new Error('边界分析API调用失败');
     }
 
-    // 使用与快思考相同的处理方法
+    // 使用统一的流处理方法
     return await processStreamUnified(
       response, 
       'boundaryAnalysis',
@@ -729,7 +729,7 @@ export async function optimizeBoundary(
       throw new Error('边界优化API调用失败');
     }
 
-    // 使用与快思考相同的处理方法
+    // 使用统一的流处理方法
     return await processStreamUnified(
       response, 
       'optimizedText',
@@ -847,7 +847,7 @@ export async function chatWithAI(
       throw new Error(errorMessage);
     }
     
-    // 使用与其他功能相同的统一处理函数
+    // 使用统一的流处理方法
     return await processStreamUnified(
       response,
       'result', // 快思考模式使用'result'字段

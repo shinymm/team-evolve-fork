@@ -6,11 +6,19 @@
 export function markdownToHtml(markdown: string): string {
   if (!markdown) return '';
 
+  // 处理转义字符，在处理其他格式之前先执行
+  // 将\n转换为实际的换行符，保持Markdown格式的完整性
+  let processedMarkdown = markdown
+    .replace(/\\n/g, '\n')
+    .replace(/\\t/g, '\t')
+    .replace(/\\r/g, '\r')
+    .replace(/\\\\/g, '\\'); // 处理双反斜杠
+
   // 先处理多余的空行，确保列表项之间没有空行
-  markdown = markdown.replace(/\n\s*\n/g, '\n\n');
+  processedMarkdown = processedMarkdown.replace(/\n\s*\n/g, '\n\n');
 
   // 替换标题
-  let html = markdown
+  let html = processedMarkdown
     .replace(/^### (.*$)/gim, '<h3>$1</h3>')
     .replace(/^## (.*$)/gim, '<h2>$1</h2>')
     .replace(/^# (.*$)/gim, '<h1>$1</h1>');
@@ -203,24 +211,48 @@ export function htmlToMarkdown(html: string): string {
  * @returns 处理后的HTML内容
  */
 export function processContent(content: string): string {
+  if (!content) return '';
+  
+  // 首先处理常见的转义字符，无论内容格式如何
+  const preprocessed = content
+    .replace(/\\n/g, '\n')
+    .replace(/\\t/g, '\t')
+    .replace(/\\r/g, '\r')
+    .replace(/\\\\/g, '\\');
+  
   // 检查内容是否为Markdown格式
   const isMarkdown = 
-    content.includes('# ') || 
-    content.includes('## ') ||
-    content.includes('### ') ||
-    content.includes('- ') ||
-    content.includes('* ') ||
-    content.includes('```') ||
-    content.includes('> ');
+    preprocessed.includes('# ') || 
+    preprocessed.includes('## ') ||
+    preprocessed.includes('### ') ||
+    preprocessed.includes('- ') ||
+    preprocessed.includes('* ') ||
+    preprocessed.includes('```') ||
+    preprocessed.includes('> ') ||
+    preprocessed.includes('**') ||
+    preprocessed.includes('__') ||
+    preprocessed.includes('![') ||
+    preprocessed.includes('[') && preprocessed.includes('](');
   
   if (isMarkdown) {
     // 如果是Markdown，转换为HTML
-    return markdownToHtml(content);
-  } else if (!content.includes('<')) {
+    return markdownToHtml(preprocessed);
+  } else if (preprocessed.includes('\\n') || preprocessed.includes('\\t')) {
+    // 可能是包含转义字符的普通文本，先处理转义字符
+    const processed = preprocessed.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
+    
+    // 检查处理后的内容是否为HTML
+    if (!processed.includes('<')) {
+      // 如果是纯文本，将换行符转换为<p>标签
+      return processed.split('\n').map(line => line.trim() ? `<p>${line}</p>` : '').join('');
+    } else {
+      return processed;
+    }
+  } else if (!preprocessed.includes('<')) {
     // 如果是纯文本，将换行符转换为<p>标签
-    return content.split('\n').map(line => line.trim() ? `<p>${line}</p>` : '').join('');
+    return preprocessed.split('\n').map(line => line.trim() ? `<p>${line}</p>` : '').join('');
   }
   
   // 如果已经是HTML，直接返回
-  return content;
+  return preprocessed;
 } 

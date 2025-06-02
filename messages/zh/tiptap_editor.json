@@ -68,6 +68,7 @@
       "thinking": "正在思考中...",
       "thinkingInProgress": "思考进行中...",
       "finalizingAnswer": "正在整理最终答案...",
+      "generatingContent": "正在生成内容...",
       "analyzingBoundary": "正在分析边界条件...",
       "optimizingScenario": "正在优化场景需求...",
       "processing": "处理中...",

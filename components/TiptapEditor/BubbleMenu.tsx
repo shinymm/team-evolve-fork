@@ -21,7 +21,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { useSystemStore } from '@/lib/stores/system-store';
-import { markdownToHtml } from '@/lib/utils/markdown-utils';
+import { formatDisplayContent, prepareContentForEditor } from '@/lib/utils/content-formatter';
 import { 
   polishText, 
   expandText, 
@@ -891,18 +891,8 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
   const formatContent = (content: string) => {
     if (!content) return '';
     
-    // 替换换行符为<br>标签
-    let formatted = content.replace(/\n/g, '<br />');
-    
-    // 保留连续空格
-    formatted = formatted.replace(/ {2,}/g, (match) => {
-      return '&nbsp;'.repeat(match.length);
-    });
-    
-    // 保留制表符
-    formatted = formatted.replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;');
-    
-    return formatted;
+    // 使用统一的内容显示格式化函数
+    return formatDisplayContent(content);
   };
 
   // 处理指令输入变化
@@ -1031,8 +1021,8 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
     // 选择要使用的内容
     const contentToUse = result.content || ''; // 只使用最终内容，不使用思考过程
     
-    // 将markdown转换为HTML
-    const htmlContent = markdownToHtml(contentToUse);
+    // 使用统一的内容处理服务
+    const htmlContent = prepareContentForEditor(contentToUse);
     
     if (result.selectionRange) {
       try {
@@ -1086,8 +1076,8 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
     // 选择要使用的内容
     const contentToUse = result.content || ''; // 只使用最终内容，不使用思考过程
     
-    // 将markdown转换为HTML
-    const htmlContent = markdownToHtml(contentToUse);
+    // 使用统一的内容处理服务
+    const htmlContent = prepareContentForEditor(contentToUse);
     
     if (result.selectionRange) {
       try {
