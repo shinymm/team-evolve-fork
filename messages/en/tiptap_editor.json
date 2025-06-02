@@ -49,7 +49,11 @@
       "boundaryOptimize": "Boundary Optimize",
       "boundaryOptimizeTooltip": "Optimize boundary conditions and requirements for selected scenario",
       "chat": "Chat With LLM",
-      "chatTooltip": "Chat and ask questions with AI based on selected content"
+      "chatTooltip": "Chat and ask questions with AI based on selected content",
+      "fastThinking": "Fast Thinking",
+      "slowThinking": "Slow Thinking",
+      "fastThinkingTooltip": "Quick response without showing reasoning process",
+      "slowThinkingTooltip": "Deep thinking based on reasoning model with visible thought process"
     },
     "resultPanel": {
       "polishResult": "Polish Result",
@@ -71,7 +75,11 @@
       "copy": "Copy",
       "append": "Append",
       "replace": "Replace",
-      "rerun": "Rerun"
+      "rerun": "Rerun",
+      "slowThinkingMode": "Slow Thinking Mode",
+      "reasoningProcess": "Reasoning Process",
+      "close": "Close",
+      "instruction": "Instruction:"
     },
     "notifications": {
       "selectSystemFirst": "Please select a system first",

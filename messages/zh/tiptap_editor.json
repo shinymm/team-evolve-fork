@@ -49,7 +49,11 @@
       "boundaryOptimize": "边界优化",
       "boundaryOptimizeTooltip": "优化选中场景的边界条件和需求描述",
       "chat": "与AI对话",
-      "chatTooltip": "基于选中内容与AI进行对话和提问"
+      "chatTooltip": "基于选中内容与AI进行对话和提问",
+      "fastThinking": "快思考",
+      "slowThinking": "慢思考",
+      "fastThinkingTooltip": "快速回复，不显示思考过程",
+      "slowThinkingTooltip": "基于推理模型的深度思考，可查看思考过程"
     },
     "resultPanel": {
       "polishResult": "润色结果",
@@ -62,6 +66,8 @@
       "polishing": "正在润色中...",
       "expanding": "正在扩写中...",
       "thinking": "正在思考中...",
+      "thinkingInProgress": "思考进行中...",
+      "finalizingAnswer": "正在整理最终答案...",
       "analyzingBoundary": "正在分析边界条件...",
       "optimizingScenario": "正在优化场景需求...",
       "processing": "处理中...",
@@ -69,9 +75,15 @@
       "cancel": "取消",
       "send": "发送",
       "copy": "复制",
+      "copyReasoning": "复制思考过程",
       "append": "追加",
       "replace": "替换",
-      "rerun": "重新执行"
+      "rerun": "重新执行",
+      "slowThinkingMode": "慢思考模式",
+      "reasoningProcess": "思考过程",
+      "close": "关闭",
+      "instruction": "指令：",
+      "toggleHeight": "调整结果框高度"
     },
     "notifications": {
       "selectSystemFirst": "请先选择一个系统",
@@ -86,7 +98,8 @@
       "markdownExportSuccess": "Markdown文件导出成功",
       "markdownExportFailed": "导出Markdown文件失败",
       "copySuccess": "已复制到剪贴板",
-      "copyFailed": "复制到剪贴板失败"
+      "copyFailed": "复制到剪贴板失败",
+      "inputInstruction": "请输入指令再发送"
     }
   }
 } 

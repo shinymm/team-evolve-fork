@@ -455,7 +455,7 @@
   z-index: 100;
   border: 1px solid #e2e8f0;
   min-width: 300px;
-  min-height: 200px;
+  min-height: 300px; /* 增加最小高度，从200px到300px */
   overflow: auto; 
   transition: box-shadow 0.2s ease;
 }
@@ -534,24 +534,25 @@
 }
 
 .polish-text {
-  padding: 12px;
+  padding: 16px;
   background-color: #f8fafc;
-  border-radius: 6px;
+  border-radius: 8px;
   border: 1px solid #e2e8f0;
   overflow-y: auto;
-  margin-bottom: 16px;
+  margin-bottom: 20px; /* 增加与底部的间距 */
   font-size: 14px;
   line-height: 1.6;
   color: #1e293b;
   white-space: pre-wrap;
   flex-grow: 1;
-  min-height: 100px; /* 确保最小高度 */
+  min-height: 180px; /* 增加最小高度，从150px到180px */
   max-height: none !important; /* 移除最大高度限制 */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); /* 轻微阴影 */
 }
 
 /* 添加尺寸调整指示器样式 */
 .resize-indicator {
-  display: none; /* 隐藏调整大小的指示器 */
+  display: flex;
   position: absolute;
   right: 4px;
   bottom: 4px;
@@ -578,7 +579,7 @@
 
 /* 添加一个提示文本，指示可调整大小 */
 .resize-hint {
-  display: none; /* 隐藏调整大小的提示 */
+  display: block;
   position: absolute;
   right: 30px;
   bottom: 5px;
@@ -1060,4 +1061,120 @@
 /* 确保列表项之间没有额外的空白 */
 .tiptap-editor .editor-content li + li {
   margin-top: 0.25rem;
+}
+
+/* 思考过程容器样式 */
+.reasoning-container {
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 16px;
+  background-color: #FFF8E1; /* 更浅的橙色背景 */
+  border: 1px solid #FFE0B2;
+  padding: 2px;
+}
+
+.reasoning-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: #FFE0B2; /* 橙色标题背景 */
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  font-weight: 500;
+}
+
+.reasoning-header:hover {
+  background-color: #FFD180;
+}
+
+.reasoning-header .mr-2 {
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.reasoning-content {
+  padding: 12px 16px;
+  background-color: #FFF8E1; /* 与容器背景相同 */
+  border: 1px solid #FFE0B2;
+  border-radius: 6px;
+  margin-top: 8px;
+  max-height: 350px; /* 增加高度，从300px到350px */
+  overflow-y: auto;
+  font-size: 0.95em;
+  line-height: 1.6; /* 增加行高 */
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05); /* 添加内阴影 */
+  color: #4b5563; /* 更深的文字颜色 */
+}
+
+/* 思考过程中的强调内容 */
+.reasoning-content strong,
+.reasoning-content b {
+  color: #d97706;
+  font-weight: 600;
+}
+
+/* 思考过程中的代码或特殊文本 */
+.reasoning-content code {
+  background: rgba(255, 255, 255, 0.5);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 0.9em;
+  border: 1px solid #FFE0B2;
+}
+
+.reasoning-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.reasoning-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.reasoning-content::-webkit-scrollbar-thumb {
+  background: #ddd;
+  border-radius: 3px;
+}
+
+.reasoning-content::-webkit-scrollbar-thumb:hover {
+  background: #ccc;
+}
+
+/* 最终内容占位符样式 */
+.polish-text-placeholder {
+  padding: 16px;
+  background-color: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 20px;
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.polish-text-placeholder .animate-spin {
+  animation: spin 1.5s linear infinite;
+}
+
+/* 复制思考过程按钮样式 */
+.copy-reasoning-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.6);
+  border: 1px solid #FFE0B2;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.copy-reasoning-button:hover {
+  background-color: #FFF3E0;
+  transform: scale(1.05);
 } 

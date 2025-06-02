@@ -53,7 +53,6 @@ export async function handleStreamingResponse(
 
       // 解码并处理数据
       const chunk = decoder.decode(value, { stream: true })
-      // console.log('收到原始数据块:', chunk)
       buffer += chunk
       
       // 处理完整的消息

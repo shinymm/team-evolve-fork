@@ -16,7 +16,9 @@ import {
   Send,
   AlertTriangle,
   Scissors,
-  ClipboardCheck
+  ClipboardCheck,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { useSystemStore } from '@/lib/stores/system-store';
 import { markdownToHtml } from '@/lib/utils/markdown-utils';
@@ -25,7 +27,8 @@ import {
   expandText, 
   analyzeBoundary, 
   optimizeBoundary, 
-  chatWithAI 
+  chatWithAI,
+  chatWithAIReasoning
 } from '@/lib/services/editor-action-service';
 import { useTranslations } from 'next-intl';
 
@@ -43,6 +46,8 @@ interface ResultState {
   instruction?: string; // 用户输入的指令
   selectedText?: string; // 选中的文本
   selectionRange?: { from: number, to: number }; // 保存选择范围以便后续清除高亮
+  reasoning?: string; // 思考过程内容
+  isSlowThinking?: boolean; // 是否为慢思考模式
 }
 
 export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
@@ -54,10 +59,12 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
     visible: false,
     position: { x: 0, y: 0 },
     type: null,
-    size: { width: 800, height: 300 },
+    size: { width: 800, height: 600 },
     instruction: '',
     selectedText: '',
-    selectionRange: undefined
+    selectionRange: undefined,
+    reasoning: '',
+    isSlowThinking: false
   });
   const resultRef = useRef<HTMLDivElement>(null);
   const instructionInputRef = useRef<HTMLTextAreaElement>(null);
@@ -79,21 +86,38 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
   const [resultPanelMode, setResultPanelMode] = 
     useState<'polish' | 'expand' | 'chat' | 'boundary-analysis' | 'boundary-optimize'>('polish');
   const [chatMode, setChatMode] = useState(false);
+  const [reasoningVisible, setReasoningVisible] = useState(true); // 控制思考过程的显示/隐藏
   const t = useTranslations('TiptapEditor');
 
   // 重置结果状态
   const resetResult = () => {
+    // 确保清除任何残留的高亮
+    if (result.selectionRange) {
+      try {
+        const { from, to } = result.selectionRange;
+        editor.commands.setTextSelection({ from, to });
+        editor.commands.unsetMark('highlight');
+        
+        // 确保取消选择
+        editor.commands.setTextSelection({ from: from, to: from });
+      } catch (e) {
+        console.warn("清除高亮时出错:", e);
+      }
+    }
     setResult({
       loading: false,
       content: '',
       visible: false,
       position: { x: 0, y: 0 },
       type: null,
-      size: { width: 800, height: 300 },
+      size: { width: 800, height: 600 },
       instruction: '',
       selectedText: '',
-      selectionRange: undefined
+      selectionRange: undefined,
+      reasoning: '',
+      isSlowThinking: false
     });
+    setReasoningVisible(true);
   };
 
   // 计算结果框的初始位置
@@ -171,7 +195,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
       visible: true,
       position,
       type: 'polish',
-      size: { width: 800, height: 300 },
+      size: { width: 800, height: 600 },
       selectedText,
       selectionRange: { from, to } // 保存选择范围
     });
@@ -223,7 +247,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
       visible: true,
       position,
       type: 'expand',
-      size: { width: 1000, height: 300 },
+      size: { width: 1000, height: 600 },
       selectedText,
       selectionRange: { from, to } // 保存选择范围
     });
@@ -275,7 +299,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
       visible: true,
       position,
       type: 'boundary',
-      size: { width: 800, height: 300 },
+      size: { width: 800, height: 600 },
       selectedText,
       selectionRange: { from, to } // 保存选择范围
     });
@@ -327,7 +351,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
       visible: true,
       position,
       type: 'optimize',
-      size: { width: 800, height: 300 },
+      size: { width: 800, height: 600 },
       selectedText,
       selectionRange: { from, to } // 保存选择范围
     });
@@ -360,8 +384,8 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
     }
   };
 
-  // 处理AI对话功能
-  const handleChat = async () => {
+  // 修复handleFastChat为快速思考处理
+  const handleFastChat = async () => {
     // 获取选中的文本
     const { from, to } = editor.state.selection;
     const selectedText = editor.state.doc.textBetween(from, to, ' ');
@@ -382,10 +406,12 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
       visible: true,
       position,
       type: 'chat',
-      size: { width: 800, height: 300 },
+      size: { width: 800, height: 600 }, // 已经是600px高度，保持不变
       instruction: '',
       selectedText,
-      selectionRange: { from, to } // 保存选择范围以便后续清除高亮
+      selectionRange: { from, to }, // 明确保存选择范围以便后续清除高亮
+      reasoning: '',
+      isSlowThinking: false
     });
 
     // 聚焦指令输入框
@@ -394,45 +420,195 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
     }, 100);
   };
 
-  // 处理ChatWithAI请求，修复流式显示问题
+  // 修改：慢思考处理
+  const handleSlowChat = async () => {
+    // 获取选中的文本
+    const { from, to } = editor.state.selection;
+    const selectedText = editor.state.doc.textBetween(from, to, ' ');
+    
+    if (!selectedText) return;
+
+    // 检查是否选择了系统
+    if (!selectedSystemId) {
+      // 使用提示框显示错误
+      const errorTip = document.createElement('div');
+      errorTip.className = 'error-tip';
+      errorTip.textContent = t('notifications.selectSystemFirst');
+      errorTip.style.backgroundColor = 'rgba(239, 68, 68, 0.9)';
+      document.body.appendChild(errorTip);
+      
+      setTimeout(() => {
+        errorTip.classList.add('fade-out');
+        setTimeout(() => {
+          document.body.removeChild(errorTip);
+        }, 300);
+      }, 2000);
+      return;
+    }
+
+    // 计算结果框的初始位置
+    const position = calculatePosition();
+    
+    // 高亮选中文本
+    editor.commands.setTextSelection({ from, to });
+    editor.commands.setMark('highlight', { color: '#FFF3E0' });
+    
+    // 设置状态为指令输入模式，标记为慢思考模式
+    setResult({
+      loading: false,
+      content: '',
+      visible: true,
+      position,
+      type: 'chat',
+      size: { width: 800, height: 600 }, // 已经是600px高度，保持不变
+      instruction: '',
+      selectedText,
+      selectionRange: { from, to }, // 明确保存选择范围以便后续清除高亮
+      reasoning: '',
+      isSlowThinking: true
+    });
+
+    // 重置思考过程显示状态
+    setReasoningVisible(true);
+
+    // 聚焦指令输入框
+    setTimeout(() => {
+      instructionInputRef.current?.focus();
+    }, 100);
+  };
+
+  // 处理切换思考过程显示/隐藏
+  const handleToggleReasoning = () => {
+    setReasoningVisible(prev => !prev);
+  };
+
+  // 修改handleSubmitChat函数，确保思考过程一旦开始返回就停止loading状态
   const handleSubmitChat = async (event?: React.FormEvent) => {
     if (event) {
       event.preventDefault();
     }
 
-    if (!result.instruction?.trim() || !result.selectedText) return;
+    // 验证输入
+    if (!result.instruction?.trim()) {
+      // 显示必须输入指令的提示
+      const errorTip = document.createElement('div');
+      errorTip.className = 'error-tip';
+      errorTip.textContent = t('notifications.inputInstruction');
+      errorTip.style.backgroundColor = 'rgba(239, 68, 68, 0.9)';
+      document.body.appendChild(errorTip);
+      
+      setTimeout(() => {
+        errorTip.classList.add('fade-out');
+        setTimeout(() => {
+          document.body.removeChild(errorTip);
+        }, 300);
+      }, 2000);
+      return;
+    }
 
+    if (!result.selectedText) return;
+
+    // 保存当前选择范围信息，以防处理过程中丢失
+    const selectionRange = result.selectionRange;
+    console.log("保存的选择范围:", selectionRange);
+
+    // 准备指令和选中文本
+    const instruction = result.instruction.trim();
+    const selectedText = result.selectedText.trim();
+    
+    console.log(`提交${result.isSlowThinking ? '慢' : '快'}思考请求:`, {
+      指令: instruction,
+      选中文本长度: selectedText.length,
+      选择范围: selectionRange
+    });
+
+    // 重置结果，并默认设置思考过程显示为true
     setResult(prev => ({
       ...prev,
       loading: true,
       content: '', // 确保在开始新请求时清空之前的内容
+      reasoning: '', // 同时清空思考过程
+      selectionRange // 保持选择范围不变
     }));
+    
+    // 默认显示思考过程区域
+    setReasoningVisible(true);
 
     try {
-      // 使用service调用API
-      await chatWithAI(
-        result.instruction,
-        result.selectedText,
-        selectedSystemId,
-        // 进度回调
-        (content) => {
-          setResult(prev => ({ 
-            ...prev, 
-            loading: false,
-            content
-          }));
-        },
-        // 错误回调
-        (error) => {
-          setResult(prev => ({ 
-            ...prev, 
-            loading: false, 
-            content: `${t('resultPanel.thinking')}${error}`
-          }));
-        }
-      );
+      // 根据isSlowThinking决定使用哪个API
+      if (result.isSlowThinking) {
+        // 慢思考模式 - 使用推理API
+        await chatWithAIReasoning(
+          instruction,
+          selectedText,
+          null, // 不传递systemId，使用API内部的默认推理模型
+          // 内容回调
+          (content) => {
+            setResult(prev => ({ 
+              ...prev, 
+              loading: false,  // 确保设置loading为false
+              content,
+              selectionRange // 保持选择范围
+            }));
+          },
+          // 思考过程回调
+          (reasoning) => {
+            // 收到思考过程的第一个字符后，立即设置loading为false，显示结果页
+            setResult(prev => ({ 
+              ...prev, 
+              loading: false,  // 关键：确保收到思考过程时立即停止loading
+              reasoning,
+              selectionRange // 保持选择范围
+            }));
+            // 确保思考过程可见
+            setReasoningVisible(true);
+          },
+          // 错误回调
+          (error) => {
+            console.error('AI推理对话API错误:', error);
+            setResult(prev => ({ 
+              ...prev, 
+              loading: false, 
+              content: `${t('resultPanel.thinking')}${error}`,
+              selectionRange // 保持选择范围
+            }));
+          }
+        );
+      } else {
+        // 快思考模式 - 使用现有API
+        await chatWithAI(
+          instruction,
+          selectedText,
+          selectedSystemId,
+          // 进度回调
+          (content) => {
+            setResult(prev => ({ 
+              ...prev, 
+              loading: false,
+              content,
+              selectionRange // 保持选择范围
+            }));
+          },
+          // 错误回调
+          (error) => {
+            console.error('快思考API错误:', error);
+            setResult(prev => ({ 
+              ...prev, 
+              loading: false, 
+              content: `${t('resultPanel.thinking')}${error}`,
+              selectionRange // 保持选择范围
+            }));
+          }
+        );
+      }
     } catch (error) {
-      console.error('AI对话请求失败:', error);
+      console.error(`${result.isSlowThinking ? '慢' : '快'}思考请求失败:`, error);
+      setResult(prev => ({
+        ...prev,
+        loading: false,
+        content: `请求失败: ${error instanceof Error ? error.message : '未知错误'}`,
+        selectionRange // 保持选择范围
+      }));
     }
   };
 
@@ -469,14 +645,18 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
 
   // 处理复制内容
   const handleCopy = () => {
-    if (!result.content) return;
+    // 确保有内容可复制
+    if (!result.content && !result.isSlowThinking) return;
     
-    navigator.clipboard.writeText(result.content)
+    // 选择要复制的内容
+    const contentToCopy = result.content || ''; // 只复制最终内容，不复制思考过程
+    
+    navigator.clipboard.writeText(contentToCopy)
       .then(() => {
         // 1. 显示屏幕中间的复制成功提示
         const copyTip = document.createElement('div');
         copyTip.className = 'copy-success-tip';
-        copyTip.textContent = '复制成功';
+        copyTip.textContent = t('notifications.copySuccess');
         document.body.appendChild(copyTip);
         
         setTimeout(() => {
@@ -494,8 +674,8 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
           const originalTitle = copyButton.title;
           
           // 修改为成功状态
-          copyButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg><span>已复制</span>';
-          copyButton.title = '已复制到剪贴板';
+          copyButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg><span>' + t('notifications.copySuccess') + '</span>';
+          copyButton.title = t('notifications.copySuccess');
           copyButton.style.backgroundColor = 'rgba(16, 185, 129, 0.2)';
           copyButton.style.color = '#10b981';
           copyButton.style.borderColor = '#10b981';
@@ -516,7 +696,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
         // 显示失败提示
         const copyErrorTip = document.createElement('div');
         copyErrorTip.className = 'copy-success-tip';
-        copyErrorTip.textContent = '复制失败';
+        copyErrorTip.textContent = t('notifications.copyFailed');
         copyErrorTip.style.backgroundColor = 'rgba(239, 68, 68, 0.9)';
         document.body.appendChild(copyErrorTip);
         
@@ -529,37 +709,20 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
       });
   };
 
-  // 处理替换原文
-  const handleReplace = () => {
-    if (!result.content) return;
-    
-    // 将markdown转换为HTML
-    const htmlContent = markdownToHtml(result.content);
-    
-    const { from, to } = editor.state.selection;
-    editor.chain().focus().deleteRange({ from, to }).insertContent(htmlContent).run();
-    resetResult();
-  };
-
-  // 处理在原文后添加
-  const handleAppend = () => {
-    if (!result.content) return;
-    
-    // 将markdown转换为HTML
-    const htmlContent = markdownToHtml(result.content);
-    
-    const { to } = editor.state.selection;
-    editor.chain().focus().insertContentAt(to, htmlContent).run();
-    resetResult();
-  };
-
   // 处理拒绝
   const handleReject = () => {
     // 如果是聊天模式且有选择范围，移除高亮
-    if (result.type === 'chat' && result.selectionRange) {
-      const { from, to } = result.selectionRange;
-      editor.commands.setTextSelection({ from, to });
-      editor.commands.unsetMark('highlight');
+    if (result.selectionRange) {
+      try {
+        const { from, to } = result.selectionRange;
+        editor.commands.setTextSelection({ from, to });
+        editor.commands.unsetMark('highlight');
+        
+        // 确保取消选择
+        editor.commands.setTextSelection({ from: from, to: from });
+      } catch (e) {
+        console.warn("清除高亮时出错:", e);
+      }
     }
     resetResult();
   };
@@ -590,7 +753,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
     dragRef.current.isDragging = false;
   };
 
-  // 修改handleResizeStart函数
+  // 修复调整大小功能
   const handleResizeStart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -616,9 +779,15 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
       resizeIndicator.style.backgroundColor = '#f8fafc';
       resizeIndicator.style.borderColor = '#ef6c00';
     }
+    
+    console.log('开始调整大小', { 
+      startWidth: resizeRef.current.startWidth,
+      startHeight: resizeRef.current.startHeight,
+      startX: resizeRef.current.startX,
+      startY: resizeRef.current.startY
+    });
   };
   
-  // 修改handleResizeMove函数
   const handleResizeMove = (e: MouseEvent) => {
     if (!resizeRef.current.isResizing) return;
     
@@ -634,6 +803,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
       ...prev,
       size: { width: newWidth, height: newHeight }
     }));
+    
   };
   
   const handleResizeEnd = () => {
@@ -649,6 +819,11 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
         resizeIndicator.style.backgroundColor = '';
         resizeIndicator.style.borderColor = '';
       }
+      
+      console.log('结束调整大小', { 
+        finalWidth: result.size?.width,
+        finalHeight: result.size?.height
+      });
     }
   };
 
@@ -674,24 +849,24 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
   // 获取当前操作类型的显示标题
   const getResultTitle = () => {
     switch (result.type) {
-      case 'polish': return '润色结果';
-      case 'expand': return '扩写结果';
-      case 'chat': return result.loading || result.content ? 'AI回复' : '与AI对话';
-      case 'boundary': return '边界分析结果';
-      case 'optimize': return '边界优化结果';
-      default: return '处理结果';
+      case 'polish': return t('resultPanel.polishResult');
+      case 'expand': return t('resultPanel.expandResult');
+      case 'chat': return result.loading || result.content ? t('resultPanel.aiReply') : t('resultPanel.chatWithAI');
+      case 'boundary': return t('resultPanel.boundaryAnalysisResult');
+      case 'optimize': return t('resultPanel.boundaryOptimizeResult');
+      default: return t('resultPanel.processingResult');
     }
   };
 
   // 获取加载中的显示文本
   const getLoadingText = () => {
     switch (result.type) {
-      case 'polish': return '正在润色中...';
-      case 'expand': return '正在扩写中...';
-      case 'chat': return '正在思考中...';
-      case 'boundary': return '正在分析边界条件...';
-      case 'optimize': return '正在优化场景需求...';
-      default: return '处理中...';
+      case 'polish': return t('resultPanel.polishing');
+      case 'expand': return t('resultPanel.expanding');
+      case 'chat': return t('resultPanel.thinking');
+      case 'boundary': return t('resultPanel.analyzingBoundary');
+      case 'optimize': return t('resultPanel.optimizingScenario');
+      default: return t('resultPanel.processing');
     }
   };
   
@@ -721,15 +896,21 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
     }));
   };
 
-  // 在组件内添加ESC键监听
+  // 在组件内添加ESC键监听和组件卸载时清理逻辑
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && result.visible) {
-        // 如果是聊天模式且有选择范围，移除高亮
-        if (result.type === 'chat' && result.selectionRange) {
+        // 清除所有高亮
+        if (result.selectionRange) {
           const { from, to } = result.selectionRange;
-          editor.commands.setTextSelection({ from, to });
-          editor.commands.unsetMark('highlight');
+          try {
+            editor.commands.setTextSelection({ from, to });
+            editor.commands.unsetMark('highlight');
+            // 确保取消选择
+            editor.commands.setTextSelection({ from: from, to: from });
+          } catch (e) {
+            console.warn("ESC键清除高亮时出错:", e);
+          }
         }
         resetResult();
       }
@@ -738,11 +919,179 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
     // 添加事件监听
     document.addEventListener('keydown', handleEscKey);
     
-    // 组件卸载时移除事件监听
+    // 组件卸载时清理
     return () => {
       document.removeEventListener('keydown', handleEscKey);
+      
+      // 清除所有可能的高亮
+      try {
+        // 尝试清除所有的highlight标记
+        editor.commands.unsetMark('highlight');
+        
+        // 如果有保存的选择范围，尝试特定清除
+        if (result.selectionRange) {
+          const { from, to } = result.selectionRange;
+          editor.commands.setTextSelection({ from, to });
+          editor.commands.unsetMark('highlight');
+        }
+      } catch (e) {
+        console.warn("组件卸载时清除高亮出错:", e);
+      }
     };
-  }, [result.visible, result.type, result.selectionRange]);
+  }, [result.visible, result.selectionRange]);
+
+  // 新增：复制思考过程的功能
+  const handleCopyReasoning = () => {
+    // 确保有思考过程可复制
+    if (!result.reasoning) return;
+    
+    // 选择要复制的内容
+    const reasoningToCopy = result.reasoning;
+    
+    navigator.clipboard.writeText(reasoningToCopy)
+      .then(() => {
+        // 1. 显示屏幕中间的复制成功提示
+        const copyTip = document.createElement('div');
+        copyTip.className = 'copy-success-tip';
+        copyTip.textContent = t('notifications.copySuccess');
+        document.body.appendChild(copyTip);
+        
+        setTimeout(() => {
+          copyTip.classList.add('fade-out');
+          setTimeout(() => {
+            document.body.removeChild(copyTip);
+          }, 300);
+        }, 1500);
+        
+        // 2. 在按钮上显示临时状态变化
+        const copyButton = document.querySelector('.polish-actions .copy') as HTMLButtonElement;
+        if (copyButton) {
+          // 保存原始内容
+          const originalHTML = copyButton.innerHTML;
+          const originalTitle = copyButton.title;
+          
+          // 修改为成功状态
+          copyButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg><span>' + t('notifications.copySuccess') + '</span>';
+          copyButton.title = t('notifications.copySuccess');
+          copyButton.style.backgroundColor = 'rgba(16, 185, 129, 0.2)';
+          copyButton.style.color = '#10b981';
+          copyButton.style.borderColor = '#10b981';
+          
+          // 恢复原始状态
+          setTimeout(() => {
+            copyButton.innerHTML = originalHTML;
+            copyButton.title = originalTitle;
+            copyButton.style.backgroundColor = '';
+            copyButton.style.color = '';
+            copyButton.style.borderColor = '';
+          }, 2000);
+        }
+      })
+      .catch(err => {
+        console.error('复制失败:', err);
+        
+        // 显示失败提示
+        const copyErrorTip = document.createElement('div');
+        copyErrorTip.className = 'copy-success-tip';
+        copyErrorTip.textContent = t('notifications.copyFailed');
+        copyErrorTip.style.backgroundColor = 'rgba(239, 68, 68, 0.9)';
+        document.body.appendChild(copyErrorTip);
+        
+        setTimeout(() => {
+          copyErrorTip.classList.add('fade-out');
+          setTimeout(() => {
+            document.body.removeChild(copyErrorTip);
+          }, 300);
+        }, 1500);
+      });
+  };
+
+  // 处理替换原文
+  const handleReplace = () => {
+    // 确保只在有最终内容时才执行替换
+    if (!result.content && !result.isSlowThinking) return;
+    
+    // 选择要使用的内容
+    const contentToUse = result.content || ''; // 只使用最终内容，不使用思考过程
+    
+    // 将markdown转换为HTML
+    const htmlContent = markdownToHtml(contentToUse);
+    
+    if (result.selectionRange) {
+      try {
+        const { from, to } = result.selectionRange;
+        
+        // 先清除高亮
+        editor.commands.setTextSelection({ from, to });
+        editor.commands.unsetMark('highlight');
+        
+        // 然后替换内容
+        editor.chain().focus().deleteRange({ from, to }).insertContent(htmlContent).run();
+      } catch (e) {
+        console.warn("替换内容时出错:", e);
+        // 如果出错，尝试直接在当前位置插入
+        editor.chain().focus().insertContent(htmlContent).run();
+      }
+    } else {
+      // 如果没有选择范围，直接在当前位置插入
+      editor.chain().focus().insertContent(htmlContent).run();
+    }
+    
+    resetResult();
+  };
+
+  // 处理在原文后添加
+  const handleAppend = () => {
+    // 确保只在有最终内容时才执行追加
+    if (!result.content && !result.isSlowThinking) return;
+    
+    // 选择要使用的内容
+    const contentToUse = result.content || ''; // 只使用最终内容，不使用思考过程
+    
+    // 将markdown转换为HTML
+    const htmlContent = markdownToHtml(contentToUse);
+    
+    if (result.selectionRange) {
+      try {
+        const { from, to } = result.selectionRange;
+        
+        // 先清除高亮
+        editor.commands.setTextSelection({ from, to });
+        editor.commands.unsetMark('highlight');
+        
+        // 然后在后面追加内容
+        editor.chain().focus().insertContentAt(to, htmlContent).run();
+      } catch (e) {
+        console.warn("追加内容时出错:", e);
+        // 如果出错，尝试直接在当前位置插入
+        editor.chain().focus().insertContent(htmlContent).run();
+      }
+    } else {
+      // 如果没有选择范围，直接在当前位置插入
+      editor.chain().focus().insertContent(htmlContent).run();
+    }
+    
+    resetResult();
+  };
+
+  // 修复handleToggleMaxHeight函数的类型错误
+  const handleToggleMaxHeight = () => {
+    const currentHeight = result.size?.height || 600;
+    const currentWidth = result.size?.width || 800;
+    // 在三种预设高度之间切换：正常(600px)、高(800px)、超高(1000px)
+    let newHeight = 600; // 默认正常高度
+    
+    if (currentHeight < 700) {
+      newHeight = 800; // 切换到高
+    } else if (currentHeight < 900) {
+      newHeight = 1000; // 切换到超高
+    } // 否则回到默认高度
+    
+    setResult(prev => ({
+      ...prev,
+      size: { width: currentWidth, height: newHeight }
+    }));
+  };
 
   return (
     <>
@@ -824,15 +1173,41 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
               </div>
             </div>
             
-            {/* 一级菜单：开放Chat（无二级菜单） */}
-            <button 
-              onClick={handleChat} 
-              className="bubble-menu-button primary-button"
-              title={t('bubbleMenu.chatTooltip')}
-            >
-              <MessageSquare size={16} />
-              <span>{t('bubbleMenu.chat')}</span>
-            </button>
+            {/* 修改：一级菜单变为二级菜单 - 与AI对话 */}
+            <div className="bubble-menu-dropdown">
+              <button 
+                className="bubble-menu-button primary-button"
+                title={t('bubbleMenu.chatTooltip')}
+              >
+                <MessageSquare size={16} />
+                <span>{t('bubbleMenu.chat')}</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+              <div className="bubble-submenu">
+                <button 
+                  onClick={handleFastChat} 
+                  className="bubble-menu-button"
+                  title={t('bubbleMenu.fastThinkingTooltip')}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M13 10V3L4 14h7v7l9-11h-7z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <span>{t('bubbleMenu.fastThinking')}</span>
+                </button>
+                <button 
+                  onClick={handleSlowChat} 
+                  className="bubble-menu-button"
+                  title={t('bubbleMenu.slowThinkingTooltip')}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 17V17.01M12 14C12 11.7909 13.7909 10 16 10C18.2091 10 20 11.7909 20 14C20 15.2101 19.4128 16.2982 18.5 17M12 14C12 11.7909 10.2091 10 8 10C5.79086 10 4 11.7909 4 14C4 15.2101 4.58716 16.2982 5.5 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <span>{t('bubbleMenu.slowThinking')}</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </TiptapBubbleMenu>
@@ -857,18 +1232,67 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
           <div className="polish-result-content">
             {result.loading ? (
               <div className="polish-loading">
-                <Loader2 size={24} className="animate-spin" />
-                <p>{getLoadingText()}</p>
+                {result.isSlowThinking && result.reasoning ? (
+                  // 慢思考模式下，即使正在加载也显示思考过程
+                  <div className="w-full">
+                    <div className="flex items-center justify-center gap-2 mb-4">
+                      <Loader2 size={24} className="animate-spin text-orange-500" />
+                      <p className="text-orange-700 font-medium">{t('resultPanel.thinkingInProgress')}</p>
+                    </div>
+                    <div className="reasoning-container w-full">
+                      <div 
+                        className="reasoning-header flex items-center justify-between py-1 px-2 bg-orange-50 hover:bg-orange-100 rounded-md"
+                      >
+                        <div 
+                          className="flex items-center cursor-pointer" 
+                          onClick={handleToggleReasoning}
+                        >
+                          <div className="mr-2 text-orange-600">
+                            {reasoningVisible ? (
+                              <ChevronDown size={18} />
+                            ) : (
+                              <ChevronRight size={18} />
+                            )}
+                          </div>
+                          <span className="text-orange-800 font-medium">{t('resultPanel.reasoningProcess')}</span>
+                        </div>
+                        
+                        {/* 添加复制思考过程的按钮 */}
+                        {result.reasoning && (
+                          <button 
+                            onClick={handleCopyReasoning}
+                            className="copy-reasoning-button"
+                            title={t('resultPanel.copyReasoning')}
+                          >
+                            <Copy size={14} className="text-orange-600" />
+                          </button>
+                        )}
+                      </div>
+                      
+                      {reasoningVisible && (
+                        <div className="reasoning-content mt-2 p-3 bg-orange-50 rounded-md border border-orange-100 text-sm text-gray-700 whitespace-pre-wrap max-h-[300px] overflow-y-auto">
+                          {result.reasoning}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  // 常规加载显示
+                  <>
+                    <Loader2 size={24} className="animate-spin" />
+                    <p>{getLoadingText()}</p>
+                  </>
+                )}
               </div>
-            ) : result.type === 'chat' && !result.content ? (
+            ) : result.type === 'chat' && !result.content && !result.reasoning ? (
               <div className="chat-instruction-container">
-                <h3 className="text-base font-medium text-orange-700 mb-3">与AI对话</h3>
+                <h3 className="text-base font-medium text-orange-700 mb-3">{t('resultPanel.chatWithAI')} {result.isSlowThinking ? `(${t('resultPanel.slowThinkingMode')})` : ''}</h3>
                 <form onSubmit={handleSubmitChat} className="chat-form">
                   <textarea
                     ref={instructionInputRef}
                     value={result.instruction || ''}
                     onChange={handleInstructionChange}
-                    placeholder="输入指令，例如：根据选中文本帮我总结几个需求点"
+                    placeholder={t('resultPanel.chatPlaceholder')}
                     className="chat-instruction-input full-width"
                   />
                   <div className="chat-actions">
@@ -878,7 +1302,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
                       className="chat-cancel-button"
                     >
                       <X size={18} />
-                      <span>取消</span>
+                      <span>{t('resultPanel.cancel')}</span>
                     </button>
                     <button 
                       type="submit" 
@@ -886,75 +1310,151 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
                       disabled={!result.instruction?.trim()}
                     >
                       <Send size={18} />
-                      <span>发送</span>
+                      <span>{t('resultPanel.send')}</span>
                     </button>
                   </div>
                 </form>
               </div>
             ) : (
               <>
-                <h3 className="text-base font-medium text-orange-700 mb-3">{getResultTitle()}</h3>
+                <h3 className="text-base font-medium text-orange-700 mb-3 flex justify-between items-center">
+                  <span>{getResultTitle()} 
+                    {result.isSlowThinking && <span className="text-sm ml-2">({t('resultPanel.slowThinkingMode')})</span>}
+                  </span>
+                  
+                  {/* 高度调整按钮 */}
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={handleToggleMaxHeight}
+                      className="height-toggle-button"
+                      title={t('resultPanel.toggleHeight')}
+                    >
+                      <Maximize2 size={14} className="text-orange-600" />
+                    </button>
+                  </div>
+                </h3>
                 {result.type === 'chat' && result.instruction && (
                   <div className="chat-instruction-display">
-                    <span className="font-medium">指令：</span> {result.instruction}
+                    <span className="font-medium">{t('resultPanel.instruction')}</span> {result.instruction}
                   </div>
                 )}
-                <div 
-                  className="polish-text"
-                  dangerouslySetInnerHTML={{ __html: formatContent(result.content) }}
-                />
+                
+                {/* 慢思考模式下总是显示思考过程区域 */}
+                {result.isSlowThinking && result.reasoning && (
+                  <div className="reasoning-container mb-4">
+                    <div 
+                      className="reasoning-header flex items-center justify-between py-1 px-2 bg-orange-50 hover:bg-orange-100 rounded-md"
+                    >
+                      <div 
+                        className="flex items-center cursor-pointer" 
+                        onClick={handleToggleReasoning}
+                      >
+                        <div className="mr-2 text-orange-600">
+                          {reasoningVisible ? (
+                            <ChevronDown size={18} />
+                          ) : (
+                            <ChevronRight size={18} />
+                          )}
+                        </div>
+                        <span className="text-orange-800 font-medium">{t('resultPanel.reasoningProcess')}</span>
+                      </div>
+                      
+                      {/* 添加复制思考过程的按钮 */}
+                      {result.reasoning && (
+                        <button 
+                          onClick={handleCopyReasoning}
+                          className="copy-reasoning-button"
+                          title={t('resultPanel.copyReasoning')}
+                        >
+                          <Copy size={14} className="text-orange-600" />
+                        </button>
+                      )}
+                    </div>
+                    
+                    {reasoningVisible && (
+                      <div className="reasoning-content mt-2 p-3 bg-orange-50 rounded-md border border-orange-100 text-sm text-gray-700 whitespace-pre-wrap max-h-[300px] overflow-y-auto">
+                        {result.reasoning}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* 显示最终内容 */}
+                {result.content ? (
+                  <div 
+                    className="polish-text"
+                    dangerouslySetInnerHTML={{ __html: formatContent(result.content) }}
+                  />
+                ) : result.isSlowThinking && result.reasoning ? (
+                  // 慢思考模式下，如果还没有最终内容但有思考过程，显示思考中提示
+                  <div className="polish-text-placeholder">
+                    <div className="flex items-center text-orange-700">
+                      <Loader2 size={16} className="animate-spin mr-2" />
+                      <span>{t('resultPanel.finalizingAnswer')}</span>
+                    </div>
+                  </div>
+                ) : null}
+                
                 <div className="polish-actions">
                   <button 
                     onClick={handleReject}
                     className="polish-action-button reject"
-                    title="关闭"
+                    title={t('resultPanel.close')}
                   >
                     <X size={16} />
-                    <span>关闭</span>
+                    <span>{t('resultPanel.close')}</span>
                   </button>
                   
                   <button 
                     onClick={handleCopy}
                     className="polish-action-button copy"
-                    title="复制内容"
+                    title={t('resultPanel.copy')}
                     disabled={!result.content}
                   >
                     <Copy size={16} />
-                    <span>复制</span>
+                    <span>{t('resultPanel.copy')}</span>
                   </button>
                   
                   <button 
                     onClick={handleReplace}
                     className="polish-action-button replace"
-                    title="替换"
+                    title={t('resultPanel.replace')}
                     disabled={!result.content}
                   >
                     <Check size={16} />
-                    <span>替换</span>
+                    <span>{t('resultPanel.replace')}</span>
                   </button>
                   
                   <button 
                     onClick={handleAppend}
                     className="polish-action-button append"
-                    title="插入"
+                    title={t('resultPanel.append')}
                     disabled={!result.content}
                   >
                     <Plus size={16} />
-                    <span>插入</span>
+                    <span>{t('resultPanel.append')}</span>
                   </button>
                   
                   <button 
                     onClick={handleReExecute}
                     className="polish-action-button re-execute"
-                    title="重跑"
+                    title={t('resultPanel.rerun')}
                     disabled={(!result.instruction && result.type === 'chat') || !result.selectedText}
                   >
                     <RefreshCw size={16} />
-                    <span>重跑</span>
+                    <span>{t('resultPanel.rerun')}</span>
                   </button>
                 </div>
               </>
             )}
+          </div>
+          
+          {/* 添加大小调整控件 */}
+          <div 
+            className="resize-indicator" 
+            onMouseDown={handleResizeStart}
+          >
+            <Maximize2 size={14} />
           </div>
         </div>
       )}
