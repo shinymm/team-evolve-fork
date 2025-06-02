@@ -2,6 +2,9 @@
  * 编辑器动作服务 - 处理TiptapEditor中的AI辅助功能API调用
  */
 
+import { CHAT_PROMPT } from '@/lib/prompts/chat';
+import { SystemKnowledgeService } from '@/lib/services/system-knowledge';
+
 interface StreamResponse {
   content: string;
   error?: string;
@@ -874,17 +877,39 @@ export async function chatWithAIReasoning(
   onError: (error: string) => void
 ): Promise<{content: string, reasoning: string}> {
   try {
-    // 准备发送到API的数据
-    const prompt = `用户指令: ${instruction}\n\n选中的文本内容:\n${selectedText}`;
+    // 获取系统产品知识
+    let productKnowledge = {
+      productOverview: '',
+      userPersonas: '',
+      architectureInfo: ''
+    };
+    
+    if (systemId) {
+      try {
+        productKnowledge = await SystemKnowledgeService.getSystemKnowledge(systemId);
+        console.log("📝 [慢思考] 成功获取系统产品知识");
+      } catch (knowledgeError) {
+        console.error("📝 [慢思考] 获取系统产品知识失败:", knowledgeError);
+        // 失败时继续使用默认空值
+      }
+    } else {
+      console.log('未提供systemId，使用空的产品知识');
+    }
+    
+    // 使用导入的CHAT_PROMPT模板并替换变量
+    const fullPrompt = CHAT_PROMPT
+      .replace('{instruction}', instruction)
+      .replace('{selectedText}', selectedText)
+      .replace('{productOverview}', productKnowledge.productOverview)
+      .replace('{userPersonas}', productKnowledge.userPersonas)
+      .replace('{architectureInfo}', productKnowledge.architectureInfo);
 
     console.log("📝 [慢思考] 发送推理请求，准备处理SSE流");
-    console.log("📄 [慢思考] 提示词内容:", prompt);
+    console.log("📄 [慢思考] 提示词内容摘要:", fullPrompt.substring(0, 100) + "...");
 
-    // 使用formData格式发送，与reasoning/route.ts的接口一致
+    // 准备发送到API的数据
     const formData = new FormData();
-    formData.append('prompt', prompt);
-    // 添加系统提示（如果需要）
-    formData.append('systemPrompt', '你是一个有用的思考助手，帮助用户分析和改进文本。请先进行思考，然后给出结论。');
+    formData.append('prompt', fullPrompt);
     
     try {
       console.log("🚀 [慢思考] 发送请求到API接口");
