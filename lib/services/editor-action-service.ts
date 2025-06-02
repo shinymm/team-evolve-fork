@@ -25,22 +25,26 @@ async function processStream(
   let resultText = '';
 
   try {
+    console.log(`🔄 [processStream] 开始处理流，期望字段: ${contentKey}`);
     let buffer = '';
     
     while (true) {
       const { done, value } = await reader.read();
-      if (done) break;
+      if (done) {
+        console.log(`✅ [processStream] 流读取完成`);
+        break;
+      }
       
       const chunk = decoder.decode(value, { stream: true });
       buffer += chunk;
-      
-      // 记录原始数据，帮助调试
-      console.log('🔍 [processStream] 接收到原始数据:', buffer);
       
       // 按行处理数据
       const lines = buffer.split('\n').filter(line => line.trim() !== '');
       // 保留最后一行（可能不完整）作为新的buffer
       buffer = lines.pop() || '';
+      
+      // 跟踪是否有内容更新
+      let hasUpdate = false;
       
       for (const line of lines) {
         try {
@@ -57,18 +61,63 @@ async function processStream(
               data = JSON.parse(jsonStr);
             } catch (parseError) {
               console.warn('SSE格式JSON解析错误，尝试容错处理:', parseError);
-              console.log('问题数据:', jsonStr);
+              // 尝试使用正则表达式提取内容
+              const extracted = extractFieldFromText(jsonStr, contentKey);
+              if (extracted) {
+                resultText += extracted;
+                onChunk(resultText);
+                hasUpdate = true;
+              }
               // 继续处理下一行，不中断流程
               continue;
             }
           } else {
-            // 非SSE格式，直接尝试解析整行
+            // 非SSE格式，先尝试使用JSON对象解析
             try {
               data = JSON.parse(line);
             } catch (parseError) {
-              console.warn('非SSE格式JSON解析错误:', parseError);
-              console.log('问题数据:', line);
-              // 继续处理下一行，不中断流程
+              // 如果无法解析为单个JSON对象，尝试提取连续的JSON对象
+              try {
+                let remainingLine = line;
+                
+                while (remainingLine.trim().length > 0) {
+                  // 尝试解析第一个完整的JSON对象
+                  const firstObject = tryParseFirstJSON(remainingLine);
+                  if (!firstObject.success) {
+                    // 无法解析，尝试正则表达式提取
+                    const extracted = extractFieldFromText(remainingLine, contentKey);
+                    if (extracted) {
+                      resultText += extracted;
+                      onChunk(resultText);
+                      hasUpdate = true;
+                    }
+                    break;
+                  }
+                  
+                  // 处理成功解析的对象
+                  const parsedData = firstObject.data;
+                  if (parsedData && parsedData[contentKey]) {
+                    resultText += parsedData[contentKey];
+                    onChunk(resultText);
+                    hasUpdate = true;
+                  } else if (parsedData && parsedData.error) {
+                    onError(parsedData.error);
+                  }
+                  
+                  // 更新剩余行数据
+                  remainingLine = remainingLine.substring(firstObject.endPos);
+                }
+              } catch (lineParseError) {
+                console.warn('处理行数据时出错:', lineParseError);
+                // 最后尝试正则表达式提取
+                const extracted = extractFieldFromText(line, contentKey);
+                if (extracted) {
+                  resultText += extracted;
+                  onChunk(resultText);
+                  hasUpdate = true;
+                }
+              }
+              // 无论成功与否，继续处理下一行
               continue;
             }
           }
@@ -77,36 +126,56 @@ async function processStream(
           if (data && data[contentKey]) {
             resultText += data[contentKey];
             onChunk(resultText);
+            hasUpdate = true;
           } else if (data && data.error) {
             onError(data.error);
-            console.error('API返回错误:', data.error);
           }
         } catch (lineError) {
-          // 捕获所有可能的错误，但不中断处理
           console.warn('处理数据行时出错:', lineError);
-          console.log('问题行数据:', line);
+          // 尝试使用正则表达式提取
+          const extracted = extractFieldFromText(line, contentKey);
+          if (extracted) {
+            resultText += extracted;
+            onChunk(resultText);
+            hasUpdate = true;
+          }
         }
+      }
+      
+      // 如果本轮处理有更新，记录日志
+      if (hasUpdate) {
+        console.log(`📄 [processStream] 收到内容更新，当前长度: ${resultText.length} 字符`);
       }
     }
     
     // 处理可能残留在buffer中的数据
     if (buffer.trim()) {
       try {
+        // 尝试正则表达式提取
+        const extracted = extractFieldFromText(buffer, contentKey);
+        if (extracted) {
+          resultText += extracted;
+          onChunk(resultText);
+          console.log(`📄 [processStream] 从残留buffer提取内容，当前长度: ${resultText.length} 字符`);
+        }
+        
+        // 也尝试JSON解析
         if (buffer.startsWith('data:')) {
-          const jsonStr = buffer.substring(5).trim();
-          if (jsonStr && jsonStr !== '[DONE]') {
-            try {
+          try {
+            const jsonStr = buffer.substring(5).trim();
+            if (jsonStr && jsonStr !== '[DONE]') {
               const data = JSON.parse(jsonStr);
               if (data[contentKey]) {
                 resultText += data[contentKey];
                 onChunk(resultText);
               }
-            } catch (e) {
-              console.warn('处理残留buffer时JSON解析错误:', e);
             }
+          } catch (e) {
+            console.warn('处理残留buffer时JSON解析错误:', e);
           }
         } else {
           try {
+            // 尝试JSON解析
             const data = JSON.parse(buffer);
             if (data[contentKey]) {
               resultText += data[contentKey];
@@ -121,11 +190,84 @@ async function processStream(
       }
     }
     
+    console.log(`🏁 [processStream] 处理完成，最终内容长度: ${resultText.length} 字符`);
     return resultText;
   } catch (error) {
     console.error('处理流失败:', error);
     throw error;
   }
+}
+
+/**
+ * 从文本中提取指定字段的辅助函数
+ */
+function extractFieldFromText(text: string, fieldName: string): string {
+  let extracted = '';
+  
+  // 匹配字段模式，如"polishedText":"内容"
+  const fieldPattern = new RegExp(`"${fieldName}":"([^"]*)"`, 'g');
+  let match;
+  while ((match = fieldPattern.exec(text)) !== null) {
+    if (match && match[1]) {
+      extracted += match[1];
+    }
+  }
+  
+  return extracted;
+}
+
+// 添加辅助函数，用于尝试解析buffer中的第一个完整JSON对象
+function tryParseFirstJSON(buffer: string): { success: boolean; data: any; endPos: number } {
+  if (!buffer.trim().startsWith('{')) {
+    return { success: false, data: null, endPos: 0 };
+  }
+  
+  let braceCount = 0;
+  let inString = false;
+  let escapeNext = false;
+  
+  for (let i = 0; i < buffer.length; i++) {
+    const char = buffer[i];
+    
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+    
+    if (char === '\\' && inString) {
+      escapeNext = true;
+      continue;
+    }
+    
+    if (char === '"' && !escapeNext) {
+      inString = !inString;
+      continue;
+    }
+    
+    if (!inString) {
+      if (char === '{') {
+        braceCount++;
+      } else if (char === '}') {
+        braceCount--;
+        
+        // 找到完整的JSON对象
+        if (braceCount === 0) {
+          const jsonStr = buffer.substring(0, i + 1);
+          try {
+            const data = JSON.parse(jsonStr);
+            return { success: true, data, endPos: i + 1 };
+          } catch (e) {
+            console.warn('❌ JSON解析失败:', jsonStr, e);
+            return { success: false, data: null, endPos: 0 };
+          }
+        }
+      }
+    }
+  }
+  
+  console.log('⚠️ 未找到完整的JSON对象，buffer开头:', buffer.substring(0, 50));
+  // 未找到完整的JSON对象
+  return { success: false, data: null, endPos: 0 };
 }
 
 /**
@@ -163,7 +305,7 @@ async function processReasoningStream(
       
       const chunk = decoder.decode(value, { stream: true });
       buffer += chunk;
-           
+              
       // 按行处理SSE数据
       const lines = buffer.split('\n');
       // 保留最后一行（可能不完整）作为新的buffer
@@ -195,7 +337,6 @@ async function processReasoningStream(
             // 处理来自API的reasoning_content字段 - 直接格式
             if (data.reasoning_content) {
               reasoning = data.reasoning_content;
-              console.log(`🧠 [processReasoningStream] 收到推理过程(直接格式): ${reasoning.length} 字符`);
               // 立即传递思考过程
               onReasoning(reasoning);
             }
@@ -214,7 +355,6 @@ async function processReasoningStream(
               // 处理delta.reasoning_content（推理过程）
               if (delta.reasoning_content) {
                 reasoning += delta.reasoning_content;
-                console.log(`🧠 [processReasoningStream] 收到delta推理更新: +${delta.reasoning_content.length} 字符`);
                 // 有任何更新都立即传递出去
                 onReasoning(reasoning);
               }
@@ -222,7 +362,6 @@ async function processReasoningStream(
               // 处理delta.content（最终答案）
               if (delta.content) {
                 content += delta.content;
-                console.log(`📝 [processReasoningStream] 收到delta内容更新: +${delta.content.length} 字符`);
                 hasReceivedFinalContent = true;
                 onContent(content);
               }
@@ -234,42 +373,49 @@ async function processReasoningStream(
               throw new Error(data.error);
             }
           } catch (parseError) {
-            console.error('JSON解析错误:', parseError, '原始数据:', jsonStr);
-            // 不抛出错误，继续处理后续数据
+            console.warn('JSON解析错误，尝试使用正则表达式提取内容:', parseError);
+            
+            // 使用正则表达式提取内容
+            const extractedReasoning = extractReasoningContentFromText(jsonStr);
+            if (extractedReasoning) {
+              reasoning += extractedReasoning;
+              onReasoning(reasoning);
+            }
+            
+            const extractedContent = extractContentFromText(jsonStr);
+            if (extractedContent) {
+              content += extractedContent;
+              hasReceivedFinalContent = true;
+              onContent(content);
+            }
           }
         } else if (line.trim()) {
           // 尝试解析非data:开头但非空的行
           try {
-            console.log("🔍 [processReasoningStream] 尝试解析非标准行:", line);
             const data = JSON.parse(line);
             
             // 处理各种可能的数据格式
             if (data.content) {
               content = data.content;
-              console.log(`📝 [processReasoningStream] 收到非标准内容: ${content.length} 字符`);
               hasReceivedFinalContent = true;
               onContent(content);
             }
             
             if (data.reasoning_content) {
               reasoning = data.reasoning_content;
-              console.log(`🧠 [processReasoningStream] 收到非标准推理过程: ${reasoning.length} 字符`);
               onReasoning(reasoning);
             }
             
             // 处理Deepseek格式
             if (data.choices && data.choices[0] && data.choices[0].delta) {
               const delta = data.choices[0].delta;
-              console.log(`🔄 [processReasoningStream] 非标准行中检测到Deepseek格式:`, delta);
               if (delta.content) {
                 content += delta.content;
-                console.log(`📝 [processReasoningStream] 收到非标准delta内容: +${delta.content.length} 字符`);
                 hasReceivedFinalContent = true;
                 onContent(content);
               }
               if (delta.reasoning_content) {
                 reasoning += delta.reasoning_content;
-                console.log(`🧠 [processReasoningStream] 收到非标准delta推理: +${delta.reasoning_content.length} 字符`);
                 onReasoning(reasoning);
               }
             }
@@ -280,8 +426,22 @@ async function processReasoningStream(
               throw new Error(data.error);
             }
           } catch (parseError) {
-            console.error('非标准格式JSON解析错误:', parseError, '原始数据:', line);
-            // 继续处理后续数据
+            console.warn('非标准格式JSON解析错误，尝试使用正则表达式提取内容:', parseError);
+            
+            // 使用正则表达式提取内容
+            const extractedReasoning = extractReasoningContentFromText(line);
+            if (extractedReasoning) {
+              reasoning += extractedReasoning;
+              onReasoning(reasoning);
+            }
+            
+            const extractedContent = extractContentFromText(line);
+            if (extractedContent) {
+              content += extractedContent;
+              hasReceivedFinalContent = true;
+              onContent(content);
+              console.log(`📝 [processReasoningStream] 从非标准行正则提取内容: +${extractedContent.length} 字符`);
+            }
           }
         }
       }
@@ -293,32 +453,64 @@ async function processReasoningStream(
         if (buffer.startsWith('data:')) {
           const jsonStr = buffer.substring(5).trim();
           if (jsonStr && !jsonStr.includes('[DONE]')) {
-            const data = JSON.parse(jsonStr);
-            
-            if (data.content) {
-              content = data.content;
-              hasReceivedFinalContent = true;
-              onContent(content);
-            }
-            
-            if (data.reasoning_content) {
-              reasoning = data.reasoning_content;
-              onReasoning(reasoning);
-            }
-            
-            // 处理Deepseek格式
-            if (data.choices && data.choices[0] && data.choices[0].delta) {
-              const delta = data.choices[0].delta;
-              if (delta.content) {
-                content += delta.content;
+            try {
+              const data = JSON.parse(jsonStr);
+              
+              if (data.content) {
+                content = data.content;
                 hasReceivedFinalContent = true;
                 onContent(content);
               }
-              if (delta.reasoning_content) {
-                reasoning += delta.reasoning_content;
+              
+              if (data.reasoning_content) {
+                reasoning = data.reasoning_content;
                 onReasoning(reasoning);
               }
+              
+              // 处理Deepseek格式
+              if (data.choices && data.choices[0] && data.choices[0].delta) {
+                const delta = data.choices[0].delta;
+                if (delta.content) {
+                  content += delta.content;
+                  hasReceivedFinalContent = true;
+                  onContent(content);
+                }
+                if (delta.reasoning_content) {
+                  reasoning += delta.reasoning_content;
+                  onReasoning(reasoning);
+                }
+              }
+            } catch (parseError) {
+              console.warn('剩余buffer JSON解析错误，尝试使用正则表达式提取内容:', parseError);
+              
+              // 使用正则表达式提取内容
+              const extractedReasoning = extractReasoningContentFromText(jsonStr);
+              if (extractedReasoning) {
+                reasoning += extractedReasoning;
+                onReasoning(reasoning);
+              }
+              
+              const extractedContent = extractContentFromText(jsonStr);
+              if (extractedContent) {
+                content += extractedContent;
+                hasReceivedFinalContent = true;
+                onContent(content);
+              }
             }
+          }
+        } else {
+          // 对于非data:开头的buffer，尝试使用正则表达式提取内容
+          const extractedReasoning = extractReasoningContentFromText(buffer);
+          if (extractedReasoning) {
+            reasoning += extractedReasoning;
+            onReasoning(reasoning);
+          }
+          
+          const extractedContent = extractContentFromText(buffer);
+          if (extractedContent) {
+            content += extractedContent;
+            hasReceivedFinalContent = true;
+            onContent(content);
           }
         }
       } catch (parseError) {
@@ -339,6 +531,60 @@ async function processReasoningStream(
     console.error('处理推理流失败:', error);
     throw error;
   }
+}
+
+/**
+ * 从文本中提取reasoning_content内容的辅助函数
+ */
+function extractReasoningContentFromText(text: string): string {
+  let extracted = '';
+  
+  // 匹配直接的reasoning_content字段
+  const reasoningPattern = /"reasoning_content":"([^"]*)"/g;
+  let match;
+  while ((match = reasoningPattern.exec(text)) !== null) {
+    if (match && match[1]) {
+      extracted += match[1];
+    }
+  }
+  
+  // 匹配嵌套在delta中的reasoning_content
+  const deltaReasoningPattern = /"delta":[^}]*"reasoning_content":"([^"]*)"/g;
+  let deltaMatch;
+  while ((deltaMatch = deltaReasoningPattern.exec(text)) !== null) {
+    if (deltaMatch && deltaMatch[1]) {
+      extracted += deltaMatch[1];
+    }
+  }
+  
+  return extracted;
+}
+
+/**
+ * 从文本中提取content内容的辅助函数
+ */
+function extractContentFromText(text: string): string {
+  let extracted = '';
+  
+  // 匹配直接的content字段
+  const contentPattern = /"content":"([^"]*)"/g;
+  let match;
+  while ((match = contentPattern.exec(text)) !== null) {
+    if (match && match[1]) {
+      extracted += match[1];
+    }
+  }
+  
+  // 匹配嵌套在delta中的content
+  const deltaContentPattern = /"delta":[^}]*"content":"([^"]*)"/g;
+  let deltaMatch;
+  while ((deltaMatch = deltaContentPattern.exec(text)) !== null) {
+    if (deltaMatch && deltaMatch[1]) {
+      extracted += deltaMatch[1];
+    }
+  }
+  
+  return extracted;
 }
 
 /**
@@ -366,7 +612,13 @@ export async function polishText(
       throw new Error('润色API调用失败');
     }
 
-    return await processStream(response, 'polishedText', onProgress, onError);
+    // 使用与快思考相同的处理方法
+    return await processStreamUnified(
+      response, 
+      'polishedText',
+      onProgress,
+      onError
+    );
   } catch (error) {
     const errorMessage = `润色请求失败: ${error instanceof Error ? error.message : '未知错误'}`;
     onError(errorMessage);
@@ -399,7 +651,13 @@ export async function expandText(
       throw new Error('扩写API调用失败');
     }
 
-    return await processStream(response, 'expandedText', onProgress, onError);
+    // 使用与快思考相同的处理方法
+    return await processStreamUnified(
+      response, 
+      'expandedText',
+      onProgress,
+      onError
+    );
   } catch (error) {
     const errorMessage = `扩写请求失败: ${error instanceof Error ? error.message : '未知错误'}`;
     onError(errorMessage);
@@ -432,7 +690,13 @@ export async function analyzeBoundary(
       throw new Error('边界分析API调用失败');
     }
 
-    return await processStream(response, 'boundaryAnalysis', onProgress, onError);
+    // 使用与快思考相同的处理方法
+    return await processStreamUnified(
+      response, 
+      'boundaryAnalysis',
+      onProgress,
+      onError
+    );
   } catch (error) {
     const errorMessage = `边界分析请求失败: ${error instanceof Error ? error.message : '未知错误'}`;
     onError(errorMessage);
@@ -465,10 +729,87 @@ export async function optimizeBoundary(
       throw new Error('边界优化API调用失败');
     }
 
-    return await processStream(response, 'optimizedText', onProgress, onError);
+    // 使用与快思考相同的处理方法
+    return await processStreamUnified(
+      response, 
+      'optimizedText',
+      onProgress,
+      onError
+    );
   } catch (error) {
     const errorMessage = `边界优化请求失败: ${error instanceof Error ? error.message : '未知错误'}`;
     onError(errorMessage);
+    throw error;
+  }
+}
+
+/**
+ * 统一处理所有流式响应的方法，确保实时更新
+ */
+async function processStreamUnified(
+  response: Response,
+  contentKey: string,
+  onProgress: (content: string) => void,
+  onError: (error: string) => void
+): Promise<string> {
+  if (!response.body) {
+    throw new Error('未收到流式响应');
+  }
+  
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let fullContent = '';
+  let lastUpdateLength = 0;
+  
+  try {
+    console.log(`🔄 [processStreamUnified] 开始处理流，期望字段: ${contentKey}`);
+    let buffer = '';
+    
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        console.log(`✅ [processStreamUnified] 流读取完成`);
+        break;
+      }
+      
+      const chunk = decoder.decode(value, { stream: true });
+      buffer += chunk;
+      
+      // 使用正则表达式提取指定字段的内容
+      let extractedContent = '';
+      
+      // 尝试提取内容
+      const fieldPattern = new RegExp(`"${contentKey}":"([^"]*)"`, 'g');
+      let match;
+      while ((match = fieldPattern.exec(buffer)) !== null) {
+        if (match && match[1]) {
+          extractedContent += match[1];
+        }
+      }
+      
+      // 如果提取到内容，立即更新
+      if (extractedContent && extractedContent.length > 0) {
+        fullContent = extractedContent;
+        
+        // 如果有新内容，立即回调
+        if (fullContent.length > lastUpdateLength) {
+          lastUpdateLength = fullContent.length;
+          onProgress(fullContent);
+        }
+      }
+    }
+    
+    // 最后尝试从buffer中提取完整内容
+    const finalExtracted = extractFieldFromText(buffer, contentKey);
+    if (finalExtracted && finalExtracted.length > fullContent.length) {
+      fullContent = finalExtracted;
+      onProgress(fullContent);
+    }
+    
+    return fullContent;
+  } catch (error) {
+    console.error(`❌ [processStreamUnified] 处理流失败:`, error);
+    onError(`处理响应流时出错: ${error instanceof Error ? error.message : '未知错误'}`);
     throw error;
   }
 }
@@ -506,21 +847,12 @@ export async function chatWithAI(
       throw new Error(errorMessage);
     }
     
-    console.log("✅ [快思考] 收到API响应，开始处理数据流");
-
-    return await processStream(
-      response, 
-      'result', 
-      // 进度回调
-      (content) => {
-        console.log(`📄 [快思考] 收到内容更新: ${content.length} 字符`);
-        onProgress(content);
-      },
-      // 错误回调
-      (error) => {
-        console.error("🔴 [快思考] 处理流时出错:", error);
-        onError(error);
-      }
+    // 使用与其他功能相同的统一处理函数
+    return await processStreamUnified(
+      response,
+      'result', // 快思考模式使用'result'字段
+      onProgress,
+      onError
     );
   } catch (error) {
     const errorMessage = `对话请求失败: ${error instanceof Error ? error.message : '未知错误'}`;

@@ -156,7 +156,6 @@ export async function POST(request: NextRequest): Promise<NextResponse | Respons
               // 处理data:前缀的行
               if (line.startsWith('data:')) {
                 const jsonData = line.substring(5).trim();
-                console.log('解析data行:', jsonData);
                 
                 try {
                   // 解析上游API的JSON响应
@@ -165,7 +164,6 @@ export async function POST(request: NextRequest): Promise<NextResponse | Respons
                   // 专门处理Deepseek Reasoner模型的响应格式
                   if (data.choices && data.choices[0] && data.choices[0].delta) {
                     const delta = data.choices[0].delta;
-                    console.log('解析到delta:', JSON.stringify(delta));
                     
                     // 处理推理内容 - 只要有一点更新就立即发送
                     if (delta.reasoning_content) {
@@ -174,7 +172,6 @@ export async function POST(request: NextRequest): Promise<NextResponse | Respons
                       controller.enqueue(encoder.encode(formatSSE({
                         reasoning_content: accumulatedReasoning
                       })));
-                      console.log('[Reasoning API] 发送推理内容更新:', delta.reasoning_content);
                     }
                     
                     // 处理最终内容
@@ -183,7 +180,6 @@ export async function POST(request: NextRequest): Promise<NextResponse | Respons
                       controller.enqueue(encoder.encode(formatSSE({
                         content: accumulatedContent
                       })));
-                      console.log('[Reasoning API] 发送最终内容更新:', delta.content);
                     }
                   } else {
                     // 处理可能的直接格式
@@ -192,7 +188,6 @@ export async function POST(request: NextRequest): Promise<NextResponse | Respons
                       controller.enqueue(encoder.encode(formatSSE({
                         reasoning_content: accumulatedReasoning
                       })));
-                      console.log('[Reasoning API] 发送直接格式推理内容');
                     }
                     
                     if (data.content) {
@@ -200,7 +195,6 @@ export async function POST(request: NextRequest): Promise<NextResponse | Respons
                       controller.enqueue(encoder.encode(formatSSE({
                         content: accumulatedContent
                       })));
-                      console.log('[Reasoning API] 发送直接格式最终内容');
                     }
                   }
                 } catch (e) {
@@ -216,23 +210,58 @@ export async function POST(request: NextRequest): Promise<NextResponse | Respons
               if (buffer.startsWith('data:')) {
                 const jsonData = buffer.substring(5).trim();
                 if (jsonData && !jsonData.includes('[DONE]')) {
-                  const data = JSON.parse(jsonData);
-                  if (data.choices && data.choices[0] && data.choices[0].delta) {
-                    const delta = data.choices[0].delta;
-                    if (delta.reasoning_content) {
-                      accumulatedReasoning += delta.reasoning_content;
-                      controller.enqueue(encoder.encode(formatSSE({
-                        reasoning_content: accumulatedReasoning
-                      })));
+                  try {
+                    const data = JSON.parse(jsonData);
+                    if (data.choices && data.choices[0] && data.choices[0].delta) {
+                      const delta = data.choices[0].delta;
+                      if (delta.reasoning_content) {
+                        accumulatedReasoning += delta.reasoning_content;
+                        controller.enqueue(encoder.encode(formatSSE({
+                          reasoning_content: accumulatedReasoning
+                        })));
+                      }
+                      if (delta.content) {
+                        accumulatedContent += delta.content;
+                        controller.enqueue(encoder.encode(formatSSE({
+                          content: accumulatedContent
+                        })));
+                      }
                     }
-                    if (delta.content) {
-                      accumulatedContent += delta.content;
-                      controller.enqueue(encoder.encode(formatSSE({
-                        content: accumulatedContent
-                      })));
-                    }
+                  } catch (parseError) {
+                    console.error("解析残留data:行JSON数据失败:", parseError);
+                    // 尝试使用正则表达式提取内容，而不是依赖完整的JSON解析
+                    extractContentFromMalformedData(jsonData, (reasoning, content) => {
+                      if (reasoning) {
+                        accumulatedReasoning += reasoning;
+                        controller.enqueue(encoder.encode(formatSSE({
+                          reasoning_content: accumulatedReasoning
+                        })));
+                      }
+                      if (content) {
+                        accumulatedContent += content;
+                        controller.enqueue(encoder.encode(formatSSE({
+                          content: accumulatedContent
+                        })));
+                      }
+                    });
                   }
                 }
+              } else {
+                // 对于非data:开头的残留buffer，尝试使用正则表达式提取内容
+                extractContentFromMalformedData(buffer, (reasoning, content) => {
+                  if (reasoning) {
+                    accumulatedReasoning += reasoning;
+                    controller.enqueue(encoder.encode(formatSSE({
+                      reasoning_content: accumulatedReasoning
+                    })));
+                  }
+                  if (content) {
+                    accumulatedContent += content;
+                    controller.enqueue(encoder.encode(formatSSE({
+                      content: accumulatedContent
+                    })));
+                  }
+                });
               }
             } catch (e) {
               console.error("处理剩余数据失败:", e);
@@ -274,4 +303,50 @@ export async function POST(request: NextRequest): Promise<NextResponse | Respons
       { status: 500 }
     );
   }
+}
+
+// 辅助函数：从可能格式错误的JSON数据中提取内容
+function extractContentFromMalformedData(
+  data: string, 
+  callback: (reasoning: string, content: string) => void
+) {
+  let extractedReasoning = '';
+  let extractedContent = '';
+  
+  // 尝试匹配reasoning_content字段
+  const reasoningPattern = /"reasoning_content":"([^"]*)"/g;
+  let reasoningMatch;
+  while ((reasoningMatch = reasoningPattern.exec(data)) !== null) {
+    if (reasoningMatch && reasoningMatch[1]) {
+      extractedReasoning += reasoningMatch[1];
+    }
+  }
+  
+  // 尝试匹配content字段
+  const contentPattern = /"content":"([^"]*)"/g;
+  let contentMatch;
+  while ((contentMatch = contentPattern.exec(data)) !== null) {
+    if (contentMatch && contentMatch[1]) {
+      extractedContent += contentMatch[1];
+    }
+  }
+  
+  // 对于delta格式，尝试匹配choices[0].delta.reasoning_content和choices[0].delta.content
+  const deltaReasoningPattern = /"delta":[^}]*"reasoning_content":"([^"]*)"/g;
+  let deltaReasoningMatch;
+  while ((deltaReasoningMatch = deltaReasoningPattern.exec(data)) !== null) {
+    if (deltaReasoningMatch && deltaReasoningMatch[1]) {
+      extractedReasoning += deltaReasoningMatch[1];
+    }
+  }
+  
+  const deltaContentPattern = /"delta":[^}]*"content":"([^"]*)"/g;
+  let deltaContentMatch;
+  while ((deltaContentMatch = deltaContentPattern.exec(data)) !== null) {
+    if (deltaContentMatch && deltaContentMatch[1]) {
+      extractedContent += deltaContentMatch[1];
+    }
+  }
+  
+  callback(extractedReasoning, extractedContent);
 } 

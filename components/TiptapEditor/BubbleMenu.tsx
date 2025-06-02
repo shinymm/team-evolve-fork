@@ -104,6 +104,19 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
         console.warn("清除高亮时出错:", e);
       }
     }
+    
+    // 为了安全起见，再次全局清除所有highlight标记
+    try {
+      // 先暂存当前光标位置
+      const { from } = editor.state.selection;
+      // 尝试清除整个文档中的所有highlight标记
+      editor.commands.unsetMark('highlight');
+      // 恢复光标位置
+      editor.commands.setTextSelection({ from, to: from });
+    } catch (e) {
+      console.warn("全局清除高亮时出错:", e);
+    }
+    
     setResult({
       loading: false,
       content: '',
@@ -208,6 +221,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
         selectedSystemId,
         // 进度回调
         (content) => {
+          // 无论内容多少，收到第一个响应就把loading状态设为false
           setResult(prev => ({ 
             ...prev, 
             loading: false,
@@ -260,6 +274,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
         selectedSystemId,
         // 进度回调
         (content) => {
+          // 无论内容多少，收到第一个响应就把loading状态设为false
           setResult(prev => ({ 
             ...prev, 
             loading: false,
@@ -312,6 +327,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
         selectedSystemId,
         // 进度回调
         (content) => {
+          // 无论内容多少，收到第一个响应就把loading状态设为false
           setResult(prev => ({ 
             ...prev, 
             loading: false,
@@ -364,6 +380,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
         selectedSystemId,
         // 进度回调
         (content) => {
+          // 无论内容多少，收到第一个响应就把loading状态设为false
           setResult(prev => ({ 
             ...prev, 
             loading: false,
@@ -1006,40 +1023,6 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
       });
   };
 
-  // 处理替换原文
-  const handleReplace = () => {
-    // 确保只在有最终内容时才执行替换
-    if (!result.content && !result.isSlowThinking) return;
-    
-    // 选择要使用的内容
-    const contentToUse = result.content || ''; // 只使用最终内容，不使用思考过程
-    
-    // 将markdown转换为HTML
-    const htmlContent = markdownToHtml(contentToUse);
-    
-    if (result.selectionRange) {
-      try {
-        const { from, to } = result.selectionRange;
-        
-        // 先清除高亮
-        editor.commands.setTextSelection({ from, to });
-        editor.commands.unsetMark('highlight');
-        
-        // 然后替换内容
-        editor.chain().focus().deleteRange({ from, to }).insertContent(htmlContent).run();
-      } catch (e) {
-        console.warn("替换内容时出错:", e);
-        // 如果出错，尝试直接在当前位置插入
-        editor.chain().focus().insertContent(htmlContent).run();
-      }
-    } else {
-      // 如果没有选择范围，直接在当前位置插入
-      editor.chain().focus().insertContent(htmlContent).run();
-    }
-    
-    resetResult();
-  };
-
   // 处理在原文后添加
   const handleAppend = () => {
     // 确保只在有最终内容时才执行追加
@@ -1061,17 +1044,92 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
         
         // 然后在后面追加内容
         editor.chain().focus().insertContentAt(to, htmlContent).run();
+        
+        // 追加完成后，立即移动光标到内容末尾，彻底取消选区
+        const newCursorPos = to + htmlContent.length;
+        editor.commands.setTextSelection({ from: newCursorPos, to: newCursorPos });
+        
+        // 再次确保没有高亮
+        editor.commands.unsetMark('highlight');
       } catch (e) {
         console.warn("追加内容时出错:", e);
         // 如果出错，尝试直接在当前位置插入
         editor.chain().focus().insertContent(htmlContent).run();
+        // 确保没有高亮
+        editor.commands.unsetMark('highlight');
       }
     } else {
       // 如果没有选择范围，直接在当前位置插入
       editor.chain().focus().insertContent(htmlContent).run();
     }
     
+    // 清理选中区域信息，防止残留引用
+    setResult(prev => ({
+      ...prev,
+      selectionRange: undefined
+    }));
+    
+    // 重置结果状态
     resetResult();
+    
+    // 确保编辑器保持焦点
+    setTimeout(() => {
+      editor.commands.focus();
+    }, 100);
+  };
+
+  // 处理替换原文
+  const handleReplace = () => {
+    // 确保只在有最终内容时才执行替换
+    if (!result.content && !result.isSlowThinking) return;
+    
+    // 选择要使用的内容
+    const contentToUse = result.content || ''; // 只使用最终内容，不使用思考过程
+    
+    // 将markdown转换为HTML
+    const htmlContent = markdownToHtml(contentToUse);
+    
+    if (result.selectionRange) {
+      try {
+        const { from, to } = result.selectionRange;
+        
+        // 先清除高亮
+        editor.commands.setTextSelection({ from, to });
+        editor.commands.unsetMark('highlight');
+        
+        // 然后替换内容
+        editor.chain().focus().deleteRange({ from, to }).insertContent(htmlContent).run();
+        
+        // 替换完成后，立即移动光标到内容末尾，彻底取消选区
+        const newCursorPos = from + htmlContent.length;
+        editor.commands.setTextSelection({ from: newCursorPos, to: newCursorPos });
+        
+        // 再次确保没有高亮
+        editor.commands.unsetMark('highlight');
+      } catch (e) {
+        console.warn("替换内容时出错:", e);
+        // 如果出错，尝试直接在当前位置插入
+        editor.chain().focus().insertContent(htmlContent).run();
+        // 确保没有高亮
+        editor.commands.unsetMark('highlight');
+      }
+    } else {
+      // 如果没有选择范围，直接在当前位置插入
+      editor.chain().focus().insertContent(htmlContent).run();
+    }
+    
+    // 清理选中区域信息，防止残留引用
+    setResult(prev => ({
+      ...prev,
+      selectionRange: undefined
+    }));
+    
+    resetResult();
+    
+    // 确保编辑器保持焦点
+    setTimeout(() => {
+      editor.commands.focus();
+    }, 100);
   };
 
   // 修复handleToggleMaxHeight函数的类型错误
@@ -1091,6 +1149,41 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
       ...prev,
       size: { width: currentWidth, height: newHeight }
     }));
+  };
+
+  // 显示最终内容部分的JSX
+  const renderContentSection = () => {
+    if (result.content) {
+      // 有内容时显示内容
+      return (
+        <div 
+          className="polish-text"
+          dangerouslySetInnerHTML={{ __html: formatContent(result.content) }}
+        />
+      );
+    } else if (result.isSlowThinking && result.reasoning) {
+      // 慢思考模式下，如果还没有最终内容但有思考过程，显示思考中提示
+      return (
+        <div className="polish-text-placeholder">
+          <div className="flex items-center text-orange-700">
+            <Loader2 size={16} className="animate-spin mr-2" />
+            <span>{t('resultPanel.finalizingAnswer')}</span>
+          </div>
+        </div>
+      );
+    } else if (!result.loading) {
+      // 常规模式下，如果已经不是loading状态但还没有内容，显示正在生成提示
+      return (
+        <div className="polish-text-placeholder">
+          <div className="flex items-center text-orange-600">
+            <Loader2 size={16} className="animate-spin mr-2" />
+            <span>{t('resultPanel.generatingContent')}</span>
+          </div>
+        </div>
+      );
+    }
+    
+    return null;
   };
 
   return (
@@ -1380,20 +1473,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
                 )}
                 
                 {/* 显示最终内容 */}
-                {result.content ? (
-                  <div 
-                    className="polish-text"
-                    dangerouslySetInnerHTML={{ __html: formatContent(result.content) }}
-                  />
-                ) : result.isSlowThinking && result.reasoning ? (
-                  // 慢思考模式下，如果还没有最终内容但有思考过程，显示思考中提示
-                  <div className="polish-text-placeholder">
-                    <div className="flex items-center text-orange-700">
-                      <Loader2 size={16} className="animate-spin mr-2" />
-                      <span>{t('resultPanel.finalizingAnswer')}</span>
-                    </div>
-                  </div>
-                ) : null}
+                {renderContentSection()}
                 
                 <div className="polish-actions">
                   <button 

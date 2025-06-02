@@ -66,6 +66,9 @@
       "polishing": "Polishing...",
       "expanding": "Expanding...",
       "thinking": "Thinking...",
+      "thinkingInProgress": "Thinking in progress...",
+      "finalizingAnswer": "Finalizing answer...",
+      "generatingContent": "Generating content...",
       "analyzingBoundary": "Analyzing boundary conditions...",
       "optimizingScenario": "Optimizing scenario requirements...",
       "processing": "Processing...",
@@ -73,13 +76,15 @@
       "cancel": "Cancel",
       "send": "Send",
       "copy": "Copy",
+      "copyReasoning": "Copy Reasoning",
       "append": "Append",
       "replace": "Replace",
       "rerun": "Rerun",
       "slowThinkingMode": "Slow Thinking Mode",
       "reasoningProcess": "Reasoning Process",
       "close": "Close",
-      "instruction": "Instruction:"
+      "instruction": "Instruction:",
+      "toggleHeight": "Adjust Result Height"
     },
     "notifications": {
       "selectSystemFirst": "Please select a system first",
@@ -94,7 +99,8 @@
       "markdownExportSuccess": "Markdown file exported successfully",
       "markdownExportFailed": "Failed to export Markdown file",
       "copySuccess": "Copied to clipboard",
-      "copyFailed": "Failed to copy to clipboard"
+      "copyFailed": "Failed to copy to clipboard",
+      "inputInstruction": "Please enter an instruction before sending"
     }
   }
 } 
