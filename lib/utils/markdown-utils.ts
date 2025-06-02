@@ -61,6 +61,44 @@ export function markdownToHtml(markdown: string): string {
     return `<ol>${listItems}</ol>`;
   });
   
+  // 处理Markdown表格
+  html = html.replace(/(\|[^\n]+\|\r?\n)((?:\|:?[-]+:?)+\|)(\r?\n(?:\|[^\n]+\|\r?\n?)*)/g, function(match, headerRow, separatorRow, bodyRows) {
+    try {
+      // 处理表头
+      const headers = headerRow.split('|')
+        .filter((cell: string) => cell.trim() !== '')
+        .map((cell: string) => `<th>${cell.trim()}</th>`)
+        .join('');
+      
+      // 创建表头行
+      const headerHtml = `<thead><tr>${headers}</tr></thead>`;
+      
+      // 处理表格内容
+      const rows = bodyRows.trim().split('\n');
+      let bodyHtml = '<tbody>';
+      
+      rows.forEach((row: string) => {
+        if (row.trim() === '') return;
+        
+        const cells = row.split('|')
+          .filter((cell: string) => cell.trim() !== '')
+          .map((cell: string) => `<td>${cell.trim()}</td>`)
+          .join('');
+        
+        bodyHtml += `<tr>${cells}</tr>`;
+      });
+      
+      bodyHtml += '</tbody>';
+      
+      // 返回完整的HTML表格
+      return `<table>${headerHtml}${bodyHtml}</table>`;
+    } catch (e) {
+      // 如果处理失败，返回原始内容
+      console.error('表格处理失败:', e);
+      return match;
+    }
+  });
+  
   // 替换链接
   html = html.replace(/\[(.*?)\]\((.*?)\)/gim, '<a href="$2">$1</a>');
   

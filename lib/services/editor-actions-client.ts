@@ -578,6 +578,7 @@ export function createEditorActionsClient(options: EditorActionsClientOptions): 
       case 'expand': return 'expand';
       case 'boundary': return 'boundary';
       case 'optimize': return 'optimize';
+      case 'scenario': return 'scenario';
       case 'chat':
       case 'reasoningChat':
         return 'chat';

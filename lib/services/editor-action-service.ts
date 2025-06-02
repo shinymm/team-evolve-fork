@@ -965,4 +965,43 @@ export async function chatWithAIReasoning(
     onError(errorMessage);
     throw error;
   }
+}
+
+/**
+ * 场景识别API
+ */
+export async function scenarioRecognition(
+  text: string,
+  fullText: string,
+  systemId: string | null,
+  onProgress: (content: string) => void,
+  onError: (error: string) => void
+): Promise<string> {
+  try {
+    const response = await fetch('/api/ai-editor-action/scenario', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        text,
+        fullText,
+        systemId
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('场景识别API调用失败');
+    }
+
+    // 使用统一的流处理方法
+    return await processStreamUnified(
+      response, 
+      'scenarioAnalysis',
+      onProgress,
+      onError
+    );
+  } catch (error) {
+    const errorMessage = `场景识别请求失败: ${error instanceof Error ? error.message : '未知错误'}`;
+    onError(errorMessage);
+    throw error;
+  }
 } 

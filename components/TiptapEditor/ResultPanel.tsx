@@ -15,7 +15,7 @@ export interface ResultState {
   content: string;
   visible: boolean;
   position: { x: number, y: number, useFixed?: boolean };
-  type: 'polish' | 'expand' | 'chat' | 'boundary' | 'optimize' | null;
+  type: 'polish' | 'expand' | 'chat' | 'boundary' | 'optimize' | 'scenario' | null;
   size?: { width: number, height: number };
   instruction?: string; 
   selectedText?: string; 
@@ -63,6 +63,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
       case 'chat': return result.loading || result.content ? t('resultPanel.aiReply') : t('resultPanel.chatWithAI');
       case 'boundary': return t('resultPanel.boundaryAnalysisResult');
       case 'optimize': return t('resultPanel.boundaryOptimizeResult');
+      case 'scenario': return t('resultPanel.scenarioRecognitionResult');
       default: return t('resultPanel.processingResult');
     }
   };
@@ -75,6 +76,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
       case 'chat': return t('resultPanel.thinking');
       case 'boundary': return t('resultPanel.analyzingBoundary');
       case 'optimize': return t('resultPanel.optimizingScenario');
+      case 'scenario': return t('resultPanel.analyzingScenario');
       default: return t('resultPanel.processing');
     }
   };

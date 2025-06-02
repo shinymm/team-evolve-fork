@@ -8,7 +8,8 @@ import {
   Maximize2, 
   MessageSquare,
   AlertTriangle,
-  Scissors
+  Scissors,
+  LayoutPanelTop
 } from 'lucide-react';
 import { useSystemStore } from '@/lib/stores/system-store';
 import { useTranslations } from 'next-intl';
@@ -181,6 +182,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
   const handleBoundaryOptimize = () => editorActions.handleAction('optimize');
   const handleFastChat = () => editorActions.handleFastChat();
   const handleSlowChat = () => editorActions.handleSlowChat();
+  const handleScenarioRecognition = () => editorActions.handleAction('scenario');
   
   // 指令输入变化处理
   const handleInstructionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -434,6 +436,14 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
               </button>
               <div className="bubble-submenu">
                 <button 
+                  onClick={handleScenarioRecognition} 
+                  className="bubble-menu-button"
+                  title={t('bubbleMenu.scenarioRecognitionTooltip')}
+                >
+                  <LayoutPanelTop size={16} />
+                  <span>{t('bubbleMenu.scenarioRecognition')}</span>
+                </button>
+                <button 
                   onClick={handleBoundaryAnalysis} 
                   className="bubble-menu-button"
                   title={t('bubbleMenu.boundaryAnalysisTooltip')}
@@ -449,6 +459,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
                   <Scissors size={16} />
                   <span>{t('bubbleMenu.boundaryOptimize')}</span>
                 </button>
+                
               </div>
             </div>
             

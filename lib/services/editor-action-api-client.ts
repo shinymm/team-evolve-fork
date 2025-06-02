@@ -9,11 +9,12 @@ import {
   analyzeBoundary, 
   optimizeBoundary, 
   chatWithAI,
-  chatWithAIReasoning
+  chatWithAIReasoning,
+  scenarioRecognition
 } from './editor-action-service';
 
 // 定义API操作类型
-export type EditorActionType = 'polish' | 'expand' | 'boundary' | 'optimize' | 'chat' | 'reasoningChat';
+export type EditorActionType = 'polish' | 'expand' | 'boundary' | 'optimize' | 'chat' | 'reasoningChat' | 'scenario';
 
 // 定义API调用的回调类型
 export interface EditorActionCallbacks {
@@ -74,6 +75,16 @@ export async function executeEditorAction(
           onError
         );
         return { content: optimizedContent };
+        
+      case 'scenario':
+        const scenarioAnalysis = await scenarioRecognition(
+          selectedText,
+          fullText,
+          systemId,
+          onProgress,
+          onError
+        );
+        return { content: scenarioAnalysis };
 
       case 'chat':
         // 确保对于聊天操作，使用指令作为第一个参数

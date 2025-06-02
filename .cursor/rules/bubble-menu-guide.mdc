@@ -1,0 +1,117 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# BubbleMenu 处理逻辑指南
+
+## 组件概述
+
+TiptapEditor 的 BubbleMenu 组件是一个浮动工具栏，在用户选择文本时显示，提供快思考和慢思考等功能。以下是该组件的关键文件和它们的关系：
+
+- [components/TiptapEditor/BubbleMenu.tsx](mdc:components/TiptapEditor/BubbleMenu.tsx) - 主要组件实现
+- [components/TiptapEditor/ResultPanel.tsx](mdc:components/TiptapEditor/ResultPanel.tsx) - 结果显示面板
+- [lib/services/editor-actions-client.ts](mdc:lib/services/editor-actions-client.ts) - 客户端操作逻辑
+- [lib/services/editor-action-api-client.ts](mdc:lib/services/editor-action-api-client.ts) - API 调用接口
+- [lib/services/editor-action-service.ts](mdc:lib/services/editor-action-service.ts) - 具体功能实现
+- [lib/prompts/chat.ts](mdc:lib/prompts/chat.ts) - 聊天提示模板
+- [app/api/ai-editor-action/chat/route.ts](mdc:app/api/ai-editor-action/chat/route.ts) - 快思考API端点
+- [app/api/ai/reasoning/route.ts](mdc:app/api/ai/reasoning/route.ts) - 慢思考API端点
+
+## 添加新菜单项的步骤
+
+要添加新的菜单项或功能，需要按照以下步骤进行修改：
+
+### 1. 更新 BubbleMenu.tsx
+
+在 `BubbleMenu.tsx` 中添加新的菜单项：
+
+```tsx
+<button 
+  onClick={handleNewFunction} 
+  className="bubble-menu-button"
+  title={t('bubbleMenu.newFunctionTooltip')}
+>
+  <IconComponent size={16} />
+  <span>{t('bubbleMenu.newFunction')}</span>
+</button>
+```
+
+### 2. 添加编辑器操作处理函数
+
+在 `BubbleMenu.tsx` 中定义处理函数：
+
+```tsx
+const handleNewFunction = () => editorActions.handleAction('newFunction');
+```
+
+### 3. 扩展 editor-action-api-client.ts
+
+在 `EditorActionType` 类型中添加新的操作类型：
+
+```typescript
+export type EditorActionType = 'polish' | 'expand' | 'boundary' | 'optimize' | 'chat' | 'reasoningChat' | 'newFunction';
+```
+
+### 4. 在 editor-action-service.ts 中实现新功能
+
+添加相应的实现函数：
+
+```typescript
+export async function newFunction(
+  text: string,
+  fullText: string,
+  systemId: string | null,
+  onProgress: (content: string) => void,
+  onError: (error: string) => void
+): Promise<string> {
+  // 实现新功能
+}
+```
+
+### 5. 更新 executeEditorAction 函数
+
+在 `editor-action-api-client.ts` 的 `executeEditorAction` 函数中添加对新操作类型的处理：
+
+```typescript
+case 'newFunction':
+  const result = await newFunction(
+    selectedText,
+    fullText,
+    systemId,
+    onProgress,
+    onError
+  );
+  return { content: result };
+```
+
+### 6. 添加后端 API 端点
+
+如果需要，在 `app/api/ai-editor-action/` 目录下创建新的 API 端点。
+
+### 7. 添加翻译
+
+在国际化文件中(tiptap_editor.json)添加相关翻译字符串：
+
+```json
+"bubbleMenu": {
+  "newFunction": "新功能名称",
+  "newFunctionTooltip": "新功能描述"
+}
+```
+
+## 提示词处理流程
+
+1. **快思考模式**：使用 `CHAT_PROMPT` 模板，通过 `/api/ai-editor-action/chat` 端点处理。
+2. **慢思考模式**：同样使用 `CHAT_PROMPT` 模板，但通过 `/api/ai/reasoning` 端点处理，支持思考过程展示。
+
+两种模式都会使用模板替换以下变量：
+- `{instruction}` - 用户的指令
+- `{selectedText}` - 选中的文本内容
+- `{productOverview}` - 系统概述
+- `{userPersonas}` - 用户画像信息
+- `{architectureInfo}` - 信息架构
+
+## 结果处理
+
+处理结果时，使用 `ResultPanel` 组件显示返回内容，并通过 `editor-actions-client.ts` 中的函数处理各种操作，如复制、替换、追加等。
