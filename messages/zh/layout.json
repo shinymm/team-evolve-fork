@@ -15,6 +15,38 @@
     "switchLanguage": "English",
     "currentLanguage": "中文"
   },
+  "UserMenu": {
+    "accountManagement": "账户管理",
+    "signOut": "退出登录"
+  },
+  "AccountManagement": {
+    "title": "账户管理",
+    "teamEvolveKey": "TeamEvolve 访问密钥",
+    "teamEvolveKeyDesc": "用于访问 TeamEvolve 平台的 API 密钥",
+    "jiraKey": "Jira 访问密钥",
+    "jiraKeyDesc": "用于访问 Jira 平台的 API 密钥",
+    "save": "保存",
+    "saving": "保存中...",
+    "cancel": "取消",
+    "saveSuccess": "保存成功",
+    "saveSuccessDesc": "您的访问密钥已更新",
+    "loadFailed": "加载失败",
+    "loadFailedDesc": "无法加载访问密钥信息",
+    "saveFailed": "保存失败",
+    "saveFailedDesc": "无法保存访问密钥信息",
+    "generateKey": "生成密钥",
+    "copyKey": "复制",
+    "keyCopied": "密钥已复制",
+    "keyCopiedDesc": "访问密钥已复制到剪贴板",
+    "copyFailed": "复制失败",
+    "copyFailedDesc": "无法复制访问密钥到剪贴板",
+    "keyGenerated": "密钥已生成",
+    "keyGeneratedDesc": "新的访问密钥已生成，请点击保存以应用更改",
+    "confirmGenerateTitle": "确认重新生成密钥",
+    "confirmGenerateDesc": "您确定要重新生成访问密钥吗？这将覆盖现有密钥，可能会导致使用旧密钥的应用无法连接。",
+    "cancelAction": "取消",
+    "confirmAction": "确认"
+  },
   "Sidebar": {
     "otherworldEvolution": "异界进化",
     "aiCapabilityCapsule": "AI能力胶囊",

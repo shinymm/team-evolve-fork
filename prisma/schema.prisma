@@ -36,17 +36,42 @@ enum UserRole {
   ADMIN
 }
 
+// 平台类型枚举
+enum PlatformType {
+  TEAM_EVOLVE
+  JIRA
+}
+
 // 用户模型
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String
-  password  String   @db.VarChar(255)
-  role      UserRole @default(USER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String          @id @default(uuid())
+  email        String          @unique
+  name         String
+  password     String          @db.VarChar(255)
+  role         UserRole        @default(USER)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  accessKeys   UserAccessKey[]
 
   @@index([email])
+}
+
+// 用户平台访问密钥模型
+model UserAccessKey {
+  id                String       @id @default(cuid())
+  userId            String
+  platform          PlatformType
+  encryptedAccessKey String       @db.Text
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  
+  // 关联到用户
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // 确保每个用户在每个平台只有一个密钥
+  @@unique([userId, platform])
+  @@index([userId])
+  @@index([platform])
 }
 
 // 术语表模型

@@ -15,6 +15,38 @@
     "switchLanguage": "中文",
     "currentLanguage": "English"
   },
+  "UserMenu": {
+    "accountManagement": "Account Management",
+    "signOut": "Sign Out"
+  },
+  "AccountManagement": {
+    "title": "Account Management",
+    "teamEvolveKey": "TeamEvolve Access Key",
+    "teamEvolveKeyDesc": "API key for accessing TeamEvolve platform",
+    "jiraKey": "Jira Access Key",
+    "jiraKeyDesc": "API key for accessing Jira platform",
+    "save": "Save",
+    "saving": "Saving...",
+    "cancel": "Cancel",
+    "saveSuccess": "Saved Successfully",
+    "saveSuccessDesc": "Your access keys have been updated",
+    "loadFailed": "Load Failed",
+    "loadFailedDesc": "Unable to load access key information",
+    "saveFailed": "Save Failed",
+    "saveFailedDesc": "Unable to save access key information",
+    "generateKey": "Generate Key",
+    "copyKey": "Copy",
+    "keyCopied": "Key Copied",
+    "keyCopiedDesc": "Access key has been copied to clipboard",
+    "copyFailed": "Copy Failed",
+    "copyFailedDesc": "Unable to copy access key to clipboard",
+    "keyGenerated": "Key Generated",
+    "keyGeneratedDesc": "New access key has been generated, click Save to apply changes",
+    "confirmGenerateTitle": "Confirm Regenerate Key",
+    "confirmGenerateDesc": "Are you sure you want to regenerate the access key? This will override the existing key and may cause applications using the old key to disconnect.",
+    "cancelAction": "Cancel",
+    "confirmAction": "Confirm"
+  },
   "Sidebar": {
     "otherworldEvolution": "Otherworld Evolution",
     "aiCapabilityCapsule": "AI Capability Capsule",
