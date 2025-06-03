@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/components/ui/use-toast"
-import { Loader2, Copy, Pencil, Trash2, RotateCcw } from 'lucide-react'
+import { Loader2, Copy, Pencil, Trash2, RotateCcw, GanttChartSquare, Archive } from 'lucide-react'
 import { streamingAICall } from '@/lib/services/ai-service'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { StructuredRequirement, StructuredScene } from '@/lib/services/requirement-export-service'
 import { useTranslations } from 'next-intl'
+import { JiraTasksModal } from '@/components/jira-tasks-modal'
 
 interface TestCase {
   type: string
@@ -38,6 +39,7 @@ export function TestCaseAssistant() {
   const [scenes, setScenes] = useState<StructuredScene[]>([])
   const [selectedScene, setSelectedScene] = useState<string>('')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isJiraModalOpen, setIsJiraModalOpen] = useState(false)
 
   useEffect(() => {
     // 从localStorage获取结构化需求
@@ -209,6 +211,10 @@ export function TestCaseAssistant() {
     }
   }
 
+  const handleJiraTaskSelect = (summary: string) => {
+    setRequirements(summary)
+  }
+
   return (
     <div className="space-y-2">
       {!parsedTestCases.length && result && (
@@ -220,34 +226,47 @@ export function TestCaseAssistant() {
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <h2 className="text-m font-semibold">{t('inputTitle')}</h2>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-sm text-gray-500 hover:text-gray-700"
-              >
-                {t('loadFromCache')}
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{t('selectSceneTitle')}</DialogTitle>
-              </DialogHeader>
-              <Select value={selectedScene} onValueChange={handleSceneSelect} name="test-case-scene-select">
-                <SelectTrigger>
-                  <SelectValue placeholder={t('selectScenePlaceholder')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {scenes.map((scene: StructuredScene, index: number) => (
-                    <SelectItem key={index} value={String(index)}>
-                      {`${t('scene')}${index + 1}: ${scene.sceneName}` || `${t('scene')} ${index + 1}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </DialogContent>
-          </Dialog>
+          <div className="flex items-center gap-2">
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-sm flex items-center gap-1"
+                >
+                  <Archive className="h-4 w-4" />
+                  {t('loadFromCache')}
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{t('selectSceneTitle')}</DialogTitle>
+                </DialogHeader>
+                <Select value={selectedScene} onValueChange={handleSceneSelect} name="test-case-scene-select">
+                  <SelectTrigger>
+                    <SelectValue placeholder={t('selectScenePlaceholder')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {scenes.map((scene: StructuredScene, index: number) => (
+                      <SelectItem key={index} value={String(index)}>
+                        {`${t('scene')}${index + 1}: ${scene.sceneName}` || `${t('scene')} ${index + 1}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </DialogContent>
+            </Dialog>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-sm flex items-center gap-1"
+              onClick={() => setIsJiraModalOpen(true)}
+            >
+              <GanttChartSquare className="h-4 w-4" />
+              从Jira中加载
+            </Button>
+          </div>
         </div>
         <Textarea
           placeholder={t('inputPlaceholder')}
@@ -383,6 +402,13 @@ export function TestCaseAssistant() {
           </div>
         </div>
       )}
+
+      {/* Add Jira Tasks Modal */}
+      <JiraTasksModal 
+        open={isJiraModalOpen} 
+        onOpenChange={setIsJiraModalOpen} 
+        onSelectTask={handleJiraTaskSelect} 
+      />
     </div>
   )
 } 

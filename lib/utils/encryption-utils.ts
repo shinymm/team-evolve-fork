@@ -146,6 +146,6 @@ export async function decrypt(encryptedText: string): Promise<string> {
       console.error('🔴 [解密] 错误详情:', error.message);
       console.error('🔴 [解密] 错误堆栈:', error.stack);
     }
-    return '';
+    throw new Error('解密失败，请检查加密密钥和数据是否正确');
   }
 } 
