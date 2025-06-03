@@ -1023,8 +1023,8 @@ export default function SceneAnalysisPage({params}: {params: {locale: string}}) 
       </div>
       
       {/* 底部操作按钮 */}
-      <div className="flex justify-end mt-8">
-        <Button onClick={handleConfirmAndContinue} className="bg-orange-500 hover:bg-orange-600">
+      <div className="flex justify-center mt-8 w-full">
+        <Button onClick={handleConfirmAndContinue} className="bg-orange-500 hover:bg-orange-600 w-full">
           <ArrowRight className="mr-2 h-4 w-4" />
           {t('confirmAndContinue')}
         </Button>
