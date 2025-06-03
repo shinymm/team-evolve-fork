@@ -8,9 +8,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import dynamic from 'next/dynamic'
 import { userStoryBreakdownService } from '@/lib/services/user-story-breakdown-service'
 import { StructuredRequirement, StructuredScene } from '@/lib/services/requirement-export-service'
-import { UserStoryCard, UserStory } from '@/components/user-story-card'
+// 动态导入复杂组件
+const UserStoryCard = dynamic(() => import('@/components/user-story-card').then(mod => ({ default: mod.UserStoryCard })), {
+  ssr: false,
+  loading: () => <div className="p-4 border rounded">正在加载用户故事卡片...</div>
+})
+import { UserStory } from '@/components/user-story-card'
 import { parseUserStoryYaml, Feature } from '@/lib/utils/yaml-parser'
 import { Copy, Trash2 } from 'lucide-react'
 import { toast } from "@/components/ui/use-toast"

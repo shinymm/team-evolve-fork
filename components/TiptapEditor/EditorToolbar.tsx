@@ -62,15 +62,27 @@ export function showToast(message: string, type: 'success' | 'error' = 'success'
 
 // 加载需求模板
 export async function loadTemplate(editor: Editor, selectedSystemId: string | null, t: any) {
+  // t可以是翻译函数也可以是命名空间，先尝试获取正确的消息
+  const getMessage = (key: string) => {
+    // 如果t是函数，直接调用
+    if (typeof t === 'function') {
+      return t(key);
+    }
+    
+    // 否则，假设t是从useTranslations获取的已命名空间的翻译函数
+    // 这种情况下，直接访问notifications下的对应键
+    return t(`notifications.${key}`);
+  };
+  
   if (!selectedSystemId) {
-    showToast(t('notifications.selectSystemFirst'), 'error');
+    showToast(getMessage('selectSystemFirst'), 'error');
     return false;
   }
 
   try {
     const response = await fetch(`/api/requirement-templates?systemId=${selectedSystemId}`);
     if (!response.ok) {
-      throw new Error(t('notifications.templateLoadFailed'));
+      throw new Error(getMessage('templateLoadFailed'));
     }
     
     const data = await response.json();
@@ -78,21 +90,33 @@ export async function loadTemplate(editor: Editor, selectedSystemId: string | nu
       // 处理内容并设置到编辑器
       const processedContent = processContent(data.template.content);
       editor.commands.setContent(processedContent);
-      showToast(t('notifications.templateLoadSuccess'));
+      showToast(getMessage('templateLoadSuccess'));
       return true;
     } else {
-      showToast(t('notifications.templateNotFound'), 'error');
+      showToast(getMessage('templateNotFound'), 'error');
       return false;
     }
   } catch (error) {
-    console.error(t('notifications.templateLoadFailed'), error);
-    showToast(t('notifications.templateLoadFailed'), 'error');
+    console.error(getMessage('templateLoadFailed'), error);
+    showToast(getMessage('templateLoadFailed'), 'error');
     return false;
   }
 }
 
 // 加载需求初稿
 export function loadDraft(editor: Editor, getOrGetActiveRequirementBook: (() => string | null) | string | null, t: any) {
+  // t可以是翻译函数也可以是命名空间，先尝试获取正确的消息
+  const getMessage = (key: string) => {
+    // 如果t是函数，直接调用
+    if (typeof t === 'function') {
+      return t(key);
+    }
+    
+    // 否则，假设t是从useTranslations获取的已命名空间的翻译函数
+    // 这种情况下，直接访问notifications下的对应键
+    return t(`notifications.${key}`);
+  };
+  
   try {
     console.log('[loadDraft] 开始加载需求初稿, 传入参数类型:', typeof getOrGetActiveRequirementBook);
     
@@ -179,7 +203,7 @@ export function loadDraft(editor: Editor, getOrGetActiveRequirementBook: (() => 
     // 如果仍未找到内容，显示错误
     if (!content) {
       console.log('[loadDraft] 最终未找到有效的需求初稿内容');
-      showToast(t('notifications.draftNotFound'), 'error');
+      showToast(getMessage('draftNotFound'), 'error');
       return false;
     }
     
@@ -188,17 +212,29 @@ export function loadDraft(editor: Editor, getOrGetActiveRequirementBook: (() => 
     // 处理内容并设置到编辑器
     const processedContent = processContent(content);
     editor.commands.setContent(processedContent);
-    showToast(t('notifications.draftLoadSuccess'));
+    showToast(getMessage('draftLoadSuccess'));
     return true;
   } catch (error) {
     console.error('[loadDraft] 加载需求初稿失败:', error);
-    showToast(t('notifications.draftLoadFailed'), 'error');
+    showToast(getMessage('draftLoadFailed'), 'error');
     return false;
   }
 }
 
 // 导出HTML为Word文档
 export function exportToWord(editor: Editor, filename: string = '需求文档', t: any) {
+  // t可以是翻译函数也可以是命名空间，先尝试获取正确的消息
+  const getMessage = (key: string) => {
+    // 如果t是函数，直接调用
+    if (typeof t === 'function') {
+      return t(key);
+    }
+    
+    // 否则，假设t是从useTranslations获取的已命名空间的翻译函数
+    // 这种情况下，直接访问notifications下的对应键
+    return t(`notifications.${key}`);
+  };
+  
   try {
     // 获取HTML内容
     const html = editor.getHTML();
@@ -240,24 +276,38 @@ export function exportToWord(editor: Editor, filename: string = '需求文档', 
     link.click();
     document.body.removeChild(link);
     
-    showToast(t('notifications.wordExportSuccess'));
+    showToast(getMessage('wordExportSuccess'));
     return true;
   } catch (error) {
     console.error('导出Word文档失败:', error);
-    showToast(t('notifications.wordExportFailed'), 'error');
+    showToast(getMessage('wordExportFailed'), 'error');
     return false;
   }
 }
 
-// 导出为Markdown文件
+// 导出为Markdown文档
 export function exportToMarkdown(editor: Editor, filename: string = '需求文档', t: any) {
+  // t可以是翻译函数也可以是命名空间，先尝试获取正确的消息
+  const getMessage = (key: string) => {
+    // 如果t是函数，直接调用
+    if (typeof t === 'function') {
+      return t(key);
+    }
+    
+    // 否则，假设t是从useTranslations获取的已命名空间的翻译函数
+    // 这种情况下，直接访问notifications下的对应键
+    return t(`notifications.${key}`);
+  };
+  
   try {
-    // 获取HTML内容并转换为Markdown
+    // 获取HTML内容
     const html = editor.getHTML();
+    
+    // 转换为Markdown
     const markdown = htmlToMarkdown(html);
     
     // 创建Blob对象
-    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+    const blob = new Blob([markdown], { type: 'text/markdown' });
     
     // 创建下载链接
     const link = document.createElement('a');
@@ -269,11 +319,11 @@ export function exportToMarkdown(editor: Editor, filename: string = '需求文�
     link.click();
     document.body.removeChild(link);
     
-    showToast(t('notifications.markdownExportSuccess'));
+    showToast(getMessage('markdownExportSuccess'));
     return true;
   } catch (error) {
-    console.error('导出Markdown文件失败:', error);
-    showToast(t('notifications.markdownExportFailed'), 'error');
+    console.error('导出Markdown文档失败:', error);
+    showToast(getMessage('markdownExportFailed'), 'error');
     return false;
   }
 }

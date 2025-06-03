@@ -9,7 +9,12 @@ import { Card } from "@/components/ui/card"
 import { Loader2, Copy, Download, Edit2, Save, ArrowRight, Pin, PinOff } from "lucide-react"
 import { requirementAnalysisPrompt } from '@/lib/prompts/requirement-analysis'
 import { Toaster } from "@/components/ui/toaster"
-import ReactMarkdown from 'react-markdown'
+import dynamic from 'next/dynamic'
+// 动态导入ReactMarkdown组件
+const DynamicReactMarkdown = dynamic(() => import('@/components/dynamic-markdown'), {
+  ssr: false,
+  loading: () => <div className="animate-pulse bg-gray-100 p-4 rounded-md min-h-[200px]">加载内容中...</div>
+})
 import remarkGfm from 'remark-gfm'
 import { recordRequirementAction } from '@/lib/services/requirement-action-service'
 import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store'
@@ -433,7 +438,7 @@ export default function RequirementAnalysis({params}: {params: {locale: string}}
                         />
                       ) : (
                         <div className="space-y-4">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{pinnedAnalysis}</ReactMarkdown>
+                          <DynamicReactMarkdown remarkPlugins={[remarkGfm]}>{pinnedAnalysis}</DynamicReactMarkdown>
                         </div>
                       )}
                     </Card>
@@ -456,7 +461,7 @@ export default function RequirementAnalysis({params}: {params: {locale: string}}
                         />
                       ) : (
                         <div className="space-y-4">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysis}</ReactMarkdown>
+                          <DynamicReactMarkdown remarkPlugins={[remarkGfm]}>{analysis}</DynamicReactMarkdown>
                         </div>
                       )}
                     </Card>
@@ -501,7 +506,7 @@ export default function RequirementAnalysis({params}: {params: {locale: string}}
                     />
                   ) : (
                     <div className="space-y-4">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{isPinned && pinnedAnalysis ? pinnedAnalysis : analysis}</ReactMarkdown>
+                      <DynamicReactMarkdown remarkPlugins={[remarkGfm]}>{isPinned && pinnedAnalysis ? pinnedAnalysis : analysis}</DynamicReactMarkdown>
                     </div>
                   )}
                 </Card>

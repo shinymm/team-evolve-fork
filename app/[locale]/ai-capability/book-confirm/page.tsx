@@ -10,9 +10,15 @@ import { generateArchitectureSuggestions } from '@/lib/services/architecture-sug
 import { useSystemStore } from '@/lib/stores/system-store'
 import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store'
 import type { ArchitectureItem } from '@/types/product-info'
-import ReactMarkdown from 'react-markdown'
+import dynamic from 'next/dynamic'
 import remarkGfm from 'remark-gfm'
 import { useTranslations, useLocale } from 'next-intl'
+
+// 动态导入 ReactMarkdown 组件
+const DynamicMarkdown = dynamic(() => import('@/components/dynamic-markdown'), {
+  ssr: false,
+  loading: () => <div className="animate-pulse bg-gray-100 p-4 rounded-md min-h-[200px]">加载Markdown渲染器...</div>
+})
 
 export default function BookConfirmPage({params}: {params: {locale: string}}) {
   const currentLocale = useLocale()
@@ -445,33 +451,9 @@ export default function BookConfirmPage({params}: {params: {locale: string}}) {
       <Card>
         <CardContent className="space-y-6 pt-6">
           <div className="prose max-w-none">
-            <ReactMarkdown 
-              remarkPlugins={[remarkGfm]}
-              components={{
-                h1: ({children}: {children: React.ReactNode}) => <h1 className="text-xl font-bold mb-3 pb-1 border-b">{children}</h1>,
-                h2: ({children}: {children: React.ReactNode}) => <h2 className="text-lg font-semibold mb-2 mt-4">{children}</h2>,
-                h3: ({children}: {children: React.ReactNode}) => <h3 className="text-base font-medium mb-1 mt-3">{children}</h3>,
-                p: ({children}: {children: React.ReactNode}) => <p className="text-gray-700 my-2 leading-relaxed text-sm">{children}</p>,
-                ul: ({children}: {children: React.ReactNode}) => <ul className="list-disc pl-5 my-2 space-y-1">{children}</ul>,
-                ol: ({children}: {children: React.ReactNode}) => <ol className="list-decimal pl-5 my-2 space-y-1">{children}</ol>,
-                li: ({children}: {children: React.ReactNode}) => <li className="text-gray-700 text-sm">{children}</li>,
-                blockquote: ({children}: {children: React.ReactNode}) => <blockquote className="border-l-4 border-gray-300 pl-4 my-2 italic text-sm text-gray-600">{children}</blockquote>,
-                code: ({inline, className, children}: {inline?: boolean, className?: string, children: React.ReactNode}) => {
-                  const match = /language-(\w+)/.exec(className || '')
-                  return !inline ? (
-                    <pre className={`${className} bg-gray-100 rounded p-2 text-sm overflow-x-auto`}>
-                      <code>{children}</code>
-                    </pre>
-                  ) : (
-                    <code className={`${className} bg-gray-100 rounded px-1 py-0.5 text-xs font-mono`}>
-                      {children}
-                    </code>
-                  )
-                },
-              }}
-            >
+            <DynamicMarkdown remarkPlugins={[remarkGfm]}>
               {requirement && generateMarkdown(requirement)} 
-            </ReactMarkdown>
+            </DynamicMarkdown>
           </div>
         </CardContent>
       </Card>

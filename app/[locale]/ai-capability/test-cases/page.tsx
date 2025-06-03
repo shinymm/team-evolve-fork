@@ -1,6 +1,17 @@
-import { TestCaseAssistant } from '@/components/test-case-assistant'
+import dynamic from 'next/dynamic'
 import { getTranslations } from 'next-intl/server'
-import {setRequestLocale} from 'next-intl/server'
+import { setRequestLocale } from 'next-intl/server'
+
+// 动态导入TestCaseAssistant组件
+const TestCaseAssistant = dynamic(() => import('@/components/test-case-assistant').then(mod => ({ default: mod.TestCaseAssistant })), {
+  ssr: false,
+  loading: () => <div className="flex items-center justify-center p-8">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+      <p className="mt-2 text-sm text-gray-500">加载中...</p>
+    </div>
+  </div>
+})
 
 export default async function TestCasesPage({params: {locale}}: {params: {locale: string}}) {
   setRequestLocale(locale)

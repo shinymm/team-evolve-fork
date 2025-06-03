@@ -3,14 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Upload, ChevronDown, ChevronRight, ArrowUpDown, X, Brain, FileText, Trash2 } from 'lucide-react'
 import * as yaml from 'js-yaml'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import dynamic from 'next/dynamic'
 import { Button } from "@/components/ui/button"
 import {
   ContextMenu,
@@ -24,6 +17,26 @@ import { getDefaultAIConfig } from '@/lib/services/ai-config-service'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { toast } from "@/components/ui/use-toast"
 import { useTranslations, useLocale } from 'next-intl'
+
+// 动态导入表格组件
+const Table = dynamic(() => import('@/components/ui/table').then(mod => mod.Table), {
+  ssr: false
+})
+const TableBody = dynamic(() => import('@/components/ui/table').then(mod => mod.TableBody), {
+  ssr: false
+})
+const TableCell = dynamic(() => import('@/components/ui/table').then(mod => mod.TableCell), {
+  ssr: false
+})
+const TableHead = dynamic(() => import('@/components/ui/table').then(mod => mod.TableHead), {
+  ssr: false
+})
+const TableHeader = dynamic(() => import('@/components/ui/table').then(mod => mod.TableHeader), {
+  ssr: false
+})
+const TableRow = dynamic(() => import('@/components/ui/table').then(mod => mod.TableRow), {
+  ssr: false
+})
 
 interface Exception {
   request: string

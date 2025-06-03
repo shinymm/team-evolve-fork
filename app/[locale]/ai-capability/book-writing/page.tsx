@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { TiptapEditor } from '@/components/TiptapEditor';
+import dynamic from 'next/dynamic';
 import { 
   FileUp, 
   ChevronDown, 
@@ -25,6 +25,17 @@ import { useTranslations, useLocale } from 'next-intl';
 
 // 导入CSS样式
 import '@/components/TiptapEditor/styles.css';
+
+// 动态导入TiptapEditor组件
+const TiptapEditor = dynamic(() => import('@/components/TiptapEditor').then(mod => ({ default: mod.TiptapEditor })), {
+  ssr: false,
+  loading: () => <div className="flex items-center justify-center p-8 min-h-[400px] border rounded-md bg-gray-50">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-orange-500 mx-auto"></div>
+      <p className="mt-4 text-sm text-gray-500">加载编辑器中...</p>
+    </div>
+  </div>
+})
 
 export default function BookWritingPage() {
   const locale = useLocale();
@@ -241,37 +252,8 @@ export default function BookWritingPage() {
     
     setIsLoadingTemplate(true);
     try {
-      // 重写loadTemplate函数以传递本地化消息
-      const success = await (async () => {
-        if (!selectedSystemId) {
-          localizedShowToast('selectSystemFirst', 'error');
-          return false;
-        }
-    
-        try {
-          const response = await fetch(`/api/requirement-templates?systemId=${selectedSystemId}`);
-          if (!response.ok) {
-            throw new Error('获取模板失败');
-          }
-          
-          const data = await response.json();
-          if (data.template && data.template.content) {
-            // 处理内容并设置到编辑器
-            const processedContent = processContent(data.template.content);
-            editorRef.current.commands.setContent(processedContent);
-            localizedShowToast('loadTemplateSuccess');
-            return true;
-          } else {
-            localizedShowToast('loadTemplateError', 'error');
-            return false;
-          }
-        } catch (error) {
-          console.error('加载需求模板失败:', error);
-          localizedShowToast('loadTemplateError', 'error');
-          return false;
-        }
-      })();
-      
+      // 使用导入的loadTemplate函数，传递本地化的t函数
+      const success = await loadTemplate(editorRef.current, selectedSystemId, (key: string) => t(key));
       console.log('加载模板结果:', success);
     } finally {
       setIsLoadingTemplate(false);
@@ -296,57 +278,10 @@ export default function BookWritingPage() {
     
     setIsLoadingDraft(true);
     try {
-      // 首先获取可用的需求书内容
-      let activeBook = getAvailableRequirementBook();
-      
-      // 如果store中获取不到，直接尝试从localStorage获取
-      if (!activeBook && selectedSystemId) {
-        try {
-          const storageKey = `req_analysis_system_${selectedSystemId}`;
-          console.log('尝试直接从localStorage获取数据:', storageKey);
-          const data = localStorage.getItem(storageKey);
-          if (data) {
-            const parsedData = JSON.parse(data);
-            console.log('成功解析localStorage数据:', {
-              hasPinnedBook: !!parsedData.pinnedRequirementBook,
-              hasBook: !!parsedData.requirementBook,
-              isPinned: parsedData.isRequirementBookPinned
-            });
-            
-            // 优先使用固定的需求书
-            if (parsedData.isRequirementBookPinned && parsedData.pinnedRequirementBook) {
-              activeBook = parsedData.pinnedRequirementBook;
-              console.log('从localStorage直接获取到固定需求书');
-            } 
-            // 其次使用普通需求书
-            else if (parsedData.requirementBook) {
-              activeBook = parsedData.requirementBook;
-              console.log('从localStorage直接获取到普通需求书');
-            }
-          } else {
-            console.log('localStorage中没有找到数据:', storageKey);
-          }
-        } catch (error) {
-          console.error('直接从localStorage获取失败:', error);
-        }
-      }
-      
-      console.log('最终获取到的需求书内容:', activeBook ? '有内容' : '无内容');
-      
-      // 如果没有找到内容，显示错误
-      if (!activeBook) {
-        localizedShowToast('loadDraftError', 'error');
-        return;
-      }
-      
-      // 处理内容并设置到编辑器
-      try {
-        const processedContent = processContent(activeBook);
-        editorRef.current.commands.setContent(processedContent);
-        localizedShowToast('loadDraftSuccess');
-      } catch (error) {
-        console.error('处理内容失败:', error);
-        localizedShowToast('loadDraftError', 'error');
+      // 使用导入的loadDraft函数
+      const success = loadDraft(editorRef.current, getAvailableRequirementBook, (key: string) => t(key));
+      if (!success) {
+        console.log('加载需求初稿失败');
       }
     } finally {
       setIsLoadingDraft(false);
@@ -365,7 +300,10 @@ export default function BookWritingPage() {
     try {
       // 使用当前语言环境决定文件名
       const fileName = locale === 'zh' ? '需求文档' : 'Requirements';
-      exportToWord(editorRef.current, fileName, t);
+      const success = exportToWord(editorRef.current, fileName, (key: string) => t(key));
+      if (!success) {
+        console.log('导出Word文档失败');
+      }
     } finally {
       setIsExporting(false);
       setShowDownloadDropdown(false);
@@ -383,7 +321,10 @@ export default function BookWritingPage() {
     try {
       // 使用当前语言环境决定文件名
       const fileName = locale === 'zh' ? '需求文档' : 'Requirements';
-      exportToMarkdown(editorRef.current, fileName, t);
+      const success = exportToMarkdown(editorRef.current, fileName, (key: string) => t(key));
+      if (!success) {
+        console.log('导出Markdown文档失败');
+      }
     } finally {
       setIsExporting(false);
       setShowDownloadDropdown(false);

@@ -9,7 +9,12 @@ import { Card } from "@/components/ui/card";
 import { Loader2, Copy, Download, Edit2, Save, ArrowRight, Pin, PinOff } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { Toaster } from "@/components/ui/toaster";
-import ReactMarkdown from 'react-markdown';
+import dynamic from 'next/dynamic';
+// 动态导入ReactMarkdown组件
+const DynamicReactMarkdown = dynamic(() => import('@/components/dynamic-markdown'), {
+  ssr: false,
+  loading: () => <div className="animate-pulse bg-gray-100 p-4 rounded-md min-h-[200px]">加载内容中...</div>
+})
 import remarkGfm from 'remark-gfm';
 import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -405,7 +410,7 @@ export function RequirementBookClient() {
                         />
                       ) : (
                         <div className="space-y-4">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{pinnedRequirementBook}</ReactMarkdown>
+                          <DynamicReactMarkdown remarkPlugins={[remarkGfm]}>{pinnedRequirementBook}</DynamicReactMarkdown>
                         </div>
                       )}
                     </Card>
@@ -428,7 +433,7 @@ export function RequirementBookClient() {
                         />
                       ) : (
                         <div className="space-y-4">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{requirementBook}</ReactMarkdown>
+                          <DynamicReactMarkdown remarkPlugins={[remarkGfm]}>{requirementBook}</DynamicReactMarkdown>
                         </div>
                       )}
                     </Card>
@@ -473,7 +478,7 @@ export function RequirementBookClient() {
                     />
                   ) : (
                     <div className="space-y-4">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{isRequirementBookPinned && pinnedRequirementBook ? pinnedRequirementBook : requirementBook}</ReactMarkdown>
+                      <DynamicReactMarkdown remarkPlugins={[remarkGfm]}>{isRequirementBookPinned && pinnedRequirementBook ? pinnedRequirementBook : requirementBook}</DynamicReactMarkdown>
                     </div>
                   )}
                 </Card>
