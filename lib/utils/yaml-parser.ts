@@ -23,12 +23,10 @@ export function parseUserStoryYaml(yamlContent: string): Feature[] {
       .replace(/\n\s*\n/g, '\n') // 替换连续的空行为单个换行
       .trim();
     
-    console.log('清理后的YAML内容:', cleanedYaml);
     
     // 解析YAML
     const parsed = yaml.load(cleanedYaml) as any[];
     
-    console.log('解析后的YAML对象:', parsed);
     
     if (!Array.isArray(parsed)) {
       console.error('解析的YAML不是数组格式', parsed);
@@ -71,7 +69,6 @@ export function parseUserStoryYaml(yamlContent: string): Feature[] {
       };
     });
     
-    console.log('转换后的Feature数组:', features);
     
     return features;
   } catch (error) {

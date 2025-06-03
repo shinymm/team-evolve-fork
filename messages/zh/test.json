@@ -81,6 +81,7 @@
   "TestCaseAssistant": {
     "inputTitle": "请输入需求描述：",
     "loadFromCache": "从缓存中加载场景",
+    "loadFromJira": "从Jira中加载",
     "selectSceneTitle": "选择要加载的场景",
     "selectScenePlaceholder": "选择要拆解的场景",
     "inputPlaceholder": "请输入需求描述、核心功能、边界场景及处理方式等信息...",
@@ -109,7 +110,26 @@
     "copyFailedDesc": "无法访问剪贴板",
     "scene": "场景",
     "unknownError": "未知错误",
-    "generateFailed": "生成失败"
+    "generateFailed": "生成失败",
+    "loadError": "加载失败",
+    "noSceneFound": "未找到场景",
+    "JiraModal": {
+      "title": "从Jira加载任务",
+      "description": "选择一个Jira任务，将其摘要和描述加载到测试用例生成器中",
+      "loading": "加载中...",
+      "retry": "重试",
+      "noTasksFound": "未找到任务",
+      "unassigned": "未分配",
+      "created": "创建",
+      "updated": "更新",
+      "cancel": "取消",
+      "fetchingTasks": "正在获取Jira任务...",
+      "requestUrl": "请求URL",
+      "apiResponseStatus": "API响应状态",
+      "apiErrorDetails": "API错误详情",
+      "fetchTasksFailed": "获取Jira任务失败",
+      "tasksCount": "获取到的任务数量"
+    }
   },
   "TestCasesPage": {
     "title": "测试用例生成",

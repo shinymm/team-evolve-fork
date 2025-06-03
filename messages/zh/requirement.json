@@ -110,7 +110,16 @@
     "copyFeatureDesc": "功能\"{feature}\"的所有用户故事已复制，共 {count} 个故事",
     "copyFailed": "复制失败",
     "copyFailedDesc": "无法复制到剪贴板，请手动复制",
-    "parseSuccessDesc": "找到 {featureCount} 个功能，共 {storyCount} 个用户故事"
+    "parseSuccessDesc": "找到 {featureCount} 个功能，共 {storyCount} 个用户故事",
+    "deleteUserStory": "删除用户故事",
+    "copyStoryContent": "复制用户故事内容",
+    "sendToJira": "发送到Jira创建任务",
+    "noSystemSelected": "未选择系统或系统名称未知",
+    "createJiraTaskFailed": "创建Jira任务失败",
+    "taskCreationSuccess": "任务创建成功",
+    "jiraTaskCreated": "Jira任务",
+    "storyContentCopied": "用户故事内容已复制到剪贴板",
+    "confirm": "确定"
   },
   "BookConfirmPage": {
     "title": "需求书确认",

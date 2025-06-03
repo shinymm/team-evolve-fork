@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 解析请求体
-    const { summary, labels, systemName } = await req.json();
+    const { summary, description, labels, systemName } = await req.json();
     
     // 参数验证
     if (!summary) {
@@ -52,6 +52,7 @@ export async function POST(req: NextRequest) {
       fields: {
         project: { key: systemName },
         summary: summary,
+        description: description || '',
         issuetype: { name: 'Task' },
         labels: labels || []
       }

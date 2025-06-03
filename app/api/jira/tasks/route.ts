@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
     
     // JQL
     const jql = `project=${systemName}`;
-    const fields = 'key,summary,assignee,status.name,created,updated';
+    const fields = 'key,summary,description,assignee,status.name,created,updated';
     
     // 构建URL参数
     const params = new URLSearchParams();

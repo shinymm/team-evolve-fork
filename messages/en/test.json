@@ -81,6 +81,7 @@
   "TestCaseAssistant": {
     "inputTitle": "Please enter requirement description:",
     "loadFromCache": "Load Scene from Cache",
+    "loadFromJira": "Load from Jira",
     "selectSceneTitle": "Select Scene to Load",
     "selectScenePlaceholder": "Select a scene to break down",
     "inputPlaceholder": "Please enter requirement description, core functions, boundary scenarios and handling methods...",
@@ -109,7 +110,26 @@
     "copyFailedDesc": "Cannot access clipboard",
     "scene": "Scene",
     "unknownError": "Unknown error",
-    "generateFailed": "Generation failed"
+    "generateFailed": "Generation failed",
+    "loadError": "Load Failed",
+    "noSceneFound": "No scenes found",
+    "JiraModal": {
+      "title": "Load Tasks from Jira",
+      "description": "Select a Jira task to load its summary and description into the test case generator",
+      "loading": "Loading...",
+      "retry": "Retry",
+      "noTasksFound": "No tasks found",
+      "unassigned": "Unassigned",
+      "created": "Created",
+      "updated": "Updated",
+      "cancel": "Cancel",
+      "fetchingTasks": "Fetching Jira tasks...",
+      "requestUrl": "Request URL",
+      "apiResponseStatus": "API Response Status",
+      "apiErrorDetails": "API Error Details",
+      "fetchTasksFailed": "Failed to fetch Jira tasks",
+      "tasksCount": "Tasks count"
+    }
   },
   "TestCasesPage": {
     "title": "Test Case Generation",

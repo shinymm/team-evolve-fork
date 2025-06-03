@@ -110,7 +110,16 @@
     "copyFailedDesc": "Unable to copy to clipboard, please copy manually",
     "parseSuccess": "Parse Successful",
     "parseSuccessDesc": "Successfully found {featureCount} features with a total of {storyCount} user stories",
-    "parseFailed": "Parse Failed"
+    "parseFailed": "Parse Failed",
+    "deleteUserStory": "Delete User Story",
+    "copyStoryContent": "Copy User Story Content",
+    "sendToJira": "Send to Jira",
+    "noSystemSelected": "No system selected or system name unknown",
+    "createJiraTaskFailed": "Failed to create Jira task",
+    "taskCreationSuccess": "Task Created Successfully",
+    "jiraTaskCreated": "Jira task",
+    "storyContentCopied": "User story content has been copied to clipboard",
+    "confirm": "Confirm"
   },
   "BookConfirmPage": {
     "title": "Requirement Book Confirmation",

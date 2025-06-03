@@ -15,12 +15,13 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Spinner } from '@/components/ui/spinner'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN, enUS } from 'date-fns/locale'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 
 interface JiraTask {
   key: string
   fields: {
     summary: string
+    description: string
     assignee: {
       displayName: string
     } | null
@@ -32,10 +33,11 @@ interface JiraTask {
 interface JiraTasksModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSelectTask: (summary: string) => void
+  onSelectTask: (summary: string, description?: string) => void
 }
 
 export function JiraTasksModal({ open, onOpenChange, onSelectTask }: JiraTasksModalProps) {
+  const t = useTranslations('TestCaseAssistant.JiraModal')
   const [tasks, setTasks] = useState<JiraTask[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -53,7 +55,7 @@ export function JiraTasksModal({ open, onOpenChange, onSelectTask }: JiraTasksMo
   const fetchJiraTasks = async () => {
     setIsLoading(true)
     setError(null)
-    setDebugInfo('正在获取Jira任务...')
+    setDebugInfo(t('fetchingTasks'))
 
     try {
       // 获取当前选中系统的名称
@@ -62,12 +64,12 @@ export function JiraTasksModal({ open, onOpenChange, onSelectTask }: JiraTasksMo
       
       const url = `/api/jira/tasks?systemName=${systemName}`
       console.log('请求URL:', url)
-      setDebugInfo(prev => `${prev}\n请求URL: ${url}`)
+      setDebugInfo(prev => `${prev}\n${t('requestUrl')}: ${url}`)
       
       const response = await fetch(url)
       
       console.log('API响应状态:', response.status)
-      setDebugInfo(prev => `${prev}\nAPI响应状态: ${response.status}`)
+      setDebugInfo(prev => `${prev}\n${t('apiResponseStatus')}: ${response.status}`)
       
       if (!response.ok) {
         const errorText = await response.text()
@@ -79,10 +81,10 @@ export function JiraTasksModal({ open, onOpenChange, onSelectTask }: JiraTasksMo
         }
         
         console.error('API错误详情:', errorData)
-        setDebugInfo(prev => `${prev}\nAPI错误详情: ${JSON.stringify(errorData)}`)
+        setDebugInfo(prev => `${prev}\n${t('apiErrorDetails')}: ${JSON.stringify(errorData)}`)
         
         // 提取主要错误信息，优先使用errorMessages中的第一条
-        let errorMessage = '获取Jira任务失败'
+        let errorMessage = t('fetchTasksFailed')
         if (errorData.details?.errorMessages?.length > 0) {
           errorMessage = errorData.details.errorMessages[0]
         } else if (errorData.error) {
@@ -94,18 +96,18 @@ export function JiraTasksModal({ open, onOpenChange, onSelectTask }: JiraTasksMo
 
       const data = await response.json()
       console.log('获取到的任务数量:', data.issues?.length || 0)
-      setDebugInfo(prev => `${prev}\n获取到的任务数量: ${data.issues?.length || 0}`)
+      setDebugInfo(prev => `${prev}\n${t('tasksCount')}: ${data.issues?.length || 0}`)
       setTasks(data.issues || [])
     } catch (error) {
       console.error('获取Jira任务失败:', error)
-      setError(error instanceof Error ? error.message : '未知错误')
+      setError(error instanceof Error ? error.message : t('unknownError'))
     } finally {
       setIsLoading(false)
     }
   }
 
   const handleSelectTask = (task: JiraTask) => {
-    onSelectTask(task.fields.summary)
+    onSelectTask(task.fields.summary, task.fields.description)
     onOpenChange(false)
   }
 
@@ -115,31 +117,38 @@ export function JiraTasksModal({ open, onOpenChange, onSelectTask }: JiraTasksMo
     return summary.substring(0, maxLength) + '...'
   }
 
+  // 处理描述文本的截断
+  const truncateDescription = (description: string | null, maxLength = 50) => {
+    if (!description) return '';
+    if (description.length <= maxLength) return description;
+    return description.substring(0, maxLength) + '...';
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[60vw] max-w-[900px]">
         <DialogHeader>
-          <DialogTitle>从Jira加载任务</DialogTitle>
+          <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>
-            选择一个Jira任务，将其摘要加载到测试用例生成器中
+            {t('description')}
           </DialogDescription>
         </DialogHeader>
 
         {isLoading ? (
           <div className="flex justify-center py-8">
             <Spinner />
-            <span className="ml-2">加载中...</span>
+            <span className="ml-2">{t('loading')}</span>
           </div>
         ) : error ? (
           <div className="text-red-500 p-4 text-center">
             <p>{error}</p>
             <Button variant="outline" className="mt-2" onClick={fetchJiraTasks}>
-              重试
+              {t('retry')}
             </Button>
           </div>
         ) : tasks.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
-            <p>未找到任务</p>
+            <p>{t('noTasksFound')}</p>
           </div>
         ) : (
           <ScrollArea className="h-[400px] pr-4">
@@ -157,12 +166,17 @@ export function JiraTasksModal({ open, onOpenChange, onSelectTask }: JiraTasksMo
                     <div className="text-xs text-gray-500">
                       {task.fields.assignee 
                         ? task.fields.assignee.displayName 
-                        : '未分配'}
+                        : t('unassigned')}
                     </div>
                   </div>
+                  {task.fields.description && (
+                    <div className="mt-1 text-xs text-gray-600 bg-gray-50 p-1 rounded">
+                      {truncateDescription(task.fields.description)}
+                    </div>
+                  )}
                   <div className="flex justify-between mt-2 text-xs text-gray-500">
-                    <div>创建: {formatDistanceToNow(new Date(task.fields.created), { addSuffix: true, locale: dateLocale })}</div>
-                    <div>更新: {formatDistanceToNow(new Date(task.fields.updated), { addSuffix: true, locale: dateLocale })}</div>
+                    <div>{t('created')}: {formatDistanceToNow(new Date(task.fields.created), { addSuffix: true, locale: dateLocale })}</div>
+                    <div>{t('updated')}: {formatDistanceToNow(new Date(task.fields.updated), { addSuffix: true, locale: dateLocale })}</div>
                   </div>
                 </div>
               ))}
@@ -172,7 +186,7 @@ export function JiraTasksModal({ open, onOpenChange, onSelectTask }: JiraTasksMo
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            取消
+            {t('cancel')}
           </Button>
         </DialogFooter>
       </DialogContent>

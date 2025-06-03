@@ -14,7 +14,7 @@ import { StructuredRequirement, StructuredScene } from '@/lib/services/requireme
 // 动态导入复杂组件
 const UserStoryCard = dynamic(() => import('@/components/user-story-card').then(mod => ({ default: mod.UserStoryCard })), {
   ssr: false,
-  loading: () => <div className="p-4 border rounded">正在加载用户故事卡片...</div>
+  loading: () => <div className="p-4 border rounded">Loading user story card...</div>
 })
 import { UserStory } from '@/components/user-story-card'
 import { parseUserStoryYaml, Feature } from '@/lib/utils/yaml-parser'
@@ -62,24 +62,30 @@ export default function UserStoryPage() {
   useEffect(() => {
     // 根据当前系统ID从localStorage获取结构化需求
     if (!selectedSystemId) {
-      console.log('[UserStoryPage] No system selected. Clearing scenes.');
       setScenes([]);
       return;
     }
 
-    console.log(`[UserStoryPage] Attempting to load scenes for system: ${selectedSystemId}`);
     const storageKey = `requirement-structured-content-${selectedSystemId}`;
     const storedRequirement = localStorage.getItem(storageKey);
 
     if (storedRequirement) {
       try {
         const requirement = JSON.parse(storedRequirement);
-        // 确保 requirement 和 requirement.scenes 存在且 scenes 是数组
+        
+        // 尝试多种可能的场景数据位置
+        let scenesArray = null;
         if (requirement && Array.isArray(requirement.scenes)) {
-          setScenes(requirement.scenes);
-          console.log(`[UserStoryPage] Successfully loaded ${requirement.scenes.length} scenes for system ${selectedSystemId}.`);
+          scenesArray = requirement.scenes;
+        } else if (requirement && Array.isArray(requirement)) {
+          scenesArray = requirement;
+          console.log('[UserStoryPage] 直接使用requirement数组作为场景列表');
+        }
+        
+        if (scenesArray && scenesArray.length > 0) {
+          setScenes(scenesArray);
         } else {
-          console.warn(`[UserStoryPage] scenes field is missing or not an array in stored data for ${selectedSystemId}. Key: ${storageKey}. Expected 'scenes' to be an array. Found: ${JSON.stringify(requirement)}. Clearing scenes.`);
+          console.warn(`[UserStoryPage] 无法找到有效的场景列表。存储键: ${storageKey}. 找到的数据: ${JSON.stringify(requirement).substring(0, 200)}... 清空场景列表。`);
           setScenes([]);
         }
       } catch (error) {
@@ -102,9 +108,7 @@ export default function UserStoryPage() {
   useEffect(() => {
     if (analysisResult) {
       try {
-        console.log('开始解析YAML:', analysisResult.substring(0, 100) + '...');
         const features = parseUserStoryYaml(analysisResult);
-        console.log('解析结果:', features);
         setParsedFeatures(features);
         setParseAttempted(true);
       } catch (error) {
@@ -121,9 +125,15 @@ export default function UserStoryPage() {
   const handleSceneSelect = (sceneIndex: string) => {
     const scene = scenes[parseInt(sceneIndex)]
     if (scene) {
+      console.log('选择的场景数据:', scene);
+      
+      // 处理场景名称可能为undefined的情况
+      const sceneAny = scene as any;
+      const sceneName = (sceneAny.name ? sceneAny.name : '未命名场景');
+      
       // 将场景的所有相关信息组合成文本
       const sceneContent = [
-        `场景名称：${scene.sceneName}`,
+        `场景名称：${sceneName}`,
         `\n场景内容：${scene.content}`
       ]
       
@@ -386,7 +396,7 @@ export default function UserStoryPage() {
                 <SelectContent>
                   {scenes.map((scene: any, index: number) => (
                     <SelectItem key={index} value={String(index)}>
-                      {`场景${index + 1}: ${scene.name}` || `场景 ${index + 1}`}
+                      {`场景${index + 1}: ${scene.sceneName || scene.name || '未命名场景'}`}
                     </SelectItem>
                   ))}
                 </SelectContent>

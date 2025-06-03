@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { StructuredRequirement, StructuredScene } from '@/lib/services/requirement-export-service'
 import { useTranslations } from 'next-intl'
 import { JiraTasksModal } from '@/components/jira-tasks-modal'
+import { useSystemStore } from '@/lib/stores/system-store'
 
 interface TestCase {
   type: string
@@ -40,15 +41,60 @@ export function TestCaseAssistant() {
   const [selectedScene, setSelectedScene] = useState<string>('')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isJiraModalOpen, setIsJiraModalOpen] = useState(false)
+  const { selectedSystemId } = useSystemStore()
 
   useEffect(() => {
     // 从localStorage获取结构化需求
-    const storedRequirement = localStorage.getItem('structuredRequirement')
-    if (storedRequirement) {
-      const requirement = JSON.parse(storedRequirement)
-      setScenes(requirement.sceneList || [])
+    // 考虑系统ID
+    if (!selectedSystemId) {
+      setScenes([]);
+      return;
     }
-  }, [])
+
+    const storageKey = `requirement-structured-content-${selectedSystemId}`;
+    const storedRequirement = localStorage.getItem(storageKey);
+    
+    if (storedRequirement) {
+      try {
+        const requirement = JSON.parse(storedRequirement);
+        
+        // 尝试多种可能的场景数据位置
+        let scenesArray = null;
+        if (requirement && Array.isArray(requirement.scenes)) {
+          scenesArray = requirement.scenes;
+          console.log('[TestCaseAssistant] 使用requirement.scenes作为场景列表，数据:', JSON.stringify(scenesArray.slice(0, 1)));
+        } else if (requirement && Array.isArray(requirement.sceneList)) {
+          scenesArray = requirement.sceneList;
+          console.log('[TestCaseAssistant] 使用requirement.sceneList作为场景列表，数据:', JSON.stringify(scenesArray.slice(0, 1)));
+        } else if (requirement && Array.isArray(requirement)) {
+          scenesArray = requirement;
+          console.log('[TestCaseAssistant] 直接使用requirement数组作为场景列表，数据:', JSON.stringify(scenesArray.slice(0, 1)));
+        } else {
+          console.warn('[TestCaseAssistant] 无法找到场景列表。存储数据结构:', JSON.stringify(requirement).substring(0, 300));
+        }
+        
+        if (scenesArray && scenesArray.length > 0) {
+          console.log(`[TestCaseAssistant] 找到${scenesArray.length}个场景`);
+          setScenes(scenesArray);
+        } else {
+          console.warn(`[TestCaseAssistant] 无法找到有效的场景列表。存储键: ${storageKey}`);
+          setScenes([]);
+        }
+      } catch (error) {
+        console.error(`[TestCaseAssistant] 解析存储的需求失败，系统ID: ${selectedSystemId}`, error);
+        setScenes([]);
+        toast({
+          title: t('loadError'),
+          description: t('copyFailedDesc'),
+          variant: "destructive",
+          duration: 3000
+        });
+      }
+    } else {
+      console.log(`[TestCaseAssistant] 未找到系统 ${selectedSystemId} 的存储需求数据`);
+      setScenes([]);
+    }
+  }, [selectedSystemId, t, toast]);
 
   useEffect(() => {
     setEditableTestCases(parsedTestCases)
@@ -57,10 +103,38 @@ export function TestCaseAssistant() {
   const handleSceneSelect = (sceneIndex: string) => {
     const scene = scenes[parseInt(sceneIndex)]
     if (scene) {
-      // 将场景内容直接作为需求文本
-      setRequirements(scene.content)
-      setSelectedScene(sceneIndex)
-      setIsDialogOpen(false)
+      console.log('[TestCaseAssistant] 选择的场景数据:', scene);
+      
+      // 获取场景内容，考虑不同的字段名
+      let sceneContent = '';
+      
+      // 将scene转为any类型，处理可能的不同字段名
+      const anyScene = scene as any;
+      
+      if (typeof anyScene.content === 'string') {
+        sceneContent = anyScene.content;
+      } else if (anyScene.sceneContent && typeof anyScene.sceneContent === 'string') {
+        sceneContent = anyScene.sceneContent;
+      } else if (anyScene.description) {
+        sceneContent = anyScene.description;
+      } else if (anyScene.content) {
+        sceneContent = String(anyScene.content);
+      } else {
+        // 如果无法获取内容，提示用户
+        console.error('[TestCaseAssistant] 无法获取场景内容:', scene);
+        toast({
+          title: t('loadError'),
+          description: '无法获取场景内容，请检查场景数据格式',
+          variant: "destructive",
+          duration: 3000
+        });
+        return;
+      }
+      
+      // 将场景内容设置到文本框
+      setRequirements(sceneContent);
+      setSelectedScene(sceneIndex);
+      setIsDialogOpen(false);
     }
   }
 
@@ -211,8 +285,14 @@ export function TestCaseAssistant() {
     }
   }
 
-  const handleJiraTaskSelect = (summary: string) => {
-    setRequirements(summary)
+  const handleJiraTaskSelect = (summary: string, description?: string) => {
+    if (description) {
+      // 如果有描述，将描述设置到文本框
+      setRequirements(`${description}`);
+    } else {
+      // 如果没有描述，只设置摘要
+      setRequirements(summary);
+    }
   }
 
   return (
@@ -247,11 +327,77 @@ export function TestCaseAssistant() {
                     <SelectValue placeholder={t('selectScenePlaceholder')} />
                   </SelectTrigger>
                   <SelectContent>
-                    {scenes.map((scene: StructuredScene, index: number) => (
-                      <SelectItem key={index} value={String(index)}>
-                        {`${t('scene')}${index + 1}: ${scene.sceneName}` || `${t('scene')} ${index + 1}`}
-                      </SelectItem>
-                    ))}
+                    {scenes.length > 0 ? (
+                      scenes.map((scene: StructuredScene, index: number) => {
+                        // 尝试从多个可能的属性中获取场景名称
+                        const anyScene = scene as any;
+                        let sceneName = '';
+                        
+                        console.log(`[TestCaseAssistant] 场景${index+1}数据:`, JSON.stringify({
+                          hasSceneName: !!anyScene.sceneName,
+                          hasName: !!anyScene.name,
+                          hasTitle: !!anyScene.title,
+                          hasContent: !!anyScene.content,
+                          contentPreview: anyScene.content ? anyScene.content.substring(0, 100) : 'N/A'
+                        }));
+                        
+                        if (anyScene.sceneName) {
+                          sceneName = anyScene.sceneName;
+                        } else if (anyScene.name) {
+                          sceneName = anyScene.name;
+                        } else if (anyScene.title) {
+                          sceneName = anyScene.title;
+                        } else {
+                          // 尝试从内容中提取场景名称
+                          const content = anyScene.content || '';
+                          
+                          // 尝试多种可能的场景标题格式
+                          // 格式1: "### 1. 场景1: 配置满意度调研功能"
+                          let sceneNameMatch = content.match(/^#+\s*\d+\.\s*场景\d+[:：]\s*(.+?)$/m);
+                          
+                          // 格式2: "### 场景1: 配置满意度调研功能"
+                          if (!sceneNameMatch) {
+                            sceneNameMatch = content.match(/^#+\s*场景\d+[:：]\s*(.+?)$/m);
+                          }
+                          
+                          // 格式3: "### 1.1 场景概述"
+                          if (!sceneNameMatch) {
+                            sceneNameMatch = content.match(/^#+\s*\d+\.\d+\s+(.+?)$/m);
+                          }
+                          
+                          // 格式4: 直接取第一行作为标题
+                          if (!sceneNameMatch && content) {
+                            const firstLine = content.split('\n')[0].trim();
+                            if (firstLine) {
+                              // 如果第一行是标题格式(以#开头)，去掉#号
+                              if (firstLine.startsWith('#')) {
+                                sceneNameMatch = [null, firstLine.replace(/^#+\s*/, '')];
+                              } else {
+                                sceneNameMatch = [null, firstLine];
+                              }
+                            }
+                          }
+                          
+                          if (sceneNameMatch && sceneNameMatch[1]) {
+                            sceneName = sceneNameMatch[1].trim();
+                          } else {
+                            sceneName = `场景 ${index + 1}`;
+                          }
+                        }
+                        
+                        console.log(`[TestCaseAssistant] 场景${index+1}的名称:`, sceneName);
+                        
+                        return (
+                          <SelectItem key={index} value={String(index)}>
+                            {`${t('scene')}${index + 1}: ${sceneName}`}
+                          </SelectItem>
+                        );
+                      })
+                    ) : (
+                      <div className="px-2 py-4 text-center text-sm text-gray-500">
+                        {t('noSceneFound')}
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               </DialogContent>
@@ -264,7 +410,7 @@ export function TestCaseAssistant() {
               onClick={() => setIsJiraModalOpen(true)}
             >
               <GanttChartSquare className="h-4 w-4" />
-              从Jira中加载
+              {t('loadFromJira')}
             </Button>
           </div>
         </div>
