@@ -349,9 +349,14 @@ export default function SceneAnalysisPage({params}: {params: {locale: string}}) 
   // 启动编辑场景
   const handleStartEdit = (scene: Scene, index: number) => {
     console.log('开始编辑场景:', scene.name);
+    // 获取当前场景的分析结果
+    const analysisResult = sceneStates[scene.name]?.analysisResult || '';
+    
     setEditingScene({
       name: scene.name,
-      content: scene.content
+      content: scene.content,
+      // 只有在还有分析结果时才添加分析结果到编辑状态
+      ...(analysisResult ? { analysisResult } : {})
     });
     
     // 更新场景状态
@@ -378,12 +383,14 @@ export default function SceneAnalysisPage({params}: {params: {locale: string}}) 
         setContent(updatedContent);
       }
       
-      // 更新场景状态
+      // 更新场景状态，包括边界分析结果
       setSceneStates(prev => ({
         ...prev,
         [scene.name]: {
           ...prev[scene.name],
-          isEditing: false
+          isEditing: false,
+          // 如果有边界分析结果，则更新它
+          ...(editingScene.analysisResult !== undefined ? { analysisResult: editingScene.analysisResult } : {})
         }
       }));
       
@@ -391,6 +398,10 @@ export default function SceneAnalysisPage({params}: {params: {locale: string}}) 
       if (selectedSystemId) {
         const storageKey = `requirement-structured-content-${selectedSystemId}`;
         localStorage.setItem(storageKey, JSON.stringify(updatedContent));
+        
+        // 保存分析状态到本地存储
+        const statesKey = `scene-analysis-states-${selectedSystemId}`;
+        localStorage.setItem(statesKey, JSON.stringify(sceneStates));
       }
       
       // 清空编辑状态
@@ -710,7 +721,10 @@ export default function SceneAnalysisPage({params}: {params: {locale: string}}) 
           ...sceneStates[scene.name],
           isOptimizeConfirming: false,
           isOptimizing: false,
-          optimizeResult: undefined
+          optimizeResult: undefined,
+          // 清空分析结果，因为已经被合并到场景内容中
+          analysisResult: undefined,
+          isCompleted: false
         }
       };
       setSceneStates(updatedStates);
@@ -919,17 +933,19 @@ export default function SceneAnalysisPage({params}: {params: {locale: string}}) 
                             </div>
                           </CardHeader>
                           <CardContent className="py-0 pb-3 space-y-3">
-                            {/* 场景内容 */}
+                            {/* 场景内容部分 */}
                             <div>
-                              {editingScene && editingScene.name === scene.name ? (
+                              {sceneStates[scene.name]?.isEditing ? (
                                 <textarea
                                   className="w-full p-2 text-sm border rounded-md min-h-[200px]"
-                                  value={editingScene.content}
+                                  value={editingScene?.content}
                                   onChange={(e) => {
-                                    setEditingScene({
-                                      ...editingScene,
-                                      content: e.target.value
-                                    });
+                                    if (editingScene) {
+                                      setEditingScene({
+                                        ...editingScene,
+                                        content: e.target.value
+                                      });
+                                    }
                                   }}
                                 />
                               ) : (
@@ -949,30 +965,46 @@ export default function SceneAnalysisPage({params}: {params: {locale: string}}) 
                               )}
                             </div>
                             
-                            {/* 边界分析结果 */}
+                            {/* 边界分析结果 - 仅在未接受优化且有分析结果时显示 */}
                             {(sceneStates[scene.name]?.analysisResult || 
                               (selectedScene?.name === scene.name && analysisResult) || 
                               sceneStates[scene.name]?.tempResult) && (
                               <div className="mt-4 border-t pt-4">
                                 <div className="text-sm text-gray-600">
-                                  <ReactMarkdown 
-                                    remarkPlugins={[remarkGfm]}
-                                    components={{
-                                      h3: ({children}: {children: React.ReactNode}) => <h3 className="text-base font-semibold text-gray-900 mb-2">{children}</h3>,
-                                      h4: ({children}: {children: React.ReactNode}) => <h4 className="text-sm font-medium text-gray-700 mb-1.5">{children}</h4>,
-                                      ul: ({children}: {children: React.ReactNode}) => <ul className="space-y-1 mb-3">{children}</ul>,
-                                      li: ({children}: {children: React.ReactNode}) => <li className="text-sm mb-1 text-orange-700">{children}</li>,
-                                      p: ({children}: {children: React.ReactNode}) => <p className="text-sm mb-2 text-orange-700">{children}</p>
-                                    }}
-                                  >
-                                    {String(sceneStates[scene.name]?.analysisResult || 
-                                            (selectedScene?.name === scene.name ? analysisResult : '') || 
-                                            sceneStates[scene.name]?.tempResult || '')}
-                                  </ReactMarkdown>
+                                  {sceneStates[scene.name]?.isEditing && editingScene?.name === scene.name && editingScene?.analysisResult !== undefined ? (
+                                    <>
+                                      <h4 className="text-sm font-medium text-gray-700 mb-1.5">编辑边界分析结果：</h4>
+                                      <textarea
+                                        className="w-full p-2 text-sm border border-orange-200 rounded-md min-h-[150px] text-orange-700"
+                                        value={editingScene.analysisResult || ''}
+                                        onChange={(e) => {
+                                          setEditingScene({
+                                            ...editingScene,
+                                            analysisResult: e.target.value
+                                          });
+                                        }}
+                                      />
+                                    </>
+                                  ) : (
+                                    <ReactMarkdown 
+                                      remarkPlugins={[remarkGfm]}
+                                      components={{
+                                        h3: ({children}: {children: React.ReactNode}) => <h3 className="text-base font-semibold text-gray-900 mb-2">{children}</h3>,
+                                        h4: ({children}: {children: React.ReactNode}) => <h4 className="text-sm font-medium text-gray-700 mb-1.5">{children}</h4>,
+                                        ul: ({children}: {children: React.ReactNode}) => <ul className="space-y-1 mb-3">{children}</ul>,
+                                        li: ({children}: {children: React.ReactNode}) => <li className="text-sm mb-1 text-orange-700">{children}</li>,
+                                        p: ({children}: {children: React.ReactNode}) => <p className="text-sm mb-2 text-orange-700">{children}</p>
+                                      }}
+                                    >
+                                      {String(sceneStates[scene.name]?.analysisResult || 
+                                              (selectedScene?.name === scene.name ? analysisResult : '') || 
+                                              sceneStates[scene.name]?.tempResult || '')}
+                                    </ReactMarkdown>
+                                  )}
                                 </div>
                                 
                                 {/* 确认按钮区域 */}
-                                {sceneStates[scene.name]?.isConfirming && !!sceneStates[scene.name]?.tempResult && (
+                                {sceneStates[scene.name]?.isConfirming && !!sceneStates[scene.name]?.tempResult && !sceneStates[scene.name]?.isEditing && (
                                   <div className="flex justify-end gap-3 mt-4">
                                     <Button
                                       onClick={() => handleRejectResult(scene)}
