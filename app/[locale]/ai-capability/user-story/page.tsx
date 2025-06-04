@@ -18,7 +18,7 @@ const UserStoryCard = dynamic(() => import('@/components/user-story-card').then(
 })
 import { UserStory } from '@/components/user-story-card'
 import { parseUserStoryYaml, Feature } from '@/lib/utils/yaml-parser'
-import { Copy, Trash2 } from 'lucide-react'
+import { Copy, Trash2, ExternalLink } from 'lucide-react'
 import { toast } from "@/components/ui/use-toast"
 import { useSystemStore } from '@/lib/stores/system-store'
 import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store'
@@ -367,6 +367,22 @@ export default function UserStoryPage() {
     });
   };
 
+  // 添加打开Jira的函数
+  const handleOpenJira = () => {
+    const jiraDomain = process.env.NEXT_PUBLIC_JIRA_DOMAIN || 'thoughtworks-team-evolve.atlassian.net'
+    window.open(`https://${jiraDomain}/jira/your-work`, '_blank')
+  }
+
+  // 添加处理Toast的函数
+  const handleToast = (title: string, description: string, variant: "default" | "destructive" = "default") => {
+    toast({
+      title,
+      description,
+      variant,
+      duration: 3000
+    });
+  };
+
   return (
     <div className="w-[90%] mx-auto py-6">
       <div className="mb-6">
@@ -434,7 +450,27 @@ export default function UserStoryPage() {
                     onClick={handleCopyResult}
                   >
                     <Copy className="h-4 w-4 mr-1" />
-                    {t('copyResult')}
+                    {t('copyRawYaml')}
+                  </Button>
+                  {parsedFeatures.length > 0 && parsedFeatures.map((feature, featureIndex) => (
+                    <Button 
+                      key={featureIndex}
+                      variant="outline" 
+                      size="sm" 
+                      className="flex items-center gap-1"
+                      onClick={() => handleCopyFeature(feature, featureIndex)}
+                    >
+                      <Copy className="h-4 w-4 mr-1" />
+                      {t('copyFeatureDetails')}
+                    </Button>
+                  ))[0]}
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleOpenJira}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    {t('openJira')}
                   </Button>
                   <Button 
                     variant="outline" 
@@ -470,15 +506,6 @@ export default function UserStoryPage() {
                         <h3 className="text-sm font-medium text-gray-800">
                           {t('feature')}：{feature.feature}
                         </h3>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-7 px-2 flex items-center gap-1 text-gray-600 hover:text-gray-900"
-                          onClick={() => handleCopyFeature(feature, featureIndex)}
-                        >
-                          <Copy className="h-3.5 w-3.5" />
-                          <span className="text-xs">{t('copyFeature')}</span>
-                        </Button>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {feature.stories.map((story, storyIndex) => (
@@ -490,6 +517,7 @@ export default function UserStoryPage() {
                             featureIndex={featureIndex}
                             onEdit={handleEditStory}
                             onDelete={handleDeleteStory}
+                            onToast={handleToast}
                           />
                         ))}
                       </div>

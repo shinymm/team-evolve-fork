@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/components/ui/use-toast"
-import { Loader2, Copy, Pencil, Trash2, RotateCcw, GanttChartSquare, Archive } from 'lucide-react'
+import { Loader2, Copy, Pencil, Trash2, RotateCcw, GanttChartSquare, Archive, ExternalLink } from 'lucide-react'
 import { streamingAICall } from '@/lib/services/ai-service'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -295,6 +295,12 @@ export function TestCaseAssistant() {
     }
   }
 
+  // 添加打开Jira的函数
+  const handleOpenJira = () => {
+    const jiraDomain = process.env.NEXT_PUBLIC_JIRA_DOMAIN || 'thoughtworks-team-evolve.atlassian.net'
+    window.open(`https://${jiraDomain}/jira/your-work`, '_blank')
+  }
+
   return (
     <div className="space-y-2">
       {!parsedTestCases.length && result && (
@@ -411,6 +417,16 @@ export function TestCaseAssistant() {
             >
               <GanttChartSquare className="h-4 w-4" />
               {t('loadFromJira')}
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-sm flex items-center gap-1"
+              onClick={handleOpenJira}
+            >
+              <ExternalLink className="h-4 w-4" />
+              {t('openJira')}
             </Button>
           </div>
         </div>

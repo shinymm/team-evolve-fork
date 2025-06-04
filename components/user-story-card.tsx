@@ -2,7 +2,7 @@ import React, { useState, forwardRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Edit, Trash2, Copy, Send } from "lucide-react";
+import { Edit, Trash2, Copy, Send, ExternalLink } from "lucide-react";
 import { useSystemStore } from '@/lib/stores/system-store';
 import { useTranslations } from 'next-intl';
 import {
@@ -28,14 +28,14 @@ export interface UserStoryCardProps {
   onEdit?: (story: UserStory, featureIndex: number, storyIndex: number) => void;
   onDelete?: (featureIndex: number, storyIndex: number) => void;
   featureIndex: number;
+  onToast?: (title: string, description: string, variant?: "default" | "destructive") => void;
 }
 
 export const UserStoryCard = forwardRef<HTMLDivElement, UserStoryCardProps>(function UserStoryCard(props, ref) {
-  const { story, featureName, index, onEdit, onDelete, featureIndex } = props;
+  const { story, featureName, index, onEdit, onDelete, featureIndex, onToast } = props;
   const t = useTranslations('UserStoryPage');
   const [isSendingToJira, setIsSendingToJira] = useState(false);
-  const [showJiraDialog, setShowJiraDialog] = useState(false);
-  const [jiraTaskKey, setJiraTaskKey] = useState('');
+  const [showCopyDialog, setShowCopyDialog] = useState(false);
   
   // 获取当前系统名称
   const { systems, selectedSystemId } = useSystemStore();
@@ -60,13 +60,21 @@ export const UserStoryCard = forwardRef<HTMLDivElement, UserStoryCardProps>(func
     // 复制到剪贴板
     navigator.clipboard.writeText(storyContent.join('\n'))
       .then(() => {
-        // 显示复制成功的弹窗
-        setJiraTaskKey('');
-        setShowJiraDialog(true);
+        // 使用Toast显示复制成功通知
+        if (onToast) {
+          onToast(t('copySuccess'), t('storyContentCopied'));
+        } else {
+          // 如果没有提供Toast回调，则使用Dialog
+          setShowCopyDialog(true);
+        }
       })
       .catch(err => {
         console.error('复制失败:', err);
-        alert(t('copyFailed'));
+        if (onToast) {
+          onToast(t('copyFailed'), t('copyFailedDesc'), "destructive");
+        } else {
+          alert(t('copyFailed'));
+        }
       });
   };
   
@@ -74,7 +82,11 @@ export const UserStoryCard = forwardRef<HTMLDivElement, UserStoryCardProps>(func
   const handleSendToJira = async () => {
     // 检查是否有系统名称
     if (!systemName) {
-      alert(t('noSystemSelected'));
+      if (onToast) {
+        onToast(t('noSystemSelected'), '', "destructive");
+      } else {
+        alert(t('noSystemSelected'));
+      }
       return;
     }
     
@@ -120,18 +132,39 @@ ${story.non_functional_requirements.map(req => `- ${req}`).join('\n')}` : ''}`.t
       if (response.ok) {
         console.log('Jira任务创建成功:', data.key);
         
-        // 显示Jira任务创建成功的弹窗
-        setJiraTaskKey(data.key);
-        setShowJiraDialog(true);
+        // 使用Toast显示创建成功通知
+        if (onToast) {
+          onToast(
+            t('taskCreationSuccess'),
+            `${t('jiraTaskCreated')} ${data.key}`
+          );
+        } else {
+          // 如果没有提供Toast回调，则显示Dialog
+          setShowCopyDialog(true);
+        }
       } else {
         throw new Error(data.error || t('createJiraTaskFailed'));
       }
     } catch (error) {
       console.error('创建Jira任务出错:', error);
-      alert(error instanceof Error ? error.message : t('createJiraTaskFailed') + ": " + t('unknownError'));
+      if (onToast) {
+        onToast(
+          t('createJiraTaskFailed'),
+          error instanceof Error ? error.message : t('unknownError'),
+          "destructive"
+        );
+      } else {
+        alert(error instanceof Error ? error.message : t('createJiraTaskFailed') + ": " + t('unknownError'));
+      }
     } finally {
       setIsSendingToJira(false);
     }
+  };
+  
+  // 添加打开Jira的函数
+  const handleOpenJira = () => {
+    const jiraDomain = process.env.NEXT_PUBLIC_JIRA_DOMAIN || 'thoughtworks-team-evolve.atlassian.net';
+    window.open(`https://${jiraDomain}/jira/your-work`, '_blank');
   };
   
   return (
@@ -167,6 +200,16 @@ ${story.non_functional_requirements.map(req => `- ${req}`).join('\n')}` : ''}`.t
                     title={t('sendToJira')}
                   >
                     <Send className={`h-3.5 w-3.5 ${isSendingToJira ? 'text-gray-300' : 'text-gray-500 hover:text-blue-600'}`} />
+                  </Button>
+
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-6 w-6 p-0" 
+                    onClick={handleOpenJira}
+                    title={t('openJira')}
+                  >
+                    <ExternalLink className="h-3.5 w-3.5 text-gray-500 hover:text-blue-600" />
                   </Button>
                   
                   {onEdit && (
@@ -227,32 +270,31 @@ ${story.non_functional_requirements.map(req => `- ${req}`).join('\n')}` : ''}`.t
         </CardContent>
       </Card>
 
-      {/* 自定义通知弹窗 */}
-      <Dialog open={showJiraDialog} onOpenChange={setShowJiraDialog}>
-        <DialogContent className="sm:max-w-md bg-gradient-to-br from-white to-orange-50 border-orange-200">
-          <DialogHeader>
-            <DialogTitle className="text-center text-orange-700 flex items-center justify-center gap-2">
-              {jiraTaskKey ? t('taskCreationSuccess') : t('copySuccess')}
-            </DialogTitle>
-            <DialogDescription className="text-center pt-2">
-              {jiraTaskKey 
-                ? <span>{t('jiraTaskCreated')} <span className="font-bold text-orange-600">{jiraTaskKey}</span></span>
-                : <span>{t('storyContentCopied')}</span>
-              }
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="sm:justify-center mt-2">
-            <Button
-              type="button"
-              variant="default"
-              className="bg-orange-600 hover:bg-orange-700 text-white"
-              onClick={() => setShowJiraDialog(false)}
-            >
-              {t('confirm')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* 仅在不使用Toast时才显示Dialog */}
+      {!onToast && (
+        <Dialog open={showCopyDialog} onOpenChange={setShowCopyDialog}>
+          <DialogContent className="sm:max-w-md bg-gradient-to-br from-white to-orange-50 border-orange-200">
+            <DialogHeader>
+              <DialogTitle className="text-center text-orange-700 flex items-center justify-center gap-2">
+                {t('copySuccess')}
+              </DialogTitle>
+              <DialogDescription className="text-center pt-2">
+                <span>{t('storyContentCopied')}</span>
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="sm:justify-center mt-2">
+              <Button
+                type="button"
+                variant="default"
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+                onClick={() => setShowCopyDialog(false)}
+              >
+                {t('confirm')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 });

@@ -80,6 +80,9 @@
     "startAnalysis": "Start User Story Breakdown",
     "breakdownResult": "Breakdown Result:",
     "copyResult": "Copy Result",
+    "copyRawYaml": "Copy Raw YAML",
+    "copyFeature": "Copy Feature",
+    "copyFeatureDetails": "Copy Feature Details",
     "showDebug": "Show Debug",
     "hideDebug": "Hide Debug",
     "manualParse": "Manual Parse",
@@ -90,7 +93,6 @@
     "featureCount": "Feature Count",
     "storyCount": "Total User Stories",
     "feature": "Feature",
-    "copyFeature": "Copy Feature",
     "parseErrorMessage": "Failed to parse into card format, showing raw YAML. Please check if the YAML format is correct, or click the \"Manual Parse\" button to try parsing again.",
     "editUserStory": "Edit User Story",
     "userStory": "User Story",
@@ -119,7 +121,8 @@
     "taskCreationSuccess": "Task Created Successfully",
     "jiraTaskCreated": "Jira task",
     "storyContentCopied": "User story content has been copied to clipboard",
-    "confirm": "Confirm"
+    "confirm": "Confirm",
+    "openJira": "Open Jira Dashboard"
   },
   "BookConfirmPage": {
     "title": "Requirement Book Confirmation",

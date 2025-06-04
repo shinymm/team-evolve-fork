@@ -80,6 +80,9 @@
     "startAnalysis": "开始拆解用户故事",
     "breakdownResult": "拆解结果：",
     "copyResult": "复制结果",
+    "copyRawYaml": "复制YAML原文",
+    "copyFeature": "复制功能",
+    "copyFeatureDetails": "复制功能详情",
     "showDebug": "显示调试",
     "hideDebug": "隐藏调试",
     "manualParse": "手动解析",
@@ -92,7 +95,6 @@
     "featureCount": "功能数量",
     "storyCount": "用户故事总数",
     "feature": "功能",
-    "copyFeature": "复制功能",
     "parseErrorMessage": "未能解析为卡片格式，显示原始YAML。请检查YAML格式是否正确，或点击\"手动解析\"按钮尝试再次解析。",
     "editUserStory": "编辑用户故事",
     "userStory": "用户故事",
@@ -119,7 +121,8 @@
     "taskCreationSuccess": "任务创建成功",
     "jiraTaskCreated": "Jira任务",
     "storyContentCopied": "用户故事内容已复制到剪贴板",
-    "confirm": "确定"
+    "confirm": "确定",
+    "openJira": "打开Jira工作台"
   },
   "BookConfirmPage": {
     "title": "需求书确认",
