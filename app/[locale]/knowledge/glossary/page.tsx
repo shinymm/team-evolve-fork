@@ -1,40 +1,44 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
 import { Pencil, Trash2, Plus, Check, X, Loader2 } from 'lucide-react'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { toast } from '@/components/ui/use-toast'
-import { Card, CardContent } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
-import { Slider } from '@/components/ui/slider'
 import { useVectorConfigStore } from '@/lib/stores/vector-config-store'
 import { getVectorConfig } from '@/lib/vector-config-service'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { useSystemStore } from '@/lib/stores/system-store'
 import { useTranslations } from 'next-intl'
+import dynamic from 'next/dynamic'
+import { useToast } from '@/components/ui/use-toast'
+
+// 动态导入UI组件
+const Button = dynamic(() => import('@/components/ui/button').then(mod => mod.Button))
+const Table = dynamic(() => import('@/components/ui/table').then(mod => mod.Table))
+const TableBody = dynamic(() => import('@/components/ui/table').then(mod => mod.TableBody))
+const TableCell = dynamic(() => import('@/components/ui/table').then(mod => mod.TableCell))
+const TableHead = dynamic(() => import('@/components/ui/table').then(mod => mod.TableHead))
+const TableHeader = dynamic(() => import('@/components/ui/table').then(mod => mod.TableHeader))
+const TableRow = dynamic(() => import('@/components/ui/table').then(mod => mod.TableRow))
+const Input = dynamic(() => import('@/components/ui/input').then(mod => mod.Input))
+const Label = dynamic(() => import('@/components/ui/label').then(mod => mod.Label))
+const Textarea = dynamic(() => import('@/components/ui/textarea').then(mod => mod.Textarea))
+const Checkbox = dynamic(() => import('@/components/ui/checkbox').then(mod => mod.Checkbox))
+const Badge = dynamic(() => import('@/components/ui/badge').then(mod => mod.Badge))
+const Select = dynamic(() => import('@/components/ui/select').then(mod => mod.Select))
+const SelectContent = dynamic(() => import('@/components/ui/select').then(mod => mod.SelectContent))
+const SelectItem = dynamic(() => import('@/components/ui/select').then(mod => mod.SelectItem))
+const SelectTrigger = dynamic(() => import('@/components/ui/select').then(mod => mod.SelectTrigger))
+const SelectValue = dynamic(() => import('@/components/ui/select').then(mod => mod.SelectValue))
+const Card = dynamic(() => import('@/components/ui/card').then(mod => mod.Card))
+const CardContent = dynamic(() => import('@/components/ui/card').then(mod => mod.CardContent))
+const Separator = dynamic(() => import('@/components/ui/separator').then(mod => mod.Separator))
+const Slider = dynamic(() => import('@/components/ui/slider').then(mod => mod.Slider))
+const AlertDialog = dynamic(() => import('@/components/ui/alert-dialog').then(mod => mod.AlertDialog))
+const AlertDialogAction = dynamic(() => import('@/components/ui/alert-dialog').then(mod => mod.AlertDialogAction))
+const AlertDialogCancel = dynamic(() => import('@/components/ui/alert-dialog').then(mod => mod.AlertDialogCancel))
+const AlertDialogContent = dynamic(() => import('@/components/ui/alert-dialog').then(mod => mod.AlertDialogContent))
+const AlertDialogDescription = dynamic(() => import('@/components/ui/alert-dialog').then(mod => mod.AlertDialogDescription))
+const AlertDialogFooter = dynamic(() => import('@/components/ui/alert-dialog').then(mod => mod.AlertDialogFooter))
+const AlertDialogHeader = dynamic(() => import('@/components/ui/alert-dialog').then(mod => mod.AlertDialogHeader))
+const AlertDialogTitle = dynamic(() => import('@/components/ui/alert-dialog').then(mod => mod.AlertDialogTitle))
 
 // 硬编码的用户ID
 const HARDCODED_USER_ID = '43170448'
@@ -67,6 +71,7 @@ type Pagination = {
 export default function GlossaryPage() {
   // 获取国际化翻译函数
   const t = useTranslations('GlossaryPage')
+  const { toast } = useToast()
   
   // 状态管理
   const [items, setItems] = useState<GlossaryItem[]>([])

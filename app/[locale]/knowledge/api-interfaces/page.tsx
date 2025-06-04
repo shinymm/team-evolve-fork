@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import { Eye, Bell, ChevronRight, X, Loader2, Settings } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { SwaggerViewer } from "@/components/swagger-viewer"
@@ -10,6 +11,18 @@ import { useSystemStore } from '@/lib/stores/system-store'; // Import system sto
 import { useToast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useTranslations } from 'next-intl'
+
+// 动态导入UI组件
+const Card = dynamic(() => import('@/components/ui/card').then(mod => mod.Card))
+const CardContent = dynamic(() => import('@/components/ui/card').then(mod => mod.CardContent))
+const CardHeader = dynamic(() => import('@/components/ui/card').then(mod => mod.CardHeader))
+const CardTitle = dynamic(() => import('@/components/ui/card').then(mod => mod.CardTitle))
+const CardDescription = dynamic(() => import('@/components/ui/card').then(mod => mod.CardDescription))
+const CardFooter = dynamic(() => import('@/components/ui/card').then(mod => mod.CardFooter))
+const Badge = dynamic(() => import('@/components/ui/badge').then(mod => mod.Badge))
+const Collapsible = dynamic(() => import('@/components/ui/collapsible').then(mod => mod.Collapsible))
+const CollapsibleTrigger = dynamic(() => import('@/components/ui/collapsible').then(mod => mod.CollapsibleTrigger))
+const CollapsibleContent = dynamic(() => import('@/components/ui/collapsible').then(mod => mod.CollapsibleContent))
 
 // Define APIInterface type locally, including swaggerDoc
 interface APIInterface {

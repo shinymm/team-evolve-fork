@@ -1,15 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import dynamic from 'next/dynamic'
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { 
   Search, 
   PlusCircle, 
   Clock, 
+  Tag,
   Edit,
+  Trash2,
   Loader2
 } from "lucide-react"
 import { Standard } from '@/lib/services/standard-service'
@@ -18,14 +16,22 @@ import { useToast } from '@/components/ui/use-toast'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import { useTranslations } from 'next-intl'
+import dynamic from 'next/dynamic'
 
-// 动态导入卡片组件
-const Card = dynamic(() => import("@/components/ui/card").then(mod => mod.Card))
-const CardContent = dynamic(() => import("@/components/ui/card").then(mod => mod.CardContent))
-const CardDescription = dynamic(() => import("@/components/ui/card").then(mod => mod.CardDescription))
-const CardFooter = dynamic(() => import("@/components/ui/card").then(mod => mod.CardFooter))
-const CardHeader = dynamic(() => import("@/components/ui/card").then(mod => mod.CardHeader))
-const CardTitle = dynamic(() => import("@/components/ui/card").then(mod => mod.CardTitle))
+// 动态导入UI组件
+const Button = dynamic(() => import('@/components/ui/button').then(mod => mod.Button))
+const Input = dynamic(() => import('@/components/ui/input').then(mod => mod.Input))
+const Card = dynamic(() => import('@/components/ui/card').then(mod => mod.Card))
+const CardContent = dynamic(() => import('@/components/ui/card').then(mod => mod.CardContent))
+const CardDescription = dynamic(() => import('@/components/ui/card').then(mod => mod.CardDescription))
+const CardFooter = dynamic(() => import('@/components/ui/card').then(mod => mod.CardFooter))
+const CardHeader = dynamic(() => import('@/components/ui/card').then(mod => mod.CardHeader))
+const CardTitle = dynamic(() => import('@/components/ui/card').then(mod => mod.CardTitle))
+const Badge = dynamic(() => import('@/components/ui/badge').then(mod => mod.Badge))
+const Tabs = dynamic(() => import('@/components/ui/tabs').then(mod => mod.Tabs))
+const TabsContent = dynamic(() => import('@/components/ui/tabs').then(mod => mod.TabsContent))
+const TabsList = dynamic(() => import('@/components/ui/tabs').then(mod => mod.TabsList))
+const TabsTrigger = dynamic(() => import('@/components/ui/tabs').then(mod => mod.TabsTrigger))
 
 export default function StandardsPage() {
   const [standards, setStandards] = useState<Standard[]>([])

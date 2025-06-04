@@ -3,24 +3,36 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from '@/i18n/navigation'
 import { useToast } from '@/components/ui/use-toast'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardFooter, 
-  CardHeader, 
-  CardTitle 
-} from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Template } from '@/lib/services/template-service'
 import { ArrowLeft, Save, X, Plus, Loader2 } from 'lucide-react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useTranslations } from 'next-intl'
+import dynamic from 'next/dynamic'
+
+// 动态导入UI组件
+const Button = dynamic(() => import('@/components/ui/button').then(mod => mod.Button))
+const Input = dynamic(() => import('@/components/ui/input').then(mod => mod.Input))
+const Textarea = dynamic(() => import('@/components/ui/textarea').then(mod => mod.Textarea))
+const Card = dynamic(() => import('@/components/ui/card').then(mod => mod.Card))
+const CardContent = dynamic(() => import('@/components/ui/card').then(mod => mod.CardContent))
+const CardHeader = dynamic(() => import('@/components/ui/card').then(mod => mod.CardHeader))
+const CardTitle = dynamic(() => import('@/components/ui/card').then(mod => mod.CardTitle))
+const CardDescription = dynamic(() => import('@/components/ui/card').then(mod => mod.CardDescription))
+const CardFooter = dynamic(() => import('@/components/ui/card').then(mod => mod.CardFooter))
+const AlertDialog = dynamic(() => import('@/components/ui/alert-dialog').then(mod => mod.AlertDialog))
+const AlertDialogAction = dynamic(() => import('@/components/ui/alert-dialog').then(mod => mod.AlertDialogAction))
+const AlertDialogCancel = dynamic(() => import('@/components/ui/alert-dialog').then(mod => mod.AlertDialogCancel))
+const AlertDialogContent = dynamic(() => import('@/components/ui/alert-dialog').then(mod => mod.AlertDialogContent))
+const AlertDialogDescription = dynamic(() => import('@/components/ui/alert-dialog').then(mod => mod.AlertDialogDescription))
+const AlertDialogFooter = dynamic(() => import('@/components/ui/alert-dialog').then(mod => mod.AlertDialogFooter))
+const AlertDialogHeader = dynamic(() => import('@/components/ui/alert-dialog').then(mod => mod.AlertDialogHeader))
+const AlertDialogTitle = dynamic(() => import('@/components/ui/alert-dialog').then(mod => mod.AlertDialogTitle))
+const Badge = dynamic(() => import('@/components/ui/badge').then(mod => mod.Badge))
+const Tabs = dynamic(() => import('@/components/ui/tabs').then(mod => mod.Tabs))
+const TabsList = dynamic(() => import('@/components/ui/tabs').then(mod => mod.TabsList))
+const TabsTrigger = dynamic(() => import('@/components/ui/tabs').then(mod => mod.TabsTrigger))
+const TabsContent = dynamic(() => import('@/components/ui/tabs').then(mod => mod.TabsContent))
 
 interface TemplatePageProps {
   params: {

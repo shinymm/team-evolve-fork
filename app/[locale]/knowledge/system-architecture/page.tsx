@@ -3,16 +3,40 @@
 import { useState, useEffect } from 'react';
 import { Settings, Loader2, Plus } from 'lucide-react';
 import PlantUmlViewer from '@/components/plantuml-viewer';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { useSystemStore } from '@/lib/stores/system-store';
 import { useToast } from "@/components/ui/use-toast";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { highLevelArchitecture as defaultHighLevelArchitecture } from '@/lib/plantuml-templates/high-level';
 import { microserviceArchitecture as defaultMicroserviceArchitecture } from '@/lib/plantuml-templates/microservice';
 import { deploymentArchitecture as defaultDeploymentArchitecture } from '@/lib/plantuml-templates/deployment';
 import { useTranslations } from 'next-intl';
+import dynamic from 'next/dynamic';
+
+// 动态导入UI组件
+const Dialog = dynamic(() => import('@/components/ui/dialog').then(mod => mod.Dialog))
+const DialogContent = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogContent))
+const DialogHeader = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogHeader))
+const DialogTitle = dynamic(() => import('@/components/ui/dialog').then(mod => mod.DialogTitle))
+const Button = dynamic(() => import('@/components/ui/button').then(mod => mod.Button))
+const Textarea = dynamic(() => import('@/components/ui/textarea').then(mod => mod.Textarea))
+const Input = dynamic(() => import('@/components/ui/input').then(mod => mod.Input))
+const Tabs = dynamic(() => import('@/components/ui/tabs').then(mod => mod.Tabs))
+const TabsList = dynamic(() => import('@/components/ui/tabs').then(mod => mod.TabsList))
+const TabsTrigger = dynamic(() => import('@/components/ui/tabs').then(mod => mod.TabsTrigger))
+const TabsContent = dynamic(() => import('@/components/ui/tabs').then(mod => mod.TabsContent))
+const Card = dynamic(() => import('@/components/ui/card').then(mod => mod.Card))
+const CardContent = dynamic(() => import('@/components/ui/card').then(mod => mod.CardContent))
+const CardHeader = dynamic(() => import('@/components/ui/card').then(mod => mod.CardHeader))
+const CardTitle = dynamic(() => import('@/components/ui/card').then(mod => mod.CardTitle))
+const CardDescription = dynamic(() => import('@/components/ui/card').then(mod => mod.CardDescription))
+const CardFooter = dynamic(() => import('@/components/ui/card').then(mod => mod.CardFooter))
+const AlertDialog = dynamic(() => import('@/components/ui/alert-dialog').then(mod => mod.AlertDialog))
+const AlertDialogAction = dynamic(() => import('@/components/ui/alert-dialog').then(mod => mod.AlertDialogAction))
+const AlertDialogCancel = dynamic(() => import('@/components/ui/alert-dialog').then(mod => mod.AlertDialogCancel))
+const AlertDialogContent = dynamic(() => import('@/components/ui/alert-dialog').then(mod => mod.AlertDialogContent))
+const AlertDialogDescription = dynamic(() => import('@/components/ui/alert-dialog').then(mod => mod.AlertDialogDescription))
+const AlertDialogFooter = dynamic(() => import('@/components/ui/alert-dialog').then(mod => mod.AlertDialogFooter))
+const AlertDialogHeader = dynamic(() => import('@/components/ui/alert-dialog').then(mod => mod.AlertDialogHeader))
+const AlertDialogTitle = dynamic(() => import('@/components/ui/alert-dialog').then(mod => mod.AlertDialogTitle))
 
 export type ArchitectureType = 'high-level' | 'microservice' | 'deployment';
 
