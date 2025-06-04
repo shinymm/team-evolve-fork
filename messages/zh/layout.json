@@ -22,9 +22,8 @@
   "AccountManagement": {
     "title": "账户管理",
     "teamEvolveKey": "TeamEvolve 访问密钥",
-    "teamEvolveKeyDesc": "用于访问 TeamEvolve 平台的 API 密钥",
+    "jiraUsername": "Jira 用户名",
     "jiraKey": "Jira 访问密钥",
-    "jiraKeyDesc": "用于访问 Jira 平台的 API 密钥",
     "save": "保存",
     "saving": "保存中...",
     "cancel": "取消",

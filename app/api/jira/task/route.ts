@@ -46,6 +46,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '未找到JIRA访问密钥' }, { status: 404 });
     }
 
+    // 获取Jira用户名，如果数据库中没有则使用环境变量中的JIRA_ADMIN
+    const jiraUsername = accessKeyRecord.username || jiraAdmin;
+
     // 构建Jira API请求
     const jiraApiUrl = `https://${jiraDomain}/rest/api/2/issue`;
     const jiraRequestBody = {
@@ -63,7 +66,7 @@ export async function POST(req: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Basic ${Buffer.from(`${jiraAdmin}:${accessKeyRecord.accessKey}`).toString('base64')}`
+        'Authorization': `Basic ${Buffer.from(`${jiraUsername}:${accessKeyRecord.accessKey}`).toString('base64')}`
       },
       body: JSON.stringify(jiraRequestBody)
     });

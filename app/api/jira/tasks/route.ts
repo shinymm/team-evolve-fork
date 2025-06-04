@@ -59,6 +59,10 @@ export async function GET(req: NextRequest) {
     // ==========
     const jiraApiToken = accessKeyData.accessKey;
     
+    // 获取Jira用户名，如果数据库中没有则使用环境变量中的JIRA_ADMIN
+    const jiraUsername = accessKeyData.username || jiraAdmin;
+    console.log('使用Jira用户名:', jiraUsername);
+    
     // JQL
     const jql = `project=${systemName}`;
     const fields = 'key,summary,description,assignee,status.name,created,updated';
@@ -73,10 +77,10 @@ export async function GET(req: NextRequest) {
     
     console.log('Jira请求URL:', `${jiraApiUrl}?${params.toString()}`);
     console.log('JQL查询:', jql);
-    console.log('授权信息:', `${jiraAdmin}:***`);
+    console.log('授权信息:', `${jiraUsername}:***`);
 
     // 准备Authorization头
-    const authHeader = `Basic ${Buffer.from(`${jiraAdmin}:${jiraApiToken}`).toString('base64')}`;
+    const authHeader = `Basic ${Buffer.from(`${jiraUsername}:${jiraApiToken}`).toString('base64')}`;
 
     // 调用Jira API
     const jiraResponse = await fetch(`${jiraApiUrl}?${params.toString()}`, {

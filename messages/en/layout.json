@@ -22,9 +22,8 @@
   "AccountManagement": {
     "title": "Account Management",
     "teamEvolveKey": "TeamEvolve Access Key",
-    "teamEvolveKeyDesc": "API key for accessing TeamEvolve platform",
+    "jiraUsername": "Jira Username",
     "jiraKey": "Jira Access Key",
-    "jiraKeyDesc": "API key for accessing Jira platform",
     "save": "Save",
     "saving": "Saving...",
     "cancel": "Cancel",

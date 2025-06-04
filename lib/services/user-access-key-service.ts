@@ -15,6 +15,7 @@ interface UserAccessKeyWithDecrypted {
   platform: PlatformType;
   encryptedAccessKey: string;
   accessKey: string; // 解密后的密钥
+  username?: string; // 新增字段，存储Jira用户名
   createdAt: Date;
   updatedAt: Date;
 }
@@ -34,12 +35,14 @@ export class UserAccessKeyService {
    * @param userId 用户ID
    * @param platform 平台类型
    * @param accessKey 访问密钥（明文）
+   * @param username 用户名（可选，主要用于Jira平台）
    * @returns 创建或更新的访问密钥记录
    */
   static async upsertUserAccessKey(
     userId: string, 
     platform: PlatformType, 
-    accessKey: string
+    accessKey: string,
+    username?: string
   ): Promise<UserAccessKeyWithDecrypted> {
     try {
       // 加密访问密钥
@@ -56,12 +59,14 @@ export class UserAccessKeyService {
         },
         update: {
           encryptedAccessKey,
+          username,
           updatedAt: new Date(),
         },
         create: {
           userId,
           platform,
           encryptedAccessKey,
+          username,
         },
       });
       

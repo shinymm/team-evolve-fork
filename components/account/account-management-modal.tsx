@@ -20,6 +20,7 @@ interface AccountManagementModalProps {
 export function AccountManagementModal({ isOpen, onClose, userId }: AccountManagementModalProps) {
   const [teamEvolveKey, setTeamEvolveKey] = useState('')
   const [jiraKey, setJiraKey] = useState('')
+  const [jiraUsername, setJiraUsername] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [confirmAction, setConfirmAction] = useState<'generate'>('generate')
@@ -52,6 +53,9 @@ export function AccountManagementModal({ isOpen, onClose, userId }: AccountManag
         const data = await jiraResponse.json()
         if (data && data.accessKey) {
           setJiraKey(data.accessKey)
+        }
+        if (data && data.username) {
+          setJiraUsername(data.username)
         }
       }
     } catch (error) {
@@ -154,7 +158,8 @@ export function AccountManagementModal({ isOpen, onClose, userId }: AccountManag
           },
           body: JSON.stringify({
             platform: 'JIRA',
-            accessKey: jiraKey
+            accessKey: jiraKey,
+            username: jiraUsername
           })
         })
       }
@@ -217,9 +222,18 @@ export function AccountManagementModal({ isOpen, onClose, userId }: AccountManag
                   {t('copyKey')}
                 </Button>
               </div>
-              <p className="text-sm text-gray-500">
-                {t('teamEvolveKeyDesc')}
-              </p>
+            </div>
+            
+            <div className="grid gap-2">
+              <Label htmlFor="jiraUsername">{t('jiraUsername')}</Label>
+              <Input
+                id="jiraUsername"
+                type="text"
+                value={jiraUsername}
+                onChange={(e) => setJiraUsername(e.target.value)}
+                placeholder={t('jiraUsername')}
+                disabled={isLoading}
+              />
             </div>
             
             <div className="grid gap-2">
@@ -232,9 +246,6 @@ export function AccountManagementModal({ isOpen, onClose, userId }: AccountManag
                 placeholder={t('jiraKey')}
                 disabled={isLoading}
               />
-              <p className="text-sm text-gray-500">
-                {t('jiraKeyDesc')}
-              </p>
             </div>
           </div>
           

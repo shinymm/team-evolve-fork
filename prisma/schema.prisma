@@ -62,6 +62,7 @@ model UserAccessKey {
   userId            String
   platform          PlatformType
   encryptedAccessKey String       @db.Text
+  username          String?      @db.VarChar(255) // 存储Jira用户名
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
   

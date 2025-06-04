@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -49,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     // 获取请求体
     const body = await request.json()
-    const { platform, accessKey } = body
+    const { platform, accessKey, username } = body
 
     if (!platform || !accessKey) {
       return NextResponse.json({ error: '缺少必要参数' }, { status: 400 })
@@ -59,7 +58,8 @@ export async function POST(request: NextRequest) {
     const result = await UserAccessKeyService.upsertUserAccessKey(
       session.user.id,
       platform as any,  // 临时类型断言
-      accessKey
+      accessKey,
+      username // 添加用户名参数
     )
 
     return NextResponse.json({
