@@ -12,6 +12,7 @@ import { ArrowLeft, X, Plus } from 'lucide-react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useTranslations } from 'next-intl'
+import React from 'react'
 
 export default function CreateTemplatePage() {
   const [formData, setFormData] = useState({
@@ -163,33 +164,14 @@ export default function CreateTemplatePage() {
           
           <div>
             <label className="block text-sm font-medium mb-1">{t('content')} <span className="text-red-500">*</span></label>
-            <Tabs defaultValue="edit">
-              <TabsList className="mb-2">
-                <TabsTrigger value="edit">{t('edit')}</TabsTrigger>
-                <TabsTrigger value="preview">{t('preview')}</TabsTrigger>
-              </TabsList>
-              <TabsContent value="edit">
-                <Textarea 
-                  name="content"
-                  value={formData.content}
-                  onChange={handleInputChange}
-                  placeholder={t('contentPlaceholder')}
-                  rows={20}
-                  className="font-mono"
-                />
-              </TabsContent>
-              <TabsContent value="preview">
-                <div className="border rounded-md p-4 min-h-[300px] prose max-w-none">
-                  {formData.content ? (
-                    <Markdown remarkPlugins={[remarkGfm]}>
-                      {formData.content}
-                    </Markdown>
-                  ) : (
-                    <div className="text-gray-400">{t('previewArea')}</div>
-                  )}
-                </div>
-              </TabsContent>
-            </Tabs>
+            <Textarea 
+              name="content"
+              value={formData.content}
+              onChange={handleInputChange}
+              placeholder={t('contentPlaceholder')}
+              rows={20}
+              className="font-mono"
+            />
           </div>
 
           <div className="flex justify-end pt-4">
