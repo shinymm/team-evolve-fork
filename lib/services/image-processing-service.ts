@@ -102,6 +102,7 @@ export class ImageProcessingService {
     systemId: string,
     imageUrls: string[],
     requirementOverview: string,
+    templateId: string,
     onReasoningContent: (content: string) => void,
     onAnswerContent: (content: string) => void
   ): Promise<void> {
@@ -122,6 +123,7 @@ export class ImageProcessingService {
       systemId,
       imageUrls,
       requirementOverview,
+      templateId,
       onReasoningContent,
       onAnswerContent
     );
