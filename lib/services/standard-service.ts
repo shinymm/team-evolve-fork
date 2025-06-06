@@ -7,10 +7,12 @@ export interface StandardInput {
   description: string;
   content: string;
   tags: string[];
+  systemId: string;
 }
 
 export interface Standard {
   id: string;
+  systemId: string;
   name: string;
   description: string;
   content: string;
@@ -29,13 +31,15 @@ export class StandardService {
     const timestamp = Date.now().toString();
     
     return prisma.$transaction(async (tx) => {
-      return tx.standard.create({
+      const standard = await tx.standard.create({
         data: {
           ...data,
           version: timestamp,
           createdBy: userId,
         },
       });
+      
+      return standard as Standard;
     });
   }
 
@@ -45,6 +49,7 @@ export class StandardService {
   static async getStandards(filters?: { 
     name?: string; 
     tags?: string[];
+    systemId?: string;
   }): Promise<Standard[]> {
     const where: any = {};
     
@@ -61,13 +66,40 @@ export class StandardService {
       };
     }
     
+    if (filters?.systemId) {
+      where.systemId = filters.systemId;
+    } else {
+      console.warn('StandardService: 警告 - 调用未提供systemId');
+    }
+    
+    console.log('StandardService查询条件:', where);
+    
     return prisma.$transaction(async (tx) => {
-      return tx.standard.findMany({
-        where,
+      const standards = await tx.standard.findMany({
+        where: where as any,
         orderBy: {
           updatedAt: 'desc',
         },
       });
+      
+      console.log(`StandardService: 查询返回${standards.length}条记录`);
+      return standards as Standard[];
+    });
+  }
+
+  /**
+   * 根据系统ID获取规范
+   */
+  static async getStandardsBySystemId(systemId: string): Promise<Standard[]> {
+    return prisma.$transaction(async (tx) => {
+      const standards = await tx.standard.findMany({
+        where: { systemId } as any,
+        orderBy: {
+          updatedAt: 'desc',
+        },
+      });
+      
+      return standards as Standard[];
     });
   }
 
@@ -76,9 +108,11 @@ export class StandardService {
    */
   static async getStandardById(id: string): Promise<Standard | null> {
     return prisma.$transaction(async (tx) => {
-      return tx.standard.findUnique({
+      const standard = await tx.standard.findUnique({
         where: { id },
       });
+      
+      return standard as Standard | null;
     });
   }
 
@@ -89,7 +123,7 @@ export class StandardService {
     const timestamp = Date.now().toString();
     
     return prisma.$transaction(async (tx) => {
-      return tx.standard.update({
+      const standard = await tx.standard.update({
         where: { id },
         data: {
           ...data,
@@ -97,6 +131,8 @@ export class StandardService {
           updatedAt: new Date(),
         },
       });
+      
+      return standard as Standard;
     });
   }
 
@@ -105,9 +141,11 @@ export class StandardService {
    */
   static async deleteStandard(id: string): Promise<Standard> {
     return prisma.$transaction(async (tx) => {
-      return tx.standard.delete({
+      const standard = await tx.standard.delete({
         where: { id },
       });
+      
+      return standard as Standard;
     });
   }
 } 

@@ -194,6 +194,8 @@ model System {
   requirementActions RequirementAction[]
   uploadedImages   UploadedImage[]  // 添加上传图片关联
   requirementFiles RequirementFile[] // 添加需求文件关联
+  templates      Template[]       // 添加模板关联
+  standards      Standard[]       // 添加规范关联
 
   @@index([status])
 }
@@ -318,6 +320,7 @@ model RequirementAction {
 // 模版库模型
 model Template {
   id          String   @id @default(cuid())
+  systemId    String   // 添加系统ID字段
   name        String   
   description String   @db.Text
   content     String   @db.Text  // Markdown格式内容
@@ -327,6 +330,10 @@ model Template {
   updatedAt   DateTime @updatedAt
   createdBy   String   // 创建者ID
 
+  // 添加与系统的关联
+  system      System   @relation(fields: [systemId], references: [id], onDelete: Cascade)
+
+  @@index([systemId])
   @@index([name])
   @@index([createdBy])
   @@index([tags])
@@ -335,6 +342,7 @@ model Template {
 // 规范库模型
 model Standard {
   id          String   @id @default(cuid())
+  systemId    String   // 添加系统ID字段
   name        String   
   description String   @db.Text
   content     String   @db.Text  // Markdown格式内容
@@ -344,6 +352,10 @@ model Standard {
   updatedAt   DateTime @updatedAt
   createdBy   String   // 创建者ID
 
+  // 添加与系统的关联
+  system      System   @relation(fields: [systemId], references: [id], onDelete: Cascade)
+
+  @@index([systemId])
   @@index([name])
   @@index([createdBy])
   @@index([tags])

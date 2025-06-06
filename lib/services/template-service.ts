@@ -7,10 +7,12 @@ export interface TemplateInput {
   description: string;
   content: string;
   tags: string[];
+  systemId: string;
 }
 
 export interface Template {
   id: string;
+  systemId: string;
   name: string;
   description: string;
   content: string;
@@ -29,13 +31,15 @@ export class TemplateService {
     const timestamp = Date.now().toString();
     
     return prisma.$transaction(async (tx) => {
-      return tx.template.create({
+      const template = await tx.template.create({
         data: {
           ...data,
           version: timestamp,
           createdBy: userId,
         },
       });
+      
+      return template as Template;
     });
   }
 
@@ -45,6 +49,7 @@ export class TemplateService {
   static async getTemplates(filters?: { 
     name?: string; 
     tags?: string[];
+    systemId?: string;
   }): Promise<Template[]> {
     const where: any = {};
     
@@ -61,13 +66,40 @@ export class TemplateService {
       };
     }
     
+    if (filters?.systemId) {
+      where.systemId = filters.systemId;
+    } else {
+      console.warn('TemplateService: 警告 - 调用未提供systemId');
+    }
+    
+    console.log('TemplateService查询条件:', where);
+    
     return prisma.$transaction(async (tx) => {
-      return tx.template.findMany({
-        where,
+      const templates = await tx.template.findMany({
+        where: where as any,
         orderBy: {
           updatedAt: 'desc',
         },
       });
+      
+      console.log(`TemplateService: 查询返回${templates.length}条记录`);
+      return templates as Template[];
+    });
+  }
+
+  /**
+   * 根据系统ID获取模版
+   */
+  static async getTemplatesBySystemId(systemId: string): Promise<Template[]> {
+    return prisma.$transaction(async (tx) => {
+      const templates = await tx.template.findMany({
+        where: { systemId } as any,
+        orderBy: {
+          updatedAt: 'desc',
+        },
+      });
+      
+      return templates as Template[];
     });
   }
 
@@ -76,9 +108,11 @@ export class TemplateService {
    */
   static async getTemplateById(id: string): Promise<Template | null> {
     return prisma.$transaction(async (tx) => {
-      return tx.template.findUnique({
+      const template = await tx.template.findUnique({
         where: { id },
       });
+      
+      return template as Template | null;
     });
   }
 
@@ -89,7 +123,7 @@ export class TemplateService {
     const timestamp = Date.now().toString();
     
     return prisma.$transaction(async (tx) => {
-      return tx.template.update({
+      const template = await tx.template.update({
         where: { id },
         data: {
           ...data,
@@ -97,6 +131,8 @@ export class TemplateService {
           updatedAt: new Date(),
         },
       });
+      
+      return template as Template;
     });
   }
 
@@ -105,9 +141,11 @@ export class TemplateService {
    */
   static async deleteTemplate(id: string): Promise<Template> {
     return prisma.$transaction(async (tx) => {
-      return tx.template.delete({
+      const template = await tx.template.delete({
         where: { id },
       });
+      
+      return template as Template;
     });
   }
 } 

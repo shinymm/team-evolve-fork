@@ -102,11 +102,26 @@ export function RequirementBookClient() {
   const loadTemplates = async () => {
     setIsLoadingTemplates(true);
     try {
-      const response = await fetch('/api/templates');
+      // 确保有选择系统ID
+      if (!selectedSystemId) {
+        console.warn('未选择系统，无法加载模板列表');
+        setTemplates([]);
+        toast({
+          title: '无法加载模板',
+          description: '请先选择一个系统',
+          variant: "destructive",
+        });
+        setIsLoadingTemplates(false);
+        return;
+      }
+
+      // 加入systemId参数
+      const response = await fetch(`/api/templates?systemId=${selectedSystemId}`);
       if (!response.ok) {
         throw new Error('获取模板列表失败');
       }
       const data = await response.json();
+      console.log(`获取系统[${selectedSystemId}]的模板列表，数量:`, data.length);
       setTemplates(data);
       
       // 如果已有选中的模板ID，获取详情
@@ -128,11 +143,18 @@ export function RequirementBookClient() {
   // 获取模板详情
   const fetchTemplateDetails = async (id: string) => {
     try {
+      if (!selectedSystemId) {
+        console.warn('未选择系统，无法获取模板详情');
+        return;
+      }
+
       const response = await fetch(`/api/templates/${id}`);
       if (!response.ok) {
         throw new Error('获取模板详情失败');
       }
+      
       const data = await response.json();
+      console.log(`获取模板详情成功, ID: ${id}, 名称: ${data.name}`);
       setCurrentTemplateDetails(data);
     } catch (error) {
       console.error('获取模板详情失败:', error);
@@ -486,17 +508,17 @@ export function RequirementBookClient() {
                 
                 {/* 设置模板按钮 */}
                 <Button
-                  variant="outline"
+                  variant={templateId ? "outline" : "default"}
                   size="sm"
                   onClick={() => setIsTemplateDialogOpen(true)}
-                  className="h-7 ml-2 flex items-center gap-1 text-xs"
+                  className={`h-7 ml-2 flex items-center gap-1 text-xs ${!templateId ? 'bg-orange-500 hover:bg-orange-600 text-white' : ''}`}
                   disabled={isGenerating}
                 >
                   <Settings className="h-3.5 w-3.5" />
                   设置模板
-                  {!templateId && <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
+                  {!templateId && <span className="relative flex h-2 w-2 ml-1">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
                   </span>}
                 </Button>
               </div>
@@ -637,100 +659,87 @@ export function RequirementBookClient() {
       
       {/* 模板选择对话框 */}
       <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
-        <DialogContent 
-          className="max-w-[80%] max-h-[80vh] overflow-hidden flex flex-col" 
-          style={{ width: "80%", minWidth: "80%" } as React.CSSProperties}
-        >
+        <DialogContent style={{ width: "90%", maxWidth: "1100px", height: "600px", display: "flex", flexDirection: "column" }}>
           <DialogHeader>
             <DialogTitle>选择需求书模板</DialogTitle>
             <DialogDescription>
               从以下模板中选择一个作为需求书生成的基础模板
             </DialogDescription>
           </DialogHeader>
-          
-          <div className="flex flex-1 overflow-hidden mt-4">
-            {/* 模板列表 */}
-            <div className="w-1/3 border-r pr-4 overflow-hidden flex flex-col">
+          {/* 主体内容区 */}
+          <div className="flex flex-1 h-0" style={{ minHeight: 0 }}>
+            {/* 左侧模板列表 */}
+            <div className="w-[300px] border-r pr-4 flex flex-col h-full">
               <h3 className="font-medium text-sm mb-2">模板列表</h3>
-              
-              {isLoadingTemplates ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
-                </div>
-              ) : (
-                <ScrollArea className="flex-1">
-                  <div className="space-y-2">
+              <ScrollArea className="flex-1 min-h-0 w-full">
+                {isLoadingTemplates ? (
+                  <div className="flex justify-center items-center h-16 w-full">
+                    <Loader2 className="h-5 w-5 animate-spin text-orange-500" />
+                  </div>
+                ) : templates.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500 text-sm">
+                    暂无可用模板
+                  </div>
+                ) : (
+                  <div className="space-y-2 pr-2">
                     {templates.map(template => (
                       <div 
                         key={template.id}
                         onClick={() => handleSelectTemplate(template)}
-                        className={`p-3 rounded-md cursor-pointer transition-colors ${
+                        className={`p-3 rounded-md cursor-pointer border transition ${
                           selectedTemplate?.id === template.id 
-                            ? 'bg-orange-100 border border-orange-300' 
-                            : 'hover:bg-gray-100 border border-transparent'
+                            ? 'bg-orange-50 border-orange-300' 
+                            : 'hover:bg-gray-50 border-gray-200'
                         }`}
                       >
-                        <div className="flex items-center justify-between">
+                        <div className="flex justify-between items-center">
                           <div className="font-medium text-sm">{template.name}</div>
                           {selectedTemplate?.id === template.id && (
                             <Check className="h-4 w-4 text-orange-500" />
                           )}
                         </div>
                         {template.description && (
-                          <p className="text-xs text-gray-500 mt-1 line-clamp-2">{template.description}</p>
+                          <p className="text-xs text-gray-500 mt-1">{template.description}</p>
                         )}
                         <div className="flex flex-wrap gap-1 mt-2">
                           {template.tags?.map(tag => (
-                            <Badge key={tag} variant="outline" className="text-xs py-0 px-1.5">{tag}</Badge>
+                            <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
                           ))}
                         </div>
                       </div>
                     ))}
-                    
-                    {templates.length === 0 && !isLoadingTemplates && (
-                      <div className="text-center py-8 text-gray-500 text-sm">
-                        暂无可用模板
-                      </div>
-                    )}
                   </div>
-                </ScrollArea>
-              )}
+                )}
+              </ScrollArea>
             </div>
-            
-            {/* 模板预览 */}
-            <div className="w-2/3 pl-4 overflow-hidden flex flex-col">
+            {/* 右侧预览区域 */}
+            <div className="flex-1 flex flex-col h-full pl-4">
               <h3 className="font-medium text-sm mb-2">模板预览</h3>
-              
-              <Card className="flex-1 overflow-hidden">
-                <CardContent className="p-4 h-full">
-                  <ScrollArea className="h-[calc(60vh-120px)]">
-                    {selectedTemplate ? (
-                      <div className="prose prose-sm max-w-none">
-                        <DynamicReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                        >
-                          {selectedTemplate.content}
-                        </DynamicReactMarkdown>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center h-full text-gray-500">
-                        请从左侧选择一个模板
-                      </div>
-                    )}
-                  </ScrollArea>
-                </CardContent>
-              </Card>
+              <div className="border rounded-md flex-1 min-h-0 overflow-auto p-4">
+                {selectedTemplate ? (
+                  <div className="prose prose-sm max-w-none">
+                    <DynamicReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {selectedTemplate.content}
+                    </DynamicReactMarkdown>
+                  </div>
+                ) : (
+                  <div className="text-gray-400 text-left">请从左侧选择一个模板</div>
+                )}
+              </div>
             </div>
           </div>
-          
-          <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setIsTemplateDialogOpen(false)}>
+          <DialogFooter className="flex justify-end space-x-2 mt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsTemplateDialogOpen(false)}
+              className="w-24"
+            >
               取消
             </Button>
             <Button 
               onClick={handleConfirmTemplate} 
               disabled={!selectedTemplate}
-              className="bg-orange-500 hover:bg-orange-600"
+              className="bg-orange-500 hover:bg-orange-600 text-white w-24"
             >
               确认选择
             </Button>

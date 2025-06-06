@@ -46,12 +46,13 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       );
     }
     
-    // 更新模板
+    // 更新模板 - 注意我们不允许更改systemId，保留原来的systemId
     const updatedTemplate = await TemplateService.updateTemplate(id, {
       name,
       description,
       content,
       tags,
+      systemId: existingTemplate.systemId, // 保持原来的systemId
     });
     
     return NextResponse.json(updatedTemplate);

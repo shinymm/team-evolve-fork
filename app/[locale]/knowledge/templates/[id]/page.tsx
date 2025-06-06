@@ -10,6 +10,7 @@ import remarkGfm from 'remark-gfm'
 import { useTranslations } from 'next-intl'
 import dynamic from 'next/dynamic'
 import React from 'react'
+import { useSystemStore } from '@/lib/stores/system-store'
 
 // 动态导入UI组件
 const Button = dynamic(() => import('@/components/ui/button').then(mod => mod.Button))
@@ -35,6 +36,11 @@ const TabsList = dynamic(() => import('@/components/ui/tabs').then(mod => mod.Ta
 const TabsTrigger = dynamic(() => import('@/components/ui/tabs').then(mod => mod.TabsTrigger))
 const TabsContent = dynamic(() => import('@/components/ui/tabs').then(mod => mod.TabsContent))
 
+interface System {
+  id: string;
+  name: string;
+}
+
 interface TemplatePageProps {
   params: {
     id: string
@@ -43,6 +49,7 @@ interface TemplatePageProps {
 
 export default function TemplatePage({ params }: TemplatePageProps) {
   const { id } = params
+  const { selectedSystemId } = useSystemStore()
   const [template, setTemplate] = useState<Template | null>(null)
   const [editMode, setEditMode] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -51,7 +58,8 @@ export default function TemplatePage({ params }: TemplatePageProps) {
     name: '',
     description: '',
     content: '',
-    tags: [] as string[]
+    tags: [] as string[],
+    systemId: ''
   })
   const [newTag, setNewTag] = useState('')
   const router = useRouter()
@@ -81,7 +89,8 @@ export default function TemplatePage({ params }: TemplatePageProps) {
         name: data.name,
         description: data.description || '',
         content: data.content,
-        tags: data.tags || []
+        tags: data.tags || [],
+        systemId: data.systemId
       })
     } catch (error) {
       console.error('获取模版详情失败:', error)
