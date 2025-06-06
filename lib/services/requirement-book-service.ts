@@ -17,19 +17,51 @@ export class RequirementBookService {
     }
 
     try {
-      const response = await fetch(`/api/requirement-templates?systemId=${systemId}`)
-      const data = await response.json()
+      // 从store中获取模板ID
+      const store = useRequirementAnalysisStore.getState()
       
-      if (data.template?.content) {
-        console.log('成功获取需求书模版')
-        return data.template.content
+      // 确保当前系统ID匹配
+      if (store.currentSystemId !== systemId) {
+        console.warn('系统ID不匹配，可能导致模板获取错误')
+      }
+      
+      // 检查是否已设置模板ID
+      if (store.templateId) {
+        console.log(`使用模板ID: ${store.templateId} 获取需求书模板`)
+        
+        // 通过API获取模板内容
+        const response = await fetch(`/api/templates/${store.templateId}`)
+        
+        if (!response.ok) {
+          throw new Error(`获取模板内容失败: ${response.status}`)
+        }
+        
+        const templateData = await response.json()
+        
+        if (templateData && templateData.content) {
+          console.log('成功获取需求书模板')
+          return templateData.content
+        } else {
+          console.warn('模板内容为空，将使用默认模板')
+          return this.getDefaultTemplate()
+        }
       } else {
-        console.log('未找到需求书模版，将使用默认模版')
-        return this.getDefaultTemplate()
+        // 如果没有设置模板ID，则尝试使用旧的API获取模板
+        console.log('未设置模板ID，尝试使用系统默认模板')
+        const response = await fetch(`/api/requirement-templates?systemId=${systemId}`)
+        const data = await response.json()
+        
+        if (data.template?.content) {
+          console.log('成功获取系统默认需求书模板')
+          return data.template.content
+        } else {
+          console.log('未找到系统默认需求书模板，将使用默认模板')
+          return this.getDefaultTemplate()
+        }
       }
     } catch (error) {
-      console.error('获取需求书模版失败:', error)
-      throw new Error('获取需求书模版失败，请稍后重试')
+      console.error('获取需求书模板失败:', error)
+      throw new Error('获取需求书模板失败，请稍后重试')
     }
   }
 

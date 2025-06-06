@@ -103,6 +103,9 @@ interface SystemRequirementState {
 
   // 新增：图片生成的需求初稿
   imageDraft: string | null
+  
+  // 新增：需求书模板ID
+  templateId: string | null
 }
 
 // Renamed from RequirementAnalysisState to better reflect its new role
@@ -126,6 +129,9 @@ interface ActiveSystemContextState extends SystemRequirementState { // Inherits 
   clearPinnedRequirementBook: () => void
   setImageDraft: (draft: string) => void
   clearImageDraft: () => void
+  // 新增：设置模板ID的方法
+  setTemplateId: (templateId: string) => void
+  clearTemplateId: () => void
 
   // Method to get active analysis (no longer from a map)
   getActiveAnalysis: () => string | null
@@ -140,7 +146,8 @@ const createEmptySystemState = (): SystemRequirementState => ({
   pinnedRequirementBook: null,
   isPinned: false,
   isRequirementBookPinned: false,
-  imageDraft: null
+  imageDraft: null,
+  templateId: null
 })
 
 // Initial state for the store - active fields will be empty until a system is loaded
@@ -269,6 +276,7 @@ export const useRequirementAnalysisStore = create<ActiveSystemContextState>()((s
           isPinned: activeState.isPinned,
           isRequirementBookPinned: activeState.isRequirementBookPinned,
           imageDraft: activeState.imageDraft,
+          templateId: activeState.templateId,
         };
         // Save current active state to its localStorage before clearing
         saveSystemToLocalStorage(currentSystemId, currentSystemData);
@@ -297,6 +305,7 @@ export const useRequirementAnalysisStore = create<ActiveSystemContextState>()((s
         isPinned: get().isPinned,
         isRequirementBookPinned: get().isRequirementBookPinned,
         imageDraft: get().imageDraft,
+        templateId: get().templateId,
       };
       saveSystemToLocalStorage(systemId, updatedState);
     },
@@ -315,6 +324,7 @@ export const useRequirementAnalysisStore = create<ActiveSystemContextState>()((s
         isPinned: true,
         isRequirementBookPinned: get().isRequirementBookPinned,
         imageDraft: get().imageDraft,
+        templateId: get().templateId,
       };
       saveSystemToLocalStorage(systemId, updatedState);
     },
@@ -333,6 +343,7 @@ export const useRequirementAnalysisStore = create<ActiveSystemContextState>()((s
         isPinned: false,
         isRequirementBookPinned: get().isRequirementBookPinned,
         imageDraft: get().imageDraft,
+        templateId: get().templateId,
       };
       saveSystemToLocalStorage(systemId, updatedState);
     },
@@ -351,6 +362,7 @@ export const useRequirementAnalysisStore = create<ActiveSystemContextState>()((s
         isPinned: false,
         isRequirementBookPinned: get().isRequirementBookPinned,
         imageDraft: get().imageDraft,
+        templateId: get().templateId,
       };
       saveSystemToLocalStorage(systemId, updatedState);
     },
@@ -369,6 +381,7 @@ export const useRequirementAnalysisStore = create<ActiveSystemContextState>()((s
         isPinned: get().isPinned,
         isRequirementBookPinned: get().isRequirementBookPinned,
         imageDraft: get().imageDraft,
+        templateId: get().templateId,
       };
       saveSystemToLocalStorage(systemId, updatedState);
     },
@@ -387,6 +400,7 @@ export const useRequirementAnalysisStore = create<ActiveSystemContextState>()((s
         isPinned: get().isPinned,
         isRequirementBookPinned: get().isRequirementBookPinned,
         imageDraft: get().imageDraft,
+        templateId: get().templateId,
       };
       saveSystemToLocalStorage(systemId, updatedState);
     },
@@ -405,6 +419,7 @@ export const useRequirementAnalysisStore = create<ActiveSystemContextState>()((s
         isPinned: get().isPinned,
         isRequirementBookPinned: true,
         imageDraft: get().imageDraft,
+        templateId: get().templateId,
       };
       saveSystemToLocalStorage(systemId, updatedState);
     },
@@ -423,6 +438,7 @@ export const useRequirementAnalysisStore = create<ActiveSystemContextState>()((s
         isPinned: get().isPinned,
         isRequirementBookPinned: false,
         imageDraft: get().imageDraft,
+        templateId: get().templateId,
       };
       saveSystemToLocalStorage(systemId, updatedState);
     },
@@ -441,6 +457,7 @@ export const useRequirementAnalysisStore = create<ActiveSystemContextState>()((s
         isPinned: get().isPinned,
         isRequirementBookPinned: false,
         imageDraft: get().imageDraft,
+        templateId: get().templateId,
       };
       saveSystemToLocalStorage(systemId, updatedState);
     },
@@ -459,6 +476,7 @@ export const useRequirementAnalysisStore = create<ActiveSystemContextState>()((s
         isPinned: get().isPinned,
         isRequirementBookPinned: get().isRequirementBookPinned,
         imageDraft: draft,
+        templateId: get().templateId,
       };
       saveSystemToLocalStorage(systemId, updatedState);
     },
@@ -477,6 +495,7 @@ export const useRequirementAnalysisStore = create<ActiveSystemContextState>()((s
         isPinned: get().isPinned,
         isRequirementBookPinned: get().isRequirementBookPinned,
         imageDraft: null,
+        templateId: get().templateId,
       };
       saveSystemToLocalStorage(systemId, updatedState);
     },
@@ -490,6 +509,46 @@ export const useRequirementAnalysisStore = create<ActiveSystemContextState>()((s
     getActiveRequirementBook: () => {
       if (!get().currentSystemId) return null;
       return get().isRequirementBookPinned ? get().pinnedRequirementBook : null;
+    },
+
+    // 新增：设置模板ID
+    setTemplateId: (templateId) => {
+      const systemId = get().currentSystemId;
+      if (!systemId) return;
+      
+      set({ templateId });
+      
+      const updatedState: SystemRequirementState = {
+        requirement: get().requirement,
+        pinnedAnalysis: get().pinnedAnalysis,
+        requirementBook: get().requirementBook,
+        pinnedRequirementBook: get().pinnedRequirementBook,
+        isPinned: get().isPinned,
+        isRequirementBookPinned: get().isRequirementBookPinned,
+        imageDraft: get().imageDraft,
+        templateId,
+      };
+      saveSystemToLocalStorage(systemId, updatedState);
+    },
+    
+    // 新增：清除模板ID
+    clearTemplateId: () => {
+      const systemId = get().currentSystemId;
+      if (!systemId) return;
+      
+      set({ templateId: null });
+      
+      const updatedState: SystemRequirementState = {
+        requirement: get().requirement,
+        pinnedAnalysis: get().pinnedAnalysis,
+        requirementBook: get().requirementBook,
+        pinnedRequirementBook: get().pinnedRequirementBook,
+        isPinned: get().isPinned,
+        isRequirementBookPinned: get().isRequirementBookPinned,
+        imageDraft: get().imageDraft,
+        templateId: null,
+      };
+      saveSystemToLocalStorage(systemId, updatedState);
     }
   };
 })
@@ -604,6 +663,7 @@ if (typeof window !== 'undefined') {
           isPinned: store.isPinned,
           isRequirementBookPinned: store.isRequirementBookPinned,
           imageDraft: store.imageDraft,
+          templateId: store.templateId,
         };
         
         console.log(`[beforeunload] 保存系统 ${systemId} 数据到localStorage`);

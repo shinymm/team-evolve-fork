@@ -5,10 +5,26 @@ import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
-import { Card } from "@/components/ui/card";
-import { Loader2, Copy, Download, Edit2, Save, ArrowRight, Pin, PinOff } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Loader2, Copy, Download, Edit2, Save, ArrowRight, Pin, PinOff, Settings, Check } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { Toaster } from "@/components/ui/toaster";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import dynamic from 'next/dynamic';
 // 动态导入ReactMarkdown组件
 const DynamicReactMarkdown = dynamic(() => import('@/components/dynamic-markdown'), {
@@ -21,6 +37,17 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useSystemStore } from '@/lib/stores/system-store';
 import { RequirementBookService } from '@/lib/services/requirement-book-service';
 import { SceneAnalysisState } from '@/types/scene';
+
+// 定义模板接口
+interface Template {
+  id: string;
+  name: string;
+  description: string;
+  content: string;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
 
 export function RequirementBookClient() {
   const t = useTranslations('RequirementBookPage');
@@ -35,6 +62,13 @@ export function RequirementBookClient() {
   const { toast } = useToast();
   const router = useRouter();
 
+  // 模板相关状态
+  const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
+  const [currentTemplateDetails, setCurrentTemplateDetails] = useState<Template | null>(null);
+
   // 获取当前系统信息
   const { systems, selectedSystemId } = useSystemStore();
   const selectedSystem = systems.find(s => s.id === selectedSystemId) || null;
@@ -48,12 +82,14 @@ export function RequirementBookClient() {
     pinnedRequirementBook,
     isPinned,
     isRequirementBookPinned,
+    templateId,
     setCurrentSystem,
     setRequirement,
     pinAnalysis,
     pinRequirementBook,
     unpinRequirementBook,
     getActiveRequirementBook,
+    setTemplateId,
   } = useRequirementAnalysisStore();
 
   useEffect(() => {
@@ -61,6 +97,74 @@ export function RequirementBookClient() {
       setCurrentSystem(selectedSystem.id);
     }
   }, [selectedSystem, currentSystemId, setCurrentSystem]);
+
+  // 加载模板列表
+  const loadTemplates = async () => {
+    setIsLoadingTemplates(true);
+    try {
+      const response = await fetch('/api/templates');
+      if (!response.ok) {
+        throw new Error('获取模板列表失败');
+      }
+      const data = await response.json();
+      setTemplates(data);
+      
+      // 如果已有选中的模板ID，获取详情
+      if (templateId) {
+        fetchTemplateDetails(templateId);
+      }
+    } catch (error) {
+      console.error('加载模板列表失败:', error);
+      toast({
+        title: '获取模板列表失败',
+        description: '请稍后重试',
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingTemplates(false);
+    }
+  };
+
+  // 获取模板详情
+  const fetchTemplateDetails = async (id: string) => {
+    try {
+      const response = await fetch(`/api/templates/${id}`);
+      if (!response.ok) {
+        throw new Error('获取模板详情失败');
+      }
+      const data = await response.json();
+      setCurrentTemplateDetails(data);
+    } catch (error) {
+      console.error('获取模板详情失败:', error);
+    }
+  };
+
+  // 打开模板选择对话框时加载模板列表
+  useEffect(() => {
+    if (isTemplateDialogOpen) {
+      loadTemplates();
+    }
+  }, [isTemplateDialogOpen]);
+
+  // 选择模板并预览
+  const handleSelectTemplate = (template: Template) => {
+    setSelectedTemplate(template);
+  };
+
+  // 确认选择模板
+  const handleConfirmTemplate = () => {
+    if (selectedTemplate && selectedSystem?.id) {
+      setTemplateId(selectedTemplate.id);
+      setIsTemplateDialogOpen(false);
+      toast({
+        title: '设置模板成功',
+        description: `已选择模板: ${selectedTemplate.name}`,
+        duration: 3000,
+      });
+      // 更新当前模板详情
+      setCurrentTemplateDetails(selectedTemplate);
+    }
+  };
 
   // 添加 AI 配置缓存
   const [cachedAIConfig, setCachedAIConfig] = useState<any>(null);
@@ -89,8 +193,13 @@ export function RequirementBookClient() {
         setOriginalRequirement(requirement);
       }
       // 如果两者都没有，originalRequirement 将保持其初始空字符串状态
+      
+      // 如果有模板ID，获取模板详情
+      if (templateId) {
+        fetchTemplateDetails(templateId);
+      }
     }
-  }, [selectedSystem, pinnedAnalysis, requirement]); // 依赖项更新
+  }, [selectedSystem, pinnedAnalysis, requirement, templateId]); // 依赖项更新
 
   useEffect(() => {
     return () => {
@@ -110,6 +219,18 @@ export function RequirementBookClient() {
       });
       return;
     }
+    
+    // 检查是否设置了模板
+    if (!templateId && !currentTemplateDetails) {
+      toast({
+        title: '请先设置模板',
+        description: '请点击"设置模板"按钮选择一个模板',
+        variant: "destructive",
+        duration: 3000
+      });
+      return;
+    }
+    
     setIsGenerating(true);
     setRequirementBook('');
     try {
@@ -362,6 +483,22 @@ export function RequirementBookClient() {
                 >
                   {t('reload')}
                 </Button>
+                
+                {/* 设置模板按钮 */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsTemplateDialogOpen(true)}
+                  className="h-7 ml-2 flex items-center gap-1 text-xs"
+                  disabled={isGenerating}
+                >
+                  <Settings className="h-3.5 w-3.5" />
+                  设置模板
+                  {!templateId && <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
+                  </span>}
+                </Button>
               </div>
             </div>
           </div>
@@ -497,6 +634,110 @@ export function RequirementBookClient() {
           </div>
         </div>
       </div>
+      
+      {/* 模板选择对话框 */}
+      <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
+        <DialogContent 
+          className="max-w-[80%] max-h-[80vh] overflow-hidden flex flex-col" 
+          style={{ width: "80%", minWidth: "80%" } as React.CSSProperties}
+        >
+          <DialogHeader>
+            <DialogTitle>选择需求书模板</DialogTitle>
+            <DialogDescription>
+              从以下模板中选择一个作为需求书生成的基础模板
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex flex-1 overflow-hidden mt-4">
+            {/* 模板列表 */}
+            <div className="w-1/3 border-r pr-4 overflow-hidden flex flex-col">
+              <h3 className="font-medium text-sm mb-2">模板列表</h3>
+              
+              {isLoadingTemplates ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
+                </div>
+              ) : (
+                <ScrollArea className="flex-1">
+                  <div className="space-y-2">
+                    {templates.map(template => (
+                      <div 
+                        key={template.id}
+                        onClick={() => handleSelectTemplate(template)}
+                        className={`p-3 rounded-md cursor-pointer transition-colors ${
+                          selectedTemplate?.id === template.id 
+                            ? 'bg-orange-100 border border-orange-300' 
+                            : 'hover:bg-gray-100 border border-transparent'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="font-medium text-sm">{template.name}</div>
+                          {selectedTemplate?.id === template.id && (
+                            <Check className="h-4 w-4 text-orange-500" />
+                          )}
+                        </div>
+                        {template.description && (
+                          <p className="text-xs text-gray-500 mt-1 line-clamp-2">{template.description}</p>
+                        )}
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {template.tags?.map(tag => (
+                            <Badge key={tag} variant="outline" className="text-xs py-0 px-1.5">{tag}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {templates.length === 0 && !isLoadingTemplates && (
+                      <div className="text-center py-8 text-gray-500 text-sm">
+                        暂无可用模板
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              )}
+            </div>
+            
+            {/* 模板预览 */}
+            <div className="w-2/3 pl-4 overflow-hidden flex flex-col">
+              <h3 className="font-medium text-sm mb-2">模板预览</h3>
+              
+              <Card className="flex-1 overflow-hidden">
+                <CardContent className="p-4 h-full">
+                  <ScrollArea className="h-[calc(60vh-120px)]">
+                    {selectedTemplate ? (
+                      <div className="prose prose-sm max-w-none">
+                        <DynamicReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                        >
+                          {selectedTemplate.content}
+                        </DynamicReactMarkdown>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-gray-500">
+                        请从左侧选择一个模板
+                      </div>
+                    )}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+          
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setIsTemplateDialogOpen(false)}>
+              取消
+            </Button>
+            <Button 
+              onClick={handleConfirmTemplate} 
+              disabled={!selectedTemplate}
+              className="bg-orange-500 hover:bg-orange-600"
+            >
+              确认选择
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
       <Toaster />
     </>
   );
