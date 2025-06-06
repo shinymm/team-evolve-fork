@@ -9,6 +9,7 @@ interface LoadingStateProps {
   onToggleReasoning: () => void;
   onCopyReasoning: () => void;
   t: any;
+  tReasoning: any;
 }
 
 export const LoadingState: React.FC<LoadingStateProps> = ({
@@ -16,7 +17,8 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
   reasoningVisible,
   onToggleReasoning,
   onCopyReasoning,
-  t
+  t,
+  tReasoning
 }) => {
   // 获取加载中的显示文本
   const getLoadingText = () => {
@@ -43,7 +45,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
           visible={reasoningVisible}
           onToggle={onToggleReasoning}
           onCopy={onCopyReasoning}
-          t={t}
+          t={tReasoning}
         />
       </div>
     );

@@ -64,30 +64,39 @@ export class QwenVLService {
     systemPrompt?: string
   ): Promise<Response> {
     try {
-      console.log('QwenVLService开始分析图像，接收图片URL数量:', imageUrls.length);
+      console.log('[QwenVLService] - Service invoked.');
       
       // 解密API密钥
+      console.log('[QwenVLService] - Decrypting API key...');
       const apiKey = await decrypt(modelConfig.apiKey);
-      console.log('通义千问API密钥长度:', apiKey.length);
-      console.log('通义千问API密钥前5个字符:', apiKey.substring(0, 5));
+      console.log('[QwenVLService] - API key decrypted.');
       
       // 使用OpenAI兼容模式的API地址
       const baseURL = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
       
       // 图片预处理 - 优化和验证图片URL
+      console.log('[QwenVLService] - Optimizing image URLs...');
       const optimizedUrls = imageUrls.map(url => this.optimizeImageUrl(url));
-      console.log('图片URL已优化，开始验证可访问性');
+      console.log('[QwenVLService] - Image URLs optimized.');
       
       // 图片预处理 - 验证图片是否可访问
       const validatedImageUrls: string[] = [];
+      console.log('[QwenVLService] - Validating image accessibility...');
       
       for (const url of optimizedUrls) {
         try {
-          // 尝试预请求图片以验证可访问性（只请求头部信息）
+          console.log(`[QwenVLService] - Validating URL: ${url.substring(0, 70)}...`);
+          // 修复：使用AbortController实现超时，而不是非标准的timeout选项
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 2000); // 2秒超时
+          
           const response = await fetch(url, {
             method: 'HEAD',
-            timeout: 2000 // 2秒超时
-          } as any);
+            signal: controller.signal
+          });
+          
+          clearTimeout(timeoutId);
+          console.log(`[QwenVLService] - Validation fetch completed for URL: ${url.substring(0, 70)}`);
           
           if (response.ok) {
             validatedImageUrls.push(url);
@@ -101,12 +110,14 @@ export class QwenVLService {
       }
       
       if (validatedImageUrls.length === 0) {
+        console.error('[QwenVLService] - CRITICAL: All image URLs failed validation.');
         throw new Error('所有图片URL验证失败，无法进行分析');
       }
       
-      console.log(`✅ 成功验证的图片数量: ${validatedImageUrls.length}/${imageUrls.length}`);
+      console.log(`[QwenVLService] - Image validation complete. Valid URLs: ${validatedImageUrls.length}/${imageUrls.length}`);
       
       // 构建消息数组
+      console.log('[QwenVLService] - Building message array...');
       const messages: QwenVLMessage[] = [];
       
       // 添加可选的系统消息
@@ -144,6 +155,7 @@ export class QwenVLService {
         role: 'user',
         content: userContent
       });
+      console.log('[QwenVLService] - Message array built.');
       
       // 构建请求体
       const requestBody = {
@@ -152,7 +164,7 @@ export class QwenVLService {
         stream: true,
       };
       
-      console.log('Request body:', JSON.stringify(requestBody, null, 2));
+      console.log('[QwenVLService] - Request body constructed. Preparing to fetch from LLM API.');
       
       // 添加重试逻辑
       let retryCount = 0;
@@ -161,6 +173,7 @@ export class QwenVLService {
       
       while (retryCount <= maxRetries) {
         try {
+          console.log(`[QwenVLService] - Attempt #${retryCount + 1} to fetch from LLM API...`);
           // 发送请求
           const response = await fetch(baseURL, {
             method: 'POST',
@@ -170,6 +183,7 @@ export class QwenVLService {
             },
             body: JSON.stringify(requestBody)
           });
+          console.log(`[QwenVLService] - Attempt #${retryCount + 1} response received from LLM API.`);
           
           if (!response.ok) {
             const errorText = await response.text();
@@ -262,20 +276,36 @@ export class QwenVLService {
         }
       }
       
-      // 如果所有重试都失败，抛出最后一个错误
+      // 如果所有重试都失败，返回一个包含错误信息的流式响应
       if (lastError) {
-        throw lastError;
+        console.error('所有重试均失败，将返回错误信息流。最后一个错误:', lastError);
+        const errorMessage = lastError instanceof Error ? lastError.message : '所有重试均失败';
+        const errorStream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ error: errorMessage })}\n\n`));
+            controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
+            controller.close();
+          }
+        });
+        return new Response(errorStream, {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive'
+          }
+        });
       } else {
         throw new Error('所有重试失败，但未捕获具体错误');
       }
     } catch (error) {
-      console.error('调用通义千问VL API失败:', error);
+      console.error('[QwenVLService] - CRITICAL ERROR in analyzeImages:', error);
       
       // 创建错误响应流
       const stream = new ReadableStream({
         start(controller) {
           const errorMessage = error instanceof Error ? error.message : '未知错误';
           controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ error: errorMessage })}\n\n`));
+          controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
           controller.close();
         }
       });

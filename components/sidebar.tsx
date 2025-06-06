@@ -73,7 +73,6 @@ export function Sidebar() {
         { titleKey: "productOpenAPI", href: "/knowledge/api-interfaces" },
         { titleKey: "glossaryManagement", href: "/knowledge/glossary" },
         { titleKey: "requirementSummaryManagement", href: "/knowledge/requirement-summaries" },
-        { titleKey: "requirementTemplate", href: "/knowledge/requirement-templates" },
         { titleKey: "templateCenter", href: "/knowledge/templates" },
         { titleKey: "standardCenter", href: "/knowledge/standards" },
         { titleKey: "boundaryIdentificationKnowledge", href: "/knowledge/boundary", isPro: true },

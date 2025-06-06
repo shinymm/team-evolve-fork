@@ -46,16 +46,6 @@ export const TabsNavigation = ({
       >
         {t('tabs.visionAnalysis')}
       </button>
-      <button
-        className={`px-4 py-2 text-base font-medium border-b-2 transition-colors ${
-          activeTab === 'requirement-draft' 
-          ? 'border-orange-500 text-orange-600 bg-orange-50' 
-          : 'border-transparent text-gray-600 hover:text-gray-800 hover:border-gray-300'
-        }`}
-        onClick={() => onTabChange('requirement-draft')}
-      >
-        {t('tabs.requirementDraft')}
-      </button>
     </div>
   )
 } 

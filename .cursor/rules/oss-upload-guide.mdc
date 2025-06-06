@@ -1,0 +1,36 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 规则：处理对阿里云OSS的文件上传
+
+## 1. 问题背景
+
+在Next.js应用中，直接从客户端组件调用包含`'use server'`或`'server-only'`指令的服务端代码（如 `ali-oss` 库）会引发 `ReactServerComponentsError`。
+
+此外，尝试通过创建一个API路由作为代理，将文件流从客户端转发到OSS，会引发更严重的问题。`ali-oss` 库及其依赖（如 `coffee-script`）与Next.js的现代打包环境存在兼容性问题，这会导致API路由在处理文件上传时**悄无声息地崩溃**，给前端造成"无限加载"的假象，极难排查。
+
+因此，**严禁在API路由中直接处理文件流并使用 `ali-uss` 库进行上传**。旧的实现文件 `[lib/utils/oss-utils.ts](mdc:lib/utils/oss-utils.ts)` 已被删除。
+
+## 2. 正确的架构：预签名URL (Presigned URL)
+
+我们必须采用行业标准的**预签名URL**模式来处理文件上传。这个模式将文件上传的繁重任务从我们的服务器剥离，完全规避了上述的依赖和运行时问题。
+
+整个流程分为两步：
+
+### 第一步：后端生成预签名URL
+
+1.  创建一个专门的API路由，例如 `[app/api/upload-image/route.ts](mdc:app/api/upload-image/route.ts)`。
+2.  这个路由**不接收文件本身**。它只接收文件名、类型等元数据。
+3.  它的唯一职责是调用服务端服务（如 `aliyun-oss-service.ts`），生成一个有时效性、安全的、用于`PUT`操作的OSS上传URL。
+4.  将这个预签名URL和最终可供访问的 `accessUrl` 返回给客户端。
+
+### 第二步：前端直接上传到OSS
+
+1.  在客户端组件（例如 `[lib/services/requirement-book-client.tsx](mdc:lib/services/requirement-book-client.tsx)`）中，首先调用我们自己的API路由（即 `[app/api/upload-image/route.ts](mdc:app/api/upload-image/route.ts)`）来获取预签名URL。
+2.  获取到URL后，使用 `fetch` API，以 `PUT` 方法，将文件本体（`File` 对象）直接作为 `body` 上传到该预签名URL。
+3.  **注意**：`Content-Type` header 必须与生成预签名URL时指定的类型完全匹配。
+
+这个流程将上传的压力完全转移到了客户端和OSS之间，我们的Next.js服务器只扮演了一个"票务员"的角色，非常轻量和稳定。
+

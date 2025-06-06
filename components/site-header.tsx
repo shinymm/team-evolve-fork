@@ -23,19 +23,9 @@ export function SiteHeader() {
   const { data: session, status } = useSession()
   const { selectedSystemId, systems } = useSystemStore()
   const pathname = usePathname()
-  const locales = Array.from(routing.locales) as string[];
   const locale = useLocale();
   const targetLocale = locale === 'en' ? 'zh' : 'en';
 
-  function getLanguageSwitchPath(pathname: string, locales: string[]) {
-    const localePattern = `(?:${locales.join('|')})`;
-    const regex = new RegExp(`^(?:/(${localePattern}))+`);
-    let unprefixed = pathname.replace(regex, '') || '/';
-    return unprefixed.startsWith('/') ? unprefixed : '/' + unprefixed;
-  }
-
-  const targetPath = getLanguageSwitchPath(pathname, locales);
-  
   // 获取目标语言的显示名称
   const targetLanguageDisplay = locale === 'en' ? '中文' : 'English';
 
@@ -67,8 +57,8 @@ export function SiteHeader() {
         <div className="w-1/4 flex justify-end items-center space-x-4">
           {/* 语言切换按钮 */}
           <Link 
-            key={targetLocale + targetPath}
-            href={targetPath}
+            key={targetLocale + pathname}
+            href={pathname}
             locale={targetLocale}
             className="flex items-center text-xs font-medium text-gray-300 hover:text-orange-400 transition-colors px-2 py-1 rounded-md border border-gray-700 hover:border-orange-400"
           >

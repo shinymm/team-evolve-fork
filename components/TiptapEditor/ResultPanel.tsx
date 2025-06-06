@@ -38,6 +38,7 @@ interface ResultPanelProps {
   onInstructionSubmit: (e: React.FormEvent) => void;
   onInstructionChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   t: any; // 国际化翻译函数
+  tReasoning: any;
 }
 
 export const ResultPanel: React.FC<ResultPanelProps> = ({
@@ -53,7 +54,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
   onToggleMaxHeight,
   onInstructionSubmit,
   onInstructionChange,
-  t
+  t,
+  tReasoning
 }) => {
   // 获取当前操作类型的显示标题
   const getResultTitle = () => {
@@ -125,6 +127,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         onToggleReasoning={onToggleReasoning}
         onCopyReasoning={onCopyReasoning}
         t={t}
+        tReasoning={tReasoning}
       />
     );
   }
@@ -176,7 +179,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
           visible={reasoningVisible}
           onToggle={onToggleReasoning}
           onCopy={onCopyReasoning}
-          t={t}
+          t={tReasoning}
         />
       )}
       

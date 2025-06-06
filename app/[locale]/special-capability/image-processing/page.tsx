@@ -38,7 +38,6 @@ import { ImageList } from '@/components/image-processing/ImageList'
 import { TabsNavigation } from '@/components/image-processing/TabsNavigation'
 import { ActionButtons } from '@/components/image-processing/ActionButtons'
 import { ContentHeader } from '@/components/image-processing/ContentHeader'
-import { RequirementInputDialog } from '@/components/image-processing/RequirementInputDialog'
 import { TabContent } from '@/components/image-processing/TabContent'
 import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store'
 import { useTranslations } from 'next-intl'
@@ -55,14 +54,11 @@ export default function ImageProcessing() {
   const [activeTab, setActiveTab] = useState<TabType>('product-info')
   const [processing, setProcessing] = useState<boolean>(false)
   const [showUploadDialog, setShowUploadDialog] = useState(false)
-  const [showRequirementDialog, setShowRequirementDialog] = useState(false)
-  const [requirementOverview, setRequirementOverview] = useState('')
   const [imagesLoading, setImagesLoading] = useState<boolean>(true)
   const [contents, setContents] = useState<AnalysisContents>({
     'product-info': '',
     'architecture': '',
     'vision-analysis': '',
-    'requirement-draft': ''
   })
   // 添加产品信息和架构信息的补充信息弹窗状态
   const [showProductInfoDialog, setShowProductInfoDialog] = useState(false);
@@ -76,7 +72,6 @@ export default function ImageProcessing() {
     'product-info': '',
     'architecture': '',
     'vision-analysis': '',
-    'requirement-draft': ''
   })
   // 图片列表默认为折叠状态
   const [isImagesExpanded, setIsImagesExpanded] = useState<boolean>(false)
@@ -85,7 +80,6 @@ export default function ImageProcessing() {
     'product-info': false,
     'architecture': false,
     'vision-analysis': false,
-    'requirement-draft': false
   })
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -114,7 +108,6 @@ export default function ImageProcessing() {
     'product-info': false,
     'architecture': false,
     'vision-analysis': false,
-    'requirement-draft': false
   });
   
   // 强制更新机制
@@ -238,6 +231,11 @@ export default function ImageProcessing() {
 
     if (!selectedSystemId) {
       setError('请先选择系统');
+      toast({
+        variant: "destructive",
+        title: "上传失败",
+        description: "请先选择系统",
+      });
       return;
     }
 
@@ -247,62 +245,48 @@ export default function ImageProcessing() {
     setError('');
 
     try {
-      const formData = new FormData();
-      formData.append('file', fileToUpload);
-
-      // 构建API URL，添加系统ID和系统名称参数
-      let apiUrl = '/api/image';
-      const queryParams = [];
-      
-      if (selectedSystemId) {
-        queryParams.push(`systemId=${encodeURIComponent(selectedSystemId)}`);
-      }
-      
-      if (selectedSystemName) {
-        const safeSystemName = selectedSystemName.replace(/[^a-zA-Z0-9-_]/g, ''); // 移除不安全字符
-        queryParams.push(`systemName=${encodeURIComponent(safeSystemName)}`);
-      }
-      
-      if (queryParams.length > 0) {
-        apiUrl += `?${queryParams.join('&')}`;
-      }
-
-      console.log(`【图片上传】调用API: ${apiUrl}`);
-
-      // 使用图片上传API
-      const response = await fetch(apiUrl, {
+      // 1. 从后端获取预签名URL
+      const getUrlResponse = await fetch('/api/upload-image', {
         method: 'POST',
-        body: formData,
-        cache: 'no-store' // 确保不使用缓存
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileName: fileToUpload.name,
+          fileType: fileToUpload.type,
+          systemId: selectedSystemId,
+          systemName: selectedSystemName,
+        }),
       });
 
-      // 尝试解析响应
-      let result;
-      try {
-        result = await response.json();
-      } catch (parseError) {
-        console.error(`【图片上传】解析响应失败:`, parseError);
-        throw new Error('无法解析服务器响应');
+      const result = await getUrlResponse.json();
+      if (!getUrlResponse.ok) {
+        throw new Error(result.error || '获取上传URL失败');
+      }
+      
+      const { uploadUrl } = result;
+
+      // 2. 将文件直接上传到OSS
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: fileToUpload,
+        headers: {
+          'Content-Type': fileToUpload.type,
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error('OSS上传失败:', errorText);
+        throw new Error('文件上传到OSS失败');
       }
 
-      if (!response.ok) {
-        console.error(`【图片上传】上传失败: ${response.status} ${response.statusText}`, result);
-        throw new Error(result.error || `上传失败 (${response.status})`);
-      }
-
-      console.log(`【图片上传】上传成功:`, result);
-      
-      // 等待一定时间，确保服务器处理完成
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      // 上传成功后刷新图片列表
-      console.log(`【图片上传】刷新图片列表...`);
+      console.log(`【图片上传】上传成功，刷新图片列表...`);
       await refreshImageList();
 
       // 重置文件选择
       setFile(null);
       setError('');
-      setFileId(result.file.id);
       setShowUploadDialog(false);
       
       // 上传成功后自动展开图片列表
@@ -310,7 +294,7 @@ export default function ImageProcessing() {
       
       toast({
         title: "上传成功",
-        description: `文件 ${result.file.name} 已成功上传`,
+        description: `文件 ${fileToUpload.name} 已成功上传`,
       });
     } catch (error) {
       console.error(`【图片上传】上传失败:`, error);
@@ -546,14 +530,12 @@ export default function ImageProcessing() {
       await service.extractProductInfo(
         imageUrls,
         (answerContent: string) => {
-          console.log(`收到产品信息内容:`, answerContent.length, '字符')
           setContents(prev => ({
             ...prev,
             'product-info': answerContent
           }))
         },
         (reasoningContent: string) => {
-          console.log(`收到产品信息推理过程内容:`, reasoningContent.length, '字符')
           setReasonings(prev => ({
             ...prev,
             'product-info': reasoningContent
@@ -675,14 +657,12 @@ export default function ImageProcessing() {
       await service.extractArchitecture(
         imageUrls,
         (answerContent: string) => {
-          console.log(`收到信息架构内容:`, answerContent.length, '字符')
           setContents(prev => ({
             ...prev,
             'architecture': answerContent
           }))
         },
         (reasoningContent: string) => {
-          console.log(`收到信息架构推理过程内容:`, reasoningContent.length, '字符')
           setReasonings(prev => ({
             ...prev,
             'architecture': reasoningContent
@@ -800,14 +780,12 @@ export default function ImageProcessing() {
         imageUrls,
         prompt,
         (answerContent: string) => {
-          console.log(`收到视觉分析内容:`, answerContent.length, '字符')
           setContents(prev => ({
             ...prev,
             'vision-analysis': answerContent
           }))
         },
         (reasoningContent: string) => {
-          console.log(`收到推理过程内容:`, reasoningContent.length, '字符')
           setReasonings(prev => ({
             ...prev,
             'vision-analysis': reasoningContent
@@ -1020,204 +998,6 @@ export default function ImageProcessing() {
     }
   };
 
-  // 处理生成需求初稿
-  const handleGenerateRequirementDraft = async () => {
-    // 检查是否有文件上传
-    if (uploadedFiles.length === 0) {
-      toast({
-        title: "处理失败",
-        description: "请先上传至少一个图片文件",
-        variant: "destructive",
-      })
-      return
-    }
-    
-    // 检查是否有选中的文件
-    const selectedFiles = uploadedFiles.filter(file => file.selected)
-    if (selectedFiles.length === 0) {
-      // 如果没有选中文件，自动展开图片列表
-      setIsImagesExpanded(true);
-      setError("请至少选择一个图片文件进行处理")
-      return
-    }
-
-    // 打开需求概述输入弹窗
-    setShowRequirementDialog(true)
-  }
-  
-  // 处理提交需求概述并生成初稿
-  const handleSubmitRequirementOverview = async (value: string) => {
-    // 检查需求概述是否为空
-    if (!value.trim()) {
-      toast({
-        title: "处理失败",
-        description: "需求概述不能为空",
-        variant: "destructive",
-      })
-      return
-    }
-    setRequirementOverview(value); // 同步到 state
-    // 关闭弹窗
-    setShowRequirementDialog(false)
-    // 切换到需求初稿标签页
-    setActiveTab('requirement-draft')
-    // 重置上一次的内容和推理过程
-    setReasonings(prev => ({
-      ...prev,
-      'requirement-draft': ''
-    }))
-    setContents(prev => ({
-      ...prev,
-      'requirement-draft': ''
-    }))
-    // 更新处理状态
-    setProcessingStates(prev => ({
-      ...prev,
-      'requirement-draft': true
-    }))
-    setProcessing(true)
-    // 自动折叠图片列表区域
-    setIsImagesExpanded(false)
-    // 设置初始等待提示
-    setContents(prev => ({
-      ...prev,
-      'requirement-draft': '正在处理原型图和需求概述，生成需求初稿中...'
-    }))
-    // 添加加载指示器
-    const indicator = document.createElement('div')
-    indicator.id = 'fixed-loading-indicator'
-    indicator.innerHTML = `<div class="fixed top-0 left-0 w-full h-1 bg-orange-500 animate-pulse z-50">
-      <div class="h-full bg-orange-600 animate-loading-bar"></div>
-    </div>`
-    document.body.appendChild(indicator)
-    try {
-      // 获取图片URL列表
-      const selectedFiles = uploadedFiles.filter(file => file.selected)
-      const imageUrls = selectedFiles.map(file => file.url || `https://team-evolve.oss-ap-southeast-1.aliyuncs.com/${file.id}`)
-      // 1. 获取当前系统ID
-      const systemId = selectedSystemId
-      if (!systemId) {
-        throw new Error('未找到当前系统ID，请先选择一个系统')
-      }
-      console.log('当前系统ID:', systemId)
-      // 调用服务生成需求初稿
-      const service = new RequirementFromPrototypeService()
-      await service.generateRequirementFromPrototype(
-        systemId,
-        imageUrls,
-        value,
-        // 推理过程更新回调
-        (reasoningContent) => {
-          setReasonings(prev => ({
-            ...prev,
-            'requirement-draft': reasoningContent
-          }))
-        },
-        // 内容更新回调
-        (content) => {
-          setContents(prev => ({
-            ...prev,
-            'requirement-draft': content
-          }))
-        }
-      )
-    } catch (error) {
-      console.error(`生成需求初稿失败:`, error)
-      toast({
-        title: "处理失败",
-        description: error instanceof Error ? error.message : "未知错误",
-        variant: "destructive",
-        duration: 3000
-      })
-      // 设置错误内容
-      setContents(prev => ({
-        ...prev,
-        'requirement-draft': `处理失败: ${error instanceof Error ? error.message : "未知错误"}`
-      }))
-    } finally {
-      // 重置处理状态
-      setProcessingStates(prev => ({
-        ...prev,
-        'requirement-draft': false
-      }))
-      setProcessing(false)
-      // 移除加载指示器
-      const indicator = document.getElementById('fixed-loading-indicator')
-      if (indicator && indicator.parentNode) {
-        indicator.parentNode.removeChild(indicator)
-      }
-    }
-  }
-  
-  // 下载需求初稿
-  const handleDownloadRequirementDraft = () => {
-    const content = contents['requirement-draft'];
-    if (!content) {
-      toast({
-        title: "下载失败",
-        description: "没有可下载的需求初稿内容",
-        variant: "destructive",
-        duration: 3000
-      });
-      return;
-    }
-
-    try {
-      const blob = new Blob([content], { type: 'text/markdown' });
-      const url = URL.createObjectURL(blob);
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `需求初稿-${timestamp}.md`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
-      toast({
-        title: "下载成功",
-        description: "需求初稿已保存为文件",
-        duration: 3000
-      });
-    } catch (error) {
-      toast({
-        title: "下载失败",
-        description: "请手动复制内容并保存",
-        variant: "destructive",
-        duration: 3000
-      });
-    }
-  };
-
-  // 新增：缓存图片初稿到store
-  const handleCacheRequirementDraft = () => {
-    if (!selectedSystemId) {
-      toast({
-        title: t('notifications.cacheDraftFailed'),
-        description: t('notifications.systemRequired'),
-        variant: "destructive",
-      });
-      return;
-    }
-    const content = contents['requirement-draft'];
-    if (!content) {
-      toast({
-        title: t('notifications.cacheDraftFailed'),
-        description: t('notifications.noDraftContent'),
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // 直接保存原始内容
-    useRequirementAnalysisStore.getState().setImageDraft(content);
-    toast({
-      title: t('notifications.cacheDraftSuccess'),
-      description: t('notifications.cacheDraftDesc'),
-    });
-  };
-
   return (
     <div className="flex flex-col min-h-screen">
       <Toaster />
@@ -1238,14 +1018,6 @@ export default function ImageProcessing() {
         onConfirm={handleArchitectureConfirm}
         title={t('supplements.architectureTitle')}
         description={t('supplements.architectureDesc')}
-      />
-      
-      {/* 需求生成弹窗 */}
-      <RequirementInputDialog
-        open={showRequirementDialog}
-        onClose={() => setShowRequirementDialog(false)}
-        onSubmit={(value) => handleSubmitRequirementOverview(value)}
-        initialValue={requirementOverview}
       />
 
       {/* 上传对话框 */}
@@ -1300,7 +1072,6 @@ export default function ImageProcessing() {
             onExtractProductInfo={handleExtractProductInfo}
             onExtractArchitecture={handleExtractArchitecture}
             onVisionAnalysis={handleVisionAnalysis}
-            onGenerateRequirementDraft={handleGenerateRequirementDraft}
           />
           
           {/* 标签页区域 */}
@@ -1361,25 +1132,6 @@ export default function ImageProcessing() {
                 }))}
                 onDownload={handleDownloadVisionAnalysis}
                 onDownloadReasoning={handleDownloadReasoning}
-              />
-            )}
-            
-            {activeTab === 'requirement-draft' && (
-              <TabContent
-                tabType="requirement-draft"
-                title={t('tabs.requirementDraft')}
-                content={contents['requirement-draft']}
-                reasoning={reasonings['requirement-draft']}
-                isQVQModel={isQVQModel}
-                reasoningVisible={reasoningVisibility['requirement-draft']}
-                onToggleReasoning={() => setReasoningVisibility(prev => ({
-                  ...prev,
-                  'requirement-draft': !prev['requirement-draft']
-                }))}
-                onDownload={handleDownloadRequirementDraft}
-                onDownloadReasoning={handleDownloadReasoning}
-                onCacheDraft={handleCacheRequirementDraft}
-                hasCacheDraftBtn={true}
               />
             )}
           </div>

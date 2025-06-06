@@ -1,0 +1,18 @@
+{
+  "uploadDialog": {
+    "title": "Upload Prototype Image",
+    "description": "Select or drag and drop an image file into the area below. Supports JPG, PNG, GIF, WEBP, BMP formats.",
+    "fileSelected": "File selected: {fileName}",
+    "dragDropHint": "Drag and drop file here, or",
+    "browse": "click here to browse",
+    "cancel": "Cancel"
+  },
+  "Common": {
+    "uploading": "Uploading...",
+    "uploadButton": "Upload"
+  },
+  "ReasoningSection": {
+    "reasoningProcess": "Model Reasoning Process",
+    "copyReasoning": "Copy Reasoning"
+  }
+} 

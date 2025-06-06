@@ -43,23 +43,12 @@ export default function LocaleLayout({
 }) {
   // Enable static rendering
   setRequestLocale(locale);
-  console.log(`[Layout] 正在渲染 locale=${locale} 的布局`);
   
   if (!routing.locales.includes(locale as any)) {
-    console.error(`[Layout] 无效的区域设置: ${locale}`);
     notFound();
   }
 
-  // messages 现在通过 useMessages() 获取，它会调用 i18n/request.ts
   const messages = useMessages(); 
-  
-  if (!messages || Object.keys(messages).length === 0) {
-    console.error(`[Layout] 未能加载 locale '${locale}' 的 messages，或 messages 为空。`);
-    // 可以选择 notFound() 或显示错误信息，取决于你的策略
-    // notFound(); 
-  }
-  
-  console.log(`[Layout] 获取到的 messages for locale '${locale}', keys:`, Object.keys(messages || {}).length);
   
   return (
     <html lang={locale}>

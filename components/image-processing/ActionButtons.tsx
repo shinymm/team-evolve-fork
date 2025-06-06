@@ -12,7 +12,6 @@ interface ActionButtonsProps {
   onExtractProductInfo: () => void
   onExtractArchitecture: () => void
   onVisionAnalysis: () => void
-  onGenerateRequirementDraft: () => void
 }
 
 export const ActionButtons = ({
@@ -22,7 +21,6 @@ export const ActionButtons = ({
   onExtractProductInfo,
   onExtractArchitecture,
   onVisionAnalysis,
-  onGenerateRequirementDraft
 }: ActionButtonsProps) => {
   const t = useTranslations('ImageProcessingPage');
   
@@ -65,19 +63,6 @@ export const ActionButtons = ({
           <ImageIcon className="mr-2 h-4 w-4" />
         )}
         {t('actionButtons.visionAnalysis')}
-      </Button>
-      
-      <Button
-        onClick={onGenerateRequirementDraft}
-        disabled={processing || !hasSelectedImages}
-        className="h-10 bg-orange-500 hover:bg-orange-600 text-white"
-      >
-        {processingStates['requirement-draft'] ? (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        ) : (
-          <FileText className="mr-2 h-4 w-4" />
-        )}
-        {t('actionButtons.generateRequirementDraft')}
       </Button>
     </div>
   )

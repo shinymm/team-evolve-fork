@@ -28,20 +28,20 @@ export class VisionService {
 
       console.log('处理图片，图片URL数量:', imageUrls.length);
       
-      // 构造FormData
-      const formData = new FormData();
-      imageUrls.forEach(url => {
-        formData.append('imageUrls', url);
-      });
-      formData.append('prompt', prompt);
-      if (systemPrompt) {
-        formData.append('systemPrompt', systemPrompt);
-      }
+      // 构造请求体 - 改为发送JSON
+      const requestBody = {
+        imageUrls: imageUrls,
+        prompt: prompt,
+        systemPrompt: systemPrompt,
+      };
       
       // 调用视觉API
       const response = await fetch('/api/ai/vision', {
         method: 'POST',
-        body: formData
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
       });
       
       if (!response.ok) {

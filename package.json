@@ -1,6 +1,9 @@
 {
   "name": "qare-team-ai",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.825.0",
+    "@aws-sdk/s3-presigned-post": "^3.825.0",
+    "@aws-sdk/s3-request-presigner": "^3.825.0",
     "@google/generative-ai": "^0.24.0",
     "@hookform/resolvers": "^3.10.0",
     "@modelcontextprotocol/sdk": "^1.8.0",

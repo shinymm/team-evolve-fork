@@ -61,6 +61,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
   const [chatMode, setChatMode] = useState(false);
   const [reasoningVisible, setReasoningVisible] = useState(true); // 控制思考过程的显示/隐藏
   const t = useTranslations('TiptapEditor');
+  const tReasoning = useTranslations('ReasoningSection');
 
   // 重置结果状态
   const resetResult = () => {
@@ -535,6 +536,7 @@ export const BubbleMenu: React.FC<BubbleMenuProps> = ({ editor }) => {
               onInstructionSubmit={editorActions.handleSubmitChat}
               onInstructionChange={handleInstructionChange}
               t={t}
+              tReasoning={tReasoning}
             />
           </div>
           

@@ -6,7 +6,7 @@ interface ReasoningSectionProps {
   visible: boolean;
   onToggle: () => void;
   onCopy: () => void;
-  t: any;
+  t: (key: 'reasoningProcess' | 'copyReasoning') => string;
 }
 
 export const ReasoningSection: React.FC<ReasoningSectionProps> = ({
@@ -32,7 +32,7 @@ export const ReasoningSection: React.FC<ReasoningSectionProps> = ({
               <ChevronRight size={18} />
             )}
           </div>
-          <span className="text-orange-800 font-medium">{t('resultPanel.reasoningProcess')}</span>
+          <span className="text-orange-800 font-medium">{t('reasoningProcess')}</span>
         </div>
         
         {/* 添加复制思考过程的按钮 */}
@@ -40,7 +40,7 @@ export const ReasoningSection: React.FC<ReasoningSectionProps> = ({
           <button 
             onClick={onCopy}
             className="copy-reasoning-button"
-            title={t('resultPanel.copyReasoning')}
+            title={t('copyReasoning')}
           >
             <Copy size={14} className="text-orange-600" />
           </button>

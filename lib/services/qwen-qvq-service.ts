@@ -79,11 +79,16 @@ export class QVQModelService {
       
       for (const url of optimizedUrls) {
         try {
-          // 尝试预请求图片以验证可访问性（只请求头部信息）
+          // 修复：使用AbortController实现超时，而不是非标准的timeout选项
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 2000); // 2秒超时
+
           const response = await fetch(url, {
             method: 'HEAD',
-            timeout: 2000 // 2秒超时
-          } as any);
+            signal: controller.signal
+          });
+
+          clearTimeout(timeoutId);
           
           if (response.ok) {
             validatedImageUrls.push(url);
@@ -278,9 +283,24 @@ export class QVQModelService {
         }
       }
       
-      // 如果所有重试都失败，抛出最后一个错误
+      // 如果所有重试都失败，返回一个包含错误信息的流式响应
       if (lastError) {
-        throw lastError;
+        console.error('所有重试均失败，将返回错误信息流。最后一个错误:', lastError);
+        const errorMessage = lastError instanceof Error ? lastError.message : '所有重试均失败';
+        const errorStream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ error: errorMessage })}\n\n`));
+            controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
+            controller.close();
+          }
+        });
+        return new Response(errorStream, {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive'
+          }
+        });
       } else {
         throw new Error('所有重试失败，但未捕获具体错误');
       }
@@ -292,6 +312,7 @@ export class QVQModelService {
         start(controller) {
           const errorMessage = error instanceof Error ? error.message : '未知错误';
           controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ error: errorMessage })}\n\n`));
+          controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
           controller.close();
         }
       });

@@ -11,7 +11,6 @@ import { useSystemStore } from '@/lib/stores/system-store'
 import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store'
 import type { ArchitectureItem } from '@/types/product-info'
 import dynamic from 'next/dynamic'
-import remarkGfm from 'remark-gfm'
 import { useTranslations, useLocale } from 'next-intl'
 
 // 动态导入 ReactMarkdown 组件
@@ -451,8 +450,8 @@ export default function BookConfirmPage({params}: {params: {locale: string}}) {
       <Card>
         <CardContent className="space-y-6 pt-6">
           <div className="prose max-w-none">
-            <DynamicMarkdown remarkPlugins={[remarkGfm]}>
-              {requirement && generateMarkdown(requirement)} 
+            <DynamicMarkdown>
+              {(requirement && generateMarkdown(requirement)) || ''} 
             </DynamicMarkdown>
           </div>
         </CardContent>

@@ -31,12 +31,15 @@ const DynamicReactMarkdown = dynamic(() => import('@/components/dynamic-markdown
   ssr: false,
   loading: () => <div className="animate-pulse bg-gray-100 p-4 rounded-md min-h-[200px]">加载内容中...</div>
 })
-import remarkGfm from 'remark-gfm';
 import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useSystemStore } from '@/lib/stores/system-store';
 import { RequirementBookService } from '@/lib/services/requirement-book-service';
 import { SceneAnalysisState } from '@/types/scene';
+import { UploadDialog } from '@/components/image-processing/UploadDialog';
+import { ImageList, UploadedFile } from '@/components/image-processing/ImageList';
+import { RequirementFromPrototypeService } from '@/lib/services/requirement-from-prototype-service';
+import { ReasoningSection } from '@/components/TiptapEditor/ReasoningSection';
 
 // 定义模板接口
 interface Template {
@@ -51,8 +54,8 @@ interface Template {
 
 export function RequirementBookClient() {
   const t = useTranslations('RequirementBookPage');
+  const tCommon = useTranslations('ReasoningSection');
   const locale = useLocale();
-  console.log('client 调试 locale:', locale, 't(title):', t('title'));
   const [originalRequirement, setOriginalRequirement] = useState('');
   const [requirementBook, setRequirementBook] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -61,6 +64,10 @@ export function RequirementBookClient() {
   const [editTarget, setEditTarget] = useState<'main' | 'pinned'>('main');
   const { toast } = useToast();
   const router = useRouter();
+
+  // 推理过程相关状态
+  const [reasoningContent, setReasoningContent] = useState('');
+  const [isReasoningVisible, setIsReasoningVisible] = useState(true);
 
   // 模板相关状态
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
@@ -90,6 +97,8 @@ export function RequirementBookClient() {
     unpinRequirementBook,
     getActiveRequirementBook,
     setTemplateId,
+    uploadedFiles,
+    setUploadedFiles,
   } = useRequirementAnalysisStore();
 
   useEffect(() => {
@@ -109,7 +118,7 @@ export function RequirementBookClient() {
         toast({
           title: '无法加载模板',
           description: '请先选择一个系统',
-          variant: "destructive",
+          variant: "warning",
         });
         setIsLoadingTemplates(false);
         return;
@@ -133,7 +142,7 @@ export function RequirementBookClient() {
       toast({
         title: '获取模板列表失败',
         description: '请稍后重试',
-        variant: "destructive",
+        variant: "warning",
       });
     } finally {
       setIsLoadingTemplates(false);
@@ -231,41 +240,164 @@ export function RequirementBookClient() {
     };
   }, [currentSystemId]);
 
+  // 图片上传相关状态
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [isImagesExpanded, setIsImagesExpanded] = useState(false);
+
+  // 上传图片到OSS（通过预签名URL）
+  const handleUploadFile = async (file: File) => {
+    if (!selectedSystem?.id) {
+      setUploadError('请先选择系统');
+      return;
+    }
+    setUploading(true);
+    setUploadError('');
+    try {
+      // 1. 从后端获取预签名URL
+      const getUrlResponse = await fetch('/api/upload-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileType: file.type,
+          systemName: selectedSystem.name || '',
+        }),
+      });
+
+      const result = await getUrlResponse.json();
+      if (!getUrlResponse.ok) {
+        throw new Error(result.error || '获取上传URL失败');
+      }
+      
+      const { uploadUrl, accessUrl, key } = result;
+
+      // 2. 将文件直接上传到OSS
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error('OSS上传失败:', errorText);
+        throw new Error('文件上传到OSS失败');
+      }
+
+      // 3. 更新前端状态
+      const newFile: UploadedFile = {
+        id: key,
+        name: file.name,
+        uploadTime: new Date(),
+        provider: 'OSS',
+        url: accessUrl,
+        selected: true,
+      };
+      setUploadedFiles([...(uploadedFiles || []), newFile]);
+      setIsUploadDialogOpen(false);
+      setIsImagesExpanded(true);
+      toast({ title: '上传成功', description: `文件 ${file.name} 已上传` });
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : '上传失败');
+      toast({ title: '上传失败', description: error instanceof Error ? error.message : '未知错误', variant: 'warning' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // 删除图片（仅本地删除）
+  const handleDeleteFile = (fileId: string) => {
+    setUploadedFiles((uploadedFiles || []).filter(file => file.id !== fileId));
+  };
+
+  // 选择图片（单选/多选）
+  const handleSelectFile = (fileId: string, checked: boolean) => {
+    setUploadedFiles((uploadedFiles || []).map(file => file.id === fileId ? { ...file, selected: checked } : file));
+  };
+
+  // 全选/全不选
+  const handleSelectAllFiles = (allSelected: boolean) => {
+    setUploadedFiles((uploadedFiles || []).map(file => ({ ...file, selected: allSelected })));
+  };
+
   const handleSubmit = async () => {
     if (!selectedSystem?.id) {
       toast({
         title: t('selectSystemFirst'),
         description: t('needSelectSystem'),
-        variant: "destructive",
+        variant: "warning",
         duration: 3000
       });
       return;
     }
-    
-    // 检查是否设置了模板
     if (!templateId && !currentTemplateDetails) {
       toast({
         title: '请先设置模板',
         description: '请点击"设置模板"按钮选择一个模板',
-        variant: "destructive",
+        variant: "warning",
         duration: 3000
       });
       return;
     }
-    
     setIsGenerating(true);
     setRequirementBook('');
+    setReasoningContent(''); // 开始生成时清空上一次的思考过程
     try {
-      await RequirementBookService.generateRequirementBook(
-        originalRequirement,
-        selectedSystem.id,
-        (content) => setRequirementBook(content)
-      );
+      // 判断是否有图片
+      const selectedImages = (uploadedFiles || []).filter(f => f.selected);
+      if (selectedImages.length > 0) {
+        // 多模态推理
+        const imageUrls = selectedImages.map(f => f.url!);
+        // 获取模板内容（优先localStorage中的ID）
+        let templateIdToUse = templateId;
+        if (!templateIdToUse && selectedSystem?.id) {
+          // 兼容localStorage
+          const localKey = `req_analysis_system_${selectedSystem.id}`;
+          try {
+            const cache = localStorage.getItem(localKey);
+            if (cache) {
+              const parsed = JSON.parse(cache);
+              if (parsed.templateId) templateIdToUse = parsed.templateId;
+            }
+          } catch {}
+        }
+        if (!templateIdToUse) {
+          toast({ title: '未找到模板ID', description: '请先设置模板', variant: 'warning' });
+          setIsGenerating(false);
+          return;
+        }
+        // 调用多模态service，传入templateId
+        const protoService = new RequirementFromPrototypeService();
+        await protoService.generateRequirementFromPrototype(
+          selectedSystem.id,
+          imageUrls,
+          originalRequirement,
+          templateIdToUse,
+          (reasoning) => {
+            // 更新思考过程状态，用于UI展示
+            setReasoningContent(reasoning);
+          },
+          (content) => setRequirementBook(content)
+        );
+      } else {
+        // 纯文字逻辑
+        await RequirementBookService.generateRequirementBook(
+          originalRequirement,
+          selectedSystem.id,
+          (content) => setRequirementBook(content)
+        );
+      }
     } catch (error) {
       toast({
         title: t('generateFailed'),
         description: error instanceof Error ? error.message : t('tryAgain'),
-        variant: "destructive",
+        variant: "warning",
         duration: 3000
       });
     } finally {
@@ -285,7 +417,7 @@ export function RequirementBookClient() {
       toast({
         title: t('copyFailed'),
         description: t('copyFailedDesc'),
-        variant: "destructive",
+        variant: "warning",
         duration: 3000
       });
     }
@@ -312,7 +444,7 @@ export function RequirementBookClient() {
       toast({
         title: t('downloadFailed'),
         description: t('downloadFailedDesc'),
-        variant: "destructive",
+        variant: "warning",
         duration: 3000
       });
     }
@@ -408,7 +540,7 @@ export function RequirementBookClient() {
       toast({
         title: t('generateFailed'),
         description: error instanceof Error ? error.message : t('tryAgain'),
-        variant: "destructive",
+        variant: "warning",
         duration: 3000
       });
     }
@@ -462,56 +594,21 @@ export function RequirementBookClient() {
                 {t('subtitle')}
               </p>
               <div className="flex gap-1 ml-4">
+                {/* 上传原型图片按钮 */}
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setOriginalRequirement('')}
-                  className="h-7 px-2 text-xs text-gray-500 hover:text-gray-700"
-                  disabled={isGenerating}
+                  onClick={() => setIsUploadDialogOpen(true)}
+                  className="h-7 px-2 text-xs text-orange-500 hover:text-orange-700 border border-orange-200"
                 >
-                  {t('clear')}
+                  上传原型图片
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    if (selectedSystem?.id) {
-                      if (pinnedAnalysis) {
-                        setOriginalRequirement(pinnedAnalysis);
-                        toast({
-                          title: t('copySuccess'),
-                          description: t('copyDesc'),
-                          duration: 3000
-                        });
-                      } else {
-                        toast({
-                          title: t('copyFailed'),
-                          description: t('copyFailedDesc'),
-                          variant: "destructive",
-                          duration: 3000
-                        });
-                      }
-                    } else {
-                      toast({
-                        title: t('selectSystemFirst'),
-                        description: t('needSelectSystem'),
-                        variant: "destructive",
-                        duration: 3000
-                      });
-                    }
-                  }}
-                  className="h-7 px-2 text-xs text-gray-500 hover:text-gray-700"
-                  disabled={isGenerating}
-                >
-                  {t('reload')}
-                </Button>
-                
                 {/* 设置模板按钮 */}
                 <Button
                   variant={templateId ? "outline" : "default"}
                   size="sm"
                   onClick={() => setIsTemplateDialogOpen(true)}
-                  className={`h-7 ml-2 flex items-center gap-1 text-xs ${!templateId ? 'bg-orange-500 hover:bg-orange-600 text-white' : ''}`}
+                  className={`h-7 flex items-center gap-1 text-xs ml-2 ${!templateId ? 'bg-orange-500 hover:bg-orange-600 text-white' : ''}`}
                   disabled={isGenerating}
                 >
                   <Settings className="h-3.5 w-3.5" />
@@ -524,6 +621,22 @@ export function RequirementBookClient() {
               </div>
             </div>
           </div>
+          {/* 图片列表展示（放在文本输入框上方，仅有图片时显示） */}
+          {uploadedFiles.length > 0 && (
+            <div className="space-y-2">
+              <ImageList
+                uploadedFiles={uploadedFiles}
+                isImagesExpanded={isImagesExpanded}
+                setIsImagesExpanded={setIsImagesExpanded}
+                onSelectFile={handleSelectFile}
+                onDeleteFile={handleDeleteFile}
+                onUploadClick={() => setIsUploadDialogOpen(true)}
+                processing={isGenerating}
+                imagesLoading={false}
+                onSelectAllFiles={handleSelectAllFiles}
+              />
+            </div>
+          )}
           <div className="space-y-4">
             <Textarea
               placeholder={t('placeholder')}
@@ -548,6 +661,18 @@ export function RequirementBookClient() {
                 t('generate')
               )}
             </Button>
+            
+            {/* 推理过程展示区域 */}
+            {isGenerating && reasoningContent && (
+              <ReasoningSection
+                reasoning={reasoningContent}
+                visible={isReasoningVisible}
+                onToggle={() => setIsReasoningVisible(!isReasoningVisible)}
+                onCopy={() => handleCopy(reasoningContent)}
+                t={tCommon}
+              />
+            )}
+
             {isRequirementBookPinned && pinnedRequirementBook && requirementBook ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -564,13 +689,14 @@ export function RequirementBookClient() {
                         <Textarea
                           value={editedBook}
                           onChange={(e) => setEditedBook(e.target.value)}
-                          className="min-h-[600px] w-full resize-y"
-                          disabled={isGenerating}
+                          className="min-h-[calc(100vh-22rem)] w-full resize-y"
                         />
                       ) : (
-                        <div className="space-y-4">
-                          <DynamicReactMarkdown remarkPlugins={[remarkGfm]}>{pinnedRequirementBook}</DynamicReactMarkdown>
-                        </div>
+                        <ScrollArea className="h-[calc(100vh-22rem)]">
+                          <DynamicReactMarkdown>
+                            {pinnedRequirementBook}
+                          </DynamicReactMarkdown>
+                        </ScrollArea>
                       )}
                     </Card>
                   </div>
@@ -587,13 +713,14 @@ export function RequirementBookClient() {
                         <Textarea
                           value={editedBook}
                           onChange={(e) => setEditedBook(e.target.value)}
-                          className="min-h-[600px] w-full resize-y"
-                          disabled={isGenerating}
+                          className="min-h-[calc(100vh-22rem)] w-full resize-y"
                         />
                       ) : (
-                        <div className="space-y-4">
-                          <DynamicReactMarkdown remarkPlugins={[remarkGfm]}>{requirementBook}</DynamicReactMarkdown>
-                        </div>
+                        <ScrollArea className="h-[calc(100vh-22rem)]">
+                          <DynamicReactMarkdown>
+                            {requirementBook}
+                          </DynamicReactMarkdown>
+                        </ScrollArea>
                       )}
                     </Card>
                   </div>
@@ -612,8 +739,8 @@ export function RequirementBookClient() {
             ) : ((isRequirementBookPinned && pinnedRequirementBook) || requirementBook ? (
               <div className="space-y-4">
                 <div className="flex justify-end gap-1">
-                  {renderIconButton(<Copy className="h-4 w-4" />, t('copy'), () => handleCopy(isRequirementBookPinned && pinnedRequirementBook ? pinnedRequirementBook : requirementBook), "text-gray-500 hover:text-gray-700", isGenerating)}
-                  {renderIconButton(<Download className="h-4 w-4" />, t('download'), () => handleDownload(isRequirementBookPinned && pinnedRequirementBook ? pinnedRequirementBook : requirementBook), "text-gray-500 hover:text-gray-700", isGenerating)}
+                  {renderIconButton(<Copy className="h-4 w-4" />, t('copy'), () => handleCopy(getActiveRequirementBook() || ''), "text-gray-500 hover:text-gray-700", isGenerating)}
+                  {renderIconButton(<Download className="h-4 w-4" />, t('download'), () => handleDownload(getActiveRequirementBook() || ''), "text-gray-500 hover:text-gray-700", isGenerating)}
                   {!isEditing ? (
                     <>
                       {renderIconButton(<Edit2 className="h-4 w-4" />, t('edit'), () => handleEdit(isRequirementBookPinned ? 'pinned' : 'main'), "text-gray-500 hover:text-gray-700", isGenerating)}
@@ -632,13 +759,14 @@ export function RequirementBookClient() {
                     <Textarea
                       value={editedBook}
                       onChange={(e) => setEditedBook(e.target.value)}
-                      className="min-h-[600px] w-full resize-y"
-                      disabled={isGenerating}
+                      className="min-h-[calc(100vh-22rem)] w-full resize-y"
                     />
                   ) : (
-                    <div className="space-y-4">
-                      <DynamicReactMarkdown remarkPlugins={[remarkGfm]}>{isRequirementBookPinned && pinnedRequirementBook ? pinnedRequirementBook : requirementBook}</DynamicReactMarkdown>
-                    </div>
+                    <ScrollArea className="h-[calc(100vh-22rem)]">
+                      <DynamicReactMarkdown>
+                        {getActiveRequirementBook() || ''}
+                      </DynamicReactMarkdown>
+                    </ScrollArea>
                   )}
                 </Card>
                 {!isEditing && (
@@ -659,74 +787,54 @@ export function RequirementBookClient() {
       
       {/* 模板选择对话框 */}
       <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
-        <DialogContent style={{ width: "90%", maxWidth: "1100px", height: "600px", display: "flex", flexDirection: "column" }}>
+        <DialogContent className="flex h-[80vh] w-[90%] max-w-[1000px] flex-col">
           <DialogHeader>
-            <DialogTitle>选择需求书模板</DialogTitle>
+            <DialogTitle>{t('templateMarket')}</DialogTitle>
             <DialogDescription>
-              从以下模板中选择一个作为需求书生成的基础模板
+              {t('templateMarketDesc')}
             </DialogDescription>
           </DialogHeader>
-          {/* 主体内容区 */}
-          <div className="flex flex-1 h-0" style={{ minHeight: 0 }}>
-            {/* 左侧模板列表 */}
-            <div className="w-[300px] border-r pr-4 flex flex-col h-full">
-              <h3 className="font-medium text-sm mb-2">模板列表</h3>
-              <ScrollArea className="flex-1 min-h-0 w-full">
+          <div className="flex flex-1 gap-4 overflow-hidden">
+            <ScrollArea className="h-full w-2/5">
+              <div className="space-y-2 pr-4">
                 {isLoadingTemplates ? (
-                  <div className="flex justify-center items-center h-16 w-full">
-                    <Loader2 className="h-5 w-5 animate-spin text-orange-500" />
-                  </div>
-                ) : templates.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500 text-sm">
-                    暂无可用模板
-                  </div>
+                  <div>{t('loadingTemplates')}</div>
                 ) : (
-                  <div className="space-y-2 pr-2">
-                    {templates.map(template => (
-                      <div 
-                        key={template.id}
-                        onClick={() => handleSelectTemplate(template)}
-                        className={`p-3 rounded-md cursor-pointer border transition ${
-                          selectedTemplate?.id === template.id 
-                            ? 'bg-orange-50 border-orange-300' 
-                            : 'hover:bg-gray-50 border-gray-200'
-                        }`}
-                      >
-                        <div className="flex justify-between items-center">
-                          <div className="font-medium text-sm">{template.name}</div>
-                          {selectedTemplate?.id === template.id && (
-                            <Check className="h-4 w-4 text-orange-500" />
+                  templates.map((template) => (
+                    <Card
+                      key={template.id}
+                      className={`cursor-pointer ${selectedTemplate?.id === template.id ? 'border-orange-500' : ''}`}
+                      onClick={() => handleSelectTemplate(template)}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="font-semibold">{template.name}</h3>
+                            <p className="text-sm text-muted-foreground">{template.description}</p>
+                          </div>
+                          {templateId === template.id && (
+                            <Badge variant="default" className="bg-green-500">{t('current')}</Badge>
                           )}
                         </div>
-                        {template.description && (
-                          <p className="text-xs text-gray-500 mt-1">{template.description}</p>
-                        )}
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {template.tags?.map(tag => (
-                            <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
-            </div>
-            {/* 右侧预览区域 */}
-            <div className="flex-1 flex flex-col h-full pl-4">
-              <h3 className="font-medium text-sm mb-2">模板预览</h3>
-              <div className="border rounded-md flex-1 min-h-0 overflow-auto p-4">
-                {selectedTemplate ? (
-                  <div className="prose prose-sm max-w-none">
-                    <DynamicReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {selectedTemplate.content}
-                    </DynamicReactMarkdown>
-                  </div>
-                ) : (
-                  <div className="text-gray-400 text-left">请从左侧选择一个模板</div>
+                      </CardContent>
+                    </Card>
+                  ))
                 )}
               </div>
-            </div>
+            </ScrollArea>
+            <ScrollArea className="h-full w-3/5">
+              {selectedTemplate ? (
+                <div className="prose prose-sm w-full max-w-none">
+                  <DynamicReactMarkdown>
+                    {selectedTemplate.content}
+                  </DynamicReactMarkdown>
+                </div>
+              ) : (
+                <div className="text-center text-muted-foreground py-10">
+                  请从左侧选择一个模板
+                </div>
+              )}
+            </ScrollArea>
           </div>
           <DialogFooter className="flex justify-end space-x-2 mt-4">
             <Button 
@@ -747,6 +855,13 @@ export function RequirementBookClient() {
         </DialogContent>
       </Dialog>
       
+      <UploadDialog
+        open={isUploadDialogOpen}
+        onClose={() => { setIsUploadDialogOpen(false); setUploadError(''); }}
+        onUpload={handleUploadFile}
+        uploading={uploading}
+        error={uploadError}
+      />
       <Toaster />
     </>
   );

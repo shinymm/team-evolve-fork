@@ -28,6 +28,7 @@ export default function UserStoryPage() {
   const t = useTranslations('UserStoryPage')
   const locale = useLocale()
   
+  const [isClient, setIsClient] = useState(false)
   const [requirementText, setRequirementText] = useState('')
   const [scenes, setScenes] = useState<StructuredScene[]>([])
   const [selectedScene, setSelectedScene] = useState<string>('')
@@ -51,6 +52,11 @@ export default function UserStoryPage() {
     setCurrentSystem
   } = useRequirementAnalysisStore()
   
+  // 在组件挂载后将 isClient 设为 true
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
+  
   // 确保已设置当前系统
   useEffect(() => {
     if (selectedSystemId && selectedSystemId !== currentSystemId) {
@@ -60,8 +66,8 @@ export default function UserStoryPage() {
   }, [selectedSystemId, currentSystemId, setCurrentSystem])
 
   useEffect(() => {
-    // 根据当前系统ID从localStorage获取结构化需求
-    if (!selectedSystemId) {
+    // 确保只在客户端执行
+    if (!isClient || !selectedSystemId) {
       setScenes([]);
       return;
     }
@@ -102,7 +108,7 @@ export default function UserStoryPage() {
       console.log(`[UserStoryPage] No stored requirement data found for system ${selectedSystemId}. Key: ${storageKey}. Clearing scenes.`);
       setScenes([]); // 清空场景
     }
-  }, [selectedSystemId, t, toast]);
+  }, [selectedSystemId, t, toast, isClient]);
 
   // 当分析结果更新时，尝试解析YAML
   useEffect(() => {

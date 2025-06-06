@@ -28,7 +28,8 @@ export const UploadDialog = ({
   uploading,
   error
 }: UploadDialogProps) => {
-  const t = useTranslations('ImageProcessingPage');
+  const t = useTranslations('uploadDialog');
+  const tCommon = useTranslations('Common');
   const [file, setFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropAreaRef = useRef<HTMLDivElement>(null);
@@ -112,9 +113,9 @@ export const UploadDialog = ({
     }}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>{t('uploadDialog.title')}</DialogTitle>
+          <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>
-            {t('uploadDialog.description')}
+            {t('description')}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -129,12 +130,12 @@ export const UploadDialog = ({
               <Upload className="h-8 w-8 text-gray-400" />
               <div className="text-xs text-gray-600">
                 {file ? (
-                  <p className="text-green-600">{t('uploadDialog.fileSelected', { fileName: file.name })}</p>
+                  <p className="text-green-600">{t('fileSelected', { fileName: file.name })}</p>
                 ) : (
                   <>
-                    <p>{t('uploadDialog.dragDropHint')}</p>
+                    <p>{t('dragDropHint')}</p>
                     <label className="cursor-pointer text-orange-600 hover:text-orange-700">
-                      {t('uploadDialog.browse')}
+                      {t('browse')}
                       <input
                         ref={fileInputRef}
                         type="file"
@@ -155,7 +156,7 @@ export const UploadDialog = ({
             setFile(null);
             onClose();
           }}>
-            {t('uploadDialog.cancel')}
+            {t('cancel')}
           </Button>
           <Button 
             onClick={handleUpload}
@@ -165,9 +166,9 @@ export const UploadDialog = ({
             {uploading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {t('uploadSection.processingFile')}
+                {tCommon('uploading')}
               </>
-            ) : t('uploadDialog.uploadButton')}
+            ) : tCommon('uploadButton')}
           </Button>
         </DialogFooter>
       </DialogContent>

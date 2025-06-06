@@ -14,30 +14,25 @@ interface RequirementGenerationResult {
 
 export class RequirementFromPrototypeService {
   /**
-   * 根据系统ID获取需求模板
-   * @param systemId 系统ID
+   * 根据模板ID获取需求模板内容（新API）
+   * @param templateId 模板ID
    * @returns 需求模板内容
    */
-  async getRequirementTemplate(systemId: string): Promise<string> {
+  async getRequirementTemplateById(templateId: string): Promise<string> {
     try {
-      const templateUrl = `/api/requirement-templates?systemId=${encodeURIComponent(systemId)}`;
-      console.log('获取需求模板:', templateUrl);
-      
+      const templateUrl = `/api/templates/${templateId}`;
+      console.log('通过新API获取需求模板:', templateUrl);
       const response = await fetch(templateUrl);
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`获取需求模板失败: ${response.status} ${errorText}`);
       }
-      
       const data = await response.json();
-      
-      if (!data.template || !data.template.content) {
-        console.warn('未找到需求模板或模板内容为空');
-        // 返回默认模板
+      if (!data.content) {
+        console.warn('未找到需求模板内容');
         return '# 需求文档\n\n## 1. 概述\n\n## 2. 功能需求\n\n## 3. 非功能需求';
       }
-      
-      return data.template.content;
+      return data.content;
     } catch (error) {
       console.error('获取需求模板出错:', error);
       throw error;
@@ -68,10 +63,11 @@ export class RequirementFromPrototypeService {
   }
   
   /**
-   * 从原型图和需求概述生成需求初稿
+   * 从原型图和需求概述生成需求初稿（支持传入模板ID）
    * @param systemId 系统ID
    * @param imageUrls 原型图URL列表
    * @param requirementOverview 需求概述
+   * @param templateId 模板ID（必传）
    * @param onReasoningUpdate 推理过程更新回调(可选)
    * @param onContentUpdate 内容更新回调(可选)
    * @returns 生成的需求初稿
@@ -80,6 +76,7 @@ export class RequirementFromPrototypeService {
     systemId: string,
     imageUrls: string[],
     requirementOverview: string,
+    templateId: string,
     onReasoningUpdate?: (content: string) => void,
     onContentUpdate?: (content: string) => void
   ): Promise<RequirementGenerationResult> {
@@ -88,8 +85,8 @@ export class RequirementFromPrototypeService {
       console.log('需求概述长度:', requirementOverview.length, '字符');
       console.log('图片URL数量:', imageUrls.length);
       
-      // 1. 获取需求模板
-      const template = await this.getRequirementTemplate(systemId);
+      // 1. 获取需求模板（新API）
+      const template = await this.getRequirementTemplateById(templateId);
       console.log('获取到需求模板，长度:', template.length, '字符');
       
       // 2. 获取产品知识

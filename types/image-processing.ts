@@ -3,7 +3,7 @@
  */
 
 // 标签页类型定义
-export type TabType = 'product-info' | 'architecture' | 'vision-analysis' | 'requirement-draft';
+export type TabType = 'product-info' | 'architecture' | 'vision-analysis';
 
 // 上传文件类型定义
 export interface UploadedFile {
@@ -20,7 +20,6 @@ export interface AnalysisContents {
   'product-info': string;
   'architecture': string;
   'vision-analysis': string;
-  'requirement-draft': string;
 }
 
 // 推理过程内容类型
@@ -28,7 +27,6 @@ export interface ReasoningContents {
   'product-info': string;
   'architecture': string;
   'vision-analysis': string;
-  'requirement-draft': string;
 }
 
 // 推理过程可见性类型
@@ -36,7 +34,6 @@ export interface ReasoningVisibility {
   'product-info': boolean;
   'architecture': boolean;
   'vision-analysis': boolean;
-  'requirement-draft': boolean;
 }
 
 // 处理状态类型
@@ -44,5 +41,4 @@ export interface ProcessingStates {
   'product-info': boolean;
   'architecture': boolean;
   'vision-analysis': boolean;
-  'requirement-draft': boolean;
 } 

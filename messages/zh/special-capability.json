@@ -28,8 +28,7 @@
     "actionButtons": {
       "extractProductInfo": "提取产品信息",
       "extractArchitecture": "提取信息架构",
-      "visionAnalysis": "视觉分析",
-      "generateRequirementDraft": "生成需求初稿"
+      "visionAnalysis": "视觉分析"
     },
     "tabs": {
       "productInfo": "产品基础信息",
@@ -45,13 +44,6 @@
       "confirm": "确认",
       "cancel": "取消",
       "placeholder": "请在此输入补充信息..."
-    },
-    "requirementDialog": {
-      "title": "需求概述",
-      "description": "请提供需求概述，以帮助从原型图生成需求初稿",
-      "placeholder": "在此输入需求概述...",
-      "submit": "提交",
-      "cancel": "取消"
     },
     "contentDisplay": {
       "showReasoning": "显示推理过程",

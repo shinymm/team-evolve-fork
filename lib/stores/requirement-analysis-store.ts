@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { UploadedFile } from '@/components/image-processing/ImageList'
 
 // Define a specific localStorage key prefix for individual system data
 // 注意：系统数据键名不应该与语言相关，保持统一
@@ -43,6 +44,14 @@ const loadSystemFromLocalStorage = (systemId: string): SystemRequirementState | 
     const item = localStorage.getItem(getSystemLocalStorageKey(systemId))
     if (item) {
       const parsed = JSON.parse(item);
+      // 后处理：将 uploadedFiles 中的日期字符串转换为 Date 对象
+      if (parsed.uploadedFiles && Array.isArray(parsed.uploadedFiles)) {
+        parsed.uploadedFiles.forEach((file: any) => {
+          if (file.uploadTime && typeof file.uploadTime === 'string') {
+            file.uploadTime = new Date(file.uploadTime);
+          }
+        });
+      }
       // Ensure all keys from SystemRequirementState are present, fill with defaults if not
       // This helps migrate older localStorage formats or handle partial saves.
       const empty = createEmptySystemState();
@@ -106,6 +115,9 @@ interface SystemRequirementState {
   
   // 新增：需求书模板ID
   templateId: string | null
+
+  // 新增：上传的文件列表
+  uploadedFiles: UploadedFile[]
 }
 
 // Renamed from RequirementAnalysisState to better reflect its new role
@@ -132,6 +144,8 @@ interface ActiveSystemContextState extends SystemRequirementState { // Inherits 
   // 新增：设置模板ID的方法
   setTemplateId: (templateId: string) => void
   clearTemplateId: () => void
+  // 新增：设置上传文件列表的方法
+  setUploadedFiles: (files: UploadedFile[]) => void
 
   // Method to get active analysis (no longer from a map)
   getActiveAnalysis: () => string | null
@@ -147,7 +161,8 @@ const createEmptySystemState = (): SystemRequirementState => ({
   isPinned: false,
   isRequirementBookPinned: false,
   imageDraft: null,
-  templateId: null
+  templateId: null,
+  uploadedFiles: []
 })
 
 // Initial state for the store - active fields will be empty until a system is loaded
@@ -277,6 +292,7 @@ export const useRequirementAnalysisStore = create<ActiveSystemContextState>()((s
           isRequirementBookPinned: activeState.isRequirementBookPinned,
           imageDraft: activeState.imageDraft,
           templateId: activeState.templateId,
+          uploadedFiles: activeState.uploadedFiles,
         };
         // Save current active state to its localStorage before clearing
         saveSystemToLocalStorage(currentSystemId, currentSystemData);
@@ -306,6 +322,7 @@ export const useRequirementAnalysisStore = create<ActiveSystemContextState>()((s
         isRequirementBookPinned: get().isRequirementBookPinned,
         imageDraft: get().imageDraft,
         templateId: get().templateId,
+        uploadedFiles: get().uploadedFiles,
       };
       saveSystemToLocalStorage(systemId, updatedState);
     },
@@ -325,6 +342,7 @@ export const useRequirementAnalysisStore = create<ActiveSystemContextState>()((s
         isRequirementBookPinned: get().isRequirementBookPinned,
         imageDraft: get().imageDraft,
         templateId: get().templateId,
+        uploadedFiles: get().uploadedFiles,
       };
       saveSystemToLocalStorage(systemId, updatedState);
     },
@@ -344,6 +362,7 @@ export const useRequirementAnalysisStore = create<ActiveSystemContextState>()((s
         isRequirementBookPinned: get().isRequirementBookPinned,
         imageDraft: get().imageDraft,
         templateId: get().templateId,
+        uploadedFiles: get().uploadedFiles,
       };
       saveSystemToLocalStorage(systemId, updatedState);
     },
@@ -363,6 +382,7 @@ export const useRequirementAnalysisStore = create<ActiveSystemContextState>()((s
         isRequirementBookPinned: get().isRequirementBookPinned,
         imageDraft: get().imageDraft,
         templateId: get().templateId,
+        uploadedFiles: get().uploadedFiles,
       };
       saveSystemToLocalStorage(systemId, updatedState);
     },
@@ -382,6 +402,7 @@ export const useRequirementAnalysisStore = create<ActiveSystemContextState>()((s
         isRequirementBookPinned: get().isRequirementBookPinned,
         imageDraft: get().imageDraft,
         templateId: get().templateId,
+        uploadedFiles: get().uploadedFiles,
       };
       saveSystemToLocalStorage(systemId, updatedState);
     },
@@ -401,6 +422,7 @@ export const useRequirementAnalysisStore = create<ActiveSystemContextState>()((s
         isRequirementBookPinned: get().isRequirementBookPinned,
         imageDraft: get().imageDraft,
         templateId: get().templateId,
+        uploadedFiles: get().uploadedFiles,
       };
       saveSystemToLocalStorage(systemId, updatedState);
     },
@@ -420,6 +442,7 @@ export const useRequirementAnalysisStore = create<ActiveSystemContextState>()((s
         isRequirementBookPinned: true,
         imageDraft: get().imageDraft,
         templateId: get().templateId,
+        uploadedFiles: get().uploadedFiles,
       };
       saveSystemToLocalStorage(systemId, updatedState);
     },
@@ -439,6 +462,7 @@ export const useRequirementAnalysisStore = create<ActiveSystemContextState>()((s
         isRequirementBookPinned: false,
         imageDraft: get().imageDraft,
         templateId: get().templateId,
+        uploadedFiles: get().uploadedFiles,
       };
       saveSystemToLocalStorage(systemId, updatedState);
     },
@@ -458,6 +482,7 @@ export const useRequirementAnalysisStore = create<ActiveSystemContextState>()((s
         isRequirementBookPinned: false,
         imageDraft: get().imageDraft,
         templateId: get().templateId,
+        uploadedFiles: get().uploadedFiles,
       };
       saveSystemToLocalStorage(systemId, updatedState);
     },
@@ -477,6 +502,7 @@ export const useRequirementAnalysisStore = create<ActiveSystemContextState>()((s
         isRequirementBookPinned: get().isRequirementBookPinned,
         imageDraft: draft,
         templateId: get().templateId,
+        uploadedFiles: get().uploadedFiles,
       };
       saveSystemToLocalStorage(systemId, updatedState);
     },
@@ -496,6 +522,7 @@ export const useRequirementAnalysisStore = create<ActiveSystemContextState>()((s
         isRequirementBookPinned: get().isRequirementBookPinned,
         imageDraft: null,
         templateId: get().templateId,
+        uploadedFiles: get().uploadedFiles,
       };
       saveSystemToLocalStorage(systemId, updatedState);
     },
@@ -527,6 +554,7 @@ export const useRequirementAnalysisStore = create<ActiveSystemContextState>()((s
         isRequirementBookPinned: get().isRequirementBookPinned,
         imageDraft: get().imageDraft,
         templateId,
+        uploadedFiles: get().uploadedFiles,
       };
       saveSystemToLocalStorage(systemId, updatedState);
     },
@@ -547,162 +575,31 @@ export const useRequirementAnalysisStore = create<ActiveSystemContextState>()((s
         isRequirementBookPinned: get().isRequirementBookPinned,
         imageDraft: get().imageDraft,
         templateId: null,
+        uploadedFiles: get().uploadedFiles,
+      };
+      saveSystemToLocalStorage(systemId, updatedState);
+    },
+
+    // 新增：设置上传文件列表
+    setUploadedFiles: (files) => {
+      const systemId = get().currentSystemId;
+      if (!systemId) return;
+      
+      set({ uploadedFiles: files });
+      
+      const updatedState: SystemRequirementState = {
+        requirement: get().requirement,
+        pinnedAnalysis: get().pinnedAnalysis,
+        requirementBook: get().requirementBook,
+        pinnedRequirementBook: get().pinnedRequirementBook,
+        isPinned: get().isPinned,
+        isRequirementBookPinned: get().isRequirementBookPinned,
+        imageDraft: get().imageDraft,
+        templateId: get().templateId,
+        uploadedFiles: files,
       };
       saveSystemToLocalStorage(systemId, updatedState);
     }
   };
 })
-
-// 检测语言切换并重新加载数据
-if (typeof window !== 'undefined') {
-  let lastUrl = window.location.href;
-  
-  // 定义一个函数，在检测到URL变化时调用
-  const handleUrlChange = () => {
-    const currentUrl = window.location.href;
-    
-    if (currentUrl !== lastUrl) {
-      console.log('[URL Change] Detected URL change:', { from: lastUrl, to: currentUrl });
-      
-      // 从上一个URL和当前URL中提取locale部分
-      const lastLocale = lastUrl.match(/\/([a-z]{2})\//)
-        ? lastUrl.match(/\/([a-z]{2})\//)![1]
-        : null;
-      
-      const currentLocale = currentUrl.match(/\/([a-z]{2})\//)
-        ? currentUrl.match(/\/([a-z]{2})\//)![1]
-        : null;
-      
-      // 如果locale发生变化，需要重新加载数据
-      if (lastLocale && currentLocale && lastLocale !== currentLocale) {
-        console.log(`[URL Change] Detected language switch: ${lastLocale} -> ${currentLocale}`);
-        
-        // 获取当前系统ID
-        const systemId = getCurrentSystemIdFromStorage();
-        
-        if (systemId) {
-          console.log(`[URL Change] Current system ID exists: ${systemId}, will reload data`);
-          
-          // 检查本地存储中的数据
-          const existingData = loadSystemFromLocalStorage(systemId);
-          if (existingData) {
-            console.log(`[URL Change] System ${systemId} data in local storage:`, {
-              hasRequirementBook: !!existingData.requirementBook,
-              hasPinnedRequirementBook: !!existingData.pinnedRequirementBook,
-              hasRequirement: !!(existingData.requirement && existingData.requirement.trim() !== ''),
-              hasPinnedAnalysis: !!existingData.pinnedAnalysis,
-              hasImageDraft: !!existingData.imageDraft
-            });
-            
-            // 使用setCurrentSystem重新加载数据
-            setTimeout(() => {
-              useRequirementAnalysisStore.getState().setCurrentSystem(systemId);
-            }, 100);
-          } else {
-            console.log(`[URL Change] No data found for system ${systemId} in local storage`);
-          }
-        }
-      }
-      
-      lastUrl = currentUrl;
-    }
-  };
-  
-  // 使用MutationObserver来检测DOM变化，间接检测URL变化
-  // 这种方法比popstate和hashchange更可靠，因为Next.js的客户端导航不总是触发这些事件
-  const observer = new MutationObserver(() => {
-    handleUrlChange();
-  });
-  
-  // 在DOM加载完成后启动监听
-  window.addEventListener('DOMContentLoaded', () => {
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
-    
-    // 立即检查是否有当前系统ID，如果有则加载
-    const systemId = getCurrentSystemIdFromStorage();
-    if (systemId) {
-      console.log(`[初始化] 从本地存储中检测到当前系统ID: ${systemId}`);
-      setTimeout(() => {
-        useRequirementAnalysisStore.getState().setCurrentSystem(systemId);
-      }, 100);
-    }
-  });
-  
-  // 在页面卸载前确保保存当前状态
-  window.addEventListener('beforeunload', () => {
-    const store = useRequirementAnalysisStore.getState();
-    const systemId = store.currentSystemId;
-    
-    if (systemId) {
-      // 检查当前store中的数据是否有价值
-      const storeHasValue = !!(
-        store.requirementBook || 
-        store.pinnedRequirementBook || 
-        (store.requirement && store.requirement.trim() !== '') ||
-        store.pinnedAnalysis ||
-        store.imageDraft
-      );
-      
-      // 如果当前正在加载，不保存数据以避免覆盖
-      if (store.isLoading) {
-        console.log(`[beforeunload] 系统 ${systemId} 正在加载中，跳过保存`);
-        return;
-      }
-      
-      // 如果当前数据有价值，直接保存到localStorage
-      if (storeHasValue) {
-        // 构建当前数据
-        const currentData: SystemRequirementState = {
-          requirement: store.requirement,
-          pinnedAnalysis: store.pinnedAnalysis,
-          requirementBook: store.requirementBook,
-          pinnedRequirementBook: store.pinnedRequirementBook,
-          isPinned: store.isPinned,
-          isRequirementBookPinned: store.isRequirementBookPinned,
-          imageDraft: store.imageDraft,
-          templateId: store.templateId,
-        };
-        
-        console.log(`[beforeunload] 保存系统 ${systemId} 数据到localStorage`);
-        
-        // 保存到localStorage
-        saveSystemToLocalStorage(systemId, currentData);
-      }
-    }
-  });
-}
-
-// 添加一个初始化函数，用于在应用启动时手动初始化store
-export const initializeRequirementAnalysisStore = () => {
-  if (typeof window === 'undefined') return;
-  
-  // 记录当前的语言环境
-  const currentLocale = window.location.pathname.split('/')[1];
-  console.log(`[初始化] 当前语言环境: ${currentLocale}`);
-  
-  // 获取当前系统ID
-  const systemId = getCurrentSystemIdFromStorage();
-  
-  // 如果有当前系统ID，尝试加载数据
-  if (systemId) {
-    console.log(`[初始化] 检测到已保存的系统ID: ${systemId}，尝试加载数据`);
-    
-    // 先检查本地存储中是否有数据
-    const existingData = loadSystemFromLocalStorage(systemId);
-    if (existingData) {
-      
-      // 使用setCurrentSystem来加载数据
-      setTimeout(() => {
-        useRequirementAnalysisStore.getState().setCurrentSystem(systemId);
-      }, 100);
-    } else {
-      console.log(`[初始化] 本地存储中没有找到系统 ${systemId} 的数据`);
-    }
-  } else {
-    console.log(`[初始化] 未检测到已保存的系统ID`);
-  }
-};
 

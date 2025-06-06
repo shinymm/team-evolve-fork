@@ -46,13 +46,6 @@
       "cancel": "Cancel",
       "placeholder": "Enter supplementary information here..."
     },
-    "requirementDialog": {
-      "title": "Requirement Overview",
-      "description": "Please provide an overview of the requirements to help generate a requirement draft from the prototype image",
-      "placeholder": "Enter requirement overview here...",
-      "submit": "Submit",
-      "cancel": "Cancel"
-    },
     "contentDisplay": {
       "showReasoning": "Show Reasoning Process",
       "hideReasoning": "Hide Reasoning Process",

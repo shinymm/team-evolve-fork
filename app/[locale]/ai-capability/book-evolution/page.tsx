@@ -15,7 +15,6 @@ const DynamicReactMarkdown = dynamic(() => import('@/components/dynamic-markdown
   ssr: false,
   loading: () => <div className="animate-pulse bg-gray-100 p-4 rounded-md min-h-[200px]">加载内容中...</div>
 })
-import remarkGfm from 'remark-gfm'
 import { recordRequirementAction } from '@/lib/services/requirement-action-service'
 import { useRequirementAnalysisStore } from '@/lib/stores/requirement-analysis-store'
 import { useSystemStore, type System } from '@/lib/stores/system-store'
@@ -25,6 +24,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { useRouter } from '@/i18n/navigation'
 
 export default function RequirementAnalysis({params}: {params: {locale: string}}) {
+  const [isClient, setIsClient] = useState(false)
   const currentLocale = useLocale()
   const t = useTranslations('RequirementEvolutionPage')
   
@@ -116,6 +116,10 @@ export default function RequirementAnalysis({params}: {params: {locale: string}}
   const { toast } = useToast()
   const router = useRouter()
 
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
+
   // 页面卸载时保存数据到Redis
   useEffect(() => {
     return () => {
@@ -138,7 +142,7 @@ export default function RequirementAnalysis({params}: {params: {locale: string}}
       toast({
         title: t('selectSystemFirst'),
         description: t('pleaseInputRequirement'),
-        variant: "destructive",
+        variant: "warning",
         duration: 3000
       })
       return
@@ -148,7 +152,7 @@ export default function RequirementAnalysis({params}: {params: {locale: string}}
       toast({
         title: t('pleaseInputRequirement'),
         description: t('requirementCannotBeEmpty'),
-        variant: "destructive",
+        variant: "warning",
         duration: 3000
       })
       return
@@ -177,7 +181,7 @@ export default function RequirementAnalysis({params}: {params: {locale: string}}
           toast({
             title: t('analysisFailed'),
             description: error,
-            variant: "destructive",
+            variant: "warning",
             duration: 3000
           })
         }
@@ -187,7 +191,7 @@ export default function RequirementAnalysis({params}: {params: {locale: string}}
       toast({
         title: t('analysisFailed'),
         description: error instanceof Error ? error.message : t('pleaseTryAgain'),
-        variant: "destructive",
+        variant: "warning",
         duration: 3000
       })
     } finally {
@@ -207,7 +211,7 @@ export default function RequirementAnalysis({params}: {params: {locale: string}}
       toast({
         title: t('copyFailed'),
         description: t('copyFailedDesc'),
-        variant: "destructive",
+        variant: "warning",
         duration: 3000
       })
     }
@@ -235,7 +239,7 @@ export default function RequirementAnalysis({params}: {params: {locale: string}}
       toast({
         title: t('downloadFailed'),
         description: t('downloadFailedDesc'),
-        variant: "destructive",
+        variant: "warning",
         duration: 3000
       })
     }
@@ -314,7 +318,7 @@ export default function RequirementAnalysis({params}: {params: {locale: string}}
       toast({
         title: t('selectSystemFirst'),
         description: t('pleaseInputRequirement'),
-        variant: "destructive",
+        variant: "warning",
         duration: 3000
       })
       return
@@ -341,7 +345,7 @@ export default function RequirementAnalysis({params}: {params: {locale: string}}
       toast({
         title: t('analysisFailed'),
         description: error instanceof Error ? error.message : t('pleaseTryAgain'),
-        variant: "destructive",
+        variant: "warning",
         duration: 3000
       })
     }
@@ -382,6 +386,14 @@ export default function RequirementAnalysis({params}: {params: {locale: string}}
       </TooltipProvider>
     );
   };
+
+  if (!isClient) {
+    return (
+      <div className="flex h-full w-full items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -438,7 +450,7 @@ export default function RequirementAnalysis({params}: {params: {locale: string}}
                         />
                       ) : (
                         <div className="space-y-4">
-                          <DynamicReactMarkdown remarkPlugins={[remarkGfm]}>{pinnedAnalysis}</DynamicReactMarkdown>
+                          <DynamicReactMarkdown>{pinnedAnalysis || ''}</DynamicReactMarkdown>
                         </div>
                       )}
                     </Card>
@@ -461,7 +473,7 @@ export default function RequirementAnalysis({params}: {params: {locale: string}}
                         />
                       ) : (
                         <div className="space-y-4">
-                          <DynamicReactMarkdown remarkPlugins={[remarkGfm]}>{analysis}</DynamicReactMarkdown>
+                          <DynamicReactMarkdown>{analysis}</DynamicReactMarkdown>
                         </div>
                       )}
                     </Card>
@@ -506,7 +518,7 @@ export default function RequirementAnalysis({params}: {params: {locale: string}}
                     />
                   ) : (
                     <div className="space-y-4">
-                      <DynamicReactMarkdown remarkPlugins={[remarkGfm]}>{isPinned && pinnedAnalysis ? pinnedAnalysis : analysis}</DynamicReactMarkdown>
+                      <DynamicReactMarkdown>{isPinned && pinnedAnalysis ? pinnedAnalysis : analysis}</DynamicReactMarkdown>
                     </div>
                   )}
                 </Card>

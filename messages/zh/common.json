@@ -1,0 +1,18 @@
+{
+  "uploadDialog": {
+    "title": "上传原型图片",
+    "description": "选择或拖拽图片文件到下方区域。支持 JPG, PNG, GIF, WEBP, BMP 格式。",
+    "fileSelected": "已选择文件：{fileName}",
+    "dragDropHint": "拖拽文件到此处，或",
+    "browse": "点击此处浏览",
+    "cancel": "取消"
+  },
+  "Common": {
+    "uploading": "上传中...",
+    "uploadButton": "上传"
+  },
+  "ReasoningSection": {
+    "reasoningProcess": "模型思考过程",
+    "copyReasoning": "复制思考过程"
+  }
+} 

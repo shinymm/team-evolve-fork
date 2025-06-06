@@ -33,7 +33,13 @@
     "pin": "固定内容",
     "unpin": "取消固定",
     "download": "下载需求书",
-    "copy": "复制内容"
+    "copy": "复制内容",
+    "templateMarket": "模板市场",
+    "templateMarketDesc": "从以下模板中选择一个作为需求书生成的基础模板",
+    "loadingTemplates": "正在加载模板...",
+    "cancel": "取消",
+    "confirmAndApply": "确认并应用",
+    "current": "当前"
   },
   "RequirementEvolutionPage": {
     "title": "原始需求分析",

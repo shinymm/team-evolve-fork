@@ -136,9 +136,6 @@ export async function POST(request: NextRequest): Promise<NextResponse | Respons
             // 解码二进制数据并添加到缓冲区
             buffer += decoder.decode(value, { stream: true });
             
-            // 记录接收到的原始数据
-            console.log('接收到的原始数据:', buffer);
-            
             // 按行处理SSE数据
             const lines = buffer.split('\n');
             // 保留最后一行（可能不完整）
