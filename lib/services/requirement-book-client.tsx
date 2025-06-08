@@ -296,7 +296,29 @@ export function RequirementBookClient() {
         throw new Error('文件上传到OSS失败');
       }
 
-      // 3. 更新前端状态
+      // 3. 保存元数据到数据库
+      const metadataResponse = await fetch('/api/image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          key,
+          name: file.name,
+          url: accessUrl,
+          fileSize: file.size,
+          fileType: file.type,
+          systemId: selectedSystem.id
+        }),
+      });
+
+      if (!metadataResponse.ok) {
+        const metadataError = await metadataResponse.json();
+        console.error('保存元数据失败:', metadataError);
+        throw new Error('文件上传成功，但保存元数据失败');
+      }
+
+      // 4. 更新前端状态
       const newFile: UploadedFile = {
         id: key,
         name: file.name,

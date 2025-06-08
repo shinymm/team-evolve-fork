@@ -1,4 +1,3 @@
-import OSS from 'ali-oss';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 
@@ -10,16 +9,9 @@ const endpoint = `https://${bucket}.${region.startsWith('oss-') ? region : `oss-
 
 export class AliyunOSSService {
   private static instance: AliyunOSSService;
-  private client: OSS;
 
   private constructor() {
-    this.client = new OSS({
-      region: region,
-      accessKeyId: accessKeyId,
-      accessKeySecret: accessKeySecret,
-      bucket: bucket,
-      secure: true
-    });
+    // 不再初始化 ali-oss 客户端
   }
 
   public static getInstance(): AliyunOSSService {
@@ -99,7 +91,29 @@ export class AliyunOSSService {
 
   public async deleteFile(key: string): Promise<void> {
     try {
-      await this.client.delete(key);
+      // 实现 HTTP 请求删除文件
+      const url = `${endpoint}/${key}`;
+      const date = new Date().toUTCString();
+      const stringToSign = `DELETE\n\n\n${date}\n/${bucket}/${key}`;
+      const signature = crypto
+        .createHmac('sha1', accessKeySecret)
+        .update(stringToSign)
+        .digest('base64');
+      
+      const authHeader = `OSS ${accessKeyId}:${signature}`;
+      
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Date': date,
+          'Authorization': authHeader
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`删除失败: ${response.status} ${response.statusText}`);
+      }
+      
       console.log(`[AliyunOssService] 文件 ${key} 已成功删除。`);
     } catch (error) {
       console.error(`[AliyunOssService] 删除文件 ${key} 失败:`, error);

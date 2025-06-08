@@ -287,7 +287,31 @@ export default function ImageProcessing() {
         throw new Error('文件上传到OSS失败');
       }
 
-      console.log(`【图片上传】上传成功，刷新图片列表...`);
+      // 3. 保存元数据到数据库
+      console.log(`【图片上传】文件已上传到OSS，正在保存元数据到数据库...`);
+      const metadataResponse = await fetch('/api/image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          key,
+          name: fileToUpload.name,
+          url: accessUrl,
+          fileSize: fileToUpload.size,
+          fileType: fileToUpload.type,
+          systemId: selectedSystemId
+        }),
+      });
+
+      if (!metadataResponse.ok) {
+        const metadataError = await metadataResponse.json();
+        console.error('【图片上传】保存元数据失败:', metadataError);
+        throw new Error('文件上传成功，但保存元数据失败');
+      }
+      
+      console.log(`【图片上传】元数据保存成功，刷新图片列表...`);
+
       await refreshImageList();
 
       // 重置文件选择
