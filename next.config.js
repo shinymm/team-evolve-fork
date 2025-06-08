@@ -2,6 +2,9 @@ const createNextIntlPlugin = require('next-intl/plugin');
 
 const withNextIntl = createNextIntlPlugin();
 
+// 增加 EventEmitter 默认最大监听器数量
+require('events').EventEmitter.defaultMaxListeners = 30;
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     reactStrictMode: true,

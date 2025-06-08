@@ -15,7 +15,8 @@ const longCang = Long_Cang({
   subsets: ['latin'],
   display: 'swap',
   preload: false,  // 禁用预加载
-  adjustFontFallback: false  // 禁用字体回退调整
+  adjustFontFallback: false,  // 禁用字体回退调整
+  fallback: ['serif']  // 添加备用字体
 })
 
 export function SiteHeader() {

@@ -19,7 +19,12 @@ import { LayoutWithSidebar } from '@/components/layout-with-sidebar'
 // import { usePathname } from 'next/navigation' // 如果不用，可以注释掉
 import { StoreInitializer } from '@/lib/stores/store-initializer'
 
-const inter = Inter({ subsets: ["latin"] })
+const inter = Inter({ 
+  subsets: ["latin"],
+  display: 'swap',
+  preload: false,
+  fallback: ['system-ui', 'sans-serif']
+})
 
 // export async function generateMetadata({params: {locale}}: {params: {locale: string}}) {
 //   const t = await getTranslations({locale, namespace: 'Layout'});

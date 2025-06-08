@@ -62,22 +62,17 @@ export function TestCaseAssistant() {
         let scenesArray = null;
         if (requirement && Array.isArray(requirement.scenes)) {
           scenesArray = requirement.scenes;
-          console.log('[TestCaseAssistant] 使用requirement.scenes作为场景列表，数据:', JSON.stringify(scenesArray.slice(0, 1)));
         } else if (requirement && Array.isArray(requirement.sceneList)) {
           scenesArray = requirement.sceneList;
-          console.log('[TestCaseAssistant] 使用requirement.sceneList作为场景列表，数据:', JSON.stringify(scenesArray.slice(0, 1)));
         } else if (requirement && Array.isArray(requirement)) {
           scenesArray = requirement;
-          console.log('[TestCaseAssistant] 直接使用requirement数组作为场景列表，数据:', JSON.stringify(scenesArray.slice(0, 1)));
         } else {
           console.warn('[TestCaseAssistant] 无法找到场景列表。存储数据结构:', JSON.stringify(requirement).substring(0, 300));
         }
         
         if (scenesArray && scenesArray.length > 0) {
-          console.log(`[TestCaseAssistant] 找到${scenesArray.length}个场景`);
           setScenes(scenesArray);
         } else {
-          console.warn(`[TestCaseAssistant] 无法找到有效的场景列表。存储键: ${storageKey}`);
           setScenes([]);
         }
       } catch (error) {

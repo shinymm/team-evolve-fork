@@ -4,7 +4,7 @@ globs:
 alwaysApply: false
 ---
 ## 技术栈规范
-* 主要技术：TypeScript, Next.js App Router, React, Shadcn UI, Tailwind CSS
+* 主要技术：TypeScript, Next.js App Router, React, Shadcn UI, Tailwind CSS,lucide
 
 ## 性能优化原则
 * 优先使用 React Server Components

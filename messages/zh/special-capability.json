@@ -187,6 +187,7 @@
     },
     "fileList": {
       "title": "已上传文档",
+      "description": "已上传的文件列表，可进行选择和操作。",
       "noFiles": "尚未上传文档",
       "uploadTime": "上传时间",
       "selectAll": "全选",

@@ -246,7 +246,7 @@ export function RequirementBookClient() {
   const [uploadError, setUploadError] = useState('');
   const [isImagesExpanded, setIsImagesExpanded] = useState(false);
 
-  // 上传图片到OSS（通过预签名URL）
+  // 上传图片到OSS（通过表单上传）
   const handleUploadFile = async (file: File) => {
     if (!selectedSystem?.id) {
       setUploadError('请先选择系统');
@@ -255,7 +255,7 @@ export function RequirementBookClient() {
     setUploading(true);
     setUploadError('');
     try {
-      // 1. 从后端获取预签名URL
+      // 1. 从后端获取表单上传参数
       const getUrlResponse = await fetch('/api/upload-image', {
         method: 'POST',
         headers: {
@@ -270,18 +270,24 @@ export function RequirementBookClient() {
 
       const result = await getUrlResponse.json();
       if (!getUrlResponse.ok) {
-        throw new Error(result.error || '获取上传URL失败');
+        throw new Error(result.error || '获取上传参数失败');
       }
       
-      const { uploadUrl, accessUrl, key } = result;
+      const { uploadUrl, accessUrl, key, formData } = result;
 
-      // 2. 将文件直接上传到OSS
+      // 2. 使用表单方式上传到OSS
+      const formDataObj = new FormData();
+      // 添加所有表单字段
+      Object.entries(formData).forEach(([k, v]) => {
+        formDataObj.append(k, v as string);
+      });
+      // 添加文件作为最后一项
+      formDataObj.append('file', file);
+      
       const uploadResponse = await fetch(uploadUrl, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': file.type,
-        },
+        method: 'POST',
+        body: formDataObj,
+        // 不要设置Content-Type，让浏览器自动设置multipart/form-data
       });
 
       if (!uploadResponse.ok) {
