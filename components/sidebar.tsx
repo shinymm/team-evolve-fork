@@ -62,6 +62,7 @@ export function Sidebar() {
         { titleKey: "testDescriptionFormat", href: "/ai-capability/test-format" },
         { titleKey: "testCaseDetailAssistant", href: "/ai-capability/test-detail" },
         { titleKey: "logAnalysis", href: "/ai-capability/log-analysis" },
+        { titleKey: "PRDAutoReview", href: "/ai-capability/prd-review" },
       ]
     },
     {

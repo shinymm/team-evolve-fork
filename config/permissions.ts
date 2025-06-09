@@ -19,6 +19,7 @@ export const pagePermissions: Record<string, Permission> = {
   "/ai-capability/user-story": { requiresAuth: false },
   "/ai-capability/test-detail": { requiresAuth: false },
   "/ai-capability/log-analysis": { requiresAuth: false, allowedRoles: ["ADMIN"]  },
+  "/ai-capability/prd-review": { requiresAuth: false, allowedRoles: ["ADMIN"]  },
 
   // 知识熔炉 - 全部需要登录
   "/knowledge/glossary": { requiresAuth: true, allowedRoles: ["USER", "ADMIN"] },
