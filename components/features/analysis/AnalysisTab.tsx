@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Brain, Pause, Play, RotateCcw, Plus, Settings, AlertTriangle, MessageSquare, Clock, CheckCircle } from "lucide-react"
-// import { AnalyssService, AnalysisStep, ReviewIssue, IntegrityResult } from "@/api/analysis"
+import { AnalysisService } from "@/lib/api/analysis"
 import { AnalysisStep, AssessmentRule, IntegrityResult } from "@/types/document"
 import yaml from 'js-yaml';
 

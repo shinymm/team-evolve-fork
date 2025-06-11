@@ -72,6 +72,7 @@
     "ioredis": "^5.6.0",
     "js-yaml": "^4.1.0",
     "lucide-react": "^0.263.1",
+    "mammoth": "^1.9.1",
     "markdown-it": "^14.1.0",
     "net": "^1.0.2",
     "next": "13.4.12",
@@ -104,8 +105,7 @@
     "uuid": "^11.1.0",
     "ws": "^8.16.0",
     "zod": "^3.24.1",
-    "zustand": "^5.0.3",
-    "mammoth": "^1.9.1"
+    "zustand": "^5.0.3"
   },
   "scripts": {
     "dev": "next dev",
@@ -123,6 +123,7 @@
     "@types/turndown": "^5.0.5",
     "@types/uuid": "^10.0.0",
     "@types/ws": "^8.18.0",
+    "cross-env": "^7.0.3",
     "dotenv": "^16.4.7",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",

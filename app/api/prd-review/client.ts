@@ -6,7 +6,8 @@ export class ApiClient {
   private static requestCache = new Map<string, Promise<any>>();
 
   private constructor() {
-    this.baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
+    // this.baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
+    this.baseUrl = '/api/v1';
     // 确保 baseUrl 以 / 结尾
     if (!this.baseUrl.endsWith('/')) {
       this.baseUrl += '/';
