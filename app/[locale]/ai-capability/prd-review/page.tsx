@@ -9,6 +9,7 @@ import { ReportTab } from "@/components/features/report/ReportTab"
 import { useState, useEffect } from "react"
 import { useDocumentStore } from "@/lib/stores/documentStore"
 import { useRouter } from 'next/navigation'
+import { AuthStatus } from '@/app/components/auth/AuthStatus'
 
 interface MainContentProps {
     activeTab: string
@@ -98,61 +99,64 @@ interface MainContentProps {
     }
 
     return (
-        <main className="flex-1 p-6">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-5">
-                    <TabsTrigger value="upload">文档上传</TabsTrigger>
-                    <TabsTrigger value="analysis" disabled={!hasStartedAnalysis}>
-                        智能分析
-                    </TabsTrigger>
-                    <TabsTrigger value="review" disabled={!hasCompletedAnalysis}>
-                        评审确认
-                    </TabsTrigger>
-                    <TabsTrigger value="results" disabled={!hasStartedReview}>
-                        评审结果
-                    </TabsTrigger>
-                    <TabsTrigger value="report" disabled={!hasCompletedReview}>
-                        评估报告
-                    </TabsTrigger>
-                </TabsList>
+        <div>
+            {/*<AuthStatus />*/}
+            <main className="flex-1 p-6">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                    <TabsList className="grid w-full grid-cols-5">
+                        <TabsTrigger value="upload">文档上传</TabsTrigger>
+                        <TabsTrigger value="analysis" disabled={!hasStartedAnalysis}>
+                            智能分析
+                        </TabsTrigger>
+                        <TabsTrigger value="review" disabled={!hasCompletedAnalysis}>
+                            评审确认
+                        </TabsTrigger>
+                        <TabsTrigger value="results" disabled={!hasStartedReview}>
+                            评审结果
+                        </TabsTrigger>
+                        <TabsTrigger value="report" disabled={!hasCompletedReview}>
+                            评估报告
+                        </TabsTrigger>
+                    </TabsList>
 
-                <TabsContent value="upload">
-                    <UploadTab onStartAnalysis={handleStartAnalysis} onDocumentSelect={handleDocumentSelect} />
-                </TabsContent>
+                    <TabsContent value="upload">
+                        <UploadTab onStartAnalysis={handleStartAnalysis} onDocumentSelect={handleDocumentSelect} />
+                    </TabsContent>
 
-                <TabsContent value="analysis">
-                    <AnalysisTab
-                        onResetWorkflow={handleResetWorkflow}
-                        onCompleteAnalysis={handleCompleteAnalysis}
-                        fileId={selectedFileId}
-                        fileName={selectedFileName}
-                        shouldAnalyze={shouldAnalyze}
-                    />
-                </TabsContent>
+                    <TabsContent value="analysis">
+                        <AnalysisTab
+                            onResetWorkflow={handleResetWorkflow}
+                            onCompleteAnalysis={handleCompleteAnalysis}
+                            fileId={selectedFileId}
+                            fileName={selectedFileName}
+                            shouldAnalyze={shouldAnalyze}
+                        />
+                    </TabsContent>
 
-                <TabsContent value="review">
-                    <ReviewTab
-                        onCompleteReview={handleCompleteReview}
-                        onBackToAnalysis={handleBackToAnalysis}
-                        fileId={selectedFileId?.toString()}
-                        fileName={selectedFileName}
-                    />
-                </TabsContent>
+                    <TabsContent value="review">
+                        <ReviewTab
+                            onCompleteReview={handleCompleteReview}
+                            onBackToAnalysis={handleBackToAnalysis}
+                            fileId={selectedFileId?.toString()}
+                            fileName={selectedFileName}
+                        />
+                    </TabsContent>
 
-                <TabsContent value="results">
-                    <ResultsTab
-                        onNextStep={handleNextStep}
-                        onBackToReview={handleBackToReview}
-                        fileId={selectedFileId?.toString()}
-                        fileName={selectedFileName}
-                    />
-                </TabsContent>
+                    <TabsContent value="results">
+                        <ResultsTab
+                            onNextStep={handleNextStep}
+                            onBackToReview={handleBackToReview}
+                            fileId={selectedFileId?.toString()}
+                            fileName={selectedFileName}
+                        />
+                    </TabsContent>
 
-                <TabsContent value="report">
-                    <ReportTab onBackToResults={handleBackToResults} />
-                </TabsContent>
-            </Tabs>
-        </main>
+                    <TabsContent value="report">
+                        <ReportTab onBackToResults={handleBackToResults} />
+                    </TabsContent>
+                </Tabs>
+            </main>
+        </div>
     )
 }
 

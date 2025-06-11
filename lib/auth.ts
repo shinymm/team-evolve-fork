@@ -85,6 +85,7 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: 'jwt',
     maxAge: 24 * 60 * 60, // 24小时
+    updateAge: 24 * 60 * 60, // 24小时
   },
   callbacks: {
     async signIn({ user }) {
@@ -100,6 +101,7 @@ export const authOptions: NextAuthOptions = {
       return true
     },
     async jwt({ token, user, trigger, session }) {
+      console.log('JWT Callback:', { token, user, trigger, session })
       if (user) {
         // 初始登录时设置token
         token.role = user.role
@@ -113,6 +115,7 @@ export const authOptions: NextAuthOptions = {
       return token
     },
     async session({ session, token }) {
+      console.log('Session Callback:', { session, token })
       // 确保session.user包含所有必要信息
       session.user = {
         id: token.sub,
@@ -120,7 +123,6 @@ export const authOptions: NextAuthOptions = {
         email: token.email,
         name: token.name
       }
-
       return session
     }
   },

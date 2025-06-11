@@ -58,6 +58,7 @@ export const useSystemStore = create<SystemState>()(
         try {
           console.log('开始获取系统列表...')
           set({ isLoading: true, error: null })
+
           const response = await fetch('/api/systems')
           
           console.log('API响应状态:', response.status)

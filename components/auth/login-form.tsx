@@ -20,6 +20,8 @@ export function LoginForm() {
     const email = formData.get('email') as string
     const password = formData.get('password') as string
 
+    console.log('尝试登录:', { email })
+
     try {
       const result = await signIn('credentials', {
         email,
@@ -27,15 +29,20 @@ export function LoginForm() {
         redirect: false,
       })
 
+      console.log('登录结果:', result)
+
       if (result?.error) {
+        console.error('登录错误:', result.error)
         setError(result.error)
         return
       }
 
-      // 登录成功，重定向到首页
-      router.push('/')
-      router.refresh()
+        console.log('登录成功，准备重定向')
+        // 登录成功，重定向到首页
+        router.push('/')
+        router.refresh()
     } catch (error) {
+      console.error('登录异常:', error)
       setError(t('loginError'))
     } finally {
       setIsLoading(false)
