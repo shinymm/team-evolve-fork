@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect, useRef } from "react"
+import React, { useState, useCallback, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -10,6 +10,8 @@ import { Upload, FileText, AlertCircle, CheckCircle2, XCircle, ChevronLeft, Chev
 import { useDocumentStore } from "@/lib/stores/documentStore"
 import { useRouter } from "next/navigation"
 import {useSession} from "next-auth/react";
+import {Spinner} from "@/components/ui/spinner";
+import {useTranslations} from "next-intl";
 
 interface UploadTabProps {
   onStartAnalysis: (docId: string, shouldAnalyze: boolean) => void
@@ -39,7 +41,7 @@ export function UploadTab({
     total,
     limit
   } = useDocumentStore()
-  const router = useRouter();
+  const t = useTranslations('TestCaseAssistant.JiraModal')
 
   const [analysisStatusMap, setAnalysisStatusMap] = useState<Record<string, boolean>>({});
   const analysisStatusFetched = useRef<Record<string, boolean>>({});
@@ -275,79 +277,90 @@ export function UploadTab({
                   <TableHead>操作</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
-                {documents.map((doc) => {
-                  const analyzed = analysisStatusMap[doc.id];
-                  return (
-                    <TableRow key={doc.id}>
-                      <TableCell className="font-medium">{doc.filename.replace(/\.[^/.]+$/, "")}</TableCell>
-                      <TableCell>{doc.created_at}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            analyzed
-                              ? "default"
-                              : doc.status === "completed"
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={12} className="h-24">
+                    <div className="flex items-center justify-center h-full">
+                      <Spinner />
+                      <span className="ml-2">{t('loading')}</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                <TableBody>
+                  {documents.map((doc) => {
+                    const analyzed = analysisStatusMap[doc.id];
+                    return (
+                      <TableRow key={doc.id}>
+                        <TableCell className="font-medium">{doc.filename.replace(/\.[^/.]+$/, "")}</TableCell>
+                        <TableCell>{doc.created_at}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              analyzed
                                 ? "default"
-                                : doc.status === "reviewing"
-                                  ? "secondary"
-                                  : doc.status === "analyzing"
+                                : doc.status === "completed"
+                                  ? "default"
+                                  : doc.status === "reviewing"
                                     ? "secondary"
-                                    : "outline"
-                          }
-                        >
-                          {analyzed
-                            ? "已分析"
-                            : doc.status === "completed"
-                              ? "已完成"
-                              : doc.status === "reviewing"
-                                ? "评审中"
-                                : doc.status === "analyzing"
-                                  ? "分析中"
-                                  : "已上传"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="w-24">
-                          <Progress value={doc.progress} className="h-2" />
-                        </div>
-                      </TableCell>
-                      <TableCell>{doc.issues}</TableCell>
-                      <TableCell>{doc.fixed}</TableCell>
-                      <TableCell>
-                        {analyzed ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onStartAnalysis(doc.id, false)}
-                            className="text-blue-600"
+                                    : doc.status === "analyzing"
+                                      ? "secondary"
+                                      : "outline"
+                            }
                           >
-                            查看
-                          </Button>
-                        ) : doc.status === "uploaded" ? (
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={() => onStartAnalysis(doc.id, true)}
-                            className="bg-orange-500 hover:bg-orange-600"
-                          >
-                            开始分析
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onDocumentSelect(doc.id)}
-                            className="text-blue-600"
-                          >
-                            查看
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
+                            {analyzed
+                                ? "已分析"
+                                : doc.status === "completed"
+                                    ? "已完成"
+                                    : doc.status === "reviewing"
+                                        ? "评审中"
+                                        : doc.status === "analyzing"
+                                            ? "分析中"
+                                            : "已上传"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="w-24">
+                            <Progress value={doc.progress} className="h-2"/>
+                          </div>
+                        </TableCell>
+                        <TableCell>{doc.issues}</TableCell>
+                        <TableCell>{doc.fixed}</TableCell>
+                        <TableCell>
+                          {analyzed ? (
+                              <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => onStartAnalysis(doc.id, false)}
+                                  className="text-blue-600"
+                              >
+                                查看
+                              </Button>
+                          ) : doc.status === "uploaded" ? (
+                              <Button
+                                  variant="default"
+                                  size="sm"
+                                  onClick={() => onStartAnalysis(doc.id, true)}
+                                  className="bg-orange-500 hover:bg-orange-600"
+                              >
+                                开始分析
+                              </Button>
+                          ) : (
+                              <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => onDocumentSelect(doc.id)}
+                                  className="text-blue-600"
+                              >
+                                查看
+                              </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              )}
             </Table>
           </div>
 
