@@ -317,7 +317,7 @@ export class AnalysisService {
   }
 
   // 新增：保存评估结果到后端（静态方法）
-  static async saveEvaluationResult({ file_id, evaluation_type, results }: {
+  async saveEvaluationResult({ file_id, evaluation_type, results }: {
     file_id: number;
     evaluation_type: 'completeness' | 'consistency' | 'testability' | 'traceability' | 'clarity';
     results: any[];
@@ -325,7 +325,7 @@ export class AnalysisService {
     // 自动补充 tag 字段（string 类型）
     const resultsWithTag = results.map(r => ({ ...r, tag: "0" }));
     const body = JSON.stringify({ file_id, evaluation_type, results: resultsWithTag });
-    const resp = await fetch('http://localhost:3000/api/v1/evaluations', {
+    const resp = await fetch(`${this.baseUrl}/evaluations`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body

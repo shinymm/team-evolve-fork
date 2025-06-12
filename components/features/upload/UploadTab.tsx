@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Upload, FileText, AlertCircle, CheckCircle2, XCircle, ChevronLeft, ChevronRight } from "lucide-react"
 import { useDocumentStore } from "@/lib/stores/documentStore"
 import { useRouter } from "next/navigation"
+import {useSession} from "next-auth/react";
 
 interface UploadTabProps {
   onStartAnalysis: (docId: string, shouldAnalyze: boolean) => void
@@ -21,6 +22,7 @@ export function UploadTab({
   onDocumentSelect,
   onCompleteUpload = () => {},
 }: UploadTabProps) {
+  const { data: session, status } = useSession();
   const [isDragging, setIsDragging] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
@@ -38,6 +40,7 @@ export function UploadTab({
     limit
   } = useDocumentStore()
   const router = useRouter();
+
   const [analysisStatusMap, setAnalysisStatusMap] = useState<Record<string, boolean>>({});
   const analysisStatusFetched = useRef<Record<string, boolean>>({});
   const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -45,18 +48,20 @@ export function UploadTab({
   // 组件加载时获取文档列表
   useEffect(() => {
     setIsMounted(true)
-    fetchDocuments(0, limit).catch(console.error)
+    if (session?.user.id) {
+      fetchDocuments({skip: 0, limit, userId: session.user.id}).catch(console.error);
+    }
     return () => {
       setIsMounted(false)
     }
-  }, [fetchDocuments, limit])
+  }, [fetchDocuments, limit, session])
 
   // 处理页码变化
   const handlePageChange = useCallback((newPage: number) => {
     const skip = (newPage - 1) * limit
     setCurrentPage(newPage)
-    fetchDocuments(skip, limit).catch(console.error)
-  }, [fetchDocuments, limit])
+    fetchDocuments({skip, limit, userId: session?.user?.id}).catch(console.error)
+  }, [fetchDocuments, limit, session])
 
   // 计算总页数
   const totalPages = Math.ceil(total / limit)
@@ -86,7 +91,7 @@ export function UploadTab({
       const file = files[0]
       if (file.type === "application/msword" || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
         try {
-          await uploadDocument(file)
+          await uploadDocument(file, session?.user?.id)
           // 上传成功后刷新第一页
           handlePageChange(1)
         } catch (err) {
@@ -110,7 +115,7 @@ export function UploadTab({
       const file = files[0]
       if (file.type === "application/msword" || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
         try {
-          await uploadDocument(file)
+          await uploadDocument(file, session?.user?.id)
           // 上传成功后刷新第一页
           handlePageChange(1)
         } catch (err) {

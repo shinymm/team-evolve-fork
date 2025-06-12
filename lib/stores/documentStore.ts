@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { Document, UploadProgress, FileListResponse } from '@/types/document';
 import { DocumentService } from '@/lib/api/documents';
+import {getServerSession} from "next-auth";
+import {authOptions} from "@/lib/auth";
 
 interface DocumentState {
   documents: Document[];
@@ -11,8 +13,8 @@ interface DocumentState {
   total: number;
   skip: number;
   limit: number;
-  fetchDocuments: (skip?: number, limit?: number) => Promise<void>;
-  uploadDocument: (file: File) => Promise<void>;
+  fetchDocuments: (params: {skip?: number, limit?: number, userId?: string}) => Promise<void>;
+  uploadDocument: (file: File, useId?: string) => Promise<void>;
   getUploadProgress: (documentId: string) => Promise<void>;
   setCurrentDocument: (document: Document | null) => void;
   clearError: () => void;
@@ -34,11 +36,11 @@ const initialState = {
 export const useDocumentStore = create<DocumentState>((set, get) => ({
   ...initialState,
 
-  fetchDocuments: async (skip = 0, limit = 10) => {
+  fetchDocuments: async ({skip = 0, limit = 10, userId}) => {
     set({ isLoading: true, error: null });
     try {
       const documentService = DocumentService.getInstance();
-      const response = await documentService.getDocuments(skip, limit);
+      const response = await documentService.getDocuments(skip, limit, userId);
       if (response.status === 'success' && response.data) {
         // 将文件列表转换为 Document 格式
         const documents = response.data.files.map(file => ({
@@ -72,7 +74,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     }
   },
 
-  uploadDocument: async (file: File) => {
+  uploadDocument: async (file: File, userId: string) => {
     set({ isLoading: true, error: null });
     try {
       // Validate file type
@@ -85,7 +87,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       }
 
       const documentService = DocumentService.getInstance();
-      const response = await documentService.uploadDocument(file);
+      const response = await documentService.uploadDocument(file, userId);
       
       if (response.data.success && response.data.file_url) {
         const newDocument: Document = {

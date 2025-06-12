@@ -17,9 +17,9 @@ export class DocumentService {
     return DocumentService.instance;
   }
 
-  async getDocuments(skip: number = 0, limit: number = 10): Promise<ApiResponse<FileListResponse>> {
+  async getDocuments(skip: number = 0, limit: number = 10, userId): Promise<ApiResponse<FileListResponse>> {
     try {
-      const response = await this.apiClient.get<FileListResponse>(`/upload/files/user/1?skip=${skip}&limit=${limit}`);
+      const response = await this.apiClient.get<FileListResponse>(`/upload/files/user/${userId}?skip=${skip}&limit=${limit}`);
       return {
         status: 'success',
         data: response.data
@@ -39,12 +39,13 @@ export class DocumentService {
     }
   }
 
-  async uploadDocument(file: File): Promise<ApiResponse<UploadResponse>> {
+  async uploadDocument(file: File, userId: string): Promise<ApiResponse<UploadResponse>> {
     try {
       const formData = new FormData();
       formData.append('file', file);
+      // formData.append('userId', file);
 
-      const response = await this.apiClient.post<UploadResponse>('upload/upload', formData);
+      const response = await this.apiClient.post<UploadResponse>(`upload/upload?user_id=${userId}`, formData);
       
       return {
         status: response.data.success ? 'success' : 'error',

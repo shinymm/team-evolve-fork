@@ -607,8 +607,9 @@ export function AnalysisTab({ onResetWorkflow, onCompleteAnalysis, fileId, fileN
             console.log('保存的评估结果:', currentResults);
             
             // 确保有结果才进行保存
+            const analysisService = AnalysisService.getInstance();
             if (currentResults.length > 0) {
-              AnalysisService.saveEvaluationResult({
+              analysisService.saveEvaluationResult({
                 file_id: fileId,
                 evaluation_type,
                 results: currentResults.map(r => ({
